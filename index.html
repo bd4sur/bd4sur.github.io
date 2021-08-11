@@ -178,10 +178,6 @@
         <img src="./image/cover/miku-705.jpg" style="width: 90%; max-width: 550px; margin: 20px auto; border-radius: 10px; cursor: pointer;" class="SPA_TRIGGER" data-target="blog/首页封面往期回顾">
     </div>
 
-    <div style="font-size: 14px; text-align: center; margin: 0;">
-        <a href="./Aqua">MP3编码器</a> / <a href="./html/exam.html">模拟考试</a> / <a href="./html/cw.html">CW练习器</a> / <a href="./html/morse-decoder.html">CW解码器</a> / <a href="./html/am32.html">频谱绘图</a>
-    </div>
-
     <details>
         <summary class="StationLogSummary">点击展开电台日志</summary>
 
@@ -1307,9 +1303,9 @@ function TurnToCollectionSection(elementId) {
 
 
 .TopArticleTitle {
-    display: inline-block;
     color: #567;
-    font-size: 12px;
+    font-size: 13px;
+    letter-spacing: 0.5px;
     line-height: normal;
     cursor: pointer;
 }
@@ -1323,6 +1319,10 @@ function TurnToCollectionSection(elementId) {
     padding: 8px 0;
 }
 
+.CategoryArticleTitle {
+    font-size: 12px;
+}
+
 @media(min-width:651px){
     .TopArticleTable {
         width: 80%; table-layout:fixed;
@@ -1334,7 +1334,7 @@ function TurnToCollectionSection(elementId) {
         width:32px; height:32px;
         line-height: 32px;
         background: linear-gradient(30deg, #ffffff00, #ffffffaa);
-        background-color:#cad6dd;
+        background-color:#bec6ec;
         color:#fff;
         text-align:center;
         font-size:16px;
@@ -1359,7 +1359,7 @@ function TurnToCollectionSection(elementId) {
         width:36px; height:36px;
         line-height: 36px;
         background: linear-gradient(30deg, #ffffff00, #ffffffaa);
-        background-color:#cad6dd;
+        background-color:#bec6ec;
         color:#fff;
         text-align:center;
         font-size:18px;
@@ -1370,7 +1370,7 @@ function TurnToCollectionSection(elementId) {
 }
 .Horizon {
     line-height: 16px;
-    margin: 20px 0 25px 0;
+    margin: 25px 0 30px 0;
 }
 .Horizon::after {
     display: block;
@@ -1380,11 +1380,11 @@ function TurnToCollectionSection(elementId) {
     margin-top: -8px;
 }
 .HorizonContent {
-    font-size: 15px;
+    font-size: 16px;
     padding: 0 10px;
     color: #789;
     background-color: #fff;
-    font-weight: 600;
+    font-weight: bold;
 }
 
 
@@ -1452,127 +1452,142 @@ function TurnToCollectionSection(elementId) {
     <div class="SectionBody">
         <table class="TopArticleTable">
             <tr>
-                <td><span class="TopArticleTitle SPA_TRIGGER" data-target="blog/日新阁图书分类法">图书分类体系</span></td>
-                <td><span class="TopArticleTitle SPA_TRIGGER" data-target="blog/日新阁藏书目录">藏书目录</span></td>
-                <td><span class="TopArticleTitle SPA_TRIGGER" data-target="blog/知识管理策略">知识管理策略</span></td>
+                <td><a class="TopArticleTitle SPA_TRIGGER" data-target="blog/日新阁图书分类法">图书分类体系</a></td>
+                <td><a class="TopArticleTitle SPA_TRIGGER" data-target="blog/日新阁藏书目录">藏书目录</a></td>
+                <td><a class="TopArticleTitle SPA_TRIGGER" data-target="blog/知识管理策略">知识管理策略</a></td>
                 
             </tr>
             <tr>
-                <td><span class="TopArticleTitle SPA_TRIGGER" data-target="blog/通用计算机盘点">计算设备盘点</span></td>
-                <td><span class="TopArticleTitle SPA_TRIGGER" data-target="blog/妙语拾零">妙语拾零</span></td>
-                <td><span class="TopArticleTitle SPA_TRIGGER" data-target="blog/博客运营记录">博客运营记录</span></td>
+                <td><a class="TopArticleTitle SPA_TRIGGER" data-target="blog/通用计算机盘点">计算设备盘点</a></td>
+                <td><a class="TopArticleTitle SPA_TRIGGER" data-target="blog/妙语拾零">妙语拾零</a></td>
+                <td><a class="TopArticleTitle SPA_TRIGGER" data-target="blog/博客运营记录">博客运营记录</a></td>
             </tr>
             <tr>
                 <!-- <td></td> -->
-                <td colspan="3"><span class="TopArticleTitle SPA_TRIGGER" data-target="blog/首页封面往期回顾">首页封面往期回顾</span></td>
+                <td colspan="3"><a class="TopArticleTitle SPA_TRIGGER" data-target="blog/首页封面往期回顾">首页封面往期回顾</a></td>
                 <!-- <td></td> -->
             </tr>
         </table>
 
-        <div class="Horizon"><span class="HorizonContent">豆知识拾零</span></div>
+        <div class="Horizon"><span class="HorizonContent">豆 知 识 拾 零</span></div>
 
         <table class="TopArticleTable">
             <tr>
-                <td><span class="TopArticleTitle SPA_TRIGGER" data-target="blog/A.哲学宗教伦理心理">
-                    <div class="CategoryIcon" style="background-color:#bec6ec;">A</div><br>哲学宗教<br class="crlf">伦理心理</span></td>
-                <td><span class="TopArticleTitle SPA_TRIGGER" data-target="blog/B.文艺传播教育体育">
-                    <div class="CategoryIcon" style="background-color:#bec6ec;">B</div><br>文艺传播<br class="crlf">教育体育</span></td>
-                <td><span class="TopArticleTitle SPA_TRIGGER" data-target="blog/C.历史地理语言文化">
-                    <div class="CategoryIcon" style="background-color:#bec6ec;">C</div><br>历史地理<br class="crlf">语言文化</span></td>
-                <td><span class="TopArticleTitle SPA_TRIGGER" data-target="blog/D.政治法律社会时事">
-                    <div class="CategoryIcon" style="background-color:#bec6ec;">D</div><br>政治法律<br class="crlf">社会时事</span></td>
+                <td class="SPA_TRIGGER" data-target="blog/A.哲学宗教伦理心理">
+                    <div class="CategoryIcon">A</div><div class="TopArticleTitle CategoryArticleTitle">哲学宗教<br class="crlf">伦理心理</div></td>
+                <td class="SPA_TRIGGER" data-target="blog/B.文艺传播教育体育">
+                    <div class="CategoryIcon">B</div><div class="TopArticleTitle CategoryArticleTitle">文艺传播<br class="crlf">教育体育</div></td>
+
+                <td><div class="SPA_TRIGGER" data-target="blog/C.历史地理语言文化">
+                    <div class="CategoryIcon">C</div><div class="TopArticleTitle CategoryArticleTitle">历史地理<br class="crlf">语言文化</div></td>
+                <td><div class="SPA_TRIGGER" data-target="blog/D.政治法律社会时事">
+                    <div class="CategoryIcon">D</div><div class="TopArticleTitle CategoryArticleTitle">政治法律<br class="crlf">社会时事</div></td>
             </tr>
 
             <tr>
-                <td><span class="TopArticleTitle SPA_TRIGGER" data-target="blog/E.军事战备安全消防">
-                    <div class="CategoryIcon" style="background-color:#bec6ec;">E</div><br>军事战备<br class="crlf">安全消防</span></td>
-                <td><span class="TopArticleTitle SPA_TRIGGER" data-target="blog/F.经济管理贸易营销">
-                    <div class="CategoryIcon" style="background-color:#bec6ec;">F</div><br>经济管理<br class="crlf">贸易营销</span></td>
-                <td><span class="TopArticleTitle SPA_TRIGGER" data-target="blog/G.数学统计电子信息">
-                    <div class="CategoryIcon" style="background-color:#bec6ec;">G</div><br>数学统计<br class="crlf">电子信息</span></td>
-                <td><span class="TopArticleTitle SPA_TRIGGER" data-target="blog/H.物理化学天文地学">
-                    <div class="CategoryIcon" style="background-color:#bec6ec;">H</div><br>物理化学<br class="crlf">天文地学</span></td>
+                <td><div class="SPA_TRIGGER" data-target="blog/E.军事战备安全消防">
+                    <div class="CategoryIcon">E</div><div class="TopArticleTitle CategoryArticleTitle">军事战备<br class="crlf">安全消防</div></td>
+                <td><div class="SPA_TRIGGER" data-target="blog/F.经济管理贸易营销">
+                    <div class="CategoryIcon">F</div><div class="TopArticleTitle CategoryArticleTitle">经济管理<br class="crlf">贸易营销</div></td>
+                <td><div class="SPA_TRIGGER" data-target="blog/G.数学统计电子信息">
+                    <div class="CategoryIcon">G</div><div class="TopArticleTitle CategoryArticleTitle">数学统计<br class="crlf">电子信息</div></td>
+                <td><div class="SPA_TRIGGER" data-target="blog/H.物理化学天文地学">
+                    <div class="CategoryIcon">H</div><div class="TopArticleTitle CategoryArticleTitle">物理化学<br class="crlf">天文地学</div></td>
             </tr>
 
             <tr>
-                <td><span class="TopArticleTitle SPA_TRIGGER" data-target="blog/I.医药卫生生命科学">
-                    <div class="CategoryIcon" style="background-color:#bec6ec;">I</div><br>医药卫生<br class="crlf">生命科学</span></td>
-                <td><span class="TopArticleTitle SPA_TRIGGER" data-target="blog/J.农业景观生态环境">
-                    <div class="CategoryIcon" style="background-color:#bec6ec;">J</div><br>农业景观<br class="crlf">生态环境</span></td>
-                <td><span class="TopArticleTitle SPA_TRIGGER" data-target="blog/K.工业交通工程技术">
-                    <div class="CategoryIcon" style="background-color:#bec6ec;">K</div><br>工业交通<br class="crlf">工程技术</span></td>
-                <td><span class="TopArticleTitle SPA_TRIGGER" data-target="blog/L.家政轻工实用技术">
-                    <div class="CategoryIcon" style="background-color:#bec6ec;">L</div><br>家政轻工<br class="crlf">实用技术</span></td>
+                <td><div class="SPA_TRIGGER" data-target="blog/I.医药卫生生命科学">
+                    <div class="CategoryIcon">I</div><div class="TopArticleTitle CategoryArticleTitle">医药卫生<br class="crlf">生命科学</div></td>
+                <td><div class="SPA_TRIGGER" data-target="blog/J.农业景观生态环境">
+                    <div class="CategoryIcon">J</div><div class="TopArticleTitle CategoryArticleTitle">农业景观<br class="crlf">生态环境</div></td>
+                <td><div class="SPA_TRIGGER" data-target="blog/K.工业交通工程技术">
+                    <div class="CategoryIcon">K</div><div class="TopArticleTitle CategoryArticleTitle">工业交通<br class="crlf">工程技术</div></td>
+                <td><div class="SPA_TRIGGER" data-target="blog/L.家政轻工实用技术">
+                    <div class="CategoryIcon">L</div><div class="TopArticleTitle CategoryArticleTitle">家政轻工<br class="crlf">实用技术</div></td>
             </tr>
         </table>
 
-        <div class="Horizon"><span class="HorizonContent">专题综述</span></div>
+        <div class="Horizon"><span class="HorizonContent">专 题 综 述</span></div>
 
         <table class="TopArticleTable">
             <tr>
-                <td><span class="TopArticleTitle SPA_TRIGGER" data-target="blog/机器学习算法可视化">机器学习可视化</span></td>
-                <td><span class="TopArticleTitle SPA_TRIGGER" data-target="blog/人工智能随想录">人工智能随想录</span></td>
-                <td><span class="TopArticleTitle SPA_TRIGGER" data-target="blog/燃烧你的卡路里">燃烧你的卡路里</span></td>
+                <td><a class="TopArticleTitle SPA_TRIGGER" data-target="blog/机器学习算法可视化">机器学习可视化</a></td>
+                <td><a class="TopArticleTitle SPA_TRIGGER" data-target="blog/人工智能随想录">人工智能随想录</a></td>
+                <td><a class="TopArticleTitle SPA_TRIGGER" data-target="blog/燃烧你的卡路里">燃烧你的卡路里</a></td>
             </tr>
             <tr>
-                <td><span class="TopArticleTitle SPA_TRIGGER" data-target="blog/新型冠状病毒肺炎情报">新冠肺炎</span></td>
-                <td><span class="TopArticleTitle SPA_TRIGGER" data-target="blog/食谱与营养学笔记">食谱·营养学</span></td>
-                <td><span class="TopArticleTitle SPA_TRIGGER" data-target="blog/轨道力学">轨道力学</span></td>
+                <td><a class="TopArticleTitle SPA_TRIGGER" data-target="blog/新型冠状病毒肺炎情报">新冠肺炎</a></td>
+                <td><a class="TopArticleTitle SPA_TRIGGER" data-target="blog/食谱与营养学笔记">食谱·营养学</a></td>
+                <td><a class="TopArticleTitle SPA_TRIGGER" data-target="blog/轨道力学">轨道力学</a></td>
             </tr>
             <tr>
-                <td><span class="TopArticleTitle SPA_TRIGGER" data-target="blog/末日生存指南">末日生存指南</span></td>
-                <td><span class="TopArticleTitle SPA_TRIGGER" data-target="blog/启发式算法集锦">启发式算法</span></td>
-                <td><span class="TopArticleTitle SPA_TRIGGER" data-target="blog/装机必备软件清单">必备软件清单</span></td>
+                <td><a class="TopArticleTitle SPA_TRIGGER" data-target="blog/末日生存指南">末日生存指南</a></td>
+                <td><a class="TopArticleTitle SPA_TRIGGER" data-target="blog/启发式算法集锦">启发式算法</a></td>
+                <td><a class="TopArticleTitle SPA_TRIGGER" data-target="blog/装机必备软件清单">必备软件清单</a></td>
+            </tr>
+            <tr>
+                <td><a class="TopArticleTitle SPA_TRIGGER" data-target="blog/前端设计备忘录">Web前端</a></td>
+
             </tr>
         </table>
 
-        <div class="Horizon"><span class="HorizonContent">业余无线电</span></div>
+        <div class="Horizon"><span class="HorizonContent">业 余 无 线 电</span></div>
 
         <table class="TopArticleTable" style="table-layout: fixed;">
             <tr>
                 <td colspan="3"><span class="TopArticleTitle SPA_TRIGGER" data-target="blog/业余无线电学习笔记" style="font-weight: bold; font-size: 15px;">【业余无线电学习笔记】</span></td>
             </tr>
             <tr>
-                <td colspan="3"><span style="font-size: 13px; font-weight: 600; color: #1ea0f0;">★ 电信理论 ★</span></td>
+                <td colspan="3"><span style="font-size: 14px; font-weight: bold; color: #1ea0f0;">★ 自制工具 ★</span></td>
             </tr>
             <tr>
-                <td><span class="TopArticleTitle SPA_TRIGGER" data-target="blog/视频编码">视频编码</span></td>
-                <td><span class="TopArticleTitle SPA_TRIGGER" data-target="blog/音频编码">音频编码</span></td>
-                <td><span class="TopArticleTitle SPA_TRIGGER" data-target="blog/信号与系统">信号与系统</span></td>
+                <td><a class="TopArticleTitle" href="./Aqua">MP3编码器</a></td>
+                <td><a class="TopArticleTitle" href="./html/cw.html">CW练习器</a></td>
+                <td><a class="TopArticleTitle" href="./html/morse-decoder.html">CW解码器</a></td>
             </tr>
             <tr>
-                <td><span class="TopArticleTitle SPA_TRIGGER" data-target="blog/调制与编码">调制与编码</span></td>
-                <td><span class="TopArticleTitle SPA_TRIGGER" data-target="blog/智能通信">智能通信</span></td>
+                <td><a class="TopArticleTitle" href="./html/exam.html">刷题工具</a></td>
+                <td><a class="TopArticleTitle" href="./html/am32.html">AM32调制</a></td>
+                <td><a class="TopArticleTitle">OFDM验证原型</a></td>
             </tr>
             <tr>
-                <td><span class="TopArticleTitle SPA_TRIGGER" data-target="blog/软件无线电">软件无线电</span></td>
-                <td><span class="TopArticleTitle SPA_TRIGGER" data-target="blog/天馈射频器件">天馈射频器件</span></td>
-                <td><span class="TopArticleTitle SPA_TRIGGER" data-target="blog/电波传播规律">电波传播规律</span></td>
+                <td colspan="3"><span style="font-size: 14px; font-weight: bold; color: #1ea0f0;">★ 电信理论 ★</span></td>
             </tr>
             <tr>
-                <td><span class="TopArticleTitle SPA_TRIGGER" data-target="blog/开关电源">开关电源</span></td>
-                <td><span class="TopArticleTitle SPA_TRIGGER" data-target="blog/前端设计备忘录">Web前端</span></td>
+                <td><a class="TopArticleTitle SPA_TRIGGER" data-target="blog/视频编码">视频编码</a></td>
+                <td><a class="TopArticleTitle SPA_TRIGGER" data-target="blog/音频编码">音频编码</a></td>
+                <td><a class="TopArticleTitle SPA_TRIGGER" data-target="blog/信号与系统">信号与系统</a></td>
             </tr>
             <tr>
-                <td colspan="3"><span style="font-size: 13px; font-weight: 600; color: #1ea0f0;">★ 设备器材 ★</span></td>
+                <td><a class="TopArticleTitle SPA_TRIGGER" data-target="blog/调制与编码">调制与编码</a></td>
+                <td><a class="TopArticleTitle SPA_TRIGGER" data-target="blog/智能通信">智能通信</a></td>
+                <td><a class="TopArticleTitle SPA_TRIGGER" data-target="blog/软件无线电">软件无线电</a></td>
             </tr>
             <tr>
-                <td><span class="TopArticleTitle SPA_TRIGGER" data-target="blog/无线电设备对比">无线电设备对比</span></td>
-                <td><span class="TopArticleTitle SPA_TRIGGER" data-target="blog/IC-705资料汇编">IC-705资料汇编</span></td>
-                <td><span class="TopArticleTitle SPA_TRIGGER" data-target="blog/收音机资料汇编">收音机资料汇编</span></td>
+                <td><a class="TopArticleTitle SPA_TRIGGER" data-target="blog/开关电源">开关电源</a></td>
+                <td><a class="TopArticleTitle SPA_TRIGGER" data-target="blog/天馈射频器件">天馈射频器件</a></td>
+                <td><a class="TopArticleTitle SPA_TRIGGER" data-target="blog/电波传播规律">电波传播规律</a></td>
             </tr>
             <tr>
-                <td><span class="TopArticleTitle SPA_TRIGGER" data-target="blog/Galileo开发板">Galileo开发板</span></td>
-                <td><span class="TopArticleTitle SPA_TRIGGER" data-target="blog/硬件笔记">硬件笔记</span></td>
-                <td><span class="TopArticleTitle SPA_TRIGGER" data-target="blog/磷酸铁锂电池">磷酸铁锂电池</span></td>
+                <td colspan="3"><span style="font-size: 14px; font-weight: bold; color: #1ea0f0;">★ 设备器材 ★</span></td>
             </tr>
             <tr>
-                <td colspan="3"><span style="font-size: 13px; font-weight: 600; color: #1ea0f0;">★ 操作实践 ★</span></td>
+                <td><a class="TopArticleTitle SPA_TRIGGER" data-target="blog/无线电设备对比">无线电设备对比</a></td>
+                <td><a class="TopArticleTitle SPA_TRIGGER" data-target="blog/IC-705资料汇编">IC-705资料汇编</a></td>
+                <td><a class="TopArticleTitle SPA_TRIGGER" data-target="blog/收音机资料汇编">收音机资料汇编</a></td>
             </tr>
             <tr>
-                <td><span class="TopArticleTitle SPA_TRIGGER" data-target="blog/业余无线电备忘录">业余无线电备忘录</span></td>
-                <td><span class="TopArticleTitle SPA_TRIGGER" data-target="blog/广播与放送文化">广播与放送文化</span></td>
-                <td><span class="TopArticleTitle SPA_TRIGGER" data-target="blog/野外架台技巧">野外架台技巧</span></td>
+                <td><a class="TopArticleTitle SPA_TRIGGER" data-target="blog/Galileo开发板">Galileo开发板</a></td>
+                <td><a class="TopArticleTitle SPA_TRIGGER" data-target="blog/硬件笔记">硬件笔记</a></td>
+                <td><a class="TopArticleTitle SPA_TRIGGER" data-target="blog/磷酸铁锂电池">磷酸铁锂电池</a></td>
+            </tr>
+            <tr>
+                <td colspan="3"><span style="font-size: 14px; font-weight: bold; color: #1ea0f0;">★ 操作实践 ★</span></td>
+            </tr>
+            <tr>
+                <td><a class="TopArticleTitle SPA_TRIGGER" data-target="blog/业余无线电备忘录">业余无线电备忘录</a></td>
+                <td><a class="TopArticleTitle SPA_TRIGGER" data-target="blog/广播与放送文化">广播与放送文化</a></td>
+                <td><a class="TopArticleTitle SPA_TRIGGER" data-target="blog/野外架台技巧">野外架台技巧</a></td>
             </tr>
         </table>
 
@@ -1580,24 +1595,24 @@ function TurnToCollectionSection(elementId) {
 
         <table class="TopArticleTable">
             <tr>
-                <td><span class="TopArticleTitle SPA_TRIGGER" data-target="blog/递归论与算法信息论">递归论与算法信息论</span></td>
-                <td><span class="TopArticleTitle SPA_TRIGGER" data-target="blog/Scheme编译器设计笔记">Scheme编译器设计笔记</span></td>
+                <td><a class="TopArticleTitle SPA_TRIGGER" data-target="blog/递归论与算法信息论">递归论与算法信息论</a></td>
+                <td><a class="TopArticleTitle SPA_TRIGGER" data-target="blog/Scheme编译器设计笔记">Scheme编译器设计笔记</a></td>
             </tr>
             <tr>
-                <td><span class="TopArticleTitle SPA_TRIGGER" data-target="blog/元胞自动机之生命游戏">元胞自动机</span></td>
-                <td><span class="TopArticleTitle SPA_TRIGGER" data-target="blog/我想给你整个世界">我想给你整个世界</span></td>
+                <td><a class="TopArticleTitle SPA_TRIGGER" data-target="blog/元胞自动机之生命游戏">元胞自动机</a></td>
+                <td><a class="TopArticleTitle SPA_TRIGGER" data-target="blog/我想给你整个世界">我想给你整个世界</a></td>
             </tr>
             <tr>
-                <td><span class="TopArticleTitle SPA_TRIGGER" data-target="blog/在λ演算中构造前驱函数">在λ演算中构造前驱函数</span></td>
-                <td><span class="TopArticleTitle SPA_TRIGGER" data-target="blog/一条永恒的金带">一条永恒的金带</span></td>
+                <td><a class="TopArticleTitle SPA_TRIGGER" data-target="blog/在λ演算中构造前驱函数">在λ演算中构造前驱函数</a></td>
+                <td><a class="TopArticleTitle SPA_TRIGGER" data-target="blog/一条永恒的金带">一条永恒的金带</a></td>
             </tr>
             <tr>
-                <td><span class="TopArticleTitle SPA_TRIGGER" data-target="blog/阴阳谜题分析">阴阳谜题分析</span></td>
-                <td><span class="TopArticleTitle SPA_TRIGGER" data-target="blog/Continuation简介">Continuation简介</span></td>
+                <td><a class="TopArticleTitle SPA_TRIGGER" data-target="blog/阴阳谜题分析">阴阳谜题分析</a></td>
+                <td><a class="TopArticleTitle SPA_TRIGGER" data-target="blog/Continuation简介">Continuation简介</a></td>
             </tr>
             <tr>
-                <td><span class="TopArticleTitle SPA_TRIGGER" data-target="blog/The-Little-Schemer-阅读笔记">The Little Schemer 阅读笔记</span></td>
-                <td><span class="TopArticleTitle SPA_TRIGGER" data-target="blog/SICP阅读笔记">SICP阅读笔记</span></td>
+                <td><a class="TopArticleTitle SPA_TRIGGER" data-target="blog/The-Little-Schemer-阅读笔记">The Little Schemer 阅读笔记</a></td>
+                <td><a class="TopArticleTitle SPA_TRIGGER" data-target="blog/SICP阅读笔记">SICP阅读笔记</a></td>
             </tr>
         </table>
 
@@ -1716,8 +1731,9 @@ a.Weibo::before {
         <table style="margin: 20px auto 10px auto;">
             <tr>
                 <td><img src="image/nanjing-location.png" style="width: 80px; padding-right: 10px;"></td>
-                <td style="text-align: left; font-size: 14px;">
+                <td style="text-align: left; font-size: 12px; line-height: 20px;">
                     <div><b>BD4SUR</b> 中国A类业余无线电台</div>
+                    <div>China Class A Amateur Radio Station</div>
                     <div>CQ 24 / ITU 44 / OM91</div>
                     <div style="font-weight: bold;">中国·江苏·南京</div>
                     <div>Nanjing, Jiangsu, China</div>

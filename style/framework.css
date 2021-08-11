@@ -419,7 +419,7 @@ body { font-family: Microsoft YaHei, "宋体", "Helvetica Neue", Helvetica, Aria
 .SectionHeader { text-align: center; font-size: 17px; letter-spacing: 2px; color: #1ea0f0; margin: 30px 0; padding: 12px 0; background: linear-gradient(90deg, #ffffff, #eff9ff, #ffffff); }
 .SectionSubHeader { font-size: 15px; text-align: center; font-weight: bold; margin: 30px auto 10px auto; width: fit-content; border-bottom: 2px solid #cceeff; }
 .SectionHeaderComment { font-size: 13px;  letter-spacing: 0px; font-weight: normal; color: #aaa; padding-top: 5px; font-variant-caps: small-caps;}
-.SectionBody { font-size: 14px; line-height: 25px; text-align: center; margin: 10px 0; color: #333; font-weight: normal; }
+.SectionBody { font-size: 13px; line-height: 25px; text-align: center; margin: 10px 0; color: #333; font-weight: normal; }
 .SectionBody a { text-decoration: none; color: #2c3135; border-bottom: 1px solid #404850;}
 .SectionBody a:hover { color: #1ea0f0; text-decoration: none; border-bottom: 1px solid #1ea0f0; }
 .Link { text-decoration: none; color: #2c3135; border-bottom: 1px dotted #404850; cursor: pointer; }
