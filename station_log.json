@@ -1026,6 +1026,25 @@
         "pwr_self": "10W",
         "qth_self": "天元西路楼顶天台",
 
-        "note":     "江宁终极"
+        "note":     "通过江宁中继"
+    },
+    {
+        "time":     "2021-08-13 20:03",
+        "callsign": "BD4SYG",
+        "freq":     "439.675R",
+        "mode":     "NFM",
+        "rst":      "T59/R59",
+
+        "rig":      "-",
+        "ant":      "-",
+        "pwr":      "-",
+        "qth":      "-",
+
+        "rig_self": "IC-705",
+        "ant_self": "SRJ770",
+        "pwr_self": "10W",
+        "qth_self": "天元西路",
+
+        "note":     "江苏无协中继南京无锡联网点名。点名期间遭恶意干扰。"
     }
 ]
