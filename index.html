@@ -518,7 +518,7 @@ function TurnToCollectionSection(elementId) {
     手办<div class="SectionHeaderComment">Figure</div>
 </div>
 
-<div id="collections_figure_main">
+<div id="collections_figure_main" style="display: none;">
 
     <div class="SectionBody" style="margin: 30px 0;">
         <a style="text-decoration: none; border: none;" target="_blank" href="https://www.hpoi.net/user/175068"><img src="http://res.hpoi.net.cn/gk/res/img/logo_flie.png" height="20px"></a>
@@ -617,7 +617,7 @@ function TurnToCollectionSection(elementId) {
     box-shadow: 0 1px 2px 0 rgb(60 60 60 / 20%), 0 1px 3px 1px rgb(60 60 60 / 20%);
 }
 .BangumiBox {
-    max-width: 130px;
+    max-width: 100px;
     display: inline-block;
     vertical-align: top;
     margin: 10px;
@@ -625,21 +625,22 @@ function TurnToCollectionSection(elementId) {
 }
 .BangumiTitle {
     color: #494f53;
-    font-size: 15px;
+    font-size: 12px;
     font-weight: bold;
     margin: 10px 0;
     text-align: center;
 }
 .BangumiSubtitle {
-    font-size: 12px;
+    font-size: 10px;
     color: #aaa;
     margin: 3px 0;
     text-align: center;
+    transform: scale(0.9);
 }
 .BangumiIntro {
     text-align: center;
     text-align: left;
-    font-size: 13px;
+    font-size: 10px;
     line-height: 22px;
     color: #333;
 }
@@ -780,8 +781,7 @@ function TurnToCollectionSection(elementId) {
             <div class="BangumiTitle" lang="ja">ゆるキャン△</div>
             <div class="BangumiSubtitle">Yuru Camp</div>
             <div class="BangumiSubtitle" lang="zh-CN">摇曳露营△</div>
-            <div class="BangumiSubtitle">2020.4~2020.5</div>
-            <div class="BangumiSubtitle">2021.1~</div>
+            <div class="BangumiSubtitle">2020.4/2021.1</div>
             <div class="BangumiSubtitle">全2季及衍生作品</div>
         </div>
 
@@ -804,14 +804,14 @@ function TurnToCollectionSection(elementId) {
 .MusicCover {
     width: 100%;
     display: block;
-    max-height: 130px;
+    max-height: 100px;
     margin: 10px auto;
     border-radius: 6px;
     overflow: hidden;
     box-shadow: 0 1px 2px 0 rgb(60 60 60 / 20%), 0 1px 3px 1px rgb(60 60 60 / 20%);
 }
 .MusicBox {
-    max-width: 130px;
+    max-width: 100px;
     display: inline-block;
     vertical-align: top;
     margin: 10px;
@@ -819,7 +819,7 @@ function TurnToCollectionSection(elementId) {
 }
 .MusicTitle {
     color: #494f53;
-    font-size: 15px;
+    font-size: 12px;
     font-weight: bold;
     margin: 10px 0;
     text-align: center;
@@ -828,23 +828,17 @@ function TurnToCollectionSection(elementId) {
     text-decoration: none;
 }
 .MusicArtist {
-    font-size: 12px;
+    font-size: 10px;
     color: #494f53;
     margin: 3px 0;
     text-align: center;
 }
 .MusicSubtitle {
-    font-size: 12px;
+    font-size: 10px;
     color: #aaa;
     margin: 3px 0;
     text-align: center;
-}
-.MusicIntro {
-    text-align: center;
-    text-align: left;
-    font-size: 13px;
-    line-height: 22px;
-    color: #333;
+    transform: scale(0.9);
 }
 </style>
 
@@ -1239,14 +1233,10 @@ function TurnToCollectionSection(elementId) {
     <table class="Matrix">
         <tr>
             <td><a target="_blank" href="https://beautifulracket.com/">Beau­tiful Racket</a></td>
-            <td><a target="_blank" href="https://www.langchao.org/">浪潮</a></td>
+            <td><a target="_blank" href="https://aidn.jp/mikutap/">MikuTap</a></td>
         </tr>
         <tr>
             <td><a target="_blank" href="https://isux.tencent.com/">腾讯ISUX</a></td>
-            <td><a target="_blank" href="http://www.mcescher.com/">艾舍尔官方网站</a></td>
-        </tr>
-        <tr>
-            <td><a target="_blank" href="https://aidn.jp/mikutap/">MikuTap</a></td>
             <td><a target="_blank" href="https://explainshell.com">explainshell</a></td>
         </tr>
     </table>
@@ -1533,7 +1523,8 @@ function TurnToCollectionSection(elementId) {
             </tr>
             <tr>
                 <td><a class="TopArticleTitle SPA_TRIGGER" data-target="blog/前端设计备忘录">Web前端</a></td>
-
+                <td><a class="TopArticleTitle SPA_TRIGGER" data-target="blog/音乐盒">音乐盒</a></td>
+                <td><a class="TopArticleTitle SPA_TRIGGER" data-target="blog/语义网和数据产权">语义网和数据产权</a></td>
             </tr>
         </table>
 

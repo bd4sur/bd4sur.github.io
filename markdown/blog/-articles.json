@@ -4,7 +4,7 @@
         "date":      "",
         "updates":  [],
         "authors":  ["马克思", "恩格斯"],
-        "category":  "A.哲学宗教伦理心理",
+        "category":  "A",
         "tags":     []
     },
     {
@@ -12,15 +12,7 @@
         "date":      "2017-12-13",
         "updates":  ["2018-01-04"],
         "authors":  ["BD4SUR"],
-        "category":  "C.历史地理语言文化",
-        "tags":     []
-    },
-    {
-        "title":     "语义网和数据产权",
-        "date":      "2019-03-01",
-        "updates":  [],
-        "authors":  ["BD4SUR"],
-        "category":  "G5.情报学",
+        "category":  "B",
         "tags":     []
     },
     {
@@ -28,15 +20,7 @@
         "date":      "2019-07-10",
         "updates":  [""],
         "authors":  ["BD4SUR"],
-        "category":  "G6.计算机",
-        "tags":     []
-    },
-    {
-        "title":     "音乐盒",
-        "date":      "2018-05-20",
-        "updates":  [""],
-        "authors":  ["BD4SUR"],
-        "category":  "G6.计算机",
+        "category":  "G",
         "tags":     []
     },
     {
@@ -44,7 +28,7 @@
         "date":      "2019-09-05",
         "updates":  [],
         "authors":  ["BD4SUR"],
-        "category":  "F.经济管理贸易营销",
+        "category":  "G",
         "tags":     []
     },
     {
@@ -52,7 +36,7 @@
         "date":      "2019-12-25",
         "updates":  [],
         "authors":  ["BD4SUR"],
-        "category":  "F.经济管理贸易营销",
+        "category":  "F",
         "tags":     []
     },
     {
@@ -60,7 +44,7 @@
         "date":      "2019-04-24",
         "updates":  [],
         "authors":  ["BD4SUR"],
-        "category":  "B.文学艺术教育体育",
+        "category":  "C",
         "tags":     []
     },
     {
@@ -68,7 +52,7 @@
         "date":      "2021-01-01",
         "updates":  [],
         "authors":  ["BD4SUR"],
-        "category":  "L.家政轻工实用技术",
+        "category":  "L",
         "tags":     []
     }
 ]
