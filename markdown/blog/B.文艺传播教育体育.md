@@ -13,6 +13,12 @@
 - 松任谷由実（歌手、作曲家）
 - #(特雷门琴)#
 
+# 配色方案
+
+<div style="background-color: rgb(223,245,255); color: rgb(0,142,211);  text-align: center; line-height: 40px;">Text</div>
+<div style="background-color: rgb(223,255,223); color: rgb(0,176,80);   text-align: center; line-height: 40px;">Text</div>
+<div style="background-color: rgb(255,248,217); color: rgb(237,180,0);  text-align: center; line-height: 40px;">Text</div>
+<div style="background-color: rgb(255,231,241); color: rgb(223,50,132); text-align: center; line-height: 40px;">Text</div>
 
 # 家庭教育故事
 
