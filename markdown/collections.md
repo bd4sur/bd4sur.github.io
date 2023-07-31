@@ -13,7 +13,7 @@ function TurnToCollectionSection(elementId) {
 
 a {
     color: inherit;
-    text-decoration: underline;
+    text-decoration: none;
     cursor: pointer;
 }
 a:hover {
@@ -164,7 +164,7 @@ a:hover {
     font-size: 13px;
     line-height: 25px;
     text-align: center;
-    color: #567;
+    color: #394653;
 }
 .CatTitle {
     font-size: 14px;
@@ -175,7 +175,76 @@ a:hover {
 </style>
 
 <div class="SectionHeader SectionToggle" id="collections_link" onclick="$(`#collections_link_main`).fadeToggle(200);">网上邻居</div>
+    <div id="collections_link_main" style="text-align: center;">
+    <!-- <img src="./image/B/nagato-yuki.jpg" style="width: 60%; border-radius: 10px; max-width: 480px; margin: 0 auto;"> -->
+    <div class="CatTitle">无 线 电 通 信</div>
+    <div class="BlogrollContainer">
+        <div class="BlogrollLink"><a target="_blank" href="http://www.cncalc.org/">cnCalc计算器论坛</a></div>
+        <div class="BlogrollLink"><a target="_blank" href="https://www.by4wng.com/">BY4WNG</a></div>
+        <div class="BlogrollLink"><a target="_blank" href="http://7400.me/">EE ARCHEOLOGY</a></div>
+        <div class="BlogrollLink"><a target="_blank" href="https://www.cnvintage.org/">cnVintage</a></div>
+        <div class="BlogrollLink"><a target="_blank" href="https://www.analog.com/cn/analog-dialogue.html">ADI《模拟对话》期刊</a></div>
+        <div class="BlogrollLink"><a target="_blank" href="https://www.cryptomuseum.com/">CryptoMuseum</a></div>
+        <div class="BlogrollLink"><a target="_blank" href="http://websdr.ewi.utwente.nl:8901/">PI4THT的SDR</a></div>
+        <div class="BlogrollLink"><a target="_blank" href="https://www.mods.dk/">mods.dk</a></div>
+        <div class="BlogrollLink"><a target="_blank" href="https://www.sigidwiki.com/">sigidwiki</a></div>
+        <div class="BlogrollLink"><a target="_blank" href="https://swling.com/">swling.com</a></div>
+        <div class="BlogrollLink"><a target="_blank" href="http://www.hfcc.org/schedule/">HFCC时刻表</a></div>
+        <div class="BlogrollLink"><a target="_blank" href="https://shortwaveschedule.com/index.php?now">短波广播查询</a></div>
+        <div class="BlogrollLink"><a target="_blank" href="https://www.short-wave.info/index.php">short-wave.info</a></div>
+        <div class="BlogrollLink"><a target="_blank" href="https://dxcluster.ha8tks.hu/hamgeocoding/">网格计算</a></div>
+        <div class="BlogrollLink"><a target="_blank" href="https://spotthestation.nasa.gov/tracking_map.cfm">ISS追踪</a></div>
+        <div class="BlogrollLink"><a target="_blank" href="http://www.hamqsl.com/radio/">传播预测</a></div>
+        <div class="BlogrollLink"><a target="_blank" href="https://www.dxinfocentre.com/tropo_eas.html">VU传播预测</a></div>
+        <div class="BlogrollLink"><a target="_blank" href="http://www.nsmc.org.cn/NSMC/spaceweather/cn/sws/index.html">空间天气预报</a></div>
+    </div>
 
+    <div class="CatTitle">博 客 · Wiki</div>
+    <div class="BlogrollContainer">
+        <div class="BlogrollLink"><a target="_blank" href="https://www.nayuki.io/">Project Nayuki</a></div>
+        <div class="BlogrollLink"><a target="_blank" href="http://www.matrix67.com/">Matrix67</a></div>
+        <div class="BlogrollLink"><a target="_blank" href="http://nightchina.net/">夜空中国</a></div>
+        <div class="BlogrollLink"><a target="_blank" href="https://0.30000000000000004.com/">浮点数</a></div>
+        <div class="BlogrollLink"><a target="_blank" href="https://fwjmath.wordpress.com/">fwjmath</a></div>
+        <div class="BlogrollLink"><a target="_blank" href="http://www.changhai.org/">卢昌海</a></div>
+        <div class="BlogrollLink"><a target="_blank" href="https://bellard.org/">Fabrice Bellard</a></div>
+        <div class="BlogrollLink"><a target="_blank" href="http://madebyevan.com/">Evan Wallace</a></div>
+        <div class="BlogrollLink"><a target="_blank" href="http://norvig.com/">Peter Norvig</a></div>
+        <div class="BlogrollLink"><a target="_blank" href="http://matt.might.net/">Matt Might</a></div>
+        <div class="BlogrollLink"><a target="_blank" href="https://www.codingnow.com/">云风</a></div>
+        <div class="BlogrollLink"><a target="_blank" href="https://techsingular.net/">技术奇异点</a></div>
+        <div class="BlogrollLink"><a target="_blank" href="http://www.dwenzhao.cn/">赵工个人空间</a></div>
+        <div class="BlogrollLink"><a target="_blank" href="http://www.satcomengr.com/">卫星通信吴波洋</a></div>
+        <div class="BlogrollLink"><a target="_blank" href="http://www.staroceans.org/">staroceans</a></div>
+        <div class="BlogrollLink"><a target="_blank" href="http://wiki.jackslab.org/">Jack's Lab(BH1RBH)</a></div>
+        <div class="BlogrollLink"><a target="_blank" href="https://kcores.com/reading">氪金核心</a></div>
+        <div class="BlogrollLink"><a target="_blank" href="https://retronn.de/">Hardware Gallery</a></div>
+        <div class="BlogrollLink"><a target="_blank" href="https://bideyuanli.com/">比的原理</a></div>
+        <div class="BlogrollLink"><a target="_blank" href="http://www.yinwang.org/">王垠</a></div>
+
+        <div class="BlogrollLink"><a target="_blank" href="https://thwiki.cc/">THBwiki</a></div>
+        <div class="BlogrollLink"><a target="_blank" href="http://wuli.wiki/">小时物理百科</a></div>
+        <div class="BlogrollLink"><a target="_blank" href="https://www.shicuojue.com/">视错觉</a></div>
+        <div class="BlogrollLink"><a target="_blank" href="https://www.wikipathways.org/">WikiPathways</a></div>
+        <div class="BlogrollLink"><a target="_blank" href="http://rosettacode.org/">Rosetta Code</a></div>
+        <div class="BlogrollLink"><a target="_blank" href="http://okmij.org/ftp/">okmij.org</a></div>
+        <div class="BlogrollLink"><a target="_blank" href="http://sheet.stdioa.com/">StdioA乐谱分享</a></div>
+        <div class="BlogrollLink"><a target="_blank" href="https://sicp.readthedocs.io/en/latest/">SICP解题集</a></div>
+        <div class="BlogrollLink"><a target="_blank" href="http://htq.minpaku.ac.jp/databases/rGyalrong/">嘉绒语数据库</a></div>
+        <div class="BlogrollLink"><a target="_blank" href="http://marxists.anu.edu.au/chinese/">中文马克思主义文库</a></div>
+        <div class="BlogrollLink"><a target="_blank" href="https://www.kegg.jp/">KEGG</a></div>
+    </div>
+
+    <div class="CatTitle">地 学 · 航 空 航 天</div>
+    <div class="BlogrollContainer">
+        <div class="BlogrollLink"><a target="_blank" href="http://www.nmc.cn/publish/radar/huadong.html">NMC雷达</a></div>
+        <div class="BlogrollLink"><a target="_blank" href="http://www.nmc.cn/publish/observations/lighting.html">NMC地闪实况</a></div>
+        <div class="BlogrollLink"><a target="_blank" href="https://typhoon.slt.zj.gov.cn/wap.htm">台风路径</a></div>
+        <div class="BlogrollLink"><a target="_blank" href="http://himawari8.nict.go.jp/">向日葵8号云图</a></div>
+        <div class="BlogrollLink"><a target="_blank" href="https://earth.nullschool.net/">气象可视化</a></div>
+        <div class="BlogrollLink"><a target="_blank" href="http://planets.cug.edu.cn/lunaserv.html">中国地质大学行星地图</a></div>
+        <div class="BlogrollLink"><a target="_blank" href="http://www.braeunig.us/space/index.htm">火箭和空间技术</a></div>
+    </div>
 </div>
 
 <style>
