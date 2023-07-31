@@ -1,0 +1,765 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0">
+<script src="../script/framework/jquery/jquery.min.js"></script>
+<script src="../script/canvas.js"></script>
+<title>机械表校表仪</title>
+
+<!--页面自定义样式开始-->
+<style>
+body {
+    margin: 30px; padding: 0;
+    font-size: 13px;
+    text-align: center;
+}
+canvas {
+    display: block;
+    border: 0.5px solid #ccc;
+    margin: 0 auto;
+}
+button {
+    border: none;
+    background-color: #1155ee11;
+    color: #15e;
+    padding: 5px 10px;
+    margin: 5px;
+}
+button:hover {
+    background-color: #1155ee22;
+    cursor: pointer;
+}
+.la_container {
+    background-color: #1155ee11;
+    padding: 5px 10px;
+    margin: 5px;
+}
+#la_value {
+    border: none;
+    font-size: inherit;
+    outline: none;
+    width: 3em;
+}
+.arg_table {
+    margin: 0 auto;
+}
+.item_key {
+    text-align: right;
+    width: 40%;
+}
+.item_key::after {
+    content: ":";
+    margin: 0 5px;
+}
+.item_value {
+    text-align: left;
+    width: 40%;
+}
+</style>
+<!--页面自定义样式结束-->
+
+</head>
+<body>
+
+<!--页面内容开始-->
+
+<img src="../image/K/mechwatch/escape-wheel.png" width="30px" height="30px">
+<div style="margin: 10px 0; font-size: 16px; font-weight: bold;">机械表校表仪<sup>α</sup></div>
+<div style="margin: 10px 0; font-size: 13px;">仅适用于采用叉瓦式擒纵机构的机械表<br>BD4SUR / 2023-01-10 开始开发</div>
+
+<div style="margin: 10px 0;">
+    <span class="la_container">升角°：<input id="la_value" type="number" min="10" max="90" value="44"></span>
+    <button id="btn_receiver">开始拾音</button>
+    <span id="beat">◉</span>
+</div>
+
+<canvas id="oscilloscope" width="300px" height="200px" style="width: 300px; height: 200px;"></canvas>
+<canvas id="graph" width="300px" height="100px" style="width: 300px; height: 100px;"></canvas>
+
+
+
+<table class="arg_table">
+    <!-- <tr><td class="item_key">采样率</td> <td class="item_value"><span id="sample_rate">-</span>Hz</td></tr> -->
+    <!-- <tr><td class="item_key">帧长</td> <td class="item_value"><span id="frame_length">-</span></td></tr> -->
+    <tr><td class="item_key">间隔</td> <td class="item_value"><span id="interval">-</span> samples</td></tr>
+    <tr><td class="item_key">摆频</td> <td class="item_value"><span id="bph">-</span> BPH</td></tr>
+    <tr><td class="item_key">日差</td> <td class="item_value"><span id="day_error">-</span>s</td></tr>
+    <tr><td class="item_key">偏摆</td> <td class="item_value"><span id="beat_error">-</span>ms</td></tr>
+    <tr><td class="item_key">摆幅</td> <td class="item_value"><span id="amplitude">-</span>°</td></tr>
+    <tr><td class="item_key">表音时长</td> <td class="item_value"><span id="tictoc_duration">-</span>ms</td></tr>
+</table>
+
+<div id="indicators"></div>
+
+
+<!--页面内容结束-->
+
+<!--脚本开始-->
+<script>
+
+const SAMPLE_RATE = 48000;
+const FFT_LENGTH = 4096;
+
+const TICTOC_DISPLAY_LENGTH = 2048;
+const DAY_ERROR_PLOT_LENGTH = 100;
+const MAX_PLOT_Y = 1000;
+
+let LIFT_ANGLE = 44; // 测试用6497-2兼容机芯
+
+$("#frame_length").html(FFT_LENGTH);
+
+//////////////////////////////////////////////////////////////////////////
+// 可视化相关
+//////////////////////////////////////////////////////////////////////////
+
+let oscilloscope = new Canvas("oscilloscope", [0, -0.5], [TICTOC_DISPLAY_LENGTH, 0.5]);
+oscilloscope.SetBackgroundColor("#000");
+let graph = new Canvas("graph", [0, -MAX_PLOT_Y], [DAY_ERROR_PLOT_LENGTH, MAX_PLOT_Y]);
+graph.SetBackgroundColor("#005");
+
+// 绘制时域波形
+function plot_wave_and_peaks(cv, wave, peaks) {
+    cv.Reset();
+    cv.SetBackgroundColor("#000");
+    cv.context.lineWidth = 2;
+    // 子带编号
+    for(let i = 1; i < wave.length; i++) {
+        cv.Line([i-1, wave[i-1]], [i, wave[i]], "#0f0");
+    }
+    // 绘制峰值点
+    cv.context.lineWidth = 5;
+    for(let i = 0; i < 3; i++) { // 只看最大的3个峰值
+        let peakIndex = peaks[i];
+        if(peakIndex === 1) continue;
+        let val = wave[peakIndex];
+        cv.Circle([peakIndex, val], 5, "#f00");
+    }
+}
+
+
+// 绘制tictoc区间的波形
+function plot_tictoc_wave(cv, wave) {
+    cv.Reset();
+    cv.SetBackgroundColor("#000");
+    // 绘制时间坐标
+    cv.context.lineWidth = 1;
+    for(let i = -4; i <= 4; i++) {
+        let x = i * 5 / 1000 * SAMPLE_RATE;
+        cv.Line([cv.Xrange/2 + x, cv.Ymin], [cv.Xrange/2 + x, cv.Ymax], "#333");
+        cv.Text(`${String(i * 5)}ms`, [cv.Xrange/2 + x, cv.Ymin], "#fff", null, "center");
+    }
+    // 子带编号
+    cv.context.fillStyle = "#fff";
+    cv.context.beginPath();
+    cv.context.moveTo(cv.toCanvasX(0), cv.toCanvasY(0));
+    for(let i = 1; i < wave.length; i++) {
+        cv.context.lineTo(cv.toCanvasX(i), cv.toCanvasY(wave[i]));
+    }
+    cv.context.lineTo(cv.Xmax, cv.toCanvasY(0));
+    for(let i = wave.length - 1; i >= 1; i--) {
+        cv.context.lineTo(cv.toCanvasX(i), cv.toCanvasY(-wave[i]));
+    }
+    cv.context.moveTo(cv.toCanvasX(0), cv.toCanvasY(0));
+    cv.context.fill();
+}
+
+// 纸带打点
+function plot_tape(cv, dots) {
+    cv.Reset();
+    cv.SetBackgroundColor("#005");
+    cv.context.lineWidth = 1;
+    cv.context.fillStyle = "#fff";
+    for(let i = 0; i < dots.length; i++) {
+        cv.Circle([i, dots[i]], 0.5, "#fff");
+        cv.context.fill();
+    }
+}
+
+
+
+// 推入队列
+function pushIntoBuffer(element, buffer, bufferLength) {
+    buffer.push(element);
+    if(buffer.length > bufferLength) buffer.shift();
+}
+
+
+
+// 计算序列的滑动平均
+function movingAverage(input, windowLength) {
+    let output = [];
+    output[0] = input[0];
+    // 计算序列的前(windowLength-1)个点的平均
+    for(let t = 1; t < windowLength - 1; t++) {
+        let sum = 0;
+        for(let i = 0; i <= t; i++) {
+            sum += input[i];
+        }
+        output[t] = sum / (t+1);
+    }
+    // 计算序列从下标为(windowLength-1)的点开始的其余点的滑动平均
+    for(let t = (windowLength - 1); t < input.length; t++) {
+        let sum = 0;
+        for(let i = t - (windowLength - 1); i <= t; i++) {
+            sum += input[i];
+        }
+        output[t] = sum / windowLength;
+    }
+    return output;
+}
+
+
+// 计算序列的滑动平均
+function localMaximum(input, windowLength) {
+    let output = [];
+    for(let i = 0; i < input.length; i++) {
+        let window = input.slice(i, i + windowLength);
+        let max = Math.max.apply(null, window);
+        output[i] = max;
+    }
+    return output;
+}
+
+
+
+// 峰值检测
+function detectPeaks(input) {
+    // 自适应阈值：以序列的滑动平均线往上一段距离为峰值判定阈值
+    let thresholds = movingAverage(input, 12);
+    const offset = 0.01;
+
+    let peaks = [];
+    let peakValue = Number.NEGATIVE_INFINITY;
+    let peakIndex = -1;
+    for(let t = 0; t < input.length; t++) {
+        let value = input[t];
+        if(value > thresholds[t] + offset) {
+            if(value > peakValue) {
+                peakValue = value;
+                peakIndex = t;
+            }
+        }
+        else if(peakIndex > -1) {
+            peaks.push(peakIndex);
+            peakIndex = -1;
+            peakValue = Number.NEGATIVE_INFINITY;
+        }
+    }
+
+    if(peakIndex > -1) {
+        peaks.push(peakIndex);
+    }
+
+    // 对峰值点重排序
+    peaks.sort((a, b) => {
+        return input[b] - input[a];
+    })
+
+    return peaks;
+}
+
+
+// 寻找最大值点
+function detectMax(input) {
+    let maxValue = Number.NEGATIVE_INFINITY;
+    let maxIndex = 0;
+    for(let i = 0; i < input.length; i++) {
+        if(input[i] > maxValue) {
+            maxIndex = i;
+            maxValue = input[i];
+        }
+    }
+    return maxIndex;
+}
+
+
+
+
+
+// k-均值聚类
+function cluster(samples, k, distance) {
+    distance = distance || ((a, b) => Math.abs(a - b));
+    let means = [];
+    let clusters = [];
+    let newSamples = [];
+    for(let i = 0; i < samples.length; i++) {
+        newSamples[i] = samples[i];
+    }
+    // newSamples.sort((a, b) => a - b);
+
+    // 初始聚类中心：等距选取样本最大最小值之间的值
+    let max = Math.max.apply(null, newSamples);
+    let min = Math.min.apply(null, newSamples);
+    let delta = (max - min) / (k - 1);
+    for(let j = 0; j < k; j++) {
+        means.push(min);
+        min += delta;
+    }
+    // means.sort((a, b) => a - b);
+
+    while(true) {
+        for(let j = 0; j < k; j++) {
+            clusters[j] = [];
+        }
+        // 计算每个样本与k个聚类中心的举例，将样本分配到距离最小的cluster
+        for(let i = 0; i < newSamples.length; i++) {
+            let clusterIndex = 0;
+            let minDist = Number.MAX_VALUE;
+            for(let j = 0; j < k; j++) {
+                let dist = distance(newSamples[i], means[j]);
+                if(dist <= minDist) {
+                    clusterIndex = j;
+                    minDist = dist;
+                }
+            }
+            clusters[clusterIndex].push(newSamples[i]);
+        }
+        // 计算新的聚类中心
+        let newMeans = [];
+        for(let j = 0; j < k; j++) {
+            let mean = 0;
+            // 有些聚类可能是空的，此时聚类中心维持上一次计算的结果不变
+            if(clusters[j].length <= 0) {
+                mean = means[j];
+            }
+            else {
+                mean = clusters[j].reduce(
+                    (prev, currentValue) => prev + currentValue, 0
+                ) / clusters[j].length;
+            }
+            newMeans[j] = mean;
+        }
+        newMeans.sort((a, b) => a - b);
+        // 判断是否终止
+        let finished = true;
+        for(let i = 0; i < means.length; i++) {
+            // 聚类结果稳定，终止计算
+            if(distance(means[i], newMeans[i]) > 1e-2) {
+                finished = false;
+                break;
+            }
+        }
+        if(finished) {
+            // 剔除空的聚类
+            let resClusters = [];
+            let resMeans = [];
+            for(let j = 0; j < k; j++) {
+                if(clusters[j].length > 0) {
+                    resClusters.push(clusters[j]);
+                    resMeans.push(newMeans[j]);
+                }
+            }
+            return {
+                "k": k,
+                "clusterCount": resClusters.length,
+                "means": resMeans,
+                "clusters": resClusters
+            };
+        }
+        else {
+            means = newMeans;
+        }
+    }
+}
+
+
+
+// 计算某一序列的过零率序列
+function zero_crossing_rate(input, window_length) {
+    window_length = window_length || 10;
+    let zcr_series = [];
+    for(let i = 0; i < input.length-1; i++) {
+        let window = input.slice(i, i + window_length);
+        let zc_count = 0;
+        for(let j = 1; j < window.length; j++) {
+            if(window[j-1] * window[j] < 0 && Math.abs(window[j-1] - window[j]) >= 0.001) {
+                zc_count++;
+            }
+        }
+        let zcr = zc_count / (window.length - 1);
+        zcr_series.push(zcr);
+    }
+    return zcr_series;
+}
+
+
+const CUTOFF_FREQ = 3000;
+
+const HPF_KERNEL = ((norm_cutoff) => {
+    const sqrt2 = Math.sqrt(2);
+    let kernel = [];
+    let K = Math.tan(Math.PI * norm_cutoff);
+    let norm = 1 / (1 + K * sqrt2 + K * K);
+    kernel[0] = 1 * norm;
+    kernel[1] = -2 * kernel[0];
+    kernel[2] = kernel[0];
+    kernel[3] = 2 * (K * K - 1) * norm;
+    kernel[4] = (1 - K * sqrt2 + K * K) * norm;
+    return kernel;
+})(CUTOFF_FREQ / SAMPLE_RATE);
+
+const LPF_KERNEL = ((norm_cutoff) => {
+    const sqrt2 = Math.sqrt(2);
+    let kernel = [];
+    let K = Math.tan(Math.PI * norm_cutoff);
+    let norm = 1 / (1 + K * sqrt2 + K * K);
+    kernel[0] = K * K * norm;
+    kernel[1] = 2 * kernel[0];
+    kernel[2] = kernel[0];
+    kernel[3] = 2 * (K * K - 1) * norm;
+    kernel[4] = (1 - K * sqrt2 + K * K) * norm;
+    return kernel;
+})(CUTOFF_FREQ / SAMPLE_RATE);
+
+// IIR滤波
+function filter(input, kernel) {
+    let output = [];
+    let z1 = 0, z2 = 0;
+    for(let i = 0; i < input.length; i++) {
+        let val = input[i];
+        let outval = val * kernel[0] + z1;
+        z1 = val * kernel[1] + z2 - kernel[3] * outval;
+        z2 = val * kernel[2] - kernel[4] * outval;
+        output[i] = outval;
+    }
+    return output;
+}
+
+// 滤除直流
+function filter_dc(input) {
+    if(input.length <= 0) return [];
+    let average = 0;
+    for(let i = 0; i < input.length; i++) {
+        average += input[i];
+    }
+    average = average / input.length;
+    let output = [];
+    for(let i = 0; i < input.length; i++) {
+        output[i] = input[i] - average;
+    }
+    return output;
+}
+
+// 时域平滑
+function smooth(input, window_length) {
+    let output = [];
+    let k = 1 - (1. / window_length);
+    let r_av = 0;
+    let u = 0;
+    for(let i = 0; i < window_length; i++) {
+        u *= k;
+        let x = input[i];
+        if(x > u) u = x;
+        r_av += u;
+    }
+    let w = 0;
+    for(let i = 0; i + window_length < input.length; i++) {
+        output[i] = r_av;
+        u *= k;
+        w *= k;
+        let x = input[i + window_length];
+        let y = input[i];
+        if(x > u) u = x;
+        if(y > w) w = y;
+        r_av += u - w;
+    }
+    return output;
+}
+
+
+// 预处理流程
+function preprocess(input) {
+    let temp = filter_dc(input);
+    temp = filter(temp, HPF_KERNEL);
+    temp = temp.map(Math.abs);
+    temp = filter(temp, LPF_KERNEL);
+    temp = smooth(temp, SAMPLE_RATE / 2000);
+    return temp;
+}
+
+// 计算二分类判决门限
+function decision_threshold(input) {
+    let clst = cluster(input, 2);
+    let means = clst.means.sort((a,b)=>a-b);
+    let threshold = means[0] * 0.25 + means[1] * 0.75;
+    return threshold;
+}
+
+// 简单阈值判断，检测上升沿
+function locate_rising_edge(input, threshold, from_index) {
+    from_index = from_index || 0;
+    let rising_edge_index = -1;
+    for(let i = from_index; i < input.length; i++) {
+        if(input[i] > threshold) {
+            rising_edge_index = i; break;
+        }
+    }
+    return rising_edge_index;
+}
+
+// 分析bph
+function watch_analyse(tictoc_timestamps, zcr_rising_edge_index, lift_angle) {
+    // 计算tictoc时间间隔
+    let intervals = [];
+    for(let i = 1; i < tictoc_timestamps.length; i++) {
+        intervals.push(tictoc_timestamps[i] - tictoc_timestamps[i-1]);
+    }
+    // 剔除离群间隔
+    let threshold = decision_threshold(intervals);
+    intervals = intervals.filter((v) => { if(v < threshold) return v; });
+    // 计算平均间隔
+    let avg_interval = intervals.reduce((p, c) => {return (p + c);}, 0) / intervals.length;
+    // 摆频、日差
+    let bph = 3600 / (avg_interval / SAMPLE_RATE);
+    let day_error = (3600 / 21600) * (bph - 21600) * 24; // TODO 寻找最近的标称bph
+    // 计算摆幅
+    let tictoc_event_duration = (TICTOC_DISPLAY_LENGTH / 2 - zcr_rising_edge_index) / SAMPLE_RATE; // sec
+    let amp = (lift_angle * 3600) / (Math.PI * bph * tictoc_event_duration);
+
+    // 日差打点
+    plot_day_error(day_error);
+
+    $("#interval").html(String(avg_interval.toFixed(1)));
+    $("#bph").html(String(bph.toFixed(1)));
+    $("#day_error").html(String(day_error.toFixed(1)));
+    $("#amplitude").html(String(amp.toFixed(0)));
+    $("#tictoc_duration").html(String((tictoc_event_duration * 1000).toFixed(1)));
+}
+
+// 日差打点
+let plot_buffer = [];
+let last_plot_y = 0;
+
+function plot_day_error(day_error) {
+    if(isNaN(day_error)) return;
+    if(Math.abs(day_error) > 1000) return;
+    let delta = day_error / 2;
+    let current_plot_y = last_plot_y + delta;
+    if(current_plot_y >= MAX_PLOT_Y) {
+        current_plot_y -= (2 * MAX_PLOT_Y);
+    }
+    else if(current_plot_y <= - MAX_PLOT_Y) {
+        current_plot_y += (2 * MAX_PLOT_Y);
+    }
+    last_plot_y = current_plot_y;
+    pushIntoBuffer(current_plot_y, plot_buffer, DAY_ERROR_PLOT_LENGTH);
+    plot_tape(graph, plot_buffer);
+}
+
+// 复制frame
+function copy_frame(frame) {
+    let dup = [];
+    for(let i = 0; i < frame.length; i++) {
+        dup[i] = frame[i];
+    }
+    return dup;
+}
+
+//////////////////////////////////////////////////////////////////////////
+// 接收机（测试）
+//////////////////////////////////////////////////////////////////////////
+
+let sample_counter = 0;
+let last_tick_timestamp = 0;
+let cooldown_flag = false;
+let interval_buffer = [];
+
+let tictoc_timestamps = [];
+let see_next_frame = false;
+let last_frame = [];
+
+let tic_or_toc = false;
+
+// 以下变量用于开始后的一段时间估计表音电平阈值
+let max_level_buffer = [];
+let tictoc_level_threshold = 0;
+
+function receiver_test() {
+    function on_success(stream) {
+        const audioCtx = new AudioContext({sampleRate: SAMPLE_RATE});
+        const source   = audioCtx.createMediaStreamSource(stream);
+        const dsp      = audioCtx.createScriptProcessor(FFT_LENGTH, 1, 1);
+        source.connect(dsp); dsp.connect(audioCtx.destination);
+
+        $("#sample_rate").html(audioCtx.sampleRate);
+
+        dsp.onaudioprocess = (audioProcessingEvent) => {
+            $("#beat").css("color", "#eee");
+            let frame = audioProcessingEvent.inputBuffer.getChannelData(0);
+
+            if(see_next_frame) {
+                see_next_frame = false;
+                let new_frame = [];
+                for(let i = 0; i < last_frame.length; i++) {
+                    new_frame.push(last_frame[i]);
+                }
+                for(let i = 0; i < frame.length; i++) {
+                    new_frame.push(frame[i]);
+                }
+                let new_wave = preprocess(new_frame);
+                let threshold = decision_threshold(new_wave);
+                // 直接检测上升沿
+                // 基于阈值，检测上升沿
+                let rising_edge_index = locate_rising_edge(new_wave, threshold, Math.floor(new_wave.length / 3));
+                // 以上升沿为tictoc事件
+                let current_tick_timestamp = sample_counter - FFT_LENGTH + rising_edge_index;
+                pushIntoBuffer(current_tick_timestamp, tictoc_timestamps, 20);
+
+                let wave_partial = new_wave.slice(rising_edge_index - TICTOC_DISPLAY_LENGTH/2, rising_edge_index + TICTOC_DISPLAY_LENGTH/2);
+
+                // 计算过零率上升沿
+                let frame_partial = new_frame.slice(rising_edge_index - TICTOC_DISPLAY_LENGTH/2, rising_edge_index + TICTOC_DISPLAY_LENGTH/2);
+                let zcr = zero_crossing_rate(frame_partial, 50);
+                let zcr_average = zcr.reduce((p, c) => {return (p + c);}, 0) / zcr.length;
+                let zcr_rising_edge_index = locate_rising_edge(zcr, zcr_average, 0);
+
+                watch_analyse(tictoc_timestamps, zcr_rising_edge_index, LIFT_ANGLE);
+
+                plot_tictoc_wave(oscilloscope, wave_partial);
+
+                oscilloscope.context.lineWidth = 2;
+                oscilloscope.Line([oscilloscope.Xmin, threshold], [oscilloscope.Xmax, threshold], "#0ff");
+                oscilloscope.context.lineWidth = 3;
+                oscilloscope.Line([TICTOC_DISPLAY_LENGTH/2, oscilloscope.Ymin], [TICTOC_DISPLAY_LENGTH/2, oscilloscope.Ymax], "#ff0");
+                oscilloscope.context.lineWidth = 3;
+                oscilloscope.Line([zcr_rising_edge_index, oscilloscope.Ymin], [zcr_rising_edge_index, oscilloscope.Ymax], "#f00");
+
+                last_frame = copy_frame(frame);
+
+                sample_counter += audioProcessingEvent.inputBuffer.length;
+                tic_or_toc = !tic_or_toc;
+                return;
+            }
+
+            // 预处理
+            let wave = preprocess(frame);
+            // 计算门限
+            let threshold = decision_threshold(wave);
+            // 检测峰值
+            // let peaks = detectPeaks(wave);
+            let max_peak_index = detectMax(wave); // peaks[0];
+            let max_amp = wave[max_peak_index];
+
+            // 估计表音电平：
+            pushIntoBuffer(max_amp, max_level_buffer, 20);
+            tictoc_level_threshold = Math.max.apply(null, max_level_buffer) / 10;
+            oscilloscope.context.lineWidth = 1;
+            oscilloscope.Line([oscilloscope.Xmin, tictoc_level_threshold], [oscilloscope.Xmax, tictoc_level_threshold], "#ccc");
+            oscilloscope.Line([oscilloscope.Xmin, -tictoc_level_threshold], [oscilloscope.Xmax, -tictoc_level_threshold], "#ccc");
+
+            // 粗略检测tictoc事件
+            if(threshold > tictoc_level_threshold && wave[max_peak_index] > threshold) {
+                $("#beat").css("color", (tic_or_toc ? "#f00" : "#00f"));
+
+                // 判断峰值的位置，进而判断帧内是否有完整tictoc事件
+                if(max_peak_index >= Math.floor(wave.length / 4) && max_peak_index <= Math.floor(wave.length / 4 * 3)) {
+                    // 基于阈值，检测上升沿
+                    let rising_edge_index = locate_rising_edge(wave, threshold, 0);
+
+                    // 以上升沿为tictoc事件
+                    let current_tick_timestamp = sample_counter + rising_edge_index;
+                    pushIntoBuffer(current_tick_timestamp, tictoc_timestamps, 20);
+
+                    let wave_partial = wave.slice(rising_edge_index - TICTOC_DISPLAY_LENGTH/2, rising_edge_index + TICTOC_DISPLAY_LENGTH/2);
+
+                    // 计算过零率上升沿
+                    let frame_partial = frame.slice(rising_edge_index - TICTOC_DISPLAY_LENGTH/2, rising_edge_index + TICTOC_DISPLAY_LENGTH/2);
+                    let zcr = zero_crossing_rate(frame_partial, 50);
+                    let zcr_average = zcr.reduce((p, c) => {return (p + c);}, 0) / zcr.length;
+                    let zcr_rising_edge_index = locate_rising_edge(zcr, zcr_average, 0);
+
+                    watch_analyse(tictoc_timestamps, zcr_rising_edge_index, LIFT_ANGLE);
+
+                    plot_tictoc_wave(oscilloscope, wave_partial);
+
+                    oscilloscope.context.lineWidth = 2;
+                    oscilloscope.Line([oscilloscope.Xmin, threshold], [oscilloscope.Xmax, threshold], "#0ff");
+                    oscilloscope.context.lineWidth = 3;
+                    oscilloscope.Line([TICTOC_DISPLAY_LENGTH/2, oscilloscope.Ymin], [TICTOC_DISPLAY_LENGTH/2, oscilloscope.Ymax], "#ff0");
+                    oscilloscope.context.lineWidth = 3;
+                    oscilloscope.Line([zcr_rising_edge_index, oscilloscope.Ymin], [zcr_rising_edge_index, oscilloscope.Ymax], "#f00");
+
+                    last_frame = copy_frame(frame);
+                    tic_or_toc = !tic_or_toc;
+                }
+                // tictoc事件跨帧，需要连续两帧
+                // 事件在帧的尾部，此时应推迟到下一帧再看
+                else if(max_peak_index > Math.floor(wave.length / 4 * 3)) {
+                    see_next_frame = true;
+                    last_frame = copy_frame(frame);
+                }
+                // 事件在帧的头部，此时应看上一帧
+                else if(max_peak_index < Math.floor(wave.length / 4)) {
+                    let new_frame = [];
+                    for(let i = 0; i < last_frame.length; i++) {
+                        new_frame.push(last_frame[i]);
+                    }
+                    for(let i = 0; i < frame.length; i++) {
+                        new_frame.push(frame[i]);
+                    }
+                    let new_wave = preprocess(new_frame);
+                    let threshold = decision_threshold(new_wave);
+                    // 直接检测上升沿
+                    // 基于阈值，检测上升沿
+                    let rising_edge_index = locate_rising_edge(new_wave, threshold, Math.floor(new_wave.length / 3));
+                    // 以上升沿为tictoc事件
+                    let current_tick_timestamp = sample_counter - FFT_LENGTH + rising_edge_index;
+                    pushIntoBuffer(current_tick_timestamp, tictoc_timestamps, 20);
+
+                    let wave_partial = new_wave.slice(rising_edge_index - TICTOC_DISPLAY_LENGTH/2, rising_edge_index + TICTOC_DISPLAY_LENGTH/2);
+
+                    // 计算过零率上升沿
+                    let frame_partial = new_frame.slice(rising_edge_index - TICTOC_DISPLAY_LENGTH/2, rising_edge_index + TICTOC_DISPLAY_LENGTH/2);
+                    let zcr = zero_crossing_rate(frame_partial, 50);
+                    let zcr_average = zcr.reduce((p, c) => {return (p + c);}, 0) / zcr.length;
+                    let zcr_rising_edge_index = locate_rising_edge(zcr, zcr_average, 0);
+
+                    watch_analyse(tictoc_timestamps, zcr_rising_edge_index, LIFT_ANGLE);
+
+                    plot_tictoc_wave(oscilloscope, wave_partial);
+
+                    oscilloscope.context.lineWidth = 2;
+                    oscilloscope.Line([oscilloscope.Xmin, threshold], [oscilloscope.Xmax, threshold], "#0ff");
+                    oscilloscope.context.lineWidth = 3;
+                    oscilloscope.Line([TICTOC_DISPLAY_LENGTH/2, oscilloscope.Ymin], [TICTOC_DISPLAY_LENGTH/2, oscilloscope.Ymax], "#ff0");
+                    oscilloscope.context.lineWidth = 3;
+                    oscilloscope.Line([zcr_rising_edge_index, oscilloscope.Ymin], [zcr_rising_edge_index, oscilloscope.Ymax], "#f00");
+
+                    last_frame = copy_frame(frame);
+                    tic_or_toc = !tic_or_toc;
+                }
+            }
+            sample_counter += audioProcessingEvent.inputBuffer.length;
+        };
+    }
+
+    if(navigator.mediaDevices.getUserMedia) {
+        navigator.mediaDevices.getUserMedia({
+            "audio": {
+                echoCancellation: false,
+                noiseSuppression: false,
+                autoGainControl:  false
+            }
+        }).then(
+            on_success,
+            (err) => {
+                console.error(err);
+            }
+        );
+    }
+}
+
+
+// 音频接收
+$("#btn_receiver").click(() => {
+    LIFT_ANGLE = Math.round($("#la_value").val());
+    receiver_test();
+});
+
+
+</script>
+<!--脚本结束-->
+
+</body>
+</html>

@@ -1,0 +1,2458 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!-- Created with Inkscape (http://www.inkscape.org/) -->
+<svg
+   xmlns:dc="http://purl.org/dc/elements/1.1/"
+   xmlns:cc="http://creativecommons.org/ns#"
+   xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#"
+   xmlns:svg="http://www.w3.org/2000/svg"
+   xmlns="http://www.w3.org/2000/svg"
+   xmlns:sodipodi="http://sodipodi.sourceforge.net/DTD/sodipodi-0.dtd"
+   xmlns:inkscape="http://www.inkscape.org/namespaces/inkscape"
+   width="1330"
+   height="700"
+   id="svg2"
+   sodipodi:version="0.32"
+   inkscape:version="0.46"
+   sodipodi:docname="kinship.svg"
+   inkscape:output_extension="org.inkscape.output.svg.inkscape"
+   version="1.0">
+  <defs
+     id="defs4">
+    <inkscape:perspective
+       sodipodi:type="inkscape:persp3d"
+       inkscape:vp_x="0 : 526.18109 : 1"
+       inkscape:vp_y="0 : 1000 : 0"
+       inkscape:vp_z="744.09448 : 526.18109 : 1"
+       inkscape:persp3d-origin="372.04724 : 350.78739 : 1"
+       id="perspective10" />
+  </defs>
+  <sodipodi:namedview
+     id="base"
+     pagecolor="#ffffff"
+     bordercolor="#666666"
+     borderopacity="1.0"
+     gridtolerance="10000"
+     guidetolerance="10"
+     objecttolerance="10"
+     inkscape:pageopacity="0.0"
+     inkscape:pageshadow="2"
+     inkscape:zoom="0.66"
+     inkscape:cx="678.99719"
+     inkscape:cy="358.98781"
+     inkscape:document-units="px"
+     inkscape:current-layer="layer1"
+     showgrid="false"
+     inkscape:window-width="1280"
+     inkscape:window-height="968"
+     inkscape:window-x="-4"
+     inkscape:window-y="-4"
+     showguides="true"
+     inkscape:guide-bbox="true">
+    <inkscape:grid
+       type="xygrid"
+       id="grid2383"
+       visible="true"
+       enabled="true" />
+  </sodipodi:namedview>
+  <metadata
+     id="metadata7">
+    <rdf:RDF>
+      <cc:Work
+         rdf:about="">
+        <dc:format>image/svg+xml</dc:format>
+        <dc:type
+           rdf:resource="http://purl.org/dc/dcmitype/StillImage" />
+      </cc:Work>
+    </rdf:RDF>
+  </metadata>
+  <g
+     inkscape:label="Layer 1"
+     inkscape:groupmode="layer"
+     id="layer1"
+     transform="translate(130,-112.36218)">
+    <rect
+       style="opacity:1;fill:#ffffff;fill-opacity:1;fill-rule:evenodd;stroke:#000000;stroke-width:2;stroke-linecap:square;stroke-linejoin:bevel;stroke-miterlimit:4;stroke-dasharray:none;stroke-dashoffset:0;stroke-opacity:1"
+       id="rect3241"
+       width="650"
+       height="220"
+       x="-120"
+       y="122.36218" />
+    <path
+       style="fill:#0000ff;fill-rule:evenodd;stroke:#000000;stroke-width:2;stroke-linecap:butt;stroke-linejoin:miter;stroke-miterlimit:4;stroke-dasharray:none;stroke-opacity:1"
+       d="M 230,222.36218 L 270,222.36218 L 250,182.36218 L 230,222.36218 z"
+       id="path2385"
+       sodipodi:nodetypes="cccc" />
+    <path
+       sodipodi:type="arc"
+       style="opacity:1;fill:#ff0000;fill-opacity:1;fill-rule:evenodd;stroke:#000000;stroke-width:2;stroke-linecap:square;stroke-linejoin:bevel;stroke-miterlimit:4;stroke-dasharray:none;stroke-dashoffset:0;stroke-opacity:1"
+       id="path3157"
+       sodipodi:cx="160"
+       sodipodi:cy="192.36218"
+       sodipodi:rx="20"
+       sodipodi:ry="20"
+       d="M 180,192.36218 A 20,20 0 1 1 140,192.36218 A 20,20 0 1 1 180,192.36218 z"
+       transform="translate(0,9.9999948)" />
+    <path
+       style="fill:none;fill-rule:evenodd;stroke:#000000;stroke-width:2;stroke-linecap:butt;stroke-linejoin:miter;stroke-miterlimit:4;stroke-dasharray:none;stroke-opacity:1"
+       d="M 190,197.36218 L 220,197.36218"
+       id="path2395" />
+    <path
+       style="fill:none;fill-rule:evenodd;stroke:#000000;stroke-width:2;stroke-linecap:butt;stroke-linejoin:miter;stroke-miterlimit:4;stroke-dasharray:none;stroke-opacity:1"
+       d="M 190,207.36218 L 220,207.36218"
+       id="path2397" />
+    <path
+       transform="translate(310,9.9999948)"
+       sodipodi:type="arc"
+       style="opacity:1;fill:#ff0000;fill-opacity:1;fill-rule:evenodd;stroke:#000000;stroke-width:2;stroke-linecap:square;stroke-linejoin:bevel;stroke-miterlimit:4;stroke-dasharray:none;stroke-dashoffset:0;stroke-opacity:1"
+       id="path2403"
+       sodipodi:cx="160"
+       sodipodi:cy="192.36218"
+       sodipodi:rx="20"
+       sodipodi:ry="20"
+       d="M 180,192.36218 A 20,20 0 1 1 140,192.36218 A 20,20 0 1 1 180,192.36218 z" />
+    <path
+       style="fill:#0000ff;fill-rule:evenodd;stroke:#000000;stroke-width:2;stroke-linecap:butt;stroke-linejoin:miter;stroke-miterlimit:4;stroke-dasharray:none;stroke-opacity:1"
+       d="M 330,222.36218 L 370,222.36218 L 350,182.36218 L 330,222.36218 z"
+       id="path2405"
+       sodipodi:nodetypes="cccc" />
+    <path
+       style="fill:none;fill-rule:evenodd;stroke:#000000;stroke-width:2;stroke-linecap:butt;stroke-linejoin:miter;stroke-miterlimit:4;stroke-dasharray:none;stroke-opacity:1"
+       d="M 205,207.36218 L 205,272.36218"
+       id="path2407"
+       sodipodi:nodetypes="cc" />
+    <path
+       sodipodi:nodetypes="cccc"
+       id="path2409"
+       d="M 185,312.36218 L 225,312.36218 L 205,272.36218 L 185,312.36218 z"
+       style="fill:#b3b3b3;fill-rule:evenodd;stroke:#000000;stroke-width:2;stroke-linecap:butt;stroke-linejoin:miter;stroke-miterlimit:4;stroke-dasharray:none;stroke-opacity:1" />
+    <path
+       d="M 180,192.36218 A 20,20 0 1 1 140,192.36218 A 20,20 0 1 1 180,192.36218 z"
+       sodipodi:ry="20"
+       sodipodi:rx="20"
+       sodipodi:cy="192.36218"
+       sodipodi:cx="160"
+       id="path2411"
+       style="opacity:1;fill:#ffff00;fill-opacity:1;fill-rule:evenodd;stroke:#000000;stroke-width:2;stroke-linecap:square;stroke-linejoin:bevel;stroke-miterlimit:4;stroke-dasharray:none;stroke-dashoffset:0;stroke-opacity:1"
+       sodipodi:type="arc"
+       transform="translate(-10,99.999994)" />
+    <path
+       sodipodi:nodetypes="cccc"
+       id="path2413"
+       d="M 240,312.36218 L 280,312.36218 L 260,272.36218 L 240,312.36218 z"
+       style="fill:#ffff00;fill-rule:evenodd;stroke:#000000;stroke-width:2;stroke-linecap:butt;stroke-linejoin:miter;stroke-miterlimit:4;stroke-dasharray:none;stroke-opacity:1" />
+    <path
+       style="fill:none;fill-rule:evenodd;stroke:#000000;stroke-width:2;stroke-linecap:butt;stroke-linejoin:miter;stroke-miterlimit:4;stroke-dasharray:none;stroke-opacity:1"
+       d="M 150,272.36218 L 150,252.36218 L 260,252.36218 L 260,272.36218"
+       id="path2415"
+       sodipodi:nodetypes="cccc" />
+    <text
+       xml:space="preserve"
+       style="font-size:16px;font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;text-align:center;line-height:100%;writing-mode:lr-tb;text-anchor:middle;fill:#000000;fill-opacity:1;stroke:none;stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1;font-family:DejaVu Sans;-inkscape-font-specification:DejaVu Sans"
+       x="204.64844"
+       y="328.19421"
+       id="text3187"
+       sodipodi:linespacing="100%"><tspan
+         sodipodi:role="line"
+         id="tspan3189"
+         x="204.64844"
+         y="328.19421">Ego</tspan></text>
+    <text
+       sodipodi:linespacing="100%"
+       id="text3193"
+       y="328.19421"
+       x="149.48047"
+       style="font-size:16px;font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;text-align:center;line-height:100%;writing-mode:lr-tb;text-anchor:middle;fill:#000000;fill-opacity:1;stroke:none;stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1;font-family:DejaVu Sans;-inkscape-font-specification:DejaVu Sans"
+       xml:space="preserve"><tspan
+         y="328.19421"
+         x="149.48047"
+         id="tspan3195"
+         sodipodi:role="line">Sister</tspan></text>
+    <path
+       id="path3201"
+       d="M 250,182.36218 L 250,162.36218 L 470,162.36218 L 470,182.36218"
+       style="fill:none;fill-rule:evenodd;stroke:#000000;stroke-width:2;stroke-linecap:butt;stroke-linejoin:miter;stroke-miterlimit:4;stroke-dasharray:none;stroke-opacity:1"
+       sodipodi:nodetypes="cccc" />
+    <path
+       id="path3203"
+       d="M 350,162.36218 L 350,182.36218"
+       style="fill:none;fill-rule:evenodd;stroke:#000000;stroke-width:2;stroke-linecap:butt;stroke-linejoin:miter;stroke-miterlimit:4;stroke-dasharray:none;stroke-opacity:1" />
+    <text
+       xml:space="preserve"
+       style="font-size:16px;font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;text-align:center;line-height:100%;writing-mode:lr-tb;text-anchor:middle;fill:#000000;fill-opacity:1;stroke:none;stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1;font-family:DejaVu Sans;-inkscape-font-specification:DejaVu Sans"
+       x="259.48047"
+       y="328.19421"
+       id="text3205"
+       sodipodi:linespacing="100%"><tspan
+         sodipodi:role="line"
+         id="tspan3207"
+         x="259.48047"
+         y="328.19421">Brother</tspan></text>
+    <text
+       sodipodi:linespacing="100%"
+       id="text3209"
+       y="238.19421"
+       x="159.22266"
+       style="font-size:16px;font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;text-align:center;line-height:100%;writing-mode:lr-tb;text-anchor:middle;fill:#000000;fill-opacity:1;stroke:none;stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1;font-family:DejaVu Sans;-inkscape-font-specification:DejaVu Sans"
+       xml:space="preserve"><tspan
+         y="238.19421"
+         x="159.22266"
+         id="tspan3211"
+         sodipodi:role="line">Mother</tspan></text>
+    <text
+       xml:space="preserve"
+       style="font-size:16px;font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;text-align:center;line-height:100%;writing-mode:lr-tb;text-anchor:middle;fill:#000000;fill-opacity:1;stroke:none;stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1;font-family:DejaVu Sans;-inkscape-font-specification:DejaVu Sans"
+       x="249.64844"
+       y="238.19421"
+       id="text3215"
+       sodipodi:linespacing="100%"><tspan
+         sodipodi:role="line"
+         id="tspan3217"
+         x="249.64844"
+         y="238.19421">Father</tspan></text>
+    <text
+       xml:space="preserve"
+       style="font-size:20px;font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;text-align:center;line-height:100%;writing-mode:lr-tb;text-anchor:middle;fill:#000000;fill-opacity:1;stroke:none;stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1;font-family:DejaVu Sans;-inkscape-font-specification:DejaVu Sans"
+       x="204.56543"
+       y="146.98123"
+       id="text3221"
+       sodipodi:linespacing="100%"><tspan
+         sodipodi:role="line"
+         id="tspan3223"
+         x="204.56543"
+         y="146.98123">Hawaiian Kinship</tspan></text>
+    <text
+       sodipodi:linespacing="100%"
+       id="text3229"
+       y="238.19421"
+       x="434.78125"
+       style="font-size:16px;font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;text-align:center;line-height:100%;writing-mode:lr-tb;text-anchor:middle;fill:#000000;fill-opacity:1;stroke:none;stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1;font-family:DejaVu Sans;-inkscape-font-specification:DejaVu Sans"
+       xml:space="preserve"><tspan
+         y="238.19421"
+         x="434.78125"
+         id="tspan3231"
+         sodipodi:role="line">Mother</tspan></text>
+    <text
+       sodipodi:linespacing="100%"
+       id="text3233"
+       y="238.19421"
+       x="317.0625"
+       style="font-size:16px;font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;text-align:center;line-height:100%;writing-mode:lr-tb;text-anchor:middle;fill:#000000;fill-opacity:1;stroke:none;stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1;font-family:DejaVu Sans;-inkscape-font-specification:DejaVu Sans"
+       xml:space="preserve"><tspan
+         y="238.19421"
+         x="317.0625"
+         id="tspan3235"
+         sodipodi:role="line">Father</tspan></text>
+    <path
+       transform="translate(160,99.999994)"
+       sodipodi:type="arc"
+       style="opacity:1;fill:#ffff00;fill-opacity:1;fill-rule:evenodd;stroke:#000000;stroke-width:2;stroke-linecap:square;stroke-linejoin:bevel;stroke-miterlimit:4;stroke-dasharray:none;stroke-dashoffset:0;stroke-opacity:1"
+       id="path3243"
+       sodipodi:cx="160"
+       sodipodi:cy="192.36218"
+       sodipodi:rx="20"
+       sodipodi:ry="20"
+       d="M 180,192.36218 A 20,20 0 1 1 140,192.36218 A 20,20 0 1 1 180,192.36218 z" />
+    <path
+       style="fill:#ffff00;fill-rule:evenodd;stroke:#000000;stroke-width:2;stroke-linecap:butt;stroke-linejoin:miter;stroke-miterlimit:4;stroke-dasharray:none;stroke-opacity:1"
+       d="M 360,312.36218 L 400,312.36218 L 380,272.36218 L 360,312.36218 z"
+       id="path3245"
+       sodipodi:nodetypes="cccc" />
+    <path
+       sodipodi:nodetypes="cccc"
+       id="path3247"
+       d="M 320,272.36218 L 320,252.36218 L 380,252.36218 L 380,272.36218"
+       style="fill:none;fill-rule:evenodd;stroke:#000000;stroke-width:2;stroke-linecap:butt;stroke-linejoin:miter;stroke-miterlimit:4;stroke-dasharray:none;stroke-opacity:1" />
+    <text
+       xml:space="preserve"
+       style="font-size:16px;font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;text-align:center;line-height:100%;writing-mode:lr-tb;text-anchor:middle;fill:#000000;fill-opacity:1;stroke:none;stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1;font-family:DejaVu Sans;-inkscape-font-specification:DejaVu Sans"
+       x="319.48047"
+       y="328.19421"
+       id="text3249"
+       sodipodi:linespacing="100%"><tspan
+         sodipodi:role="line"
+         id="tspan3251"
+         x="319.48047"
+         y="328.19421">Sister</tspan></text>
+    <text
+       sodipodi:linespacing="100%"
+       id="text3253"
+       y="328.19421"
+       x="379.48047"
+       style="font-size:16px;font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;text-align:center;line-height:100%;writing-mode:lr-tb;text-anchor:middle;fill:#000000;fill-opacity:1;stroke:none;stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1;font-family:DejaVu Sans;-inkscape-font-specification:DejaVu Sans"
+       xml:space="preserve"><tspan
+         y="328.19421"
+         x="379.48047"
+         id="tspan3255"
+         sodipodi:role="line">Brother</tspan></text>
+    <path
+       style="fill:none;fill-rule:evenodd;stroke:#000000;stroke-width:2;stroke-linecap:butt;stroke-linejoin:miter;stroke-miterlimit:4;stroke-dasharray:none;stroke-opacity:1"
+       d="M 350,252.36218 L 350,222.36218"
+       id="path3257" />
+    <path
+       d="M 180,192.36218 A 20,20 0 1 1 140,192.36218 A 20,20 0 1 1 180,192.36218 z"
+       sodipodi:ry="20"
+       sodipodi:rx="20"
+       sodipodi:cy="192.36218"
+       sodipodi:cx="160"
+       id="path3259"
+       style="opacity:1;fill:#ffff00;fill-opacity:1;fill-rule:evenodd;stroke:#000000;stroke-width:2;stroke-linecap:square;stroke-linejoin:bevel;stroke-miterlimit:4;stroke-dasharray:none;stroke-dashoffset:0;stroke-opacity:1"
+       sodipodi:type="arc"
+       transform="translate(280,99.999994)" />
+    <path
+       sodipodi:nodetypes="cccc"
+       id="path3261"
+       d="M 480,312.36218 L 520,312.36218 L 500,272.36218 L 480,312.36218 z"
+       style="fill:#ffff00;fill-rule:evenodd;stroke:#000000;stroke-width:2;stroke-linecap:butt;stroke-linejoin:miter;stroke-miterlimit:4;stroke-dasharray:none;stroke-opacity:1" />
+    <path
+       style="fill:none;fill-rule:evenodd;stroke:#000000;stroke-width:2;stroke-linecap:butt;stroke-linejoin:miter;stroke-miterlimit:4;stroke-dasharray:none;stroke-opacity:1"
+       d="M 440,272.36218 L 440,252.36218 L 500,252.36218 L 500,272.36218"
+       id="path3263"
+       sodipodi:nodetypes="cccc" />
+    <text
+       sodipodi:linespacing="100%"
+       id="text3265"
+       y="328.19421"
+       x="439.48047"
+       style="font-size:16px;font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;text-align:center;line-height:100%;writing-mode:lr-tb;text-anchor:middle;fill:#000000;fill-opacity:1;stroke:none;stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1;font-family:DejaVu Sans;-inkscape-font-specification:DejaVu Sans"
+       xml:space="preserve"><tspan
+         y="328.19421"
+         x="439.48047"
+         id="tspan3267"
+         sodipodi:role="line">Sister</tspan></text>
+    <text
+       xml:space="preserve"
+       style="font-size:16px;font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;text-align:center;line-height:100%;writing-mode:lr-tb;text-anchor:middle;fill:#000000;fill-opacity:1;stroke:none;stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1;font-family:DejaVu Sans;-inkscape-font-specification:DejaVu Sans"
+       x="499.48047"
+       y="328.19421"
+       id="text3269"
+       sodipodi:linespacing="100%"><tspan
+         sodipodi:role="line"
+         id="tspan3271"
+         x="499.48047"
+         y="328.19421">Brother</tspan></text>
+    <path
+       id="path3273"
+       d="M 470,252.36218 L 470,222.36218"
+       style="fill:none;fill-rule:evenodd;stroke:#000000;stroke-width:2;stroke-linecap:butt;stroke-linejoin:miter;stroke-miterlimit:4;stroke-dasharray:none;stroke-opacity:1" />
+    <path
+       d="M 180,192.36218 A 20,20 0 1 1 140,192.36218 A 20,20 0 1 1 180,192.36218 z"
+       sodipodi:ry="20"
+       sodipodi:rx="20"
+       sodipodi:cy="192.36218"
+       sodipodi:cx="160"
+       id="path3275"
+       style="opacity:1;fill:#ff0000;fill-opacity:1;fill-rule:evenodd;stroke:#000000;stroke-width:2;stroke-linecap:square;stroke-linejoin:bevel;stroke-miterlimit:4;stroke-dasharray:none;stroke-dashoffset:0;stroke-opacity:1"
+       sodipodi:type="arc"
+       transform="translate(-100,9.9999948)" />
+    <path
+       sodipodi:nodetypes="cccc"
+       id="path3277"
+       d="M -80,222.36218 L -40,222.36218 L -60,182.36218 L -80,222.36218 z"
+       style="fill:#0000ff;fill-rule:evenodd;stroke:#000000;stroke-width:2;stroke-linecap:butt;stroke-linejoin:miter;stroke-miterlimit:4;stroke-dasharray:none;stroke-opacity:1" />
+    <path
+       sodipodi:nodetypes="cccc"
+       style="fill:none;fill-rule:evenodd;stroke:#000000;stroke-width:2;stroke-linecap:butt;stroke-linejoin:miter;stroke-miterlimit:4;stroke-dasharray:none;stroke-opacity:1"
+       d="M -60,182.36218 L -60,162.36218 L 160,162.36218 L 160,182.36218"
+       id="path3279" />
+    <path
+       style="fill:none;fill-rule:evenodd;stroke:#000000;stroke-width:2;stroke-linecap:butt;stroke-linejoin:miter;stroke-miterlimit:4;stroke-dasharray:none;stroke-opacity:1"
+       d="M 60,162.36218 L 60,182.36218"
+       id="path3281" />
+    <text
+       xml:space="preserve"
+       style="font-size:16px;font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;text-align:center;line-height:100%;writing-mode:lr-tb;text-anchor:middle;fill:#000000;fill-opacity:1;stroke:none;stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1;font-family:DejaVu Sans;-inkscape-font-specification:DejaVu Sans"
+       x="24.78125"
+       y="238.19421"
+       id="text3283"
+       sodipodi:linespacing="100%"><tspan
+         sodipodi:role="line"
+         id="tspan3285"
+         x="24.78125"
+         y="238.19421">Mother</tspan></text>
+    <text
+       xml:space="preserve"
+       style="font-size:16px;font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;text-align:center;line-height:100%;writing-mode:lr-tb;text-anchor:middle;fill:#000000;fill-opacity:1;stroke:none;stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1;font-family:DejaVu Sans;-inkscape-font-specification:DejaVu Sans"
+       x="-90.9375"
+       y="238.19421"
+       id="text3287"
+       sodipodi:linespacing="100%"><tspan
+         sodipodi:role="line"
+         id="tspan3289"
+         x="-90.9375"
+         y="238.19421">Father</tspan></text>
+    <path
+       d="M 180,192.36218 A 20,20 0 1 1 140,192.36218 A 20,20 0 1 1 180,192.36218 z"
+       sodipodi:ry="20"
+       sodipodi:rx="20"
+       sodipodi:cy="192.36218"
+       sodipodi:cx="160"
+       id="path3291"
+       style="opacity:1;fill:#ffff00;fill-opacity:1;fill-rule:evenodd;stroke:#000000;stroke-width:2;stroke-linecap:square;stroke-linejoin:bevel;stroke-miterlimit:4;stroke-dasharray:none;stroke-dashoffset:0;stroke-opacity:1"
+       sodipodi:type="arc"
+       transform="translate(-250,99.999994)" />
+    <path
+       sodipodi:nodetypes="cccc"
+       id="path3293"
+       d="M -50,312.36218 L -10,312.36218 L -30,272.36218 L -50,312.36218 z"
+       style="fill:#ffff00;fill-rule:evenodd;stroke:#000000;stroke-width:2;stroke-linecap:butt;stroke-linejoin:miter;stroke-miterlimit:4;stroke-dasharray:none;stroke-opacity:1" />
+    <path
+       style="fill:none;fill-rule:evenodd;stroke:#000000;stroke-width:2;stroke-linecap:butt;stroke-linejoin:miter;stroke-miterlimit:4;stroke-dasharray:none;stroke-opacity:1"
+       d="M -90,272.36218 L -90,252.36218 L -30,252.36218 L -30,272.36218"
+       id="path3295"
+       sodipodi:nodetypes="cccc" />
+    <text
+       sodipodi:linespacing="100%"
+       id="text3297"
+       y="328.19421"
+       x="-90.519531"
+       style="font-size:16px;font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;text-align:center;line-height:100%;writing-mode:lr-tb;text-anchor:middle;fill:#000000;fill-opacity:1;stroke:none;stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1;font-family:DejaVu Sans;-inkscape-font-specification:DejaVu Sans"
+       xml:space="preserve"><tspan
+         y="328.19421"
+         x="-90.519531"
+         id="tspan3299"
+         sodipodi:role="line">Sister</tspan></text>
+    <text
+       xml:space="preserve"
+       style="font-size:16px;font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;text-align:center;line-height:100%;writing-mode:lr-tb;text-anchor:middle;fill:#000000;fill-opacity:1;stroke:none;stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1;font-family:DejaVu Sans;-inkscape-font-specification:DejaVu Sans"
+       x="-30.519531"
+       y="328.19421"
+       id="text3301"
+       sodipodi:linespacing="100%"><tspan
+         sodipodi:role="line"
+         id="tspan3303"
+         x="-30.519531"
+         y="328.19421">Brother</tspan></text>
+    <path
+       id="path3305"
+       d="M -60,252.36218 L -60,222.36218"
+       style="fill:none;fill-rule:evenodd;stroke:#000000;stroke-width:2;stroke-linecap:butt;stroke-linejoin:miter;stroke-miterlimit:4;stroke-dasharray:none;stroke-opacity:1" />
+    <path
+       transform="translate(-130,99.999994)"
+       sodipodi:type="arc"
+       style="opacity:1;fill:#ffff00;fill-opacity:1;fill-rule:evenodd;stroke:#000000;stroke-width:2;stroke-linecap:square;stroke-linejoin:bevel;stroke-miterlimit:4;stroke-dasharray:none;stroke-dashoffset:0;stroke-opacity:1"
+       id="path3307"
+       sodipodi:cx="160"
+       sodipodi:cy="192.36218"
+       sodipodi:rx="20"
+       sodipodi:ry="20"
+       d="M 180,192.36218 A 20,20 0 1 1 140,192.36218 A 20,20 0 1 1 180,192.36218 z" />
+    <path
+       style="fill:#ffff00;fill-rule:evenodd;stroke:#000000;stroke-width:2;stroke-linecap:butt;stroke-linejoin:miter;stroke-miterlimit:4;stroke-dasharray:none;stroke-opacity:1"
+       d="M 70,312.36218 L 110,312.36218 L 90,272.36218 L 70,312.36218 z"
+       id="path3309"
+       sodipodi:nodetypes="cccc" />
+    <path
+       sodipodi:nodetypes="cccc"
+       id="path3311"
+       d="M 30,272.36218 L 30,252.36218 L 90,252.36218 L 90,272.36218"
+       style="fill:none;fill-rule:evenodd;stroke:#000000;stroke-width:2;stroke-linecap:butt;stroke-linejoin:miter;stroke-miterlimit:4;stroke-dasharray:none;stroke-opacity:1" />
+    <text
+       xml:space="preserve"
+       style="font-size:16px;font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;text-align:center;line-height:100%;writing-mode:lr-tb;text-anchor:middle;fill:#000000;fill-opacity:1;stroke:none;stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1;font-family:DejaVu Sans;-inkscape-font-specification:DejaVu Sans"
+       x="29.480469"
+       y="328.19421"
+       id="text3313"
+       sodipodi:linespacing="100%"><tspan
+         sodipodi:role="line"
+         id="tspan3315"
+         x="29.480469"
+         y="328.19421">Sister</tspan></text>
+    <text
+       sodipodi:linespacing="100%"
+       id="text3317"
+       y="328.19421"
+       x="89.480469"
+       style="font-size:16px;font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;text-align:center;line-height:100%;writing-mode:lr-tb;text-anchor:middle;fill:#000000;fill-opacity:1;stroke:none;stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1;font-family:DejaVu Sans;-inkscape-font-specification:DejaVu Sans"
+       xml:space="preserve"><tspan
+         y="328.19421"
+         x="89.480469"
+         id="tspan3319"
+         sodipodi:role="line">Brother</tspan></text>
+    <path
+       style="fill:none;fill-rule:evenodd;stroke:#000000;stroke-width:2;stroke-linecap:butt;stroke-linejoin:miter;stroke-miterlimit:4;stroke-dasharray:none;stroke-opacity:1"
+       d="M 60,252.36218 L 60,222.36218"
+       id="path3321" />
+    <rect
+       y="352.36218"
+       x="-120"
+       height="220"
+       width="650"
+       id="rect3323"
+       style="fill:#ffffff;fill-opacity:1;fill-rule:evenodd;stroke:#000000;stroke-width:2;stroke-linecap:square;stroke-linejoin:bevel;stroke-miterlimit:4;stroke-dasharray:none;stroke-dashoffset:0;stroke-opacity:1" />
+    <path
+       sodipodi:nodetypes="cccc"
+       id="path3325"
+       d="M 230,452.36218 L 270,452.36218 L 250,412.36218 L 230,452.36218 z"
+       style="fill:#0000ff;fill-rule:evenodd;stroke:#000000;stroke-width:2;stroke-linecap:butt;stroke-linejoin:miter;stroke-miterlimit:4;stroke-dasharray:none;stroke-opacity:1" />
+    <path
+       d="M 180,192.36218 A 20,20 0 1 1 140,192.36218 A 20,20 0 1 1 180,192.36218 z"
+       sodipodi:ry="20"
+       sodipodi:rx="20"
+       sodipodi:cy="192.36218"
+       sodipodi:cx="160"
+       id="path3327"
+       style="fill:#ff0000;fill-opacity:1;fill-rule:evenodd;stroke:#000000;stroke-width:2;stroke-linecap:square;stroke-linejoin:bevel;stroke-miterlimit:4;stroke-dasharray:none;stroke-dashoffset:0;stroke-opacity:1"
+       sodipodi:type="arc"
+       transform="translate(0,240)" />
+    <path
+       id="path3329"
+       d="M 190,427.36218 L 220,427.36218"
+       style="fill:none;fill-rule:evenodd;stroke:#000000;stroke-width:2;stroke-linecap:butt;stroke-linejoin:miter;stroke-miterlimit:4;stroke-dasharray:none;stroke-opacity:1" />
+    <path
+       id="path3331"
+       d="M 190,437.36218 L 220,437.36218"
+       style="fill:none;fill-rule:evenodd;stroke:#000000;stroke-width:2;stroke-linecap:butt;stroke-linejoin:miter;stroke-miterlimit:4;stroke-dasharray:none;stroke-opacity:1" />
+    <path
+       d="M 180,192.36218 A 20,20 0 1 1 140,192.36218 A 20,20 0 1 1 180,192.36218 z"
+       sodipodi:ry="20"
+       sodipodi:rx="20"
+       sodipodi:cy="192.36218"
+       sodipodi:cx="160"
+       id="path3333"
+       style="fill:#008000;fill-opacity:1;fill-rule:evenodd;stroke:#000000;stroke-width:2;stroke-linecap:square;stroke-linejoin:bevel;stroke-miterlimit:4;stroke-dasharray:none;stroke-dashoffset:0;stroke-opacity:1"
+       sodipodi:type="arc"
+       transform="translate(310,240)" />
+    <path
+       sodipodi:nodetypes="cccc"
+       id="path3335"
+       d="M 330,452.36218 L 370,452.36218 L 350,412.36218 L 330,452.36218 z"
+       style="fill:#008080;fill-rule:evenodd;stroke:#000000;stroke-width:2;stroke-linecap:butt;stroke-linejoin:miter;stroke-miterlimit:4;stroke-dasharray:none;stroke-opacity:1" />
+    <path
+       sodipodi:nodetypes="cc"
+       id="path3337"
+       d="M 205,437.36218 L 205,502.36218"
+       style="fill:none;fill-rule:evenodd;stroke:#000000;stroke-width:2;stroke-linecap:butt;stroke-linejoin:miter;stroke-miterlimit:4;stroke-dasharray:none;stroke-opacity:1" />
+    <path
+       style="fill:#b3b3b3;fill-rule:evenodd;stroke:#000000;stroke-width:2;stroke-linecap:butt;stroke-linejoin:miter;stroke-miterlimit:4;stroke-dasharray:none;stroke-opacity:1"
+       d="M 185,542.36218 L 225,542.36218 L 205,502.36218 L 185,542.36218 z"
+       id="path3339"
+       sodipodi:nodetypes="cccc" />
+    <path
+       transform="translate(-10,330)"
+       sodipodi:type="arc"
+       style="fill:#ffff00;fill-opacity:1;fill-rule:evenodd;stroke:#000000;stroke-width:2;stroke-linecap:square;stroke-linejoin:bevel;stroke-miterlimit:4;stroke-dasharray:none;stroke-dashoffset:0;stroke-opacity:1"
+       id="path3341"
+       sodipodi:cx="160"
+       sodipodi:cy="192.36218"
+       sodipodi:rx="20"
+       sodipodi:ry="20"
+       d="M 180,192.36218 A 20,20 0 1 1 140,192.36218 A 20,20 0 1 1 180,192.36218 z" />
+    <path
+       style="fill:#ffff00;fill-rule:evenodd;stroke:#000000;stroke-width:2;stroke-linecap:butt;stroke-linejoin:miter;stroke-miterlimit:4;stroke-dasharray:none;stroke-opacity:1"
+       d="M 240,542.36218 L 280,542.36218 L 260,502.36218 L 240,542.36218 z"
+       id="path3343"
+       sodipodi:nodetypes="cccc" />
+    <path
+       sodipodi:nodetypes="cccc"
+       id="path3345"
+       d="M 150,502.36218 L 150,482.36218 L 260,482.36218 L 260,502.36218"
+       style="fill:none;fill-rule:evenodd;stroke:#000000;stroke-width:2;stroke-linecap:butt;stroke-linejoin:miter;stroke-miterlimit:4;stroke-dasharray:none;stroke-opacity:1" />
+    <text
+       sodipodi:linespacing="100%"
+       id="text3347"
+       y="558.19421"
+       x="204.64844"
+       style="font-size:16px;font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;text-align:center;line-height:100%;writing-mode:lr-tb;text-anchor:middle;fill:#000000;fill-opacity:1;stroke:none;stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1;font-family:DejaVu Sans;-inkscape-font-specification:DejaVu Sans"
+       xml:space="preserve"><tspan
+         y="558.19421"
+         x="204.64844"
+         id="tspan3349"
+         sodipodi:role="line">Ego</tspan></text>
+    <text
+       xml:space="preserve"
+       style="font-size:16px;font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;text-align:center;line-height:100%;writing-mode:lr-tb;text-anchor:middle;fill:#000000;fill-opacity:1;stroke:none;stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1;font-family:DejaVu Sans;-inkscape-font-specification:DejaVu Sans"
+       x="149.48047"
+       y="558.19421"
+       id="text3351"
+       sodipodi:linespacing="100%"><tspan
+         sodipodi:role="line"
+         id="tspan3353"
+         x="149.48047"
+         y="558.19421">Sister</tspan></text>
+    <path
+       sodipodi:nodetypes="cccc"
+       style="fill:none;fill-rule:evenodd;stroke:#000000;stroke-width:2;stroke-linecap:butt;stroke-linejoin:miter;stroke-miterlimit:4;stroke-dasharray:none;stroke-opacity:1"
+       d="M 250,412.36218 L 250,392.36218 L 470,392.36218 L 470,412.36218"
+       id="path3355" />
+    <path
+       style="fill:none;fill-rule:evenodd;stroke:#000000;stroke-width:2;stroke-linecap:butt;stroke-linejoin:miter;stroke-miterlimit:4;stroke-dasharray:none;stroke-opacity:1"
+       d="M 350,392.36218 L 350,412.36218"
+       id="path3357" />
+    <text
+       sodipodi:linespacing="100%"
+       id="text3359"
+       y="558.19421"
+       x="259.48047"
+       style="font-size:16px;font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;text-align:center;line-height:100%;writing-mode:lr-tb;text-anchor:middle;fill:#000000;fill-opacity:1;stroke:none;stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1;font-family:DejaVu Sans;-inkscape-font-specification:DejaVu Sans"
+       xml:space="preserve"><tspan
+         y="558.19421"
+         x="259.48047"
+         id="tspan3361"
+         sodipodi:role="line">Brother</tspan></text>
+    <text
+       xml:space="preserve"
+       style="font-size:16px;font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;text-align:center;line-height:100%;writing-mode:lr-tb;text-anchor:middle;fill:#000000;fill-opacity:1;stroke:none;stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1;font-family:DejaVu Sans;-inkscape-font-specification:DejaVu Sans"
+       x="159.64844"
+       y="468.19421"
+       id="text3363"
+       sodipodi:linespacing="100%"><tspan
+         sodipodi:role="line"
+         id="tspan3365"
+         x="159.64844"
+         y="468.19421">Mother</tspan></text>
+    <text
+       sodipodi:linespacing="100%"
+       id="text3367"
+       y="468.19421"
+       x="249.64844"
+       style="font-size:16px;font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;text-align:center;line-height:100%;writing-mode:lr-tb;text-anchor:middle;fill:#000000;fill-opacity:1;stroke:none;stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1;font-family:DejaVu Sans;-inkscape-font-specification:DejaVu Sans"
+       xml:space="preserve"><tspan
+         y="468.19421"
+         x="249.64844"
+         id="tspan3369"
+         sodipodi:role="line">Father</tspan></text>
+    <text
+       sodipodi:linespacing="100%"
+       id="text3371"
+       y="376.98123"
+       x="204.56543"
+       style="font-size:20px;font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;text-align:center;line-height:100%;writing-mode:lr-tb;text-anchor:middle;fill:#000000;fill-opacity:1;stroke:none;stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1;font-family:DejaVu Sans;-inkscape-font-specification:DejaVu Sans"
+       xml:space="preserve"><tspan
+         y="376.98123"
+         x="204.56543"
+         id="tspan3373"
+         sodipodi:role="line">Sudanese Kinship</tspan></text>
+    <text
+       xml:space="preserve"
+       style="font-size:12px;font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;text-align:center;line-height:100%;writing-mode:lr-tb;text-anchor:middle;fill:#000000;fill-opacity:1;stroke:none;stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1;font-family:DejaVu Sans;-inkscape-font-specification:DejaVu Sans"
+       x="463.41699"
+       y="468.19421"
+       id="text3375"
+       sodipodi:linespacing="100%"><tspan
+         sodipodi:role="line"
+         id="tspan3377"
+         x="463.41699"
+         y="468.19421">Father's Sister</tspan></text>
+    <text
+       xml:space="preserve"
+       style="font-size:12px;font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;text-align:center;line-height:100%;writing-mode:lr-tb;text-anchor:middle;fill:#000000;fill-opacity:1;stroke:none;stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1;font-family:DejaVu Sans;-inkscape-font-specification:DejaVu Sans"
+       x="347.41699"
+       y="468.19421"
+       id="text3379"
+       sodipodi:linespacing="100%"><tspan
+         sodipodi:role="line"
+         id="tspan3381"
+         x="347.41699"
+         y="468.19421">Father's Brother</tspan></text>
+    <path
+       d="M 180,192.36218 A 20,20 0 1 1 140,192.36218 A 20,20 0 1 1 180,192.36218 z"
+       sodipodi:ry="20"
+       sodipodi:rx="20"
+       sodipodi:cy="192.36218"
+       sodipodi:cx="160"
+       id="path3383"
+       style="fill:#00ffff;fill-opacity:1;fill-rule:evenodd;stroke:#000000;stroke-width:2;stroke-linecap:square;stroke-linejoin:bevel;stroke-miterlimit:4;stroke-dasharray:none;stroke-dashoffset:0;stroke-opacity:1"
+       sodipodi:type="arc"
+       transform="translate(160,330)" />
+    <path
+       sodipodi:nodetypes="cccc"
+       id="path3385"
+       d="M 360,542.36218 L 400,542.36218 L 380,502.36218 L 360,542.36218 z"
+       style="fill:#00ffff;fill-rule:evenodd;stroke:#000000;stroke-width:2;stroke-linecap:butt;stroke-linejoin:miter;stroke-miterlimit:4;stroke-dasharray:none;stroke-opacity:1" />
+    <path
+       style="fill:none;fill-rule:evenodd;stroke:#000000;stroke-width:2;stroke-linecap:butt;stroke-linejoin:miter;stroke-miterlimit:4;stroke-dasharray:none;stroke-opacity:1"
+       d="M 320,502.36218 L 320,482.36218 L 380,482.36218 L 380,502.36218"
+       id="path3387"
+       sodipodi:nodetypes="cccc" />
+    <text
+       sodipodi:linespacing="100%"
+       id="text3389"
+       y="554.19421"
+       x="349.70703"
+       style="font-size:12px;font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;text-align:center;line-height:100%;writing-mode:lr-tb;text-anchor:middle;fill:#000000;fill-opacity:1;stroke:none;stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1;font-family:DejaVu Sans;-inkscape-font-specification:DejaVu Sans"
+       xml:space="preserve"><tspan
+         y="554.19421"
+         x="349.70703"
+         id="tspan3391"
+         sodipodi:role="line">Paternal</tspan><tspan
+         y="566.19421"
+         x="349.70703"
+         sodipodi:role="line"
+         id="tspan3467">Parallel Cousins</tspan></text>
+    <path
+       id="path3397"
+       d="M 350,482.36218 L 350,452.36218"
+       style="fill:none;fill-rule:evenodd;stroke:#000000;stroke-width:2;stroke-linecap:butt;stroke-linejoin:miter;stroke-miterlimit:4;stroke-dasharray:none;stroke-opacity:1" />
+    <path
+       transform="translate(280,330)"
+       sodipodi:type="arc"
+       style="fill:#00ff00;fill-opacity:1;fill-rule:evenodd;stroke:#000000;stroke-width:2;stroke-linecap:square;stroke-linejoin:bevel;stroke-miterlimit:4;stroke-dasharray:none;stroke-dashoffset:0;stroke-opacity:1"
+       id="path3399"
+       sodipodi:cx="160"
+       sodipodi:cy="192.36218"
+       sodipodi:rx="20"
+       sodipodi:ry="20"
+       d="M 180,192.36218 A 20,20 0 1 1 140,192.36218 A 20,20 0 1 1 180,192.36218 z" />
+    <path
+       style="fill:#00ff00;fill-rule:evenodd;stroke:#000000;stroke-width:2;stroke-linecap:butt;stroke-linejoin:miter;stroke-miterlimit:4;stroke-dasharray:none;stroke-opacity:1"
+       d="M 480,542.36218 L 520,542.36218 L 500,502.36218 L 480,542.36218 z"
+       id="path3401"
+       sodipodi:nodetypes="cccc" />
+    <path
+       sodipodi:nodetypes="cccc"
+       id="path3403"
+       d="M 440,502.36218 L 440,482.36218 L 500,482.36218 L 500,502.36218"
+       style="fill:none;fill-rule:evenodd;stroke:#000000;stroke-width:2;stroke-linecap:butt;stroke-linejoin:miter;stroke-miterlimit:4;stroke-dasharray:none;stroke-opacity:1" />
+    <text
+       xml:space="preserve"
+       style="font-size:12px;font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;text-align:center;line-height:100%;writing-mode:lr-tb;text-anchor:middle;fill:#000000;fill-opacity:1;stroke:none;stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1;font-family:DejaVu Sans;-inkscape-font-specification:DejaVu Sans"
+       x="470.21875"
+       y="554.19421"
+       id="text3405"
+       sodipodi:linespacing="100%"><tspan
+         sodipodi:role="line"
+         id="tspan3407"
+         x="470.21875"
+         y="554.19421">Paternal</tspan><tspan
+         sodipodi:role="line"
+         x="470.21875"
+         y="566.19421"
+         id="tspan3469">Cross Cousins</tspan></text>
+    <path
+       style="fill:none;fill-rule:evenodd;stroke:#000000;stroke-width:2;stroke-linecap:butt;stroke-linejoin:miter;stroke-miterlimit:4;stroke-dasharray:none;stroke-opacity:1"
+       d="M 470,482.36218 L 470,452.36218"
+       id="path3413" />
+    <path
+       transform="translate(-100,240)"
+       sodipodi:type="arc"
+       style="fill:#800080;fill-opacity:1;fill-rule:evenodd;stroke:#000000;stroke-width:2;stroke-linecap:square;stroke-linejoin:bevel;stroke-miterlimit:4;stroke-dasharray:none;stroke-dashoffset:0;stroke-opacity:1"
+       id="path3415"
+       sodipodi:cx="160"
+       sodipodi:cy="192.36218"
+       sodipodi:rx="20"
+       sodipodi:ry="20"
+       d="M 180,192.36218 A 20,20 0 1 1 140,192.36218 A 20,20 0 1 1 180,192.36218 z" />
+    <path
+       style="fill:#aa4400;fill-opacity:1;fill-rule:evenodd;stroke:#000000;stroke-width:2;stroke-linecap:butt;stroke-linejoin:miter;stroke-miterlimit:4;stroke-dasharray:none;stroke-opacity:1"
+       d="M -80,452.36218 L -40,452.36218 L -60,412.36218 L -80,452.36218 z"
+       id="path3417"
+       sodipodi:nodetypes="cccc" />
+    <path
+       id="path3419"
+       d="M -60,412.36218 L -60,392.36218 L 160,392.36218 L 160,412.36218"
+       style="fill:none;fill-rule:evenodd;stroke:#000000;stroke-width:2;stroke-linecap:butt;stroke-linejoin:miter;stroke-miterlimit:4;stroke-dasharray:none;stroke-opacity:1"
+       sodipodi:nodetypes="cccc" />
+    <path
+       id="path3421"
+       d="M 60,392.36218 L 60,412.36218"
+       style="fill:none;fill-rule:evenodd;stroke:#000000;stroke-width:2;stroke-linecap:butt;stroke-linejoin:miter;stroke-miterlimit:4;stroke-dasharray:none;stroke-opacity:1" />
+    <text
+       sodipodi:linespacing="100%"
+       id="text3423"
+       y="468.19421"
+       x="51.416992"
+       style="font-size:12px;font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;text-align:center;line-height:100%;writing-mode:lr-tb;text-anchor:middle;fill:#000000;fill-opacity:1;stroke:none;stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1;font-family:DejaVu Sans;-inkscape-font-specification:DejaVu Sans"
+       xml:space="preserve"><tspan
+         y="468.19421"
+         x="51.416992"
+         id="tspan3425"
+         sodipodi:role="line">Mother's Sister</tspan></text>
+    <text
+       sodipodi:linespacing="100%"
+       id="text3427"
+       y="468.19421"
+       x="-62.777344"
+       style="font-size:12;font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;text-align:center;line-height:100%;writing-mode:lr-tb;text-anchor:middle;fill:#000000;fill-opacity:1;stroke:none;stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1;font-family:DejaVu Sans;-inkscape-font-specification:DejaVu Sans"
+       xml:space="preserve"><tspan
+         y="468.19421"
+         x="-62.777344"
+         id="tspan3429"
+         sodipodi:role="line">Mother's Brother</tspan></text>
+    <path
+       transform="translate(-250,330)"
+       sodipodi:type="arc"
+       style="fill:#ff6600;fill-opacity:1;fill-rule:evenodd;stroke:#000000;stroke-width:2;stroke-linecap:square;stroke-linejoin:bevel;stroke-miterlimit:4;stroke-dasharray:none;stroke-dashoffset:0;stroke-opacity:1"
+       id="path3431"
+       sodipodi:cx="160"
+       sodipodi:cy="192.36218"
+       sodipodi:rx="20"
+       sodipodi:ry="20"
+       d="M 180,192.36218 A 20,20 0 1 1 140,192.36218 A 20,20 0 1 1 180,192.36218 z" />
+    <path
+       style="fill:#ff6600;fill-opacity:1;fill-rule:evenodd;stroke:#000000;stroke-width:2;stroke-linecap:butt;stroke-linejoin:miter;stroke-miterlimit:4;stroke-dasharray:none;stroke-opacity:1"
+       d="M -50,542.36218 L -10,542.36218 L -30,502.36218 L -50,542.36218 z"
+       id="path3433"
+       sodipodi:nodetypes="cccc" />
+    <path
+       sodipodi:nodetypes="cccc"
+       id="path3435"
+       d="M -90,502.36218 L -90,482.36218 L -30,482.36218 L -30,502.36218"
+       style="fill:none;fill-rule:evenodd;stroke:#000000;stroke-width:2;stroke-linecap:butt;stroke-linejoin:miter;stroke-miterlimit:4;stroke-dasharray:none;stroke-opacity:1" />
+    <text
+       xml:space="preserve"
+       style="font-size:12px;font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;text-align:center;line-height:100%;writing-mode:lr-tb;text-anchor:middle;fill:#000000;fill-opacity:1;stroke:none;stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1;font-family:DejaVu Sans;-inkscape-font-specification:DejaVu Sans"
+       x="-60.351563"
+       y="554.19421"
+       id="text3437"
+       sodipodi:linespacing="100%"><tspan
+         sodipodi:role="line"
+         id="tspan3439"
+         x="-60.351563"
+         y="554.19421">Maternal</tspan><tspan
+         sodipodi:role="line"
+         x="-60.351563"
+         y="566.19421"
+         id="tspan3463">Cross Cousins</tspan></text>
+    <path
+       style="fill:none;fill-rule:evenodd;stroke:#000000;stroke-width:2;stroke-linecap:butt;stroke-linejoin:miter;stroke-miterlimit:4;stroke-dasharray:none;stroke-opacity:1"
+       d="M -60,482.36218 L -60,452.36218"
+       id="path3445" />
+    <path
+       d="M 180,192.36218 A 20,20 0 1 1 140,192.36218 A 20,20 0 1 1 180,192.36218 z"
+       sodipodi:ry="20"
+       sodipodi:rx="20"
+       sodipodi:cy="192.36218"
+       sodipodi:cx="160"
+       id="path3447"
+       style="fill:#ff00ff;fill-opacity:1;fill-rule:evenodd;stroke:#000000;stroke-width:2;stroke-linecap:square;stroke-linejoin:bevel;stroke-miterlimit:4;stroke-dasharray:none;stroke-dashoffset:0;stroke-opacity:1"
+       sodipodi:type="arc"
+       transform="translate(-130,330)" />
+    <path
+       sodipodi:nodetypes="cccc"
+       id="path3449"
+       d="M 70,542.36218 L 110,542.36218 L 90,502.36218 L 70,542.36218 z"
+       style="fill:#ff00ff;fill-opacity:1;fill-rule:evenodd;stroke:#000000;stroke-width:2;stroke-linecap:butt;stroke-linejoin:miter;stroke-miterlimit:4;stroke-dasharray:none;stroke-opacity:1" />
+    <path
+       style="fill:none;fill-rule:evenodd;stroke:#000000;stroke-width:2;stroke-linecap:butt;stroke-linejoin:miter;stroke-miterlimit:4;stroke-dasharray:none;stroke-opacity:1"
+       d="M 30,502.36218 L 30,482.36218 L 90,482.36218 L 90,502.36218"
+       id="path3451"
+       sodipodi:nodetypes="cccc" />
+    <text
+       sodipodi:linespacing="100%"
+       id="text3453"
+       y="554.19421"
+       x="59.707031"
+       style="font-size:12px;font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;text-align:center;line-height:100%;writing-mode:lr-tb;text-anchor:middle;fill:#000000;fill-opacity:1;stroke:none;stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1;font-family:DejaVu Sans;-inkscape-font-specification:DejaVu Sans"
+       xml:space="preserve"><tspan
+         y="554.19421"
+         x="59.707031"
+         id="tspan3455"
+         sodipodi:role="line">Maternal</tspan><tspan
+         y="566.19421"
+         x="59.707031"
+         sodipodi:role="line"
+         id="tspan3465">Parallel Cousins</tspan></text>
+    <path
+       id="path3461"
+       d="M 60,482.36218 L 60,452.36218"
+       style="fill:none;fill-rule:evenodd;stroke:#000000;stroke-width:2;stroke-linecap:butt;stroke-linejoin:miter;stroke-miterlimit:4;stroke-dasharray:none;stroke-opacity:1" />
+    <rect
+       y="582.36218"
+       x="-120"
+       height="220"
+       width="650"
+       id="rect3471"
+       style="opacity:1;fill:#ffffff;fill-opacity:1;fill-rule:evenodd;stroke:#000000;stroke-width:2;stroke-linecap:square;stroke-linejoin:bevel;stroke-miterlimit:4;stroke-dasharray:none;stroke-dashoffset:0;stroke-opacity:1" />
+    <path
+       sodipodi:nodetypes="cccc"
+       id="path3473"
+       d="M 230,682.36218 L 270,682.36218 L 250,642.36218 L 230,682.36218 z"
+       style="fill:#0000ff;fill-rule:evenodd;stroke:#000000;stroke-width:2;stroke-linecap:butt;stroke-linejoin:miter;stroke-miterlimit:4;stroke-dasharray:none;stroke-opacity:1" />
+    <path
+       d="M 180,192.36218 A 20,20 0 1 1 140,192.36218 A 20,20 0 1 1 180,192.36218 z"
+       sodipodi:ry="20"
+       sodipodi:rx="20"
+       sodipodi:cy="192.36218"
+       sodipodi:cx="160"
+       id="path3475"
+       style="opacity:1;fill:#ff0000;fill-opacity:1;fill-rule:evenodd;stroke:#000000;stroke-width:2;stroke-linecap:square;stroke-linejoin:bevel;stroke-miterlimit:4;stroke-dasharray:none;stroke-dashoffset:0;stroke-opacity:1"
+       sodipodi:type="arc"
+       transform="translate(0,470)" />
+    <path
+       id="path3477"
+       d="M 190,657.36218 L 220,657.36218"
+       style="fill:none;fill-rule:evenodd;stroke:#000000;stroke-width:2;stroke-linecap:butt;stroke-linejoin:miter;stroke-miterlimit:4;stroke-dasharray:none;stroke-opacity:1" />
+    <path
+       id="path3479"
+       d="M 190,667.36218 L 220,667.36218"
+       style="fill:none;fill-rule:evenodd;stroke:#000000;stroke-width:2;stroke-linecap:butt;stroke-linejoin:miter;stroke-miterlimit:4;stroke-dasharray:none;stroke-opacity:1" />
+    <path
+       d="M 180,192.36218 A 20,20 0 1 1 140,192.36218 A 20,20 0 1 1 180,192.36218 z"
+       sodipodi:ry="20"
+       sodipodi:rx="20"
+       sodipodi:cy="192.36218"
+       sodipodi:cx="160"
+       id="path3481"
+       style="opacity:1;fill:#ff00ff;fill-opacity:1;fill-rule:evenodd;stroke:#000000;stroke-width:2;stroke-linecap:square;stroke-linejoin:bevel;stroke-miterlimit:4;stroke-dasharray:none;stroke-dashoffset:0;stroke-opacity:1"
+       sodipodi:type="arc"
+       transform="translate(310,470)" />
+    <path
+       sodipodi:nodetypes="cccc"
+       id="path3483"
+       d="M 330,682.36218 L 370,682.36218 L 350,642.36218 L 330,682.36218 z"
+       style="fill:#00ffff;fill-rule:evenodd;stroke:#000000;stroke-width:2;stroke-linecap:butt;stroke-linejoin:miter;stroke-miterlimit:4;stroke-dasharray:none;stroke-opacity:1" />
+    <path
+       sodipodi:nodetypes="cc"
+       id="path3485"
+       d="M 205,667.36218 L 205,732.36218"
+       style="fill:none;fill-rule:evenodd;stroke:#000000;stroke-width:2;stroke-linecap:butt;stroke-linejoin:miter;stroke-miterlimit:4;stroke-dasharray:none;stroke-opacity:1" />
+    <path
+       style="fill:#b3b3b3;fill-rule:evenodd;stroke:#000000;stroke-width:2;stroke-linecap:butt;stroke-linejoin:miter;stroke-miterlimit:4;stroke-dasharray:none;stroke-opacity:1"
+       d="M 185,772.36218 L 225,772.36218 L 205,732.36218 L 185,772.36218 z"
+       id="path3487"
+       sodipodi:nodetypes="cccc" />
+    <path
+       transform="translate(-10,560)"
+       sodipodi:type="arc"
+       style="opacity:1;fill:#ffff00;fill-opacity:1;fill-rule:evenodd;stroke:#000000;stroke-width:2;stroke-linecap:square;stroke-linejoin:bevel;stroke-miterlimit:4;stroke-dasharray:none;stroke-dashoffset:0;stroke-opacity:1"
+       id="path3489"
+       sodipodi:cx="160"
+       sodipodi:cy="192.36218"
+       sodipodi:rx="20"
+       sodipodi:ry="20"
+       d="M 180,192.36218 A 20,20 0 1 1 140,192.36218 A 20,20 0 1 1 180,192.36218 z" />
+    <path
+       style="fill:#ffff00;fill-rule:evenodd;stroke:#000000;stroke-width:2;stroke-linecap:butt;stroke-linejoin:miter;stroke-miterlimit:4;stroke-dasharray:none;stroke-opacity:1"
+       d="M 240,772.36218 L 280,772.36218 L 260,732.36218 L 240,772.36218 z"
+       id="path3491"
+       sodipodi:nodetypes="cccc" />
+    <path
+       sodipodi:nodetypes="cccc"
+       id="path3493"
+       d="M 150,732.36218 L 150,712.36218 L 260,712.36218 L 260,732.36218"
+       style="fill:none;fill-rule:evenodd;stroke:#000000;stroke-width:2;stroke-linecap:butt;stroke-linejoin:miter;stroke-miterlimit:4;stroke-dasharray:none;stroke-opacity:1" />
+    <text
+       sodipodi:linespacing="100%"
+       id="text3495"
+       y="788.19421"
+       x="204.64844"
+       style="font-size:16px;font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;text-align:center;line-height:100%;writing-mode:lr-tb;text-anchor:middle;fill:#000000;fill-opacity:1;stroke:none;stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1;font-family:DejaVu Sans;-inkscape-font-specification:DejaVu Sans"
+       xml:space="preserve"><tspan
+         y="788.19421"
+         x="204.64844"
+         id="tspan3497"
+         sodipodi:role="line">Ego</tspan></text>
+    <text
+       xml:space="preserve"
+       style="font-size:16px;font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;text-align:center;line-height:100%;writing-mode:lr-tb;text-anchor:middle;fill:#000000;fill-opacity:1;stroke:none;stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1;font-family:DejaVu Sans;-inkscape-font-specification:DejaVu Sans"
+       x="149.48047"
+       y="788.19421"
+       id="text3499"
+       sodipodi:linespacing="100%"><tspan
+         sodipodi:role="line"
+         id="tspan3501"
+         x="149.48047"
+         y="788.19421">Sister</tspan></text>
+    <path
+       sodipodi:nodetypes="cccc"
+       style="fill:none;fill-rule:evenodd;stroke:#000000;stroke-width:2;stroke-linecap:butt;stroke-linejoin:miter;stroke-miterlimit:4;stroke-dasharray:none;stroke-opacity:1"
+       d="M 250,642.36218 L 250,622.36218 L 470,622.36218 L 470,642.36218"
+       id="path3503" />
+    <path
+       style="fill:none;fill-rule:evenodd;stroke:#000000;stroke-width:2;stroke-linecap:butt;stroke-linejoin:miter;stroke-miterlimit:4;stroke-dasharray:none;stroke-opacity:1"
+       d="M 350,622.36218 L 350,642.36218"
+       id="path3505" />
+    <text
+       sodipodi:linespacing="100%"
+       id="text3507"
+       y="788.19421"
+       x="259.48047"
+       style="font-size:16px;font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;text-align:center;line-height:100%;writing-mode:lr-tb;text-anchor:middle;fill:#000000;fill-opacity:1;stroke:none;stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1;font-family:DejaVu Sans;-inkscape-font-specification:DejaVu Sans"
+       xml:space="preserve"><tspan
+         y="788.19421"
+         x="259.48047"
+         id="tspan3509"
+         sodipodi:role="line">Brother</tspan></text>
+    <text
+       xml:space="preserve"
+       style="font-size:16px;font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;text-align:center;line-height:100%;writing-mode:lr-tb;text-anchor:middle;fill:#000000;fill-opacity:1;stroke:none;stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1;font-family:DejaVu Sans;-inkscape-font-specification:DejaVu Sans"
+       x="159.64844"
+       y="698.19421"
+       id="text3511"
+       sodipodi:linespacing="100%"><tspan
+         sodipodi:role="line"
+         id="tspan3513"
+         x="159.64844"
+         y="698.19421">Mother</tspan></text>
+    <text
+       sodipodi:linespacing="100%"
+       id="text3515"
+       y="698.19421"
+       x="249.64844"
+       style="font-size:16px;font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;text-align:center;line-height:100%;writing-mode:lr-tb;text-anchor:middle;fill:#000000;fill-opacity:1;stroke:none;stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1;font-family:DejaVu Sans;-inkscape-font-specification:DejaVu Sans"
+       xml:space="preserve"><tspan
+         y="698.19421"
+         x="249.64844"
+         id="tspan3517"
+         sodipodi:role="line">Father</tspan></text>
+    <text
+       sodipodi:linespacing="100%"
+       id="text3519"
+       y="606.9812"
+       x="204.56543"
+       style="font-size:20px;font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;text-align:center;line-height:100%;writing-mode:lr-tb;text-anchor:middle;fill:#000000;fill-opacity:1;stroke:none;stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1;font-family:DejaVu Sans;-inkscape-font-specification:DejaVu Sans"
+       xml:space="preserve"><tspan
+         y="606.9812"
+         x="204.56543"
+         id="tspan3521"
+         sodipodi:role="line">Eskimo Kinship</tspan></text>
+    <text
+       xml:space="preserve"
+       style="font-size:16px;font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;text-align:center;line-height:100%;writing-mode:lr-tb;text-anchor:middle;fill:#000000;fill-opacity:1;stroke:none;stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1;font-family:DejaVu Sans;-inkscape-font-specification:DejaVu Sans"
+       x="444.625"
+       y="698.19421"
+       id="text3523"
+       sodipodi:linespacing="100%"><tspan
+         sodipodi:role="line"
+         id="tspan3525"
+         x="444.625"
+         y="698.19421">Aunt</tspan></text>
+    <text
+       xml:space="preserve"
+       style="font-size:16px;font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;text-align:center;line-height:100%;writing-mode:lr-tb;text-anchor:middle;fill:#000000;fill-opacity:1;stroke:none;stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1;font-family:DejaVu Sans;-inkscape-font-specification:DejaVu Sans"
+       x="321.36719"
+       y="698.19421"
+       id="text3527"
+       sodipodi:linespacing="100%"><tspan
+         sodipodi:role="line"
+         id="tspan3529"
+         x="321.36719"
+         y="698.19421">Uncle</tspan></text>
+    <path
+       d="M 180,192.36218 A 20,20 0 1 1 140,192.36218 A 20,20 0 1 1 180,192.36218 z"
+       sodipodi:ry="20"
+       sodipodi:rx="20"
+       sodipodi:cy="192.36218"
+       sodipodi:cx="160"
+       id="path3531"
+       style="opacity:1;fill:#00ff00;fill-opacity:1;fill-rule:evenodd;stroke:#000000;stroke-width:2;stroke-linecap:square;stroke-linejoin:bevel;stroke-miterlimit:4;stroke-dasharray:none;stroke-dashoffset:0;stroke-opacity:1"
+       sodipodi:type="arc"
+       transform="translate(160,560)" />
+    <path
+       sodipodi:nodetypes="cccc"
+       id="path3533"
+       d="M 360,772.36218 L 400,772.36218 L 380,732.36218 L 360,772.36218 z"
+       style="fill:#00ff00;fill-rule:evenodd;stroke:#000000;stroke-width:2;stroke-linecap:butt;stroke-linejoin:miter;stroke-miterlimit:4;stroke-dasharray:none;stroke-opacity:1" />
+    <path
+       style="fill:none;fill-rule:evenodd;stroke:#000000;stroke-width:2;stroke-linecap:butt;stroke-linejoin:miter;stroke-miterlimit:4;stroke-dasharray:none;stroke-opacity:1"
+       d="M 320,732.36218 L 320,712.36218 L 380,712.36218 L 380,732.36218"
+       id="path3535"
+       sodipodi:nodetypes="cccc" />
+    <text
+       sodipodi:linespacing="100%"
+       id="text3537"
+       y="788.19421"
+       x="319.48047"
+       style="font-size:16px;font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;text-align:center;line-height:100%;writing-mode:lr-tb;text-anchor:middle;fill:#000000;fill-opacity:1;stroke:none;stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1;font-family:DejaVu Sans;-inkscape-font-specification:DejaVu Sans"
+       xml:space="preserve"><tspan
+         y="788.19421"
+         x="319.48047"
+         id="tspan3539"
+         sodipodi:role="line">Cousin</tspan></text>
+    <text
+       xml:space="preserve"
+       style="font-size:16px;font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;text-align:center;line-height:100%;writing-mode:lr-tb;text-anchor:middle;fill:#000000;fill-opacity:1;stroke:none;stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1;font-family:DejaVu Sans;-inkscape-font-specification:DejaVu Sans"
+       x="379.48047"
+       y="788.19421"
+       id="text3541"
+       sodipodi:linespacing="100%"><tspan
+         sodipodi:role="line"
+         id="tspan3543"
+         x="379.48047"
+         y="788.19421">Cousin</tspan></text>
+    <path
+       id="path3545"
+       d="M 350,712.36218 L 350,682.36218"
+       style="fill:#00ffff;fill-rule:evenodd;stroke:#000000;stroke-width:2;stroke-linecap:butt;stroke-linejoin:miter;stroke-miterlimit:4;stroke-dasharray:none;stroke-opacity:1" />
+    <path
+       transform="translate(280,560)"
+       sodipodi:type="arc"
+       style="opacity:1;fill:#00ff00;fill-opacity:1;fill-rule:evenodd;stroke:#000000;stroke-width:2;stroke-linecap:square;stroke-linejoin:bevel;stroke-miterlimit:4;stroke-dasharray:none;stroke-dashoffset:0;stroke-opacity:1"
+       id="path3547"
+       sodipodi:cx="160"
+       sodipodi:cy="192.36218"
+       sodipodi:rx="20"
+       sodipodi:ry="20"
+       d="M 180,192.36218 A 20,20 0 1 1 140,192.36218 A 20,20 0 1 1 180,192.36218 z" />
+    <path
+       style="fill:#00ff00;fill-rule:evenodd;stroke:#000000;stroke-width:2;stroke-linecap:butt;stroke-linejoin:miter;stroke-miterlimit:4;stroke-dasharray:none;stroke-opacity:1"
+       d="M 480,772.36218 L 520,772.36218 L 500,732.36218 L 480,772.36218 z"
+       id="path3549"
+       sodipodi:nodetypes="cccc" />
+    <path
+       sodipodi:nodetypes="cccc"
+       id="path3551"
+       d="M 440,732.36218 L 440,712.36218 L 500,712.36218 L 500,732.36218"
+       style="fill:none;fill-rule:evenodd;stroke:#000000;stroke-width:2;stroke-linecap:butt;stroke-linejoin:miter;stroke-miterlimit:4;stroke-dasharray:none;stroke-opacity:1" />
+    <text
+       xml:space="preserve"
+       style="font-size:16px;font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;text-align:center;line-height:100%;writing-mode:lr-tb;text-anchor:middle;fill:#000000;fill-opacity:1;stroke:none;stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1;font-family:DejaVu Sans;-inkscape-font-specification:DejaVu Sans"
+       x="439.48047"
+       y="788.19421"
+       id="text3553"
+       sodipodi:linespacing="100%"><tspan
+         sodipodi:role="line"
+         id="tspan3555"
+         x="439.48047"
+         y="788.19421">Cousin</tspan></text>
+    <text
+       sodipodi:linespacing="100%"
+       id="text3557"
+       y="788.19421"
+       x="499.48047"
+       style="font-size:16px;font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;text-align:center;line-height:100%;writing-mode:lr-tb;text-anchor:middle;fill:#000000;fill-opacity:1;stroke:none;stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1;font-family:DejaVu Sans;-inkscape-font-specification:DejaVu Sans"
+       xml:space="preserve"><tspan
+         y="788.19421"
+         x="499.48047"
+         id="tspan3559"
+         sodipodi:role="line">Cousin</tspan></text>
+    <path
+       style="fill:none;fill-rule:evenodd;stroke:#000000;stroke-width:2;stroke-linecap:butt;stroke-linejoin:miter;stroke-miterlimit:4;stroke-dasharray:none;stroke-opacity:1"
+       d="M 470,712.36218 L 470,682.36218"
+       id="path3561" />
+    <path
+       transform="translate(-100,470)"
+       sodipodi:type="arc"
+       style="opacity:1;fill:#ff00ff;fill-opacity:1;fill-rule:evenodd;stroke:#000000;stroke-width:2;stroke-linecap:square;stroke-linejoin:bevel;stroke-miterlimit:4;stroke-dasharray:none;stroke-dashoffset:0;stroke-opacity:1"
+       id="path3563"
+       sodipodi:cx="160"
+       sodipodi:cy="192.36218"
+       sodipodi:rx="20"
+       sodipodi:ry="20"
+       d="M 180,192.36218 A 20,20 0 1 1 140,192.36218 A 20,20 0 1 1 180,192.36218 z" />
+    <path
+       style="fill:#00ffff;fill-rule:evenodd;stroke:#000000;stroke-width:2;stroke-linecap:butt;stroke-linejoin:miter;stroke-miterlimit:4;stroke-dasharray:none;stroke-opacity:1"
+       d="M -80,682.36218 L -40,682.36218 L -60,642.36218 L -80,682.36218 z"
+       id="path3565"
+       sodipodi:nodetypes="cccc" />
+    <path
+       id="path3567"
+       d="M -60,642.36218 L -60,622.36218 L 160,622.36218 L 160,642.36218"
+       style="fill:none;fill-rule:evenodd;stroke:#000000;stroke-width:2;stroke-linecap:butt;stroke-linejoin:miter;stroke-miterlimit:4;stroke-dasharray:none;stroke-opacity:1"
+       sodipodi:nodetypes="cccc" />
+    <path
+       id="path3569"
+       d="M 60,622.36218 L 60,642.36218"
+       style="fill:none;fill-rule:evenodd;stroke:#000000;stroke-width:2;stroke-linecap:butt;stroke-linejoin:miter;stroke-miterlimit:4;stroke-dasharray:none;stroke-opacity:1" />
+    <text
+       sodipodi:linespacing="100%"
+       id="text3571"
+       y="698.19421"
+       x="34.625"
+       style="font-size:16px;font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;text-align:center;line-height:100%;writing-mode:lr-tb;text-anchor:middle;fill:#000000;fill-opacity:1;stroke:none;stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1;font-family:DejaVu Sans;-inkscape-font-specification:DejaVu Sans"
+       xml:space="preserve"><tspan
+         y="698.19421"
+         x="34.625"
+         id="tspan3573"
+         sodipodi:role="line">Aunt</tspan></text>
+    <text
+       sodipodi:linespacing="100%"
+       id="text3575"
+       y="698.19421"
+       x="-88.632813"
+       style="font-size:16px;font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;text-align:center;line-height:100%;writing-mode:lr-tb;text-anchor:middle;fill:#000000;fill-opacity:1;stroke:none;stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1;font-family:DejaVu Sans;-inkscape-font-specification:DejaVu Sans"
+       xml:space="preserve"><tspan
+         y="698.19421"
+         x="-88.632813"
+         id="tspan3577"
+         sodipodi:role="line">Uncle</tspan></text>
+    <path
+       transform="translate(-250,560)"
+       sodipodi:type="arc"
+       style="opacity:1;fill:#00ff00;fill-opacity:1;fill-rule:evenodd;stroke:#000000;stroke-width:2;stroke-linecap:square;stroke-linejoin:bevel;stroke-miterlimit:4;stroke-dasharray:none;stroke-dashoffset:0;stroke-opacity:1"
+       id="path3579"
+       sodipodi:cx="160"
+       sodipodi:cy="192.36218"
+       sodipodi:rx="20"
+       sodipodi:ry="20"
+       d="M 180,192.36218 A 20,20 0 1 1 140,192.36218 A 20,20 0 1 1 180,192.36218 z" />
+    <path
+       style="fill:#00ff00;fill-rule:evenodd;stroke:#000000;stroke-width:2;stroke-linecap:butt;stroke-linejoin:miter;stroke-miterlimit:4;stroke-dasharray:none;stroke-opacity:1"
+       d="M -50,772.36218 L -10,772.36218 L -30,732.36218 L -50,772.36218 z"
+       id="path3581"
+       sodipodi:nodetypes="cccc" />
+    <path
+       sodipodi:nodetypes="cccc"
+       id="path3583"
+       d="M -90,732.36218 L -90,712.36218 L -30,712.36218 L -30,732.36218"
+       style="fill:none;fill-rule:evenodd;stroke:#000000;stroke-width:2;stroke-linecap:butt;stroke-linejoin:miter;stroke-miterlimit:4;stroke-dasharray:none;stroke-opacity:1" />
+    <text
+       xml:space="preserve"
+       style="font-size:16px;font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;text-align:center;line-height:100%;writing-mode:lr-tb;text-anchor:middle;fill:#000000;fill-opacity:1;stroke:none;stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1;font-family:DejaVu Sans;-inkscape-font-specification:DejaVu Sans"
+       x="-90.519531"
+       y="788.19421"
+       id="text3585"
+       sodipodi:linespacing="100%"><tspan
+         sodipodi:role="line"
+         id="tspan3587"
+         x="-90.519531"
+         y="788.19421">Cousin</tspan></text>
+    <text
+       sodipodi:linespacing="100%"
+       id="text3589"
+       y="788.19421"
+       x="-30.519531"
+       style="font-size:16px;font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;text-align:center;line-height:100%;writing-mode:lr-tb;text-anchor:middle;fill:#000000;fill-opacity:1;stroke:none;stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1;font-family:DejaVu Sans;-inkscape-font-specification:DejaVu Sans"
+       xml:space="preserve"><tspan
+         y="788.19421"
+         x="-30.519531"
+         id="tspan3591"
+         sodipodi:role="line">Cousin</tspan></text>
+    <path
+       style="fill:none;fill-rule:evenodd;stroke:#000000;stroke-width:2;stroke-linecap:butt;stroke-linejoin:miter;stroke-miterlimit:4;stroke-dasharray:none;stroke-opacity:1"
+       d="M -60,712.36218 L -60,682.36218"
+       id="path3593" />
+    <path
+       d="M 180,192.36218 A 20,20 0 1 1 140,192.36218 A 20,20 0 1 1 180,192.36218 z"
+       sodipodi:ry="20"
+       sodipodi:rx="20"
+       sodipodi:cy="192.36218"
+       sodipodi:cx="160"
+       id="path3595"
+       style="opacity:1;fill:#00ff00;fill-opacity:1;fill-rule:evenodd;stroke:#000000;stroke-width:2;stroke-linecap:square;stroke-linejoin:bevel;stroke-miterlimit:4;stroke-dasharray:none;stroke-dashoffset:0;stroke-opacity:1"
+       sodipodi:type="arc"
+       transform="translate(-130,560)" />
+    <path
+       sodipodi:nodetypes="cccc"
+       id="path3597"
+       d="M 70,772.36218 L 110,772.36218 L 90,732.36218 L 70,772.36218 z"
+       style="fill:#00ff00;fill-rule:evenodd;stroke:#000000;stroke-width:2;stroke-linecap:butt;stroke-linejoin:miter;stroke-miterlimit:4;stroke-dasharray:none;stroke-opacity:1" />
+    <path
+       style="fill:none;fill-rule:evenodd;stroke:#000000;stroke-width:2;stroke-linecap:butt;stroke-linejoin:miter;stroke-miterlimit:4;stroke-dasharray:none;stroke-opacity:1"
+       d="M 30,732.36218 L 30,712.36218 L 90,712.36218 L 90,732.36218"
+       id="path3599"
+       sodipodi:nodetypes="cccc" />
+    <text
+       sodipodi:linespacing="100%"
+       id="text3601"
+       y="788.19421"
+       x="29.480469"
+       style="font-size:16px;font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;text-align:center;line-height:100%;writing-mode:lr-tb;text-anchor:middle;fill:#000000;fill-opacity:1;stroke:none;stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1;font-family:DejaVu Sans;-inkscape-font-specification:DejaVu Sans"
+       xml:space="preserve"><tspan
+         y="788.19421"
+         x="29.480469"
+         id="tspan3603"
+         sodipodi:role="line">Cousin</tspan></text>
+    <text
+       xml:space="preserve"
+       style="font-size:16px;font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;text-align:center;line-height:100%;writing-mode:lr-tb;text-anchor:middle;fill:#000000;fill-opacity:1;stroke:none;stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1;font-family:DejaVu Sans;-inkscape-font-specification:DejaVu Sans"
+       x="89.480469"
+       y="788.19421"
+       id="text3605"
+       sodipodi:linespacing="100%"><tspan
+         sodipodi:role="line"
+         id="tspan3607"
+         x="89.480469"
+         y="788.19421">Cousin</tspan></text>
+    <path
+       id="path3609"
+       d="M 60,712.36218 L 60,682.36218"
+       style="fill:none;fill-rule:evenodd;stroke:#000000;stroke-width:2;stroke-linecap:butt;stroke-linejoin:miter;stroke-miterlimit:4;stroke-dasharray:none;stroke-opacity:1" />
+    <rect
+       y="122.36218"
+       x="540"
+       height="220"
+       width="650"
+       id="rect3611"
+       style="opacity:1;fill:#ffffff;fill-opacity:1;fill-rule:evenodd;stroke:#000000;stroke-width:2;stroke-linecap:square;stroke-linejoin:bevel;stroke-miterlimit:4;stroke-dasharray:none;stroke-dashoffset:0;stroke-opacity:1" />
+    <path
+       sodipodi:nodetypes="cccc"
+       id="path3613"
+       d="M 890,222.36218 L 930,222.36218 L 910,182.36218 L 890,222.36218 z"
+       style="fill:#0000ff;fill-rule:evenodd;stroke:#000000;stroke-width:2;stroke-linecap:butt;stroke-linejoin:miter;stroke-miterlimit:4;stroke-dasharray:none;stroke-opacity:1" />
+    <path
+       d="M 180,192.36218 A 20,20 0 1 1 140,192.36218 A 20,20 0 1 1 180,192.36218 z"
+       sodipodi:ry="20"
+       sodipodi:rx="20"
+       sodipodi:cy="192.36218"
+       sodipodi:cx="160"
+       id="path3615"
+       style="opacity:1;fill:#ff0000;fill-opacity:1;fill-rule:evenodd;stroke:#000000;stroke-width:2;stroke-linecap:square;stroke-linejoin:bevel;stroke-miterlimit:4;stroke-dasharray:none;stroke-dashoffset:0;stroke-opacity:1"
+       sodipodi:type="arc"
+       transform="translate(660,9.9999974)" />
+    <path
+       id="path3617"
+       d="M 850,197.36218 L 880,197.36218"
+       style="fill:none;fill-rule:evenodd;stroke:#000000;stroke-width:2;stroke-linecap:butt;stroke-linejoin:miter;stroke-miterlimit:4;stroke-dasharray:none;stroke-opacity:1" />
+    <path
+       id="path3619"
+       d="M 850,207.36218 L 880,207.36218"
+       style="fill:none;fill-rule:evenodd;stroke:#000000;stroke-width:2;stroke-linecap:butt;stroke-linejoin:miter;stroke-miterlimit:4;stroke-dasharray:none;stroke-opacity:1" />
+    <path
+       d="M 180,192.36218 A 20,20 0 1 1 140,192.36218 A 20,20 0 1 1 180,192.36218 z"
+       sodipodi:ry="20"
+       sodipodi:rx="20"
+       sodipodi:cy="192.36218"
+       sodipodi:cx="160"
+       id="path3621"
+       style="opacity:1;fill:#ff00ff;fill-opacity:1;fill-rule:evenodd;stroke:#000000;stroke-width:2;stroke-linecap:square;stroke-linejoin:bevel;stroke-miterlimit:4;stroke-dasharray:none;stroke-dashoffset:0;stroke-opacity:1"
+       sodipodi:type="arc"
+       transform="translate(970,9.9999974)" />
+    <path
+       sodipodi:nodetypes="cccc"
+       id="path3623"
+       d="M 990,222.36218 L 1030,222.36218 L 1010,182.36218 L 990,222.36218 z"
+       style="fill:#0000ff;fill-rule:evenodd;stroke:#000000;stroke-width:2;stroke-linecap:butt;stroke-linejoin:miter;stroke-miterlimit:4;stroke-dasharray:none;stroke-opacity:1" />
+    <path
+       sodipodi:nodetypes="cc"
+       id="path3625"
+       d="M 865,207.36218 L 865,272.36218"
+       style="fill:none;fill-rule:evenodd;stroke:#000000;stroke-width:2;stroke-linecap:butt;stroke-linejoin:miter;stroke-miterlimit:4;stroke-dasharray:none;stroke-opacity:1" />
+    <path
+       style="fill:#b3b3b3;fill-rule:evenodd;stroke:#000000;stroke-width:2;stroke-linecap:butt;stroke-linejoin:miter;stroke-miterlimit:4;stroke-dasharray:none;stroke-opacity:1"
+       d="M 845,312.36218 L 885,312.36218 L 865,272.36218 L 845,312.36218 z"
+       id="path3627"
+       sodipodi:nodetypes="cccc" />
+    <path
+       transform="translate(650,99.999997)"
+       sodipodi:type="arc"
+       style="opacity:1;fill:#ffff00;fill-opacity:1;fill-rule:evenodd;stroke:#000000;stroke-width:2;stroke-linecap:square;stroke-linejoin:bevel;stroke-miterlimit:4;stroke-dasharray:none;stroke-dashoffset:0;stroke-opacity:1"
+       id="path3629"
+       sodipodi:cx="160"
+       sodipodi:cy="192.36218"
+       sodipodi:rx="20"
+       sodipodi:ry="20"
+       d="M 180,192.36218 A 20,20 0 1 1 140,192.36218 A 20,20 0 1 1 180,192.36218 z" />
+    <path
+       style="fill:#ffff00;fill-rule:evenodd;stroke:#000000;stroke-width:2;stroke-linecap:butt;stroke-linejoin:miter;stroke-miterlimit:4;stroke-dasharray:none;stroke-opacity:1"
+       d="M 900,312.36218 L 940,312.36218 L 920,272.36218 L 900,312.36218 z"
+       id="path3631"
+       sodipodi:nodetypes="cccc" />
+    <path
+       sodipodi:nodetypes="cccc"
+       id="path3633"
+       d="M 810,272.36218 L 810,252.36218 L 920,252.36218 L 920,272.36218"
+       style="fill:none;fill-rule:evenodd;stroke:#000000;stroke-width:2;stroke-linecap:butt;stroke-linejoin:miter;stroke-miterlimit:4;stroke-dasharray:none;stroke-opacity:1" />
+    <text
+       sodipodi:linespacing="100%"
+       id="text3635"
+       y="328.19421"
+       x="864.64844"
+       style="font-size:16px;font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;text-align:center;line-height:100%;writing-mode:lr-tb;text-anchor:middle;fill:#000000;fill-opacity:1;stroke:none;stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1;font-family:DejaVu Sans;-inkscape-font-specification:DejaVu Sans"
+       xml:space="preserve"><tspan
+         y="328.19421"
+         x="864.64844"
+         id="tspan3637"
+         sodipodi:role="line">Ego</tspan></text>
+    <text
+       xml:space="preserve"
+       style="font-size:16px;font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;text-align:center;line-height:100%;writing-mode:lr-tb;text-anchor:middle;fill:#000000;fill-opacity:1;stroke:none;stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1;font-family:DejaVu Sans;-inkscape-font-specification:DejaVu Sans"
+       x="809.48047"
+       y="328.19421"
+       id="text3639"
+       sodipodi:linespacing="100%"><tspan
+         sodipodi:role="line"
+         id="tspan3641"
+         x="809.48047"
+         y="328.19421">Sister</tspan></text>
+    <path
+       sodipodi:nodetypes="cccc"
+       style="fill:none;fill-rule:evenodd;stroke:#000000;stroke-width:2;stroke-linecap:butt;stroke-linejoin:miter;stroke-miterlimit:4;stroke-dasharray:none;stroke-opacity:1"
+       d="M 910,182.36218 L 910,162.36218 L 1130,162.36218 L 1130,182.36218"
+       id="path3643" />
+    <path
+       style="fill:none;fill-rule:evenodd;stroke:#000000;stroke-width:2;stroke-linecap:butt;stroke-linejoin:miter;stroke-miterlimit:4;stroke-dasharray:none;stroke-opacity:1"
+       d="M 1010,162.36218 L 1010,182.36218"
+       id="path3645" />
+    <text
+       sodipodi:linespacing="100%"
+       id="text3647"
+       y="328.19421"
+       x="919.48047"
+       style="font-size:16px;font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;text-align:center;line-height:100%;writing-mode:lr-tb;text-anchor:middle;fill:#000000;fill-opacity:1;stroke:none;stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1;font-family:DejaVu Sans;-inkscape-font-specification:DejaVu Sans"
+       xml:space="preserve"><tspan
+         y="328.19421"
+         x="919.48047"
+         id="tspan3649"
+         sodipodi:role="line">Brother</tspan></text>
+    <text
+       xml:space="preserve"
+       style="font-size:16px;font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;text-align:center;line-height:100%;writing-mode:lr-tb;text-anchor:middle;fill:#000000;fill-opacity:1;stroke:none;stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1;font-family:DejaVu Sans;-inkscape-font-specification:DejaVu Sans"
+       x="819.64844"
+       y="238.19421"
+       id="text3651"
+       sodipodi:linespacing="100%"><tspan
+         sodipodi:role="line"
+         id="tspan3653"
+         x="819.64844"
+         y="238.19421">Mother</tspan></text>
+    <text
+       sodipodi:linespacing="100%"
+       id="text3655"
+       y="238.19421"
+       x="909.64844"
+       style="font-size:16px;font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;text-align:center;line-height:100%;writing-mode:lr-tb;text-anchor:middle;fill:#000000;fill-opacity:1;stroke:none;stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1;font-family:DejaVu Sans;-inkscape-font-specification:DejaVu Sans"
+       xml:space="preserve"><tspan
+         y="238.19421"
+         x="909.64844"
+         id="tspan3657"
+         sodipodi:role="line">Father</tspan></text>
+    <text
+       sodipodi:linespacing="100%"
+       id="text3659"
+       y="146.98123"
+       x="864.56543"
+       style="font-size:20px;font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;text-align:center;line-height:100%;writing-mode:lr-tb;text-anchor:middle;fill:#000000;fill-opacity:1;stroke:none;stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1;font-family:DejaVu Sans;-inkscape-font-specification:DejaVu Sans"
+       xml:space="preserve"><tspan
+         y="146.98123"
+         x="864.56543"
+         id="tspan3661"
+         sodipodi:role="line">Iroquois Kinship</tspan></text>
+    <text
+       xml:space="preserve"
+       style="font-size:16px;font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;text-align:center;line-height:100%;writing-mode:lr-tb;text-anchor:middle;fill:#000000;fill-opacity:1;stroke:none;stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1;font-family:DejaVu Sans;-inkscape-font-specification:DejaVu Sans"
+       x="1106.625"
+       y="238.19421"
+       id="text3663"
+       sodipodi:linespacing="100%"><tspan
+         sodipodi:role="line"
+         id="tspan3665"
+         x="1106.625"
+         y="238.19421">Aunt</tspan></text>
+    <text
+       xml:space="preserve"
+       style="font-size:16px;font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;text-align:center;line-height:100%;writing-mode:lr-tb;text-anchor:middle;fill:#000000;fill-opacity:1;stroke:none;stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1;font-family:DejaVu Sans;-inkscape-font-specification:DejaVu Sans"
+       x="979.0625"
+       y="238.19421"
+       id="text3667"
+       sodipodi:linespacing="100%"><tspan
+         sodipodi:role="line"
+         id="tspan3669"
+         x="979.0625"
+         y="238.19421">Father</tspan></text>
+    <path
+       d="M 180,192.36218 A 20,20 0 1 1 140,192.36218 A 20,20 0 1 1 180,192.36218 z"
+       sodipodi:ry="20"
+       sodipodi:rx="20"
+       sodipodi:cy="192.36218"
+       sodipodi:cx="160"
+       id="path3671"
+       style="opacity:1;fill:#ffff00;fill-opacity:1;fill-rule:evenodd;stroke:#000000;stroke-width:2;stroke-linecap:square;stroke-linejoin:bevel;stroke-miterlimit:4;stroke-dasharray:none;stroke-dashoffset:0;stroke-opacity:1"
+       sodipodi:type="arc"
+       transform="translate(820,99.999997)" />
+    <path
+       sodipodi:nodetypes="cccc"
+       id="path3673"
+       d="M 1020,312.36218 L 1060,312.36218 L 1040,272.36218 L 1020,312.36218 z"
+       style="fill:#ffff00;fill-rule:evenodd;stroke:#000000;stroke-width:2;stroke-linecap:butt;stroke-linejoin:miter;stroke-miterlimit:4;stroke-dasharray:none;stroke-opacity:1" />
+    <path
+       style="fill:none;fill-rule:evenodd;stroke:#000000;stroke-width:2;stroke-linecap:butt;stroke-linejoin:miter;stroke-miterlimit:4;stroke-dasharray:none;stroke-opacity:1"
+       d="M 980,272.36218 L 980,252.36218 L 1040,252.36218 L 1040,272.36218"
+       id="path3675"
+       sodipodi:nodetypes="cccc" />
+    <text
+       sodipodi:linespacing="100%"
+       id="text3677"
+       y="328.19421"
+       x="979.48047"
+       style="font-size:16px;font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;text-align:center;line-height:100%;writing-mode:lr-tb;text-anchor:middle;fill:#000000;fill-opacity:1;stroke:none;stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1;font-family:DejaVu Sans;-inkscape-font-specification:DejaVu Sans"
+       xml:space="preserve"><tspan
+         y="328.19421"
+         x="979.48047"
+         id="tspan3679"
+         sodipodi:role="line">Sister</tspan></text>
+    <text
+       xml:space="preserve"
+       style="font-size:16px;font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;text-align:center;line-height:100%;writing-mode:lr-tb;text-anchor:middle;fill:#000000;fill-opacity:1;stroke:none;stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1;font-family:DejaVu Sans;-inkscape-font-specification:DejaVu Sans"
+       x="1039.4805"
+       y="328.19421"
+       id="text3681"
+       sodipodi:linespacing="100%"><tspan
+         sodipodi:role="line"
+         id="tspan3683"
+         x="1039.4805"
+         y="328.19421">Brother</tspan></text>
+    <path
+       id="path3685"
+       d="M 1010,252.36218 L 1010,222.36218"
+       style="fill:none;fill-rule:evenodd;stroke:#000000;stroke-width:2;stroke-linecap:butt;stroke-linejoin:miter;stroke-miterlimit:4;stroke-dasharray:none;stroke-opacity:1" />
+    <path
+       transform="translate(940,99.999997)"
+       sodipodi:type="arc"
+       style="opacity:1;fill:#00ff00;fill-opacity:1;fill-rule:evenodd;stroke:#000000;stroke-width:2;stroke-linecap:square;stroke-linejoin:bevel;stroke-miterlimit:4;stroke-dasharray:none;stroke-dashoffset:0;stroke-opacity:1"
+       id="path3687"
+       sodipodi:cx="160"
+       sodipodi:cy="192.36218"
+       sodipodi:rx="20"
+       sodipodi:ry="20"
+       d="M 180,192.36218 A 20,20 0 1 1 140,192.36218 A 20,20 0 1 1 180,192.36218 z" />
+    <path
+       style="fill:#00ff00;fill-rule:evenodd;stroke:#000000;stroke-width:2;stroke-linecap:butt;stroke-linejoin:miter;stroke-miterlimit:4;stroke-dasharray:none;stroke-opacity:1"
+       d="M 1140,312.36218 L 1180,312.36218 L 1160,272.36218 L 1140,312.36218 z"
+       id="path3689"
+       sodipodi:nodetypes="cccc" />
+    <path
+       sodipodi:nodetypes="cccc"
+       id="path3691"
+       d="M 1100,272.36218 L 1100,252.36218 L 1160,252.36218 L 1160,272.36218"
+       style="fill:none;fill-rule:evenodd;stroke:#000000;stroke-width:2;stroke-linecap:butt;stroke-linejoin:miter;stroke-miterlimit:4;stroke-dasharray:none;stroke-opacity:1" />
+    <text
+       xml:space="preserve"
+       style="font-size:16px;font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;text-align:center;line-height:100%;writing-mode:lr-tb;text-anchor:middle;fill:#000000;fill-opacity:1;stroke:none;stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1;font-family:DejaVu Sans;-inkscape-font-specification:DejaVu Sans"
+       x="1099.4805"
+       y="328.19421"
+       id="text3693"
+       sodipodi:linespacing="100%"><tspan
+         sodipodi:role="line"
+         id="tspan3695"
+         x="1099.4805"
+         y="328.19421">Cousin</tspan></text>
+    <text
+       sodipodi:linespacing="100%"
+       id="text3697"
+       y="328.19421"
+       x="1159.4805"
+       style="font-size:16px;font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;text-align:center;line-height:100%;writing-mode:lr-tb;text-anchor:middle;fill:#000000;fill-opacity:1;stroke:none;stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1;font-family:DejaVu Sans;-inkscape-font-specification:DejaVu Sans"
+       xml:space="preserve"><tspan
+         y="328.19421"
+         x="1159.4805"
+         id="tspan3699"
+         sodipodi:role="line">Cousin</tspan></text>
+    <path
+       style="fill:none;fill-rule:evenodd;stroke:#000000;stroke-width:2;stroke-linecap:butt;stroke-linejoin:miter;stroke-miterlimit:4;stroke-dasharray:none;stroke-opacity:1"
+       d="M 1130,252.36218 L 1130,222.36218"
+       id="path3701" />
+    <path
+       transform="translate(560,9.9999974)"
+       sodipodi:type="arc"
+       style="opacity:1;fill:#ff0000;fill-opacity:1;fill-rule:evenodd;stroke:#000000;stroke-width:2;stroke-linecap:square;stroke-linejoin:bevel;stroke-miterlimit:4;stroke-dasharray:none;stroke-dashoffset:0;stroke-opacity:1"
+       id="path3703"
+       sodipodi:cx="160"
+       sodipodi:cy="192.36218"
+       sodipodi:rx="20"
+       sodipodi:ry="20"
+       d="M 180,192.36218 A 20,20 0 1 1 140,192.36218 A 20,20 0 1 1 180,192.36218 z" />
+    <path
+       style="fill:#00ffff;fill-rule:evenodd;stroke:#000000;stroke-width:2;stroke-linecap:butt;stroke-linejoin:miter;stroke-miterlimit:4;stroke-dasharray:none;stroke-opacity:1"
+       d="M 580,222.36218 L 620,222.36218 L 600,182.36218 L 580,222.36218 z"
+       id="path3705"
+       sodipodi:nodetypes="cccc" />
+    <path
+       id="path3707"
+       d="M 600,182.36218 L 600,162.36218 L 820,162.36218 L 820,182.36218"
+       style="fill:none;fill-rule:evenodd;stroke:#000000;stroke-width:2;stroke-linecap:butt;stroke-linejoin:miter;stroke-miterlimit:4;stroke-dasharray:none;stroke-opacity:1"
+       sodipodi:nodetypes="cccc" />
+    <path
+       id="path3709"
+       d="M 720,162.36218 L 720,182.36218"
+       style="fill:none;fill-rule:evenodd;stroke:#000000;stroke-width:2;stroke-linecap:butt;stroke-linejoin:miter;stroke-miterlimit:4;stroke-dasharray:none;stroke-opacity:1" />
+    <text
+       sodipodi:linespacing="100%"
+       id="text3711"
+       y="238.19421"
+       x="686.78125"
+       style="font-size:16px;font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;text-align:center;line-height:100%;writing-mode:lr-tb;text-anchor:middle;fill:#000000;fill-opacity:1;stroke:none;stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1;font-family:DejaVu Sans;-inkscape-font-specification:DejaVu Sans"
+       xml:space="preserve"><tspan
+         y="238.19421"
+         x="686.78125"
+         id="tspan3713"
+         sodipodi:role="line">Mother</tspan></text>
+    <text
+       sodipodi:linespacing="100%"
+       id="text3715"
+       y="238.19421"
+       x="573.36719"
+       style="font-size:16px;font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;text-align:center;line-height:100%;writing-mode:lr-tb;text-anchor:middle;fill:#000000;fill-opacity:1;stroke:none;stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1;font-family:DejaVu Sans;-inkscape-font-specification:DejaVu Sans"
+       xml:space="preserve"><tspan
+         y="238.19421"
+         x="573.36719"
+         id="tspan3717"
+         sodipodi:role="line">Uncle</tspan></text>
+    <path
+       transform="translate(410,99.999997)"
+       sodipodi:type="arc"
+       style="opacity:1;fill:#00ff00;fill-opacity:1;fill-rule:evenodd;stroke:#000000;stroke-width:2;stroke-linecap:square;stroke-linejoin:bevel;stroke-miterlimit:4;stroke-dasharray:none;stroke-dashoffset:0;stroke-opacity:1"
+       id="path3719"
+       sodipodi:cx="160"
+       sodipodi:cy="192.36218"
+       sodipodi:rx="20"
+       sodipodi:ry="20"
+       d="M 180,192.36218 A 20,20 0 1 1 140,192.36218 A 20,20 0 1 1 180,192.36218 z" />
+    <path
+       style="fill:#00ff00;fill-rule:evenodd;stroke:#000000;stroke-width:2;stroke-linecap:butt;stroke-linejoin:miter;stroke-miterlimit:4;stroke-dasharray:none;stroke-opacity:1"
+       d="M 610,312.36218 L 650,312.36218 L 630,272.36218 L 610,312.36218 z"
+       id="path3721"
+       sodipodi:nodetypes="cccc" />
+    <path
+       sodipodi:nodetypes="cccc"
+       id="path3723"
+       d="M 570,272.36218 L 570,252.36218 L 630,252.36218 L 630,272.36218"
+       style="fill:none;fill-rule:evenodd;stroke:#000000;stroke-width:2;stroke-linecap:butt;stroke-linejoin:miter;stroke-miterlimit:4;stroke-dasharray:none;stroke-opacity:1" />
+    <text
+       xml:space="preserve"
+       style="font-size:16px;font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;text-align:center;line-height:100%;writing-mode:lr-tb;text-anchor:middle;fill:#000000;fill-opacity:1;stroke:none;stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1;font-family:DejaVu Sans;-inkscape-font-specification:DejaVu Sans"
+       x="569.48047"
+       y="328.19421"
+       id="text3725"
+       sodipodi:linespacing="100%"><tspan
+         sodipodi:role="line"
+         id="tspan3727"
+         x="569.48047"
+         y="328.19421">Cousin</tspan></text>
+    <text
+       sodipodi:linespacing="100%"
+       id="text3729"
+       y="328.19421"
+       x="629.48047"
+       style="font-size:16px;font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;text-align:center;line-height:100%;writing-mode:lr-tb;text-anchor:middle;fill:#000000;fill-opacity:1;stroke:none;stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1;font-family:DejaVu Sans;-inkscape-font-specification:DejaVu Sans"
+       xml:space="preserve"><tspan
+         y="328.19421"
+         x="629.48047"
+         id="tspan3731"
+         sodipodi:role="line">Cousin</tspan></text>
+    <path
+       style="fill:none;fill-rule:evenodd;stroke:#000000;stroke-width:2;stroke-linecap:butt;stroke-linejoin:miter;stroke-miterlimit:4;stroke-dasharray:none;stroke-opacity:1"
+       d="M 600,252.36218 L 600,222.36218"
+       id="path3733" />
+    <path
+       d="M 180,192.36218 A 20,20 0 1 1 140,192.36218 A 20,20 0 1 1 180,192.36218 z"
+       sodipodi:ry="20"
+       sodipodi:rx="20"
+       sodipodi:cy="192.36218"
+       sodipodi:cx="160"
+       id="path3735"
+       style="opacity:1;fill:#ffff00;fill-opacity:1;fill-rule:evenodd;stroke:#000000;stroke-width:2;stroke-linecap:square;stroke-linejoin:bevel;stroke-miterlimit:4;stroke-dasharray:none;stroke-dashoffset:0;stroke-opacity:1"
+       sodipodi:type="arc"
+       transform="translate(530,99.999997)" />
+    <path
+       sodipodi:nodetypes="cccc"
+       id="path3737"
+       d="M 730,312.36218 L 770,312.36218 L 750,272.36218 L 730,312.36218 z"
+       style="fill:#ffff00;fill-rule:evenodd;stroke:#000000;stroke-width:2;stroke-linecap:butt;stroke-linejoin:miter;stroke-miterlimit:4;stroke-dasharray:none;stroke-opacity:1" />
+    <path
+       style="fill:none;fill-rule:evenodd;stroke:#000000;stroke-width:2;stroke-linecap:butt;stroke-linejoin:miter;stroke-miterlimit:4;stroke-dasharray:none;stroke-opacity:1"
+       d="M 690,272.36218 L 690,252.36218 L 750,252.36218 L 750,272.36218"
+       id="path3739"
+       sodipodi:nodetypes="cccc" />
+    <text
+       sodipodi:linespacing="100%"
+       id="text3741"
+       y="328.19421"
+       x="689.48047"
+       style="font-size:16px;font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;text-align:center;line-height:100%;writing-mode:lr-tb;text-anchor:middle;fill:#000000;fill-opacity:1;stroke:none;stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1;font-family:DejaVu Sans;-inkscape-font-specification:DejaVu Sans"
+       xml:space="preserve"><tspan
+         y="328.19421"
+         x="689.48047"
+         id="tspan3743"
+         sodipodi:role="line">Sister</tspan></text>
+    <text
+       xml:space="preserve"
+       style="font-size:16px;font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;text-align:center;line-height:100%;writing-mode:lr-tb;text-anchor:middle;fill:#000000;fill-opacity:1;stroke:none;stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1;font-family:DejaVu Sans;-inkscape-font-specification:DejaVu Sans"
+       x="749.48047"
+       y="328.19421"
+       id="text3745"
+       sodipodi:linespacing="100%"><tspan
+         sodipodi:role="line"
+         id="tspan3747"
+         x="749.48047"
+         y="328.19421">Brother</tspan></text>
+    <path
+       id="path3749"
+       d="M 720,252.36218 L 720,222.36218"
+       style="fill:none;fill-rule:evenodd;stroke:#000000;stroke-width:2;stroke-linecap:butt;stroke-linejoin:miter;stroke-miterlimit:4;stroke-dasharray:none;stroke-opacity:1" />
+    <rect
+       style="opacity:1;fill:#ffffff;fill-opacity:1;fill-rule:evenodd;stroke:#000000;stroke-width:2;stroke-linecap:square;stroke-linejoin:bevel;stroke-miterlimit:4;stroke-dasharray:none;stroke-dashoffset:0;stroke-opacity:1"
+       id="rect3751"
+       width="650"
+       height="220"
+       x="540"
+       y="352.36218" />
+    <path
+       style="fill:#0000ff;fill-rule:evenodd;stroke:#000000;stroke-width:2;stroke-linecap:butt;stroke-linejoin:miter;stroke-miterlimit:4;stroke-dasharray:none;stroke-opacity:1"
+       d="M 890,452.36218 L 930,452.36218 L 910,412.36218 L 890,452.36218 z"
+       id="path3753"
+       sodipodi:nodetypes="cccc" />
+    <path
+       transform="translate(660,240)"
+       sodipodi:type="arc"
+       style="opacity:1;fill:#ff0000;fill-opacity:1;fill-rule:evenodd;stroke:#000000;stroke-width:2;stroke-linecap:square;stroke-linejoin:bevel;stroke-miterlimit:4;stroke-dasharray:none;stroke-dashoffset:0;stroke-opacity:1"
+       id="path3755"
+       sodipodi:cx="160"
+       sodipodi:cy="192.36218"
+       sodipodi:rx="20"
+       sodipodi:ry="20"
+       d="M 180,192.36218 A 20,20 0 1 1 140,192.36218 A 20,20 0 1 1 180,192.36218 z" />
+    <path
+       style="fill:none;fill-rule:evenodd;stroke:#000000;stroke-width:2;stroke-linecap:butt;stroke-linejoin:miter;stroke-miterlimit:4;stroke-dasharray:none;stroke-opacity:1"
+       d="M 850,427.36218 L 880,427.36218"
+       id="path3757" />
+    <path
+       style="fill:none;fill-rule:evenodd;stroke:#000000;stroke-width:2;stroke-linecap:butt;stroke-linejoin:miter;stroke-miterlimit:4;stroke-dasharray:none;stroke-opacity:1"
+       d="M 850,437.36218 L 880,437.36218"
+       id="path3759" />
+    <path
+       transform="translate(970,240)"
+       sodipodi:type="arc"
+       style="opacity:1;fill:#ff00ff;fill-opacity:1;fill-rule:evenodd;stroke:#000000;stroke-width:2;stroke-linecap:square;stroke-linejoin:bevel;stroke-miterlimit:4;stroke-dasharray:none;stroke-dashoffset:0;stroke-opacity:1"
+       id="path3761"
+       sodipodi:cx="160"
+       sodipodi:cy="192.36218"
+       sodipodi:rx="20"
+       sodipodi:ry="20"
+       d="M 180,192.36218 A 20,20 0 1 1 140,192.36218 A 20,20 0 1 1 180,192.36218 z" />
+    <path
+       style="fill:#0000ff;fill-rule:evenodd;stroke:#000000;stroke-width:2;stroke-linecap:butt;stroke-linejoin:miter;stroke-miterlimit:4;stroke-dasharray:none;stroke-opacity:1"
+       d="M 990,452.36218 L 1030,452.36218 L 1010,412.36218 L 990,452.36218 z"
+       id="path3763"
+       sodipodi:nodetypes="cccc" />
+    <path
+       style="fill:none;fill-rule:evenodd;stroke:#000000;stroke-width:2;stroke-linecap:butt;stroke-linejoin:miter;stroke-miterlimit:4;stroke-dasharray:none;stroke-opacity:1"
+       d="M 865,437.36218 L 865,502.36218"
+       id="path3765"
+       sodipodi:nodetypes="cc" />
+    <path
+       sodipodi:nodetypes="cccc"
+       id="path3767"
+       d="M 845,542.36218 L 885,542.36218 L 865,502.36218 L 845,542.36218 z"
+       style="fill:#b3b3b3;fill-rule:evenodd;stroke:#000000;stroke-width:2;stroke-linecap:butt;stroke-linejoin:miter;stroke-miterlimit:4;stroke-dasharray:none;stroke-opacity:1" />
+    <path
+       d="M 180,192.36218 A 20,20 0 1 1 140,192.36218 A 20,20 0 1 1 180,192.36218 z"
+       sodipodi:ry="20"
+       sodipodi:rx="20"
+       sodipodi:cy="192.36218"
+       sodipodi:cx="160"
+       id="path3769"
+       style="opacity:1;fill:#ffff00;fill-opacity:1;fill-rule:evenodd;stroke:#000000;stroke-width:2;stroke-linecap:square;stroke-linejoin:bevel;stroke-miterlimit:4;stroke-dasharray:none;stroke-dashoffset:0;stroke-opacity:1"
+       sodipodi:type="arc"
+       transform="translate(650,330)" />
+    <path
+       sodipodi:nodetypes="cccc"
+       id="path3771"
+       d="M 900,542.36218 L 940,542.36218 L 920,502.36218 L 900,542.36218 z"
+       style="fill:#ffff00;fill-rule:evenodd;stroke:#000000;stroke-width:2;stroke-linecap:butt;stroke-linejoin:miter;stroke-miterlimit:4;stroke-dasharray:none;stroke-opacity:1" />
+    <path
+       style="fill:none;fill-rule:evenodd;stroke:#000000;stroke-width:2;stroke-linecap:butt;stroke-linejoin:miter;stroke-miterlimit:4;stroke-dasharray:none;stroke-opacity:1"
+       d="M 810,502.36218 L 810,482.36218 L 920,482.36218 L 920,502.36218"
+       id="path3773"
+       sodipodi:nodetypes="cccc" />
+    <text
+       xml:space="preserve"
+       style="font-size:16px;font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;text-align:center;line-height:100%;writing-mode:lr-tb;text-anchor:middle;fill:#000000;fill-opacity:1;stroke:none;stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1;font-family:DejaVu Sans;-inkscape-font-specification:DejaVu Sans"
+       x="864.64844"
+       y="558.19421"
+       id="text3775"
+       sodipodi:linespacing="100%"><tspan
+         sodipodi:role="line"
+         id="tspan3777"
+         x="864.64844"
+         y="558.19421">Ego</tspan></text>
+    <text
+       sodipodi:linespacing="100%"
+       id="text3779"
+       y="558.19421"
+       x="809.48047"
+       style="font-size:16px;font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;text-align:center;line-height:100%;writing-mode:lr-tb;text-anchor:middle;fill:#000000;fill-opacity:1;stroke:none;stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1;font-family:DejaVu Sans;-inkscape-font-specification:DejaVu Sans"
+       xml:space="preserve"><tspan
+         y="558.19421"
+         x="809.48047"
+         id="tspan3781"
+         sodipodi:role="line">Sister</tspan></text>
+    <path
+       id="path3783"
+       d="M 910,412.36218 L 910,392.36218 L 1130,392.36218 L 1130,412.36218"
+       style="fill:none;fill-rule:evenodd;stroke:#000000;stroke-width:2;stroke-linecap:butt;stroke-linejoin:miter;stroke-miterlimit:4;stroke-dasharray:none;stroke-opacity:1"
+       sodipodi:nodetypes="cccc" />
+    <path
+       id="path3785"
+       d="M 1010,392.36218 L 1010,412.36218"
+       style="fill:none;fill-rule:evenodd;stroke:#000000;stroke-width:2;stroke-linecap:butt;stroke-linejoin:miter;stroke-miterlimit:4;stroke-dasharray:none;stroke-opacity:1" />
+    <text
+       xml:space="preserve"
+       style="font-size:16px;font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;text-align:center;line-height:100%;writing-mode:lr-tb;text-anchor:middle;fill:#000000;fill-opacity:1;stroke:none;stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1;font-family:DejaVu Sans;-inkscape-font-specification:DejaVu Sans"
+       x="919.48047"
+       y="558.19421"
+       id="text3787"
+       sodipodi:linespacing="100%"><tspan
+         sodipodi:role="line"
+         id="tspan3789"
+         x="919.48047"
+         y="558.19421">Brother</tspan></text>
+    <text
+       sodipodi:linespacing="100%"
+       id="text3791"
+       y="468.19421"
+       x="819.64844"
+       style="font-size:16px;font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;text-align:center;line-height:100%;writing-mode:lr-tb;text-anchor:middle;fill:#000000;fill-opacity:1;stroke:none;stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1;font-family:DejaVu Sans;-inkscape-font-specification:DejaVu Sans"
+       xml:space="preserve"><tspan
+         y="468.19421"
+         x="819.64844"
+         id="tspan3793"
+         sodipodi:role="line">Mother</tspan></text>
+    <text
+       xml:space="preserve"
+       style="font-size:16px;font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;text-align:center;line-height:100%;writing-mode:lr-tb;text-anchor:middle;fill:#000000;fill-opacity:1;stroke:none;stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1;font-family:DejaVu Sans;-inkscape-font-specification:DejaVu Sans"
+       x="909.64844"
+       y="468.19421"
+       id="text3795"
+       sodipodi:linespacing="100%"><tspan
+         sodipodi:role="line"
+         id="tspan3797"
+         x="909.64844"
+         y="468.19421">Father</tspan></text>
+    <text
+       xml:space="preserve"
+       style="font-size:20px;font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;text-align:center;line-height:100%;writing-mode:lr-tb;text-anchor:middle;fill:#000000;fill-opacity:1;stroke:none;stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1;font-family:DejaVu Sans;-inkscape-font-specification:DejaVu Sans"
+       x="864.56543"
+       y="376.98123"
+       id="text3799"
+       sodipodi:linespacing="100%"><tspan
+         sodipodi:role="line"
+         id="tspan3801"
+         x="864.56543"
+         y="376.98123">Crow Kinship</tspan></text>
+    <text
+       sodipodi:linespacing="100%"
+       id="text3803"
+       y="468.19421"
+       x="1106.625"
+       style="font-size:16px;font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;text-align:center;line-height:100%;writing-mode:lr-tb;text-anchor:middle;fill:#000000;fill-opacity:1;stroke:none;stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1;font-family:DejaVu Sans;-inkscape-font-specification:DejaVu Sans"
+       xml:space="preserve"><tspan
+         y="468.19421"
+         x="1106.625"
+         id="tspan3805"
+         sodipodi:role="line">Aunt</tspan></text>
+    <text
+       sodipodi:linespacing="100%"
+       id="text3807"
+       y="468.19421"
+       x="979.0625"
+       style="font-size:16px;font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;text-align:center;line-height:100%;writing-mode:lr-tb;text-anchor:middle;fill:#000000;fill-opacity:1;stroke:none;stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1;font-family:DejaVu Sans;-inkscape-font-specification:DejaVu Sans"
+       xml:space="preserve"><tspan
+         y="468.19421"
+         x="979.0625"
+         id="tspan3809"
+         sodipodi:role="line">Father</tspan></text>
+    <path
+       transform="translate(820,330)"
+       sodipodi:type="arc"
+       style="opacity:1;fill:#ffff00;fill-opacity:1;fill-rule:evenodd;stroke:#000000;stroke-width:2;stroke-linecap:square;stroke-linejoin:bevel;stroke-miterlimit:4;stroke-dasharray:none;stroke-dashoffset:0;stroke-opacity:1"
+       id="path3811"
+       sodipodi:cx="160"
+       sodipodi:cy="192.36218"
+       sodipodi:rx="20"
+       sodipodi:ry="20"
+       d="M 180,192.36218 A 20,20 0 1 1 140,192.36218 A 20,20 0 1 1 180,192.36218 z" />
+    <path
+       style="fill:#ffff00;fill-rule:evenodd;stroke:#000000;stroke-width:2;stroke-linecap:butt;stroke-linejoin:miter;stroke-miterlimit:4;stroke-dasharray:none;stroke-opacity:1"
+       d="M 1020,542.36218 L 1060,542.36218 L 1040,502.36218 L 1020,542.36218 z"
+       id="path3813"
+       sodipodi:nodetypes="cccc" />
+    <path
+       sodipodi:nodetypes="cccc"
+       id="path3815"
+       d="M 980,502.36218 L 980,482.36218 L 1040,482.36218 L 1040,502.36218"
+       style="fill:none;fill-rule:evenodd;stroke:#000000;stroke-width:2;stroke-linecap:butt;stroke-linejoin:miter;stroke-miterlimit:4;stroke-dasharray:none;stroke-opacity:1" />
+    <text
+       xml:space="preserve"
+       style="font-size:16px;font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;text-align:center;line-height:100%;writing-mode:lr-tb;text-anchor:middle;fill:#000000;fill-opacity:1;stroke:none;stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1;font-family:DejaVu Sans;-inkscape-font-specification:DejaVu Sans"
+       x="979.48047"
+       y="558.19421"
+       id="text3817"
+       sodipodi:linespacing="100%"><tspan
+         sodipodi:role="line"
+         id="tspan3819"
+         x="979.48047"
+         y="558.19421">Sister</tspan></text>
+    <text
+       sodipodi:linespacing="100%"
+       id="text3821"
+       y="558.19421"
+       x="1039.4805"
+       style="font-size:16px;font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;text-align:center;line-height:100%;writing-mode:lr-tb;text-anchor:middle;fill:#000000;fill-opacity:1;stroke:none;stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1;font-family:DejaVu Sans;-inkscape-font-specification:DejaVu Sans"
+       xml:space="preserve"><tspan
+         y="558.19421"
+         x="1039.4805"
+         id="tspan3823"
+         sodipodi:role="line">Brother</tspan></text>
+    <path
+       style="fill:none;fill-rule:evenodd;stroke:#000000;stroke-width:2;stroke-linecap:butt;stroke-linejoin:miter;stroke-miterlimit:4;stroke-dasharray:none;stroke-opacity:1"
+       d="M 1010,482.36218 L 1010,452.36218"
+       id="path3825" />
+    <path
+       d="M 180,192.36218 A 20,20 0 1 1 140,192.36218 A 20,20 0 1 1 180,192.36218 z"
+       sodipodi:ry="20"
+       sodipodi:rx="20"
+       sodipodi:cy="192.36218"
+       sodipodi:cx="160"
+       id="path3827"
+       style="opacity:1;fill:#ff00ff;fill-opacity:1;fill-rule:evenodd;stroke:#000000;stroke-width:2;stroke-linecap:square;stroke-linejoin:bevel;stroke-miterlimit:4;stroke-dasharray:none;stroke-dashoffset:0;stroke-opacity:1"
+       sodipodi:type="arc"
+       transform="translate(940,330)" />
+    <path
+       sodipodi:nodetypes="cccc"
+       id="path3829"
+       d="M 1140,542.36218 L 1180,542.36218 L 1160,502.36218 L 1140,542.36218 z"
+       style="fill:#0000ff;fill-rule:evenodd;stroke:#000000;stroke-width:2;stroke-linecap:butt;stroke-linejoin:miter;stroke-miterlimit:4;stroke-dasharray:none;stroke-opacity:1" />
+    <path
+       style="fill:none;fill-rule:evenodd;stroke:#000000;stroke-width:2;stroke-linecap:butt;stroke-linejoin:miter;stroke-miterlimit:4;stroke-dasharray:none;stroke-opacity:1"
+       d="M 1100,502.36218 L 1100,482.36218 L 1160,482.36218 L 1160,502.36218"
+       id="path3831"
+       sodipodi:nodetypes="cccc" />
+    <text
+       sodipodi:linespacing="100%"
+       id="text3833"
+       y="558.19421"
+       x="1099.4805"
+       style="font-size:16px;font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;text-align:center;line-height:100%;writing-mode:lr-tb;text-anchor:middle;fill:#000000;fill-opacity:1;stroke:none;stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1;font-family:DejaVu Sans;-inkscape-font-specification:DejaVu Sans"
+       xml:space="preserve"><tspan
+         y="558.19421"
+         x="1099.4805"
+         id="tspan3835"
+         sodipodi:role="line">Aunt</tspan></text>
+    <text
+       xml:space="preserve"
+       style="font-size:16px;font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;text-align:center;line-height:100%;writing-mode:lr-tb;text-anchor:middle;fill:#000000;fill-opacity:1;stroke:none;stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1;font-family:DejaVu Sans;-inkscape-font-specification:DejaVu Sans"
+       x="1159.4805"
+       y="558.19421"
+       id="text3837"
+       sodipodi:linespacing="100%"><tspan
+         sodipodi:role="line"
+         id="tspan3839"
+         x="1159.4805"
+         y="558.19421">Father</tspan></text>
+    <path
+       id="path3841"
+       d="M 1130,482.36218 L 1130,452.36218"
+       style="fill:none;fill-rule:evenodd;stroke:#000000;stroke-width:2;stroke-linecap:butt;stroke-linejoin:miter;stroke-miterlimit:4;stroke-dasharray:none;stroke-opacity:1" />
+    <path
+       d="M 180,192.36218 A 20,20 0 1 1 140,192.36218 A 20,20 0 1 1 180,192.36218 z"
+       sodipodi:ry="20"
+       sodipodi:rx="20"
+       sodipodi:cy="192.36218"
+       sodipodi:cx="160"
+       id="path3843"
+       style="opacity:1;fill:#ff0000;fill-opacity:1;fill-rule:evenodd;stroke:#000000;stroke-width:2;stroke-linecap:square;stroke-linejoin:bevel;stroke-miterlimit:4;stroke-dasharray:none;stroke-dashoffset:0;stroke-opacity:1"
+       sodipodi:type="arc"
+       transform="translate(560,240)" />
+    <path
+       sodipodi:nodetypes="cccc"
+       id="path3845"
+       d="M 580,452.36218 L 620,452.36218 L 600,412.36218 L 580,452.36218 z"
+       style="fill:#00ffff;fill-rule:evenodd;stroke:#000000;stroke-width:2;stroke-linecap:butt;stroke-linejoin:miter;stroke-miterlimit:4;stroke-dasharray:none;stroke-opacity:1" />
+    <path
+       sodipodi:nodetypes="cccc"
+       style="fill:none;fill-rule:evenodd;stroke:#000000;stroke-width:2;stroke-linecap:butt;stroke-linejoin:miter;stroke-miterlimit:4;stroke-dasharray:none;stroke-opacity:1"
+       d="M 600,412.36218 L 600,392.36218 L 820,392.36218 L 820,412.36218"
+       id="path3847" />
+    <path
+       style="fill:none;fill-rule:evenodd;stroke:#000000;stroke-width:2;stroke-linecap:butt;stroke-linejoin:miter;stroke-miterlimit:4;stroke-dasharray:none;stroke-opacity:1"
+       d="M 720,392.36218 L 720,412.36218"
+       id="path3849" />
+    <text
+       xml:space="preserve"
+       style="font-size:16px;font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;text-align:center;line-height:100%;writing-mode:lr-tb;text-anchor:middle;fill:#000000;fill-opacity:1;stroke:none;stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1;font-family:DejaVu Sans;-inkscape-font-specification:DejaVu Sans"
+       x="686.78125"
+       y="468.19421"
+       id="text3851"
+       sodipodi:linespacing="100%"><tspan
+         sodipodi:role="line"
+         id="tspan3853"
+         x="686.78125"
+         y="468.19421">Mother</tspan></text>
+    <text
+       xml:space="preserve"
+       style="font-size:16px;font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;text-align:center;line-height:100%;writing-mode:lr-tb;text-anchor:middle;fill:#000000;fill-opacity:1;stroke:none;stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1;font-family:DejaVu Sans;-inkscape-font-specification:DejaVu Sans"
+       x="573.36719"
+       y="468.19421"
+       id="text3855"
+       sodipodi:linespacing="100%"><tspan
+         sodipodi:role="line"
+         id="tspan3857"
+         x="573.36719"
+         y="468.19421">Uncle</tspan></text>
+    <path
+       d="M 180,192.36218 A 20,20 0 1 1 140,192.36218 A 20,20 0 1 1 180,192.36218 z"
+       sodipodi:ry="20"
+       sodipodi:rx="20"
+       sodipodi:cy="192.36218"
+       sodipodi:cx="160"
+       id="path3859"
+       style="opacity:1;fill:#00ff00;fill-opacity:1;fill-rule:evenodd;stroke:#000000;stroke-width:2;stroke-linecap:square;stroke-linejoin:bevel;stroke-miterlimit:4;stroke-dasharray:none;stroke-dashoffset:0;stroke-opacity:1"
+       sodipodi:type="arc"
+       transform="translate(410,330)" />
+    <path
+       sodipodi:nodetypes="cccc"
+       id="path3861"
+       d="M 610,542.36218 L 650,542.36218 L 630,502.36218 L 610,542.36218 z"
+       style="fill:#00ff00;fill-rule:evenodd;stroke:#000000;stroke-width:2;stroke-linecap:butt;stroke-linejoin:miter;stroke-miterlimit:4;stroke-dasharray:none;stroke-opacity:1" />
+    <path
+       style="fill:none;fill-rule:evenodd;stroke:#000000;stroke-width:2;stroke-linecap:butt;stroke-linejoin:miter;stroke-miterlimit:4;stroke-dasharray:none;stroke-opacity:1"
+       d="M 570,502.36218 L 570,482.36218 L 630,482.36218 L 630,502.36218"
+       id="path3863"
+       sodipodi:nodetypes="cccc" />
+    <text
+       sodipodi:linespacing="100%"
+       id="text3865"
+       y="558.19421"
+       x="569.48047"
+       style="font-size:16px;font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;text-align:center;line-height:100%;writing-mode:lr-tb;text-anchor:middle;fill:#000000;fill-opacity:1;stroke:none;stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1;font-family:DejaVu Sans;-inkscape-font-specification:DejaVu Sans"
+       xml:space="preserve"><tspan
+         y="558.19421"
+         x="569.48047"
+         id="tspan3867"
+         sodipodi:role="line">Cousin</tspan></text>
+    <text
+       xml:space="preserve"
+       style="font-size:16px;font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;text-align:center;line-height:100%;writing-mode:lr-tb;text-anchor:middle;fill:#000000;fill-opacity:1;stroke:none;stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1;font-family:DejaVu Sans;-inkscape-font-specification:DejaVu Sans"
+       x="629.48047"
+       y="558.19421"
+       id="text3869"
+       sodipodi:linespacing="100%"><tspan
+         sodipodi:role="line"
+         id="tspan3871"
+         x="629.48047"
+         y="558.19421">Cousin</tspan></text>
+    <path
+       id="path3873"
+       d="M 600,482.36218 L 600,452.36218"
+       style="fill:none;fill-rule:evenodd;stroke:#000000;stroke-width:2;stroke-linecap:butt;stroke-linejoin:miter;stroke-miterlimit:4;stroke-dasharray:none;stroke-opacity:1" />
+    <path
+       transform="translate(530,330)"
+       sodipodi:type="arc"
+       style="opacity:1;fill:#ffff00;fill-opacity:1;fill-rule:evenodd;stroke:#000000;stroke-width:2;stroke-linecap:square;stroke-linejoin:bevel;stroke-miterlimit:4;stroke-dasharray:none;stroke-dashoffset:0;stroke-opacity:1"
+       id="path3875"
+       sodipodi:cx="160"
+       sodipodi:cy="192.36218"
+       sodipodi:rx="20"
+       sodipodi:ry="20"
+       d="M 180,192.36218 A 20,20 0 1 1 140,192.36218 A 20,20 0 1 1 180,192.36218 z" />
+    <path
+       style="fill:#ffff00;fill-rule:evenodd;stroke:#000000;stroke-width:2;stroke-linecap:butt;stroke-linejoin:miter;stroke-miterlimit:4;stroke-dasharray:none;stroke-opacity:1"
+       d="M 730,542.36218 L 770,542.36218 L 750,502.36218 L 730,542.36218 z"
+       id="path3877"
+       sodipodi:nodetypes="cccc" />
+    <path
+       sodipodi:nodetypes="cccc"
+       id="path3879"
+       d="M 690,502.36218 L 690,482.36218 L 750,482.36218 L 750,502.36218"
+       style="fill:none;fill-rule:evenodd;stroke:#000000;stroke-width:2;stroke-linecap:butt;stroke-linejoin:miter;stroke-miterlimit:4;stroke-dasharray:none;stroke-opacity:1" />
+    <text
+       xml:space="preserve"
+       style="font-size:16px;font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;text-align:center;line-height:100%;writing-mode:lr-tb;text-anchor:middle;fill:#000000;fill-opacity:1;stroke:none;stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1;font-family:DejaVu Sans;-inkscape-font-specification:DejaVu Sans"
+       x="689.48047"
+       y="558.19421"
+       id="text3881"
+       sodipodi:linespacing="100%"><tspan
+         sodipodi:role="line"
+         id="tspan3883"
+         x="689.48047"
+         y="558.19421">Sister</tspan></text>
+    <text
+       sodipodi:linespacing="100%"
+       id="text3885"
+       y="558.19421"
+       x="749.48047"
+       style="font-size:16px;font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;text-align:center;line-height:100%;writing-mode:lr-tb;text-anchor:middle;fill:#000000;fill-opacity:1;stroke:none;stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1;font-family:DejaVu Sans;-inkscape-font-specification:DejaVu Sans"
+       xml:space="preserve"><tspan
+         y="558.19421"
+         x="749.48047"
+         id="tspan3887"
+         sodipodi:role="line">Brother</tspan></text>
+    <path
+       style="fill:none;fill-rule:evenodd;stroke:#000000;stroke-width:2;stroke-linecap:butt;stroke-linejoin:miter;stroke-miterlimit:4;stroke-dasharray:none;stroke-opacity:1"
+       d="M 720,482.36218 L 720,452.36218"
+       id="path3889" />
+    <rect
+       style="opacity:1;fill:#ffffff;fill-opacity:1;fill-rule:evenodd;stroke:#000000;stroke-width:2;stroke-linecap:square;stroke-linejoin:bevel;stroke-miterlimit:4;stroke-dasharray:none;stroke-dashoffset:0;stroke-opacity:1"
+       id="rect4031"
+       width="650"
+       height="220"
+       x="540"
+       y="582.36218" />
+    <path
+       style="fill:#0000ff;fill-rule:evenodd;stroke:#000000;stroke-width:2;stroke-linecap:butt;stroke-linejoin:miter;stroke-miterlimit:4;stroke-dasharray:none;stroke-opacity:1"
+       d="M 890,682.36218 L 930,682.36218 L 910,642.36218 L 890,682.36218 z"
+       id="path4033"
+       sodipodi:nodetypes="cccc" />
+    <path
+       transform="translate(660,470)"
+       sodipodi:type="arc"
+       style="opacity:1;fill:#ff0000;fill-opacity:1;fill-rule:evenodd;stroke:#000000;stroke-width:2;stroke-linecap:square;stroke-linejoin:bevel;stroke-miterlimit:4;stroke-dasharray:none;stroke-dashoffset:0;stroke-opacity:1"
+       id="path4035"
+       sodipodi:cx="160"
+       sodipodi:cy="192.36218"
+       sodipodi:rx="20"
+       sodipodi:ry="20"
+       d="M 180,192.36218 A 20,20 0 1 1 140,192.36218 A 20,20 0 1 1 180,192.36218 z" />
+    <path
+       style="fill:none;fill-rule:evenodd;stroke:#000000;stroke-width:2;stroke-linecap:butt;stroke-linejoin:miter;stroke-miterlimit:4;stroke-dasharray:none;stroke-opacity:1"
+       d="M 850,657.36218 L 880,657.36218"
+       id="path4037" />
+    <path
+       style="fill:none;fill-rule:evenodd;stroke:#000000;stroke-width:2;stroke-linecap:butt;stroke-linejoin:miter;stroke-miterlimit:4;stroke-dasharray:none;stroke-opacity:1"
+       d="M 850,667.36218 L 880,667.36218"
+       id="path4039" />
+    <path
+       transform="translate(970,470)"
+       sodipodi:type="arc"
+       style="opacity:1;fill:#ff00ff;fill-opacity:1;fill-rule:evenodd;stroke:#000000;stroke-width:2;stroke-linecap:square;stroke-linejoin:bevel;stroke-miterlimit:4;stroke-dasharray:none;stroke-dashoffset:0;stroke-opacity:1"
+       id="path4041"
+       sodipodi:cx="160"
+       sodipodi:cy="192.36218"
+       sodipodi:rx="20"
+       sodipodi:ry="20"
+       d="M 180,192.36218 A 20,20 0 1 1 140,192.36218 A 20,20 0 1 1 180,192.36218 z" />
+    <path
+       style="fill:#0000ff;fill-rule:evenodd;stroke:#000000;stroke-width:2;stroke-linecap:butt;stroke-linejoin:miter;stroke-miterlimit:4;stroke-dasharray:none;stroke-opacity:1"
+       d="M 990,682.36218 L 1030,682.36218 L 1010,642.36218 L 990,682.36218 z"
+       id="path4043"
+       sodipodi:nodetypes="cccc" />
+    <path
+       style="fill:none;fill-rule:evenodd;stroke:#000000;stroke-width:2;stroke-linecap:butt;stroke-linejoin:miter;stroke-miterlimit:4;stroke-dasharray:none;stroke-opacity:1"
+       d="M 865,667.36218 L 865,732.36218"
+       id="path4045"
+       sodipodi:nodetypes="cc" />
+    <path
+       sodipodi:nodetypes="cccc"
+       id="path4047"
+       d="M 845,772.36218 L 885,772.36218 L 865,732.36218 L 845,772.36218 z"
+       style="fill:#b3b3b3;fill-rule:evenodd;stroke:#000000;stroke-width:2;stroke-linecap:butt;stroke-linejoin:miter;stroke-miterlimit:4;stroke-dasharray:none;stroke-opacity:1" />
+    <path
+       d="M 180,192.36218 A 20,20 0 1 1 140,192.36218 A 20,20 0 1 1 180,192.36218 z"
+       sodipodi:ry="20"
+       sodipodi:rx="20"
+       sodipodi:cy="192.36218"
+       sodipodi:cx="160"
+       id="path4049"
+       style="opacity:1;fill:#ffff00;fill-opacity:1;fill-rule:evenodd;stroke:#000000;stroke-width:2;stroke-linecap:square;stroke-linejoin:bevel;stroke-miterlimit:4;stroke-dasharray:none;stroke-dashoffset:0;stroke-opacity:1"
+       sodipodi:type="arc"
+       transform="translate(650,560)" />
+    <path
+       sodipodi:nodetypes="cccc"
+       id="path4051"
+       d="M 900,772.36218 L 940,772.36218 L 920,732.36218 L 900,772.36218 z"
+       style="fill:#ffff00;fill-rule:evenodd;stroke:#000000;stroke-width:2;stroke-linecap:butt;stroke-linejoin:miter;stroke-miterlimit:4;stroke-dasharray:none;stroke-opacity:1" />
+    <path
+       style="fill:none;fill-rule:evenodd;stroke:#000000;stroke-width:2;stroke-linecap:butt;stroke-linejoin:miter;stroke-miterlimit:4;stroke-dasharray:none;stroke-opacity:1"
+       d="M 810,732.36218 L 810,712.36218 L 920,712.36218 L 920,732.36218"
+       id="path4053"
+       sodipodi:nodetypes="cccc" />
+    <text
+       xml:space="preserve"
+       style="font-size:16px;font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;text-align:center;line-height:100%;writing-mode:lr-tb;text-anchor:middle;fill:#000000;fill-opacity:1;stroke:none;stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1;font-family:DejaVu Sans;-inkscape-font-specification:DejaVu Sans"
+       x="864.64844"
+       y="788.19421"
+       id="text4055"
+       sodipodi:linespacing="100%"><tspan
+         sodipodi:role="line"
+         id="tspan4057"
+         x="864.64844"
+         y="788.19421">Ego</tspan></text>
+    <text
+       sodipodi:linespacing="100%"
+       id="text4059"
+       y="788.19421"
+       x="809.48047"
+       style="font-size:16px;font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;text-align:center;line-height:100%;writing-mode:lr-tb;text-anchor:middle;fill:#000000;fill-opacity:1;stroke:none;stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1;font-family:DejaVu Sans;-inkscape-font-specification:DejaVu Sans"
+       xml:space="preserve"><tspan
+         y="788.19421"
+         x="809.48047"
+         id="tspan4061"
+         sodipodi:role="line">Sister</tspan></text>
+    <path
+       id="path4063"
+       d="M 910,642.36218 L 910,622.36218 L 1130,622.36218 L 1130,642.36218"
+       style="fill:none;fill-rule:evenodd;stroke:#000000;stroke-width:2;stroke-linecap:butt;stroke-linejoin:miter;stroke-miterlimit:4;stroke-dasharray:none;stroke-opacity:1"
+       sodipodi:nodetypes="cccc" />
+    <path
+       id="path4065"
+       d="M 1010,622.36218 L 1010,642.36218"
+       style="fill:none;fill-rule:evenodd;stroke:#000000;stroke-width:2;stroke-linecap:butt;stroke-linejoin:miter;stroke-miterlimit:4;stroke-dasharray:none;stroke-opacity:1" />
+    <text
+       xml:space="preserve"
+       style="font-size:16px;font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;text-align:center;line-height:100%;writing-mode:lr-tb;text-anchor:middle;fill:#000000;fill-opacity:1;stroke:none;stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1;font-family:DejaVu Sans;-inkscape-font-specification:DejaVu Sans"
+       x="919.48047"
+       y="788.19421"
+       id="text4067"
+       sodipodi:linespacing="100%"><tspan
+         sodipodi:role="line"
+         id="tspan4069"
+         x="919.48047"
+         y="788.19421">Brother</tspan></text>
+    <text
+       sodipodi:linespacing="100%"
+       id="text4071"
+       y="698.19421"
+       x="819.64844"
+       style="font-size:16px;font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;text-align:center;line-height:100%;writing-mode:lr-tb;text-anchor:middle;fill:#000000;fill-opacity:1;stroke:none;stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1;font-family:DejaVu Sans;-inkscape-font-specification:DejaVu Sans"
+       xml:space="preserve"><tspan
+         y="698.19421"
+         x="819.64844"
+         id="tspan4073"
+         sodipodi:role="line">Mother</tspan></text>
+    <text
+       xml:space="preserve"
+       style="font-size:16px;font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;text-align:center;line-height:100%;writing-mode:lr-tb;text-anchor:middle;fill:#000000;fill-opacity:1;stroke:none;stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1;font-family:DejaVu Sans;-inkscape-font-specification:DejaVu Sans"
+       x="909.64844"
+       y="698.19421"
+       id="text4075"
+       sodipodi:linespacing="100%"><tspan
+         sodipodi:role="line"
+         id="tspan4077"
+         x="909.64844"
+         y="698.19421">Father</tspan></text>
+    <text
+       xml:space="preserve"
+       style="font-size:20px;font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;text-align:center;line-height:100%;writing-mode:lr-tb;text-anchor:middle;fill:#000000;fill-opacity:1;stroke:none;stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1;font-family:DejaVu Sans;-inkscape-font-specification:DejaVu Sans"
+       x="864.56543"
+       y="606.9812"
+       id="text4079"
+       sodipodi:linespacing="100%"><tspan
+         sodipodi:role="line"
+         id="tspan4081"
+         x="864.56543"
+         y="606.9812">Omaha Kinship</tspan></text>
+    <text
+       sodipodi:linespacing="100%"
+       id="text4083"
+       y="698.19421"
+       x="1106.625"
+       style="font-size:16px;font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;text-align:center;line-height:100%;writing-mode:lr-tb;text-anchor:middle;fill:#000000;fill-opacity:1;stroke:none;stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1;font-family:DejaVu Sans;-inkscape-font-specification:DejaVu Sans"
+       xml:space="preserve"><tspan
+         y="698.19421"
+         x="1106.625"
+         id="tspan4085"
+         sodipodi:role="line">Aunt</tspan></text>
+    <text
+       sodipodi:linespacing="100%"
+       id="text4087"
+       y="698.19421"
+       x="979.0625"
+       style="font-size:16px;font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;text-align:center;line-height:100%;writing-mode:lr-tb;text-anchor:middle;fill:#000000;fill-opacity:1;stroke:none;stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1;font-family:DejaVu Sans;-inkscape-font-specification:DejaVu Sans"
+       xml:space="preserve"><tspan
+         y="698.19421"
+         x="979.0625"
+         id="tspan4089"
+         sodipodi:role="line">Father</tspan></text>
+    <path
+       transform="translate(820,560)"
+       sodipodi:type="arc"
+       style="opacity:1;fill:#ffff00;fill-opacity:1;fill-rule:evenodd;stroke:#000000;stroke-width:2;stroke-linecap:square;stroke-linejoin:bevel;stroke-miterlimit:4;stroke-dasharray:none;stroke-dashoffset:0;stroke-opacity:1"
+       id="path4091"
+       sodipodi:cx="160"
+       sodipodi:cy="192.36218"
+       sodipodi:rx="20"
+       sodipodi:ry="20"
+       d="M 180,192.36218 A 20,20 0 1 1 140,192.36218 A 20,20 0 1 1 180,192.36218 z" />
+    <path
+       style="fill:#ffff00;fill-rule:evenodd;stroke:#000000;stroke-width:2;stroke-linecap:butt;stroke-linejoin:miter;stroke-miterlimit:4;stroke-dasharray:none;stroke-opacity:1"
+       d="M 1020,772.36218 L 1060,772.36218 L 1040,732.36218 L 1020,772.36218 z"
+       id="path4093"
+       sodipodi:nodetypes="cccc" />
+    <path
+       sodipodi:nodetypes="cccc"
+       id="path4095"
+       d="M 980,732.36218 L 980,712.36218 L 1040,712.36218 L 1040,732.36218"
+       style="fill:none;fill-rule:evenodd;stroke:#000000;stroke-width:2;stroke-linecap:butt;stroke-linejoin:miter;stroke-miterlimit:4;stroke-dasharray:none;stroke-opacity:1" />
+    <text
+       xml:space="preserve"
+       style="font-size:16px;font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;text-align:center;line-height:100%;writing-mode:lr-tb;text-anchor:middle;fill:#000000;fill-opacity:1;stroke:none;stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1;font-family:DejaVu Sans;-inkscape-font-specification:DejaVu Sans"
+       x="979.48047"
+       y="788.19421"
+       id="text4097"
+       sodipodi:linespacing="100%"><tspan
+         sodipodi:role="line"
+         id="tspan4099"
+         x="979.48047"
+         y="788.19421">Sister</tspan></text>
+    <text
+       sodipodi:linespacing="100%"
+       id="text4101"
+       y="788.19421"
+       x="1039.4805"
+       style="font-size:16px;font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;text-align:center;line-height:100%;writing-mode:lr-tb;text-anchor:middle;fill:#000000;fill-opacity:1;stroke:none;stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1;font-family:DejaVu Sans;-inkscape-font-specification:DejaVu Sans"
+       xml:space="preserve"><tspan
+         y="788.19421"
+         x="1039.4805"
+         id="tspan4103"
+         sodipodi:role="line">Brother</tspan></text>
+    <path
+       style="fill:none;fill-rule:evenodd;stroke:#000000;stroke-width:2;stroke-linecap:butt;stroke-linejoin:miter;stroke-miterlimit:4;stroke-dasharray:none;stroke-opacity:1"
+       d="M 1010,712.36218 L 1010,682.36218"
+       id="path4105" />
+    <path
+       d="M 180,192.36218 A 20,20 0 1 1 140,192.36218 A 20,20 0 1 1 180,192.36218 z"
+       sodipodi:ry="20"
+       sodipodi:rx="20"
+       sodipodi:cy="192.36218"
+       sodipodi:cx="160"
+       id="path4107"
+       style="opacity:1;fill:#00ff00;fill-opacity:1;fill-rule:evenodd;stroke:#000000;stroke-width:2;stroke-linecap:square;stroke-linejoin:bevel;stroke-miterlimit:4;stroke-dasharray:none;stroke-dashoffset:0;stroke-opacity:1"
+       sodipodi:type="arc"
+       transform="translate(940,560)" />
+    <path
+       sodipodi:nodetypes="cccc"
+       id="path4109"
+       d="M 1140,772.36218 L 1180,772.36218 L 1160,732.36218 L 1140,772.36218 z"
+       style="fill:#00ff00;fill-rule:evenodd;stroke:#000000;stroke-width:2;stroke-linecap:butt;stroke-linejoin:miter;stroke-miterlimit:4;stroke-dasharray:none;stroke-opacity:1" />
+    <path
+       style="fill:none;fill-rule:evenodd;stroke:#000000;stroke-width:2;stroke-linecap:butt;stroke-linejoin:miter;stroke-miterlimit:4;stroke-dasharray:none;stroke-opacity:1"
+       d="M 1100,732.36218 L 1100,712.36218 L 1160,712.36218 L 1160,732.36218"
+       id="path4111"
+       sodipodi:nodetypes="cccc" />
+    <text
+       sodipodi:linespacing="100%"
+       id="text4113"
+       y="788.19421"
+       x="1099.4805"
+       style="font-size:16px;font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;text-align:center;line-height:100%;writing-mode:lr-tb;text-anchor:middle;fill:#000000;fill-opacity:1;stroke:none;stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1;font-family:DejaVu Sans;-inkscape-font-specification:DejaVu Sans"
+       xml:space="preserve"><tspan
+         y="788.19421"
+         x="1099.4805"
+         id="tspan4115"
+         sodipodi:role="line">Cousin</tspan></text>
+    <text
+       xml:space="preserve"
+       style="font-size:16px;font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;text-align:center;line-height:100%;writing-mode:lr-tb;text-anchor:middle;fill:#000000;fill-opacity:1;stroke:none;stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1;font-family:DejaVu Sans;-inkscape-font-specification:DejaVu Sans"
+       x="1159.4805"
+       y="788.19421"
+       id="text4117"
+       sodipodi:linespacing="100%"><tspan
+         sodipodi:role="line"
+         id="tspan4119"
+         x="1159.4805"
+         y="788.19421">Cousin</tspan></text>
+    <path
+       id="path4121"
+       d="M 1130,712.36218 L 1130,682.36218"
+       style="fill:none;fill-rule:evenodd;stroke:#000000;stroke-width:2;stroke-linecap:butt;stroke-linejoin:miter;stroke-miterlimit:4;stroke-dasharray:none;stroke-opacity:1" />
+    <path
+       d="M 180,192.36218 A 20,20 0 1 1 140,192.36218 A 20,20 0 1 1 180,192.36218 z"
+       sodipodi:ry="20"
+       sodipodi:rx="20"
+       sodipodi:cy="192.36218"
+       sodipodi:cx="160"
+       id="path4123"
+       style="opacity:1;fill:#ff0000;fill-opacity:1;fill-rule:evenodd;stroke:#000000;stroke-width:2;stroke-linecap:square;stroke-linejoin:bevel;stroke-miterlimit:4;stroke-dasharray:none;stroke-dashoffset:0;stroke-opacity:1"
+       sodipodi:type="arc"
+       transform="translate(560,470)" />
+    <path
+       sodipodi:nodetypes="cccc"
+       id="path4125"
+       d="M 580,682.36218 L 620,682.36218 L 600,642.36218 L 580,682.36218 z"
+       style="fill:#00ffff;fill-rule:evenodd;stroke:#000000;stroke-width:2;stroke-linecap:butt;stroke-linejoin:miter;stroke-miterlimit:4;stroke-dasharray:none;stroke-opacity:1" />
+    <path
+       sodipodi:nodetypes="cccc"
+       style="fill:none;fill-rule:evenodd;stroke:#000000;stroke-width:2;stroke-linecap:butt;stroke-linejoin:miter;stroke-miterlimit:4;stroke-dasharray:none;stroke-opacity:1"
+       d="M 600,642.36218 L 600,622.36218 L 820,622.36218 L 820,642.36218"
+       id="path4127" />
+    <path
+       style="fill:none;fill-rule:evenodd;stroke:#000000;stroke-width:2;stroke-linecap:butt;stroke-linejoin:miter;stroke-miterlimit:4;stroke-dasharray:none;stroke-opacity:1"
+       d="M 720,622.36218 L 720,642.36218"
+       id="path4129" />
+    <text
+       xml:space="preserve"
+       style="font-size:16px;font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;text-align:center;line-height:100%;writing-mode:lr-tb;text-anchor:middle;fill:#000000;fill-opacity:1;stroke:none;stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1;font-family:DejaVu Sans;-inkscape-font-specification:DejaVu Sans"
+       x="686.78125"
+       y="698.19421"
+       id="text4131"
+       sodipodi:linespacing="100%"><tspan
+         sodipodi:role="line"
+         id="tspan4133"
+         x="686.78125"
+         y="698.19421">Mother</tspan></text>
+    <text
+       xml:space="preserve"
+       style="font-size:16px;font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;text-align:center;line-height:100%;writing-mode:lr-tb;text-anchor:middle;fill:#000000;fill-opacity:1;stroke:none;stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1;font-family:DejaVu Sans;-inkscape-font-specification:DejaVu Sans"
+       x="573.36719"
+       y="698.19421"
+       id="text4135"
+       sodipodi:linespacing="100%"><tspan
+         sodipodi:role="line"
+         id="tspan4137"
+         x="573.36719"
+         y="698.19421">Uncle</tspan></text>
+    <path
+       d="M 180,192.36218 A 20,20 0 1 1 140,192.36218 A 20,20 0 1 1 180,192.36218 z"
+       sodipodi:ry="20"
+       sodipodi:rx="20"
+       sodipodi:cy="192.36218"
+       sodipodi:cx="160"
+       id="path4139"
+       style="opacity:1;fill:#ff0000;fill-opacity:1;fill-rule:evenodd;stroke:#000000;stroke-width:2;stroke-linecap:square;stroke-linejoin:bevel;stroke-miterlimit:4;stroke-dasharray:none;stroke-dashoffset:0;stroke-opacity:1"
+       sodipodi:type="arc"
+       transform="translate(410,560)" />
+    <path
+       sodipodi:nodetypes="cccc"
+       id="path4141"
+       d="M 610,772.36218 L 650,772.36218 L 630,732.36218 L 610,772.36218 z"
+       style="fill:#00ffff;fill-rule:evenodd;stroke:#000000;stroke-width:2;stroke-linecap:butt;stroke-linejoin:miter;stroke-miterlimit:4;stroke-dasharray:none;stroke-opacity:1" />
+    <path
+       style="fill:none;fill-rule:evenodd;stroke:#000000;stroke-width:2;stroke-linecap:butt;stroke-linejoin:miter;stroke-miterlimit:4;stroke-dasharray:none;stroke-opacity:1"
+       d="M 570,732.36218 L 570,712.36218 L 630,712.36218 L 630,732.36218"
+       id="path4143"
+       sodipodi:nodetypes="cccc" />
+    <text
+       sodipodi:linespacing="100%"
+       id="text4145"
+       y="788.19421"
+       x="569.48047"
+       style="font-size:16px;font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;text-align:center;line-height:100%;writing-mode:lr-tb;text-anchor:middle;fill:#000000;fill-opacity:1;stroke:none;stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1;font-family:DejaVu Sans;-inkscape-font-specification:DejaVu Sans"
+       xml:space="preserve"><tspan
+         y="788.19421"
+         x="569.48047"
+         id="tspan4147"
+         sodipodi:role="line">Mother</tspan></text>
+    <text
+       xml:space="preserve"
+       style="font-size:16px;font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;text-align:center;line-height:100%;writing-mode:lr-tb;text-anchor:middle;fill:#000000;fill-opacity:1;stroke:none;stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1;font-family:DejaVu Sans;-inkscape-font-specification:DejaVu Sans"
+       x="629.48047"
+       y="788.19421"
+       id="text4149"
+       sodipodi:linespacing="100%"><tspan
+         sodipodi:role="line"
+         id="tspan4151"
+         x="629.48047"
+         y="788.19421">Uncle</tspan></text>
+    <path
+       id="path4153"
+       d="M 600,712.36218 L 600,682.36218"
+       style="fill:none;fill-rule:evenodd;stroke:#000000;stroke-width:2;stroke-linecap:butt;stroke-linejoin:miter;stroke-miterlimit:4;stroke-dasharray:none;stroke-opacity:1" />
+    <path
+       transform="translate(530,560)"
+       sodipodi:type="arc"
+       style="opacity:1;fill:#ffff00;fill-opacity:1;fill-rule:evenodd;stroke:#000000;stroke-width:2;stroke-linecap:square;stroke-linejoin:bevel;stroke-miterlimit:4;stroke-dasharray:none;stroke-dashoffset:0;stroke-opacity:1"
+       id="path4155"
+       sodipodi:cx="160"
+       sodipodi:cy="192.36218"
+       sodipodi:rx="20"
+       sodipodi:ry="20"
+       d="M 180,192.36218 A 20,20 0 1 1 140,192.36218 A 20,20 0 1 1 180,192.36218 z" />
+    <path
+       style="fill:#ffff00;fill-rule:evenodd;stroke:#000000;stroke-width:2;stroke-linecap:butt;stroke-linejoin:miter;stroke-miterlimit:4;stroke-dasharray:none;stroke-opacity:1"
+       d="M 730,772.36218 L 770,772.36218 L 750,732.36218 L 730,772.36218 z"
+       id="path4157"
+       sodipodi:nodetypes="cccc" />
+    <path
+       sodipodi:nodetypes="cccc"
+       id="path4159"
+       d="M 690,732.36218 L 690,712.36218 L 750,712.36218 L 750,732.36218"
+       style="fill:none;fill-rule:evenodd;stroke:#000000;stroke-width:2;stroke-linecap:butt;stroke-linejoin:miter;stroke-miterlimit:4;stroke-dasharray:none;stroke-opacity:1" />
+    <text
+       xml:space="preserve"
+       style="font-size:16px;font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;text-align:center;line-height:100%;writing-mode:lr-tb;text-anchor:middle;fill:#000000;fill-opacity:1;stroke:none;stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1;font-family:DejaVu Sans;-inkscape-font-specification:DejaVu Sans"
+       x="689.48047"
+       y="788.19421"
+       id="text4161"
+       sodipodi:linespacing="100%"><tspan
+         sodipodi:role="line"
+         id="tspan4163"
+         x="689.48047"
+         y="788.19421">Sister</tspan></text>
+    <text
+       sodipodi:linespacing="100%"
+       id="text4165"
+       y="788.19421"
+       x="749.48047"
+       style="font-size:16px;font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;text-align:center;line-height:100%;writing-mode:lr-tb;text-anchor:middle;fill:#000000;fill-opacity:1;stroke:none;stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1;font-family:DejaVu Sans;-inkscape-font-specification:DejaVu Sans"
+       xml:space="preserve"><tspan
+         y="788.19421"
+         x="749.48047"
+         id="tspan4167"
+         sodipodi:role="line">Brother</tspan></text>
+    <path
+       style="fill:none;fill-rule:evenodd;stroke:#000000;stroke-width:2;stroke-linecap:butt;stroke-linejoin:miter;stroke-miterlimit:4;stroke-dasharray:none;stroke-opacity:1"
+       d="M 720,712.36218 L 720,682.36218"
+       id="path4169" />
+  </g>
+</svg>

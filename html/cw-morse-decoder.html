@@ -1,0 +1,704 @@
+<!-- Framework Iroha -->
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0">
+<title>BD4SUR CW Decoder</title>
+<script src="../script/framework/jquery/jquery.min.js"></script>
+
+
+<!--页面自定义样式开始-->
+<style>
+.arg_table {
+    font-size: 13px;
+    margin: 0 auto;
+}
+.item_key {
+    text-align: right;
+    width: 40%;
+}
+.item_key::after {
+    content: ":";
+    margin: 0 5px;
+}
+.item_value {
+    text-align: left;
+    width: 40%;
+}
+#message {
+    font-family: monospace;
+    font-size: 16px;
+    line-height: 20px;
+    font-weight: bold;
+    background-color: aliceblue;
+    white-space: nowrap;
+    overflow-x: scroll;
+    max-width: 600px;
+    margin: 0 auto;
+}
+#message::-webkit-scrollbar { height: 3px; }
+#message::-webkit-scrollbar-thumb { border-radius: 10px; background: #d0d0d0; }
+#message::-webkit-scrollbar-track { border-radius: 0; background: #f5f5f5; }
+</style>
+<!--页面自定义样式结束-->
+
+</head>
+<body>
+
+<!--页面内容开始-->
+
+<div style="margin: 0px auto; text-align: center;">
+    <div style="font-size: 20px; font-weight: bold;">CW Morse Code Decoder</div>
+    <div style="font-size: 14px;">BD4SUR / 2021-6 / 2022-12</div>
+    <div id="indicators"></div>
+    <canvas id="spectrum" style="height: 100px; width: 300px;" height="170px" width="512px"></canvas><br>
+    <canvas id="spectrogram" style="height: 150px; width: 300px;" height="256px" width="512px"></canvas>
+    <div id="copy" style="font-size: 18px; font-weight: bold;"></div>
+
+    <div id="message"></div>
+
+    <table class="arg_table">
+        <tr><td class="item_key">频谱平坦度(dB)</td>  <td class="item_value"><span id="spectralFlatness">-</span></td></tr>
+        <tr><td class="item_key">载波频率(Hz)</td> <td class="item_value"><span id="carrierFreq">-</span></td></tr>
+        <tr><td class="item_key">WPM</td> <td class="item_value"><span id="WPM">-</span></td></tr>
+        <tr><td class="item_key"><i>T</i><sub>dit</sub>/<i>T</i><sub>dah</sub>(ms)</td> <td class="item_value"><span id="ditdahDuration">-</span></td></tr>
+        <tr><td class="item_key">点划判定阈值(ms)</td> <td class="item_value"><span id="durationThreshold">-</span></td></tr>
+    </table>
+</div>
+
+
+<!--页面内容结束-->
+
+<!--脚本开始-->
+<script src="../script/canvas.js"></script>
+<script>
+
+// 莫尔斯编码表
+const Morse = {
+    "01":   "A",   "1000": "B",  "1010": "C",   "100":  "D",   "0": "E",
+    "0010": "F",   "110":  "G",  "0000": "H",   "00":   "I",   "0111": "J",
+    "101":  "K",   "0100": "L",  "11":   "M",   "10":   "N",   "111": "O",
+    "0110": "P",   "1101": "Q",  "010":  "R",   "000":  "S",   "1": "T",
+    "001":  "U",   "0001": "V",  "011":  "W",   "1001": "X",   "1011": "Y",   "1100": "Z",
+
+    "11111": "0", "01111": "1", "00111": "2", "00011": "3", "00001": "4",
+    "00000": "5", "10000": "6", "11000": "7", "11100": "8", "11110": "9",
+
+    "011010": "@", "001100": "?", "10010": "/", "101101": "()",
+    "100001": "—", "010101": "."
+};
+
+// 全局变量
+
+const FFT_SIZE = 1024;
+const HALF_FFT_SIZE = FFT_SIZE / 2;
+
+const SAMPLE_RATE = 48000;
+
+const DEBOUNCE_DELAY = 30;      // 边沿防抖延时
+
+const ABSOLUTE_THRESHOLD = 180; // 绝对判定门限：低于这个值的不作为有效的信号
+const TRIGGER_THRESHOLD = 70;   // 边沿触发门限
+
+let idleTimer = 0;          // 空闲时间时钟（即没有载波的空闲时间）
+let status = 0;            // 状态标识
+let startTime = 0;
+let endTime = 0;     // 某一符号的起始/终止时间戳
+let prevSign = 0;           // 上一个符号（点/划）
+let signString = "";        // 符号序列缓冲
+
+const SPECTROGRAM_LENGTH = 256;
+let spectrogram = [];
+
+// 推入队列
+function pushIntoBuffer(element, buffer, bufferLength) {
+    buffer.push(element);
+    if(buffer.length > bufferLength) buffer.shift();
+}
+
+// HSV转RGB（[0,1]）
+function HSV_to_RGB(h, s, v) {
+    let hi = Math.floor(h / 60);
+    let f = h / 60 - hi;
+    let p = v * (1 - s);
+    let q = v * (1 - f * s);
+    let t = v * (1 - (1 - f) * s);
+    switch(hi) {
+        case 0: return [v, t, p];
+        case 1: return [q, v, p];
+        case 2: return [p, v, t];
+        case 3: return [p, q, v];
+        case 4: return [t, p, v];
+        case 5: return [v, p, q];
+        default: return [0, 0, 0];
+    }
+}
+
+// dB转颜色
+function dB2Color(dB) {
+
+    const MIN = -130;
+    const MAX = 0;
+
+    let ratio = (dB - MIN) / (MAX - MIN);
+    let hue, v;
+    const threshold = 0.12;
+    if(ratio < threshold) {
+        v = 1 - (threshold - ratio) / threshold;
+        hue = (1 - threshold) * (1 - threshold) * 360;
+    }
+    else {
+        v = 1;
+        hue = (1-ratio) * (1-ratio) * 360;
+    }
+    let rgb = HSV_to_RGB(hue, 1, v);
+
+    return [
+        ((rgb[0] * 255) | 0),
+        ((rgb[1] * 255) | 0),
+        ((rgb[2] * 255) | 0)
+    ];
+}
+
+// 绘制声谱图
+function RenderSpectrogram(cvContext, spectrogramBuffer) {
+    let spectLength = spectrogramBuffer.length;
+
+    // 每个像素4个byte(R.G.B.Alpha)
+    let frameBuffer = new Uint8ClampedArray(spectLength * HALF_FFT_SIZE * 4);
+
+    for(let t = 0; t < spectLength; t++) {
+        let spect = spectrogramBuffer[t];
+        // 展开循环（duff's device）
+        for(let i = 0; i < HALF_FFT_SIZE;) {
+            let byteIndex, color;
+            // 以下可以重复
+            byteIndex = ((HALF_FFT_SIZE * (spectLength - t) + i) << 2);
+            color = dB2Color(spect[i]);
+            frameBuffer[  byteIndex  ] = color[0]; frameBuffer[ byteIndex+1 ] = color[1];
+            frameBuffer[ byteIndex+2 ] = color[2]; frameBuffer[ byteIndex+3 ] = 255;
+            i++;
+        }
+    }
+
+    let frame = new ImageData(frameBuffer, HALF_FFT_SIZE, spectLength);
+    cvContext.putImageData(frame, 0, 0);
+}
+
+// NOTE 类似数字荧光，记录哪个bin成为峰值的次数最多，哪个bin就是载波
+let freqBinHistogram = new Array();
+for(let index = 0; index < HALF_FFT_SIZE; index++) {
+    freqBinHistogram[index] = 0;
+}
+let carrierSyncInterval = 0;
+
+let CARRIER_BIN = 0;
+let CARRIER_FREQ = 0;
+
+function RenderSpectrum(cv, spect) {
+    cv.Clear();
+    cv.SetBackgroundColor("#000");
+
+    let x = cv.Xmin;
+    cv.context.lineWidth = 3;
+    for(let i = 1; i < spect.length; i++) {
+        let step = cv.Xrange / spect.length;
+        cv.Line([x, spect[i-1]], [x+step, spect[i]], "#ff0");
+        x += step;
+    }
+
+    // 绘制峰值点
+    let peaks = detectPeaks(spect);
+    cv.context.lineWidth = 5;
+    for(let i = 0; i < 5; i++) { // 只看最大的5个峰值
+        let peakIndex = peaks[i];
+        if(peakIndex === 1) continue;
+        let val = spect[peakIndex];
+        cv.Circle([peakIndex, val], 5, "#f00");
+        if(i === 0) {
+            // 统计各个bin成为峰值的次数
+            freqBinHistogram[peakIndex]++;
+        }
+    }
+
+    // 看哪个bin成为峰值的次数最多，哪个bin就有可能是载波
+    carrierSyncInterval++;
+    let maxHits = Number.NEGATIVE_INFINITY;
+    let candidateBinIndex = 0;
+    for(let i = 0; i < HALF_FFT_SIZE; i++) {
+        if(freqBinHistogram[i] > maxHits) {
+            maxHits = freqBinHistogram[i];
+            candidateBinIndex = i;
+        }
+    }
+
+    CARRIER_BIN = candidateBinIndex;
+    CARRIER_FREQ = candidateBinIndex / FFT_SIZE * SAMPLE_RATE;
+    cv.Circle([candidateBinIndex, cv.Ymax], 5, "#0f0");
+    $("#carrierFreq").html(`${CARRIER_FREQ}Hz`);
+
+    // 超过一段时间后（谨慎选择），重新统计bin成为峰值的次数
+    if(carrierSyncInterval > 500) {
+        for(let index = 0; index < HALF_FFT_SIZE; index++) {
+            freqBinHistogram[index] = 0;
+        }
+        carrierSyncInterval = 0;
+    }
+}
+
+// 绘制时域波形
+function plot_wave(cv, wave) {
+    cv.Reset();
+    cv.SetBackgroundColor("#000");
+    // 绘制参考线
+    cv.context.lineWidth = 1;
+    cv.Line([cv.Xmin, 0], [cv.Xmax, 0], "#ccc");
+    for(let i = 0; i < wave.length; i+=50) {
+        cv.Line([i, cv.Ymin], [i, cv.Ymax], "#ccc");
+    }
+    // 子带编号
+    cv.context.lineWidth = 3;
+    for(let i = 1; i < wave.length; i++) {
+        cv.Line([i-1, wave[i-1]], [i, wave[i]], "#0f0");
+    }
+}
+// 创建曲线图
+function create_graph(id, parent_id, title, width, height, bottom_left, top_right) {
+    let cv = $(`<canvas class="indicator_cv" id="${id}" width="${width}px" height="${height}px" style="width: ${width}px; height: ${height}px;"></canvas>`);
+    let container = $("<div></div>");
+    container.append(`<div style="font-size: 12px;">${title}</div>`);
+    container.append(cv);
+    $(`#${parent_id}`).append(container);
+    let graph = new Canvas(id, bottom_left, top_right);
+    graph.Init();
+    graph.SetBackgroundColor("#000");
+    let buffer = [];
+    return [graph, buffer, width];
+}
+
+// 在已有的曲线图对象上描点画图
+function update_graph(graph, new_value) {
+    let cv = graph[0];
+    let buffer = graph[1];
+    let max_size = graph[2];
+    buffer.push(new_value);
+    if(buffer.length >= max_size) buffer.shift();
+    plot_wave(cv, buffer);
+}
+
+
+// 计算序列的滑动平均
+function movingAverage(input, windowLength) {
+    let output = [];
+    output[0] = input[0];
+    // 计算序列的前(windowLength-1)个点的平均
+    for(let t = 1; t < windowLength - 1; t++) {
+        let sum = 0;
+        for(let i = 0; i <= t; i++) {
+            sum += input[i];
+        }
+        output[t] = sum / (t+1);
+    }
+    // 计算序列从下标为(windowLength-1)的点开始的其余点的滑动平均
+    for(let t = (windowLength - 1); t < input.length; t++) {
+        let sum = 0;
+        for(let i = t - (windowLength - 1); i <= t; i++) {
+            sum += input[i];
+        }
+        output[t] = sum / windowLength;
+    }
+    return output;
+}
+
+// 中值滤波
+function median_filter(input, window_length) {
+    let output = [];
+    for(let i = 0; i < input.length; i++) {
+        let window = input.slice(i, i+window_length);
+        let sorted_window = window.sort((a,b)=>(a-b));
+        output.push(sorted_window[Math.round(window_length/2)]);
+    }
+     return output;
+}
+
+// 计算频谱平坦度（维纳熵），一般是小于0的dB数，越小（绝对值越大）说明越不平坦
+// https://en.wikipedia.org/wiki/Spectral_flatness
+function spectralFlatness(input) {
+    let temp1 = 0, temp2 = 0;
+    let xrlen = 0;
+    for(let i = 0; i < input.length; i++) {
+        let linear = Math.pow(10, input[i] / 20); // 转回线性值
+        if(linear === 0) continue;
+        let sqr = linear * linear;
+        temp1 += Math.log(sqr);
+        temp2 += sqr;
+        xrlen++;
+    }
+    if(temp2 === 0) return 1;
+    temp1 /= xrlen;
+    temp1 = Math.exp(temp1);
+    temp2 /= xrlen;
+    return 10 * Math.log10(temp1 / temp2);
+}
+
+// 峰值检测
+function detectPeaks(input) {
+    // 自适应阈值：以序列的滑动平均线往上一段距离为峰值判定阈值
+    let thresholds = movingAverage(input, Math.ceil(input.length / 50));
+    const offset = 20;
+
+    let peaks = [];
+    let peakValue = Number.NEGATIVE_INFINITY;
+    let peakIndex = -1;
+    for(let t = 0; t < input.length; t++) {
+        let value = input[t];
+        if(value > thresholds[t] + offset) {
+            if(value > peakValue) {
+                peakValue = value;
+                peakIndex = t;
+            }
+        }
+        else if(peakIndex > -1) {
+            peaks.push(peakIndex);
+            peakIndex = -1;
+            peakValue = Number.NEGATIVE_INFINITY;
+        }
+    }
+
+    if(peakIndex > -1) {
+        peaks.push(peakIndex);
+    }
+
+    // 对峰值点重排序
+    peaks.sort((a, b) => {
+        return input[b] - input[a];
+    })
+
+    return peaks;
+}
+
+// k-均值聚类
+function cluster(samples, k, distance) {
+    distance = distance || ((a, b) => Math.abs(a - b));
+    let means = [];
+    let clusters = [];
+    let newSamples = [];
+    for(let i = 0; i < samples.length; i++) {
+        newSamples[i] = samples[i];
+    }
+    newSamples.sort((a, b) => a - b);
+
+    // 初始聚类中心：等距选取样本最大最小值之间的值
+    let max = Math.max.apply(null, newSamples);
+    let min = Math.min.apply(null, newSamples);
+    let delta = (max - min) / (k - 1);
+    for(let j = 0; j < k; j++) {
+        means.push(min);
+        min += delta;
+    }
+    means.sort((a, b) => a - b);
+
+    while(true) {
+        for(let j = 0; j < k; j++) {
+            clusters[j] = [];
+        }
+        // 计算每个样本与k个聚类中心的举例，将样本分配到距离最小的cluster
+        for(let i = 0; i < newSamples.length; i++) {
+            let clusterIndex = 0;
+            let minDist = Number.MAX_VALUE;
+            for(let j = 0; j < k; j++) {
+                let dist = distance(newSamples[i], means[j]);
+                if(dist <= minDist) {
+                    clusterIndex = j;
+                    minDist = dist;
+                }
+            }
+            clusters[clusterIndex].push(newSamples[i]);
+        }
+        // 计算新的聚类中心
+        let newMeans = [];
+        for(let j = 0; j < k; j++) {
+            let mean = 0;
+            // 有些聚类可能是空的，此时聚类中心维持上一次计算的结果不变
+            if(clusters[j].length <= 0) {
+                mean = means[j];
+            }
+            else {
+                mean = clusters[j].reduce(
+                    (prev, currentValue) => prev + currentValue, 0
+                ) / clusters[j].length;
+            }
+            newMeans[j] = mean;
+        }
+        newMeans.sort((a, b) => a - b);
+        // 判断是否终止
+        let finished = true;
+        for(let i = 0; i < means.length; i++) {
+            // 聚类结果稳定，终止计算
+            if(distance(means[i], newMeans[i]) > 1e-2) {
+                finished = false;
+                break;
+            }
+        }
+        if(finished) {
+            // 剔除空的聚类
+            let resClusters = [];
+            let resMeans = [];
+            for(let j = 0; j < k; j++) {
+                if(clusters[j].length > 0) {
+                    resClusters.push(clusters[j]);
+                    resMeans.push(newMeans[j]);
+                }
+            }
+            return {
+                "k": k,
+                "clusterCount": resClusters.length,
+                "means": resMeans,
+                "clusters": resClusters
+            };
+        }
+        else {
+            means = newMeans;
+        }
+    }
+}
+
+// 电键按下，即载波出现（从无到有）
+function keydown() {
+    if(status === undefined) {
+        status = 0;
+    }
+    else if(status !== 0) {
+        return;
+    }
+
+    startTime = new Date().getTime();
+    status = 1;
+    // CW Start
+}
+
+// 电键抬起，即载波消失（从有到无）
+function keyup(ditdah_threshold) {
+
+    // CW End
+    endTime = new Date().getTime();
+    status = 0;
+
+    let duration = endTime - startTime; // 符号持续时间
+    let sign = 0;
+    let signPrev = (prevSign === undefined) ? 0 : prevSign;
+    if(signPrev === 0 && duration >= ditdah_threshold) sign = 1;
+    else if(signPrev === 0 && duration <= ditdah_threshold) sign = 0;
+    else if(signPrev === 1 && duration <= ditdah_threshold) sign = 0;
+    else if(signPrev === 1 && duration >= ditdah_threshold) sign = 1;
+
+    if(signString === undefined) signString = "";
+    signString += String(sign);
+    prevSign = sign;
+}
+
+// 译码（触发时机为空闲了一个长划的时间以上）
+function decodeWord() {
+    let morseWord = Morse[signString];
+    signString = "";
+    return morseWord;
+}
+
+
+
+
+const cvSpectrogram = document.querySelector('#spectrogram');
+const cvSpectrum = new Canvas("spectrum", [0, -120], [HALF_FFT_SIZE, 0]);
+
+let audioCtx;
+const cvCtxSpectrogram = cvSpectrogram.getContext("2d");
+
+if(navigator.mediaDevices.getUserMedia) {
+
+    let chunks = [];
+
+    let onSuccess = (stream) => {
+        const mediaRecorder = new MediaRecorder(stream);
+
+        decodeAndVisualize(stream);
+    };
+
+
+    let onError = (err) => {
+        console.log('The following error occured: ' + err);
+    }
+
+
+    navigator.mediaDevices.getUserMedia({
+        "audio": {
+            echoCancellation: false,
+            noiseSuppression: false,
+            autoGainControl:  false
+        }
+    }).then(onSuccess, onError);
+}
+
+
+
+function decodeAndVisualize(stream) {
+    if(!audioCtx) {
+        audioCtx = new AudioContext();
+    }
+
+    const source = audioCtx.createMediaStreamSource(stream);
+
+    const analyser = audioCtx.createAnalyser();
+    analyser.fftSize = FFT_SIZE;
+    analyser.smoothingTimeConstant = 0;
+    const bufferLength = analyser.frequencyBinCount;
+    const dataArray = new Float32Array(bufferLength);
+
+    source.connect(analyser);
+
+    let prevEdgeTimestamp = [];
+
+    let sfmBuffer = [];
+
+    let carrierPowerBuffer = [];
+    let lastFilteredCarrierPower = 0;
+
+    let lastEdgeEventTimestamp = 0;
+    let edgeIntervals = [];
+
+    let lastRisingTimestamp = 0;
+    let lastFallingTimestamp = 0;
+
+    let ditdahDurations = [];
+    let blankDurations = [];
+
+    let ook_level = 0;
+
+    let sf_graph = create_graph("sf_graph", "indicators", "频谱平坦度", 300, 70, [0, -60], [300, 10]);
+    let power_graph = create_graph("power_graph", "indicators", "ASK符号", 300, 40, [0, -10], [300, 30]);
+
+    function loop() {
+
+        let currentTimestamp = new Date().getTime();
+
+        analyser.getFloatFrequencyData(dataArray); // dB
+
+        let frame = Array.from(dataArray);
+
+        // 计算频谱平坦度（维纳熵）
+        // let sfm = spectralFlatness(frame.slice(10, 25)); // 450Hz~1200Hz
+        let sfm = spectralFlatness(frame.slice(5, 35));
+        // $("#spectralFlatness").html(Math.round(sfm));
+        update_graph(sf_graph, Math.round(sfm));
+        // 对频谱平坦度做2聚类
+        pushIntoBuffer(sfm, sfmBuffer, 200);
+        let clst = cluster(sfmBuffer, 2);
+        let means = clst.means;
+        let sfm_threshold = (means[0] + means[1]) / 2;
+        $("#spectralFlatness").html(`${Math.round(means[0])} / ${Math.round(means[1])}`);
+
+        // if(sfm_threshold > -10) {
+        //     requestAnimationFrame(loop);
+        //     return;
+        // }
+
+        let sf_graph_cv = sf_graph[0];
+        sf_graph_cv.Line([sf_graph_cv.Xmin, means[0]], [sf_graph_cv.Xmax, means[0]], "#ff0");
+        sf_graph_cv.Line([sf_graph_cv.Xmin, means[1]], [sf_graph_cv.Xmax, means[1]], "#ff0");
+        sf_graph_cv.Line([sf_graph_cv.Xmin, sfm_threshold], [sf_graph_cv.Xmax, sfm_threshold], "#fff");
+
+        // 用最新的阈值判断边沿，并记录点划（键控开启）时长
+        let edge = 0;
+
+        let sfm_left  = sfmBuffer[sfmBuffer.length - 2];
+        let sfm_right = sfmBuffer[sfmBuffer.length - 1];
+        // SFM的下降沿代表ASK的上升沿，反之同理
+        if((sfm_left > sfm_threshold) && (sfm_right < sfm_threshold)) {
+            lastRisingTimestamp = currentTimestamp;
+            let blank_duration = currentTimestamp - lastFallingTimestamp;
+            if(blank_duration < 300) pushIntoBuffer(blank_duration, blankDurations, 50);
+            ook_level = 20;
+            // console.log(`↑`);
+            edge = 1;
+        }
+        else if((sfm_left < sfm_threshold) && (sfm_right > sfm_threshold)) {
+            lastFallingTimestamp = currentTimestamp;
+            let duration = currentTimestamp - lastRisingTimestamp;
+            if(duration < 300) pushIntoBuffer(duration, ditdahDurations, 50);
+            ook_level = 0;
+            // console.log(`↓`);
+            edge = -1;
+        }
+
+        update_graph(power_graph, ook_level);
+
+        // 对点划时长进行2聚类，计算dit和dah的持续时间，进而计算WPM
+        let ditdah_clst = cluster(ditdahDurations, 2);
+        let ditdah_means = ditdah_clst.means;
+        let dit_ms = ditdah_means[0];
+        let dah_ms = ditdah_means[1];
+        const ditdah_threshold_balance = 0.8; // dit方差小，dah方差大，因此阈值应该偏向dit移动一些
+        let ditdah_threshold = dit_ms * ditdah_threshold_balance + dah_ms * (1 - ditdah_threshold_balance);
+        let normal_dit_ms = dah_ms / 3;
+
+        $("#WPM").html(`${Math.round(60 / (50 * (normal_dit_ms / 1000)))}`);
+        $("#durationThreshold").html(`${Math.round(ditdah_threshold)}`);
+        $("#ditdahDuration").html(`${Math.round(dit_ms)} / ${Math.round(dah_ms)}`);
+
+        /*
+        // 对空白时长进行2聚类，计算字母间分隔符的时长
+        let blank_clst = cluster(blankDurations, 2);
+        let blank_means = blank_clst.means;
+        let short_blank_ms = blank_means[0];
+        let long_blank_ms = blank_means[1];
+        const blank_threshold_balance = 0.7;
+        let blank_threshold = short_blank_ms * blank_threshold_balance + long_blank_ms * (1 - blank_threshold_balance);
+        $("#blankThreshold").html(`${Math.round(blank_threshold)}`);
+        */
+
+        // Morse解码
+        if(edge === 1) { // 上升沿
+            idleTimer = Number.MAX_SAFE_INTEGER;
+            keydown();
+            prevEdgeTimestamp = currentTimestamp;
+        }
+        else if(edge === -1) {
+            idleTimer = new Date().getTime();
+            keyup(ditdah_threshold);
+            prevEdgeTimestamp = currentTimestamp;
+        }
+
+        // 解码
+        if(new Date().getTime() - idleTimer > 1.2 * ditdah_threshold) {
+            let morseWord = decodeWord();
+            if(morseWord) {
+                idleTimer = new Date().getTime();
+                $(`#message`).append(morseWord);
+                $(`#message`).scrollLeft(Number.MAX_SAFE_INTEGER);
+            }
+            else {
+                idleTimer = Number.MAX_SAFE_INTEGER;
+                $(`#message`).append(" ");
+                $(`#message`).scrollLeft(Number.MAX_SAFE_INTEGER);
+            }
+        }
+
+        pushIntoBuffer(frame, spectrogram, SPECTROGRAM_LENGTH);
+        RenderSpectrum(cvSpectrum, frame);
+        RenderSpectrogram(cvCtxSpectrogram, spectrogram);
+
+        requestAnimationFrame(loop);
+
+    };
+    requestAnimationFrame(loop);
+
+}
+
+
+
+
+</script>
+<!--脚本结束-->
+
+</body>
+</html>

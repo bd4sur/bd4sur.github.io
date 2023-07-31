@@ -1,0 +1,230 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta name="robots" content="noindex, nofollow, noarchive">
+    <meta name="googlebot" content="noindex, nofollow, noarchive">
+    <meta name="Baiduspider" content="noindex, nofollow, noarchive">
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0">
+    <link rel="shortcut icon" type="image/x-icon" href="favicon.ico">
+    <link rel="stylesheet" type="text/css" href="./style/framework.css" charset="utf-8"/>
+    <link rel="stylesheet" type="text/css" href="./style/markdown.css" charset="utf-8"/>
+    <link rel="stylesheet" type="text/css" href="./style/highlight/vs.css" charset="utf-8"/>
+    <link rel="stylesheet" type="text/css" href="./style/jquery.fancybox.css" charset="utf-8"/>
+    <title>BD4SUR 业余无线电台</title>
+</head>
+<body>
+
+<!--进度条-->
+<div class="Progressbar" id="Progressbar"></div>
+
+<div class="top_gradient"></div>
+
+<!--首屏加载遮罩-->
+<div class="FirstLoadingMask">
+    <div class="ThrobberContainer">
+        <svg version="1" xmlns="http://www.w3.org/2000/svg" width="16" height="16" style="transform: scale(2.5);"><style>@keyframes rotate{0%{transform:rotate(0deg)}to{transform:rotate(360deg)}}@keyframes fillunfill{0%{stroke-dashoffset:32.3}50%{stroke-dashoffset:0}to{stroke-dashoffset:-31.9}}@keyframes rot{0%{transform:rotate(0deg)}to{transform:rotate(-360deg)}}@keyframes colors{0%,to{stroke:#15e}}</style><g style="animation-duration:1568.63ms;animation-iteration-count:infinite;animation-name:rotate;animation-timing-function:linear;transform-origin:50% 50%;width:16px;height:16px"><path fill="none" d="M8 1.125A6.875 6.875 0 1 1 1.125 8" stroke-width="2.25" stroke-linecap="butt" style="animation-duration:1333ms,5332ms,5332ms;animation-fill-mode:forwards;animation-iteration-count:infinite,infinite,infinite;animation-name:fillunfill,rot,colors;animation-play-state:running,running,running;animation-timing-function:cubic-bezier(.4,0,.2,1),steps(4),linear;transform-origin:50% 50%" stroke-dasharray="32.4" stroke-dashoffset="32.4"/></g></svg>
+    </div>
+</div>
+
+<!--顶部标题（仅移动端显示）-->
+<div class="StickyTitleContainer" style="display: none;">
+    <div id="StickyTitle" class="StickyTitle" onclick="$('html, body').animate({ scrollTop: 0 }, 'fast');"></div>
+    <div class="StickyTitleBackground"></div>
+</div>
+
+<div class="FlexContainer">
+    <!--左边栏-->
+    <div class="LeftAside">
+        <!--左上：后退按钮-->
+        <div id="BackButton" class="SideButton" onclick="history.go(-1);" style="display: none;">
+            <svg style="height: inherit;" viewBox="0 0 1086 1024" version="1.1" xmlns="http://www.w3.org/2000/svg" width="18" height="18"><path d="M471.381333 33.978182a62.060606 62.060606 0 0 1 87.753697 87.784727L238.312727 442.554182h763.84194c37.794909 0 68.732121 29.106424 71.245575 66.435879l0.155152 4.902787a71.369697 71.369697 0 0 1-71.400727 71.369697H226.521212l320.853333 320.791273a62.060606 62.060606 0 0 1 3.599516 83.812849l-3.630546 3.971878a62.060606 62.060606 0 0 1-87.753697 0L51.386182 585.603879a93.028848 93.028848 0 0 1 0-131.599515z" fill="#505050"></path></svg>
+        </div>
+    </div>
+
+    <!--页面框架-->
+    <div class="Main">
+        <!--顶部Logo-->
+        <div class="Header" style="overflow: hidden;">
+            <img src="./image/callsign-v3-alpha.png" class="HeaderLogo" onclick="window.location.href=`/`;">
+        </div>
+        <!--导航栏-->
+        <div class="Navbar" id="MainNavbar">
+            <div class="NavbarItem SPA_TRIGGER" active="false" data-target="index">首 页</div>
+            <div class="NavbarItem SPA_TRIGGER" active="false" data-target="collections">收 藏</div>
+            <div class="NavbarItem SPA_TRIGGER" active="false" data-target="ideas">灵 感</div>
+            <div class="NavbarItem SPA_TRIGGER" active="false" data-target="blog">博 客</div>
+            <div class="NavbarItem SPA_TRIGGER" active="false" data-target="about">自 述</div>
+        </div>
+        <!--正文内容-->
+        <div class="Article SPA_MAIN_CONTAINER"></div>
+        <!--底部-->
+        <div class="Footer">
+            <div style="letter-spacing: 1px; margin: 10px auto;">版权所有 © 2016-<span class="CopyrightYear">2022</span> BD4SUR</div>
+        </div>
+    </div>
+
+    <!--右边栏-->
+    <div class="RightAside">
+        <!--右侧：菜单（目录）-->
+        <div id="MenuContainer" class="MenuContainer" style="display: none;">
+            <!--菜单顶部的导航栏，包括Toggle按钮-->
+            <div class="StickyNavbar">
+                <div id="MenuButton" class="MenuButton" data-state="off">=</div>
+                <div class="Navbar" id="MenuNavbar" style="top: 40px; z-index: 100000; border: none;">
+                    <div class="NavbarItem SPA_TRIGGER" active="false" data-target="index">首 页</div>
+                    <div class="NavbarItem SPA_TRIGGER" active="false" data-target="collections">收 藏</div>
+                    <div class="NavbarItem SPA_TRIGGER" active="false" data-target="ideas">灵 感</div>
+                    <div class="NavbarItem SPA_TRIGGER" active="false" data-target="blog">博 客</div>
+                    <div class="NavbarItem SPA_TRIGGER" active="false" data-target="about">自 述</div>
+                </div>
+            </div>
+            <!--菜单主题内容，一般是目录。由SPA_Render插入相应的锚点。-->
+            <div id="MenuContentContainer" class="MenuContentContainer"></div>
+        </div>
+        <!--右下：回到顶部按钮-->
+        <div id="GoTopButton" class="SideButton" onclick="$('html, body').animate({scrollTop:0},'fast');">
+            <svg style="height: inherit;" t="1612060475911" class="icon" viewBox="0 0 1130 1024" version="1.1" xmlns="http://www.w3.org/2000/svg" p-id="15578" width="20" height="20"><path d="M326.064494 672.882463 207.758878 672.882463 207.758878 1015.219306 119.163494 1015.219306 119.163494 672.882463 1.125537 672.882463 1.125537 600.614327 326.064494 600.614327 326.064494 672.882463ZM356.845369 813.403842C356.845369 748.451414 375.804412 695.589138 413.72307 654.815428 451.641726 614.041721 501.738211 593.655172 564.014029 593.655172 623.256353 593.655172 670.943925 613.372577 707.078175 652.80798 743.212425 692.243383 761.279278 742.919793 761.279278 804.838729 761.279278 869.434275 742.498673 921.850456 704.936896 962.088843 667.375122 1002.32723 618.170827 1022.44612 557.322534 1022.44612 497.901769 1022.44612 449.634273 1002.951762 412.518601 963.962461 375.402926 924.97316 356.845369 874.787456 356.845369 813.403842L356.845369 813.403842ZM449.723308 808.585966C449.723308 848.913574 459.448183 881.880004 478.898222 907.48625 498.348264 933.092495 525.024753 945.895426 558.928492 945.895426 593.545997 945.895426 620.490143 933.627811 639.761743 909.092209 659.033342 884.556608 668.668999 851.590175 668.668999 810.191925 668.668999 767.009267 659.301001 732.882988 640.564723 707.812063 621.828445 682.74114 595.419613 670.205866 561.33743 670.205866 526.719927 670.205866 499.463514 683.053407 479.567371 708.748873 459.67123 734.444339 449.723308 767.723037 449.723308 808.585966L449.723308 808.585966ZM919.733862 870.683032 919.733862 1015.219306 831.406137 1015.219306 831.406137 600.614327 974.068793 600.614327C1077.207539 600.614327 1128.776139 644.33165 1128.776139 731.767612 1128.776139 774.236509 1113.207417 808.273569 1082.069511 833.879815 1050.931602 859.48606 1011.987494 871.753677 965.236021 870.683032L919.733862 870.683032ZM919.733862 669.135228 919.733862 802.965111 958.009207 802.965111C1009.935462 802.965111 1035.8982 780.392695 1035.8982 735.24719 1035.8982 691.172328 1010.203118 669.135228 958.812186 669.135228L919.733862 669.135228ZM648.035789 56.820649C615.791212 24.816746 588.79392 0 572.251266 0L567.754055 0 564.387893 0 559.890684 0C543.348028 0 516.348577 24.815664 484.106158 56.820649L271.290004 302.979953C229.441234 344.957537 233.450624 419.310345 312.767514 419.310345L564.385735 419.310345 567.751896 419.310345 819.371196 419.310345C898.687007 419.310345 902.696397 344.957537 860.848706 302.979953L648.035789 56.820649Z" p-id="15579" fill="#505050"></path></svg>
+        </div>
+    </div>
+
+</div>
+
+
+
+<!--首页模板-->
+<template class="index" id="index">
+
+    <div style="text-align: center;">
+        <img id="cover_image" src="./image/miku-eb200.jpg" style="width: 90%; max-width: 550px; margin: 20px auto; border-radius: 10px;">
+    </div>
+
+    <details>
+        <summary class="StationLogSummary">电台日志</summary>
+        <div class="StationLogLaw">
+            本台仅在此处以电子方式记录电台日志，不使用其他任何在线电台日志服务。
+        </div>
+        <!--时间线-->
+        <div class="TimelineContainer">
+            <table class="Timeline">
+                <tr id="WeekCountContainer"></tr>
+                <tr id="DaysContainer"></tr>
+            </table>
+        </div>
+        <!--电台日志-->
+        <div class="StationLog">
+            <table id="StationLogTable">
+                <tr>
+                    <th>时间(BJT)</th>
+                    <th>对方呼号</th>
+                    <th>频率(MHz)</th>
+                    <th>模式</th>
+                    <th>RST</th>
+                </tr>
+            </table>
+        </div>
+    </details>
+
+</template>
+
+
+<!--日志模板-->
+<template id="ideas">
+    <div class="SectionBody">
+        <div style="font-size: 15px; color: #bfc7cc; letter-spacing: 2px; margin: 25px 0; font-family: Times;">
+            ΓΝΩΘΙ ΣΑΥΤΟΝ
+        </div>
+    </div>
+    <!--正文容器-->
+    <div class="IdeaContainer" id="IdeaContainer"></div>
+    <!--底部内容-->
+    <div class="IdeaEnding" onclick="$('html, body').animate({ scrollTop: 0 }, 'fast');"></div>
+</template>
+
+
+<!--文章正文框架模板-->
+<template id="blog-article">
+    <div id="MikumarkArticleTitle" class="MikumarkArticleTitle"></div>
+    <div class="MikumarkMetadata">
+        <span id="MikumarkMetadataDate"><span class="SkeletonPlaceholder" style="width:70px;">0</span></span>
+    </div>
+    <div class="Mikumark MikumarkContainer" id="MikumarkContainer">
+        <span class="SkeletonPlaceholder" style="width:100%;">占位骨架</span><br>
+        <span class="SkeletonPlaceholder" style="width:100%;">占位骨架</span><br>
+        <span class="SkeletonPlaceholder" style="width:70%;">占位骨架</span><br>
+    </div>
+</template>
+
+<!--SPA交互和渲染控制-->
+
+<script>
+MathJax = { tex: { inlineMath: [["$", "$"]] } };
+</script>
+<script id="MathJax-script" async src="./script/framework/mathjax/tex-chtml-full.js"></script>
+
+<script src="./script/framework/jquery/jquery.min.js"></script>
+<script src="./script/framework/jquery/jquery.easing.js"></script>
+<script src="./script/framework/jquery/jquery.fancybox.min.js"></script>
+
+<script src="./script/framework/framework.js"></script>
+<script src="./script/framework/mdparser.js"></script>
+
+<script src="./script/framework/list.js"></script>
+
+<script src="./script/framework/station_log.js"></script>
+
+<script src="./script/framework/idea.js"></script>
+
+<script src="./script/framework/highlight.js"></script>
+<script src="./script/framework/article.js"></script>
+
+<script>
+
+////////////////////////////////////////////////////////
+//
+//  页 面 冷 启 动 流 程
+//
+////////////////////////////////////////////////////////
+
+(() => {
+    SPA_RegisterTriggers();
+    ActionsOnReady();
+
+    window.onload = () => {
+        console.log("%c ★ Website of Amateur Radio Station BD4SUR.com ★ ", "font-size: 14px; height: 24px; line-height: 24px; border-radius: 5px; text-align: center; color:#fff; background: linear-gradient(0deg, #239ad7, #64c2e4);");
+        let HashString = (window.location.hash === "") ? "#/index" : window.location.hash;
+        SPA_Render(HashString);
+        if(!history.state) {
+            history.pushState({PageID: HashString}, '', window.location.href);
+            SCROLL_POSITION_STACK.push(window.pageYOffset);
+        }
+    };
+
+    window.onresize = () => { };
+
+    // 返回按钮动作
+    window.onpopstate = (e) => {
+        let prevScrollY = SCROLL_POSITION_STACK.pop() || 0;
+        let currentPath = e.state.PageID;
+        let pageId = currentPath.split("/")[0];
+        if(!e.state) {
+            console.log(`目标state为空`);
+        }
+        else {
+            SPA_Render(currentPath, () => {
+                // 跳转到标题处
+                if(pageId === "blog") {
+                    $('html').scrollTop(prevScrollY);
+                }
+            });
+        }
+    };
+
+    $(window).resize();
+    $(window).scroll();
+
+})();
+
+</script>
+</body>
+</html>

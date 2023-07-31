@@ -1,0 +1,806 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0">
+<script src="../script/framework/jquery/jquery.min.js"></script>
+<script src="../script/canvas.js"></script>
+<title>OFDM BD4SUR</title>
+
+<!--页面自定义样式开始-->
+<style>
+body {
+    margin: 30px; padding: 0;
+    font-size: 13px;
+    text-align: center;
+}
+canvas {
+    display: block;
+    border: 0.5px solid #ccc;
+    margin: 0 auto;
+}
+.arg_table {
+    margin: 0 auto;
+}
+.item_key {
+    text-align: right;
+    width: 40%;
+}
+.item_key::after {
+    content: ":";
+    margin: 0 5px;
+}
+.item_value {
+    text-align: left;
+    width: 40%;
+}
+button {
+    border: none;
+    background-color: aliceblue;
+    color: #15e;
+    padding: 5px 10px;
+    margin: 5px;
+}
+button:hover {
+    background-color: #e4f1fd;
+    font-weight: bold;
+    cursor: pointer;
+}
+.btn_tx { background-color: lavenderblush; color: #e11; }
+.btn_tx:hover { background-color: #ffe4ed; }
+
+.btn_rx { background-color:#dbffd6; color: #129900; }
+.btn_rx:hover { background-color: #bdffb5; }
+
+</style>
+<!--页面自定义样式结束-->
+
+</head>
+<body>
+
+<!--页面内容开始-->
+
+<h3>OFDM Modem Prototype / BD4SUR 2022-02</h3>
+
+<table class="arg_table">
+    <tr><td class="item_key">采样率</td>  <td class="item_value"><span id="sample_rate">-</span>Hz</td></tr>
+    <tr><td class="item_key">基波频率</td> <td class="item_value"><span id="base_freq">-</span>Hz</td></tr>
+    <tr><td class="item_key">符号周期</td> <td class="item_value"><span id="symbol_duration">-</span>ms（<span id="symbol_length">-</span>samp.）</td></tr>
+    <tr><td class="item_key">CP周期</td> <td class="item_value"><span id="cp_duration">-</span>ms（<span id="cp_length">-</span>samp.）</td></tr>
+    <tr><td class="item_key">子载波数</td> <td class="item_value"><span id="carrier_number">-</span></td></tr>
+    <tr><td class="item_key">占用带宽</td> <td class="item_value"><span id="bandwidth">-</span>Hz</td></tr>
+</table>
+
+<div>
+    <button class="btn_tx" id="btn_transmitter">发射</button>
+    <button class="btn_rx" id="btn_receiver">接收</button>
+    <button id="btn_loop">软件环路</button>
+    <button id="btn_sync">立即同步</button>
+</div>
+
+<table class="arg_table">
+    <tr><td class="item_key">符号计数</td>  <td class="item_value"><span id="current_symbol_index">-</span></td></tr>
+    <tr><td class="item_key">估计符号起点</td> <td class="item_value"><span id="estimated_offset">-</span></tr>
+</table>
+
+<div>已同步的OFDM符号时域波形</div>
+<canvas id="oscilloscope" width="400px" height="50px" style="width: 400px; height: 50px;"></canvas>
+
+<div>解调出的IQ星座</div>
+<canvas id="constellation" width="200px" height="200px" style="width: 200px; height: 200px;"></canvas>
+
+<div id="indicators"></div>
+
+<div><img src="../image/G3/ofdm.svg" width="300px"></div>
+
+
+<!--页面内容结束-->
+
+<!--脚本开始-->
+<script>
+
+
+let audioCtx = new window.AudioContext();
+
+const SAMPLE_RATE    = audioCtx.sampleRate; // 典型值：48000Hz
+const BASE_FREQ      = 40;   // 基波周期(Hz)
+const CARRIER_NUMBER = 64;   // 正交子载波数
+
+const BANDWIDTH = BASE_FREQ * CARRIER_NUMBER;          // 占用带宽（Hz）
+const SYMBOL_LENGTH = SAMPLE_RATE / BASE_FREQ;         // 符号长度（AF采样点数）
+const CP_LENGTH = Math.floor(0.2 * SYMBOL_LENGTH);     // 循环前缀长度（AF采样点数）
+const GROSS_SYMBOL_LENGTH = SYMBOL_LENGTH + CP_LENGTH; // 符号与CP的总长度（AF采样点数）
+const TRAINING_SYMBOL_LENGTH = GROSS_SYMBOL_LENGTH;    // 训练符号长度（AF采样点数）
+const TRAINING_SYMBOL_INTERVAL = 5;                    // 训练符号间隔
+
+
+const IQ_AMP = 0.02;
+
+$("#sample_rate").html(SAMPLE_RATE);
+$("#base_freq").html(BASE_FREQ);
+$("#carrier_number").html(CARRIER_NUMBER);
+$("#bandwidth").html(BANDWIDTH);
+$("#symbol_length").html(SYMBOL_LENGTH);
+$("#symbol_duration").html((SYMBOL_LENGTH / SAMPLE_RATE * 1000).toFixed(2));
+$("#cp_length").html(CP_LENGTH);
+$("#cp_duration").html((CP_LENGTH / SAMPLE_RATE * 1000).toFixed(2));
+
+//////////////////////////////////////////////////////////////////////////
+// 音频相关
+//////////////////////////////////////////////////////////////////////////
+
+const CHANNELS = 1;
+
+// 播放基带（音频）波形
+function Transmit(ofdm_wave) {
+    let pcmAudioBuffer = audioCtx.createBuffer(CHANNELS, ofdm_wave.length, SAMPLE_RATE);
+    for(let channel = 0; channel < CHANNELS; channel++) {
+        let channelBuffer = pcmAudioBuffer.getChannelData(channel);
+        for(let t = 0; t < ofdm_wave.length; t++) {
+            channelBuffer[t] = ofdm_wave[t];
+        }
+    }
+    let source = audioCtx.createBufferSource();
+    source.buffer = pcmAudioBuffer;
+    source.connect(audioCtx.destination);
+    source.start();
+}
+
+
+//////////////////////////////////////////////////////////////////////////
+// 可视化相关
+//////////////////////////////////////////////////////////////////////////
+
+let oscilloscope = new Canvas("oscilloscope", [0, -1], [SYMBOL_LENGTH, 1]);
+oscilloscope.SetBackgroundColor("#000");
+
+let constellation = new Canvas("constellation", [-100, -100], [100, 100]);
+constellation.SetBackgroundColor("#000");
+
+// 绘制时域波形
+function plot_wave(cv, wave) {
+    cv.Reset();
+    cv.SetBackgroundColor("#000");
+    // 绘制参考线
+    cv.Line([cv.Xmin, 0], [cv.Xmax, 0], "#666");
+    for(let i = 0; i < wave.length; i+=50) {
+        cv.Line([i, cv.Ymin], [i, cv.Ymax], "#666");
+    }
+    // 子带编号
+    for(let i = 1; i < wave.length; i++) {
+        cv.Line([i-1, wave[i-1]], [i, wave[i]], "#0f0");
+    }
+}
+
+// 绘制星座图
+function plot_constellation(cv, iqs) {
+    cv.Reset();
+    cv.SetBackgroundColor("#000");
+    cv.Line([cv.Xmin, 0], [cv.Xmax, 0], "#aaa");
+    cv.Line([cv.Xmin, cv.Yrange / -4], [cv.Xmax, cv.Yrange / -4], "#666");
+    cv.Line([cv.Xmin, cv.Yrange / 4], [cv.Xmax, cv.Yrange / 4], "#666");
+    cv.Line([0, cv.Ymin], [0, cv.Ymax], "#aaa");
+    cv.Line([cv.Xrange / -4, cv.Ymin], [cv.Xrange / -4, cv.Ymax], "#666");
+    cv.Line([cv.Xrange / 4, cv.Ymin], [cv.Xrange / 4, cv.Ymax], "#666");
+    for(let i = 1; i < iqs[0].length; i++) {
+        cv.Circle([iqs[0][i], iqs[1][i]], 1, "#ff0");
+    }
+}
+
+// 创建曲线图
+function create_graph(id, parent_id, title, width, height, bottom_left, top_right) {
+    let cv = $(`<canvas class="indicator_cv" id="${id}" width="${width}px" height="${height}px" style="width: ${width}px; height: ${height}px;"></canvas>`);
+    let container = $("<div></div>");
+    container.append(`<div>${title}</div>`);
+    container.append(cv);
+    $(`#${parent_id}`).append(container);
+    let graph = new Canvas(id, bottom_left, top_right);
+    graph.Init();
+    graph.SetBackgroundColor("#000");
+    let buffer = [];
+    return [graph, buffer, width];
+}
+
+// 在已有的曲线图对象上描点画图
+function update_graph(graph, new_value) {
+    let cv = graph[0];
+    let buffer = graph[1];
+    let max_size = graph[2];
+    buffer.push(new_value);
+    if(buffer.length >= max_size) buffer.shift();
+    plot_wave(cv, buffer);
+}
+
+//////////////////////////////////////////////////////////////////////////
+// 本振信号 和 一般信号处理
+//////////////////////////////////////////////////////////////////////////
+
+// 用于IQ调制的中频（复数）本振信号。注意：下标0为第一个子载波，不包括直流
+const CARRIER_I = [];
+const CARRIER_Q = [];
+for(let c = 0; c < CARRIER_NUMBER; c++) {
+    let cwave_i = [];
+    let cwave_q = [];
+    for(let t = 0; t < SYMBOL_LENGTH; t++) {
+        cwave_i[t] = Math.cos(2 * Math.PI * (c+1) * t / SYMBOL_LENGTH);
+        cwave_q[t] = Math.sin(2 * Math.PI * (c+1) * t / SYMBOL_LENGTH);
+    }
+    CARRIER_I[c] = cwave_i;
+    CARRIER_Q[c] = cwave_q;
+}
+// 训练序列：一个单音正弦波
+let TRAINING_PATTERN = [];
+
+for(let t = 0; t < TRAINING_SYMBOL_LENGTH; t++) {
+    TRAINING_PATTERN[t] = 0.5 * Math.cos(2 * Math.PI * (CARRIER_NUMBER / 4) * t / TRAINING_SYMBOL_LENGTH);
+}
+
+// for(let t = 0; t < TRAINING_SYMBOL_LENGTH; t++) {
+//     TRAINING_PATTERN[t] = 0;
+// }
+
+// for(let t = 0; t < TRAINING_SYMBOL_LENGTH; t++) {
+//     TRAINING_PATTERN[t] =   0.3 * Math.cos(2 * Math.PI * (CARRIER_NUMBER / 2) * t / TRAINING_SYMBOL_LENGTH) +
+//                             0.3 * Math.cos(2 * Math.PI * (CARRIER_NUMBER / 4) * t / TRAINING_SYMBOL_LENGTH) + 
+//                             0.3 * Math.cos(2 * Math.PI * (CARRIER_NUMBER / 8) * t / TRAINING_SYMBOL_LENGTH);
+// }
+
+TRAINING_PATTERN = raised_cosine_window(TRAINING_PATTERN, 0.01);
+
+// 幅度归一化
+function normalization(wave) {
+    let min = Number.MAX_VALUE;
+    let max = Number.MIN_VALUE;
+    for(let i = 0; i < wave.length; i++) {
+        let value = wave[i];
+        if(value < min) { min = value; }
+        if(value > max) { max = value; }
+    }
+    let newwave = [];
+    for(let i = 0; i < wave.length; i++) {
+        newwave[i] = (2 * (wave[i] - min)) / (max - min);
+    }
+    return newwave;
+}
+
+// 给时域符号加升余弦窗（Hann窗）
+function raised_cosine_window(wave, rolloff) {
+    let A = Math.round(wave.length * rolloff);
+    let B = Math.round(wave.length * (1 - rolloff));
+    for(let i = 0; i < A; i++) {
+        wave[i] *= (0.5 - 0.5 * Math.cos(Math.PI * i / A));
+    }
+    for(let i = B; i < wave.length; i++) {
+        wave[i] *= (0.5 + 0.5 * Math.cos(Math.PI * (i - B) / A));
+    }
+    return wave;
+}
+
+// 计算连续两个时域波形之间的重叠部分
+// 示例：[0,1,2,3]和[1,2,3,4,5]之间存在重叠，函数返回3，即第二个波形左侧第一个不重叠的采样点的位置
+// 注意：重叠长度小于或等于2的，不认为是重叠。不重叠的，返回-1。
+function overlap_offset(frame1, frame2) {
+    let length_1 = frame1.length;
+    let length_2 = frame2.length;
+    let min_length = Math.min(length_1, length_2);
+    for(let offset = 2; offset <= min_length; offset++) {
+        let is_all_matched = true;
+        for(let i = 0; i < offset; i++) {
+            let a = frame1[length_1 - offset + i];
+            let b = frame2[i];
+            if(a !== b) {
+                is_all_matched = false;
+                break;
+            }
+        }
+        if(is_all_matched === true) {
+            return offset;
+        }
+    }
+    return -1;
+}
+
+// 辅助函数：压入队列
+function push_value(queue, value, max_size) {
+    queue.push(value);
+    if(queue.length > max_size) queue.shift();
+}
+
+//////////////////////////////////////////////////////////////////////////
+// 信道仿真
+//////////////////////////////////////////////////////////////////////////
+
+// Box-Muller算法，生成一对儿高斯分布的随机数
+// https://en.wikipedia.org/wiki/Box%E2%80%93Muller_transform
+function gaussian_random_pair(mu, sigma) {
+    let u = Math.random();
+    let v = Math.random();
+    let scale = sigma * Math.sqrt(-2 * Math.log(u));
+    let z0 = scale * Math.cos(2 * Math.PI * v) + mu;
+    let z1 = scale * Math.sin(2 * Math.PI * v) + mu;
+    return [z0, z1];
+}
+
+// AWGN信道，其中SNR参数单位为dB
+function awgn(input, snr) {
+    // 测量功率
+    let input_power = input.reduce((p, c) => { return (p + c * c); }, 0) / input.length;
+    // 生成高斯噪声
+    let noise_power_sqrt = Math.sqrt(input_power / Math.pow(10, (snr / 10)));
+    let gaussian_noise = [];
+    for(let i = 0; i < input.length; i += 2) {
+        let gaussian_pair = gaussian_random_pair(0, noise_power_sqrt);
+        gaussian_noise[ i ] = gaussian_pair[0];
+        gaussian_noise[i+1] = gaussian_pair[1];
+    }
+    // 叠加
+    let output = [];
+    for(let i = 0; i < input.length; i++) {
+        output[i] = input[i] + gaussian_noise[i];
+    }
+    return output;
+}
+
+//////////////////////////////////////////////////////////////////////////
+// 信道编解码 和 星座映射/解映射
+//////////////////////////////////////////////////////////////////////////
+
+// IQ Mapping (Big-endian)
+function qam16_mapping(byte_stream, amp) {
+    let A1 = amp; let A3 = 3 * amp;
+    // 定义码元映射
+    const QAM16_MAPPING = [
+        [-A1, -A1], [-A3, -A1], [-A1, -A3], [-A3, -A3], [A1, -A1], [A1, -A3], [A3, -A1], [A3, -A3],
+        [-A1,  A1], [-A1,  A3], [-A3,  A1], [-A3,  A3], [A1,  A1], [A3,  A1], [A1,  A3], [A3,  A3]
+    ];
+    // 将每个Byte映射为两个IQ（复数）
+    let iq_stream = [];
+    for(let i = 0; i < byte_stream.length; i++) {
+        let byte = byte_stream[i];
+        let lsbs = byte & 15;
+        let msbs = (byte & 240) >> 4;
+        iq_stream.push(QAM16_MAPPING[msbs]);
+        iq_stream.push(QAM16_MAPPING[lsbs]);
+    }
+    // 不足CARRIER_NUMBER的，填充[-A1,-A1]，以使IQ码元的数量为CARRIER_NUMBER的倍数
+    if(iq_stream.length % CARRIER_NUMBER !== 0) {
+        let padding_length = CARRIER_NUMBER - (iq_stream.length & (CARRIER_NUMBER - 1));
+        for(let i = 0; i < padding_length; i++) {
+            iq_stream.push([-A1, -A1]);
+        }
+    }
+    return iq_stream;
+}
+
+function qam16_decoding(input_i, input_q, amp) {
+    // stub
+    return 0;
+}
+
+// IQ Mapping (Big-endian)
+function qam4_mapping(byte_stream, amp) {
+    let A1 = 2 * amp;
+    // 定义码元映射
+    const QAM4_MAPPING = [
+        [A1, A1], [A1, -A1], [-A1, A1], [-A1, -A1]
+    ];
+    // 将每个Byte映射为两个IQ（复数）
+    let iq_stream = [];
+    for(let i = 0; i < byte_stream.length; i++) {
+        let byte = byte_stream[i];
+        let b0 = byte & 3;
+        let b1 = (byte & 12) >> 2;
+        let b2 = (byte & 48) >> 4;
+        let b3 = (byte & 192) >> 6;
+        iq_stream.push(QAM4_MAPPING[b3]);
+        iq_stream.push(QAM4_MAPPING[b2]);
+        iq_stream.push(QAM4_MAPPING[b1]);
+        iq_stream.push(QAM4_MAPPING[b0]);
+    }
+    // 不足CARRIER_NUMBER的，填充[A1,A1]，以使IQ码元的数量为CARRIER_NUMBER的倍数
+    if(iq_stream.length % CARRIER_NUMBER !== 0) {
+        let padding_length = CARRIER_NUMBER - (iq_stream.length & (CARRIER_NUMBER - 1));
+        for(let i = 0; i < padding_length; i++) {
+            iq_stream.push([A1, A1]);
+        }
+    }
+    return iq_stream;
+}
+
+function qam4_decoding(input_i, input_q, amp) {
+    const QAM4_LOOKUP = [
+        [3, 2],
+        [1, 0]
+    ];
+    let byte_stream = [];
+    let current_byte = 0;
+    for(let t = 0; t < input_i.length; t++) {
+        // 硬判决
+        let index_i = (input_i[t] >= 0) ? 1 : 0;
+        let index_q = (input_q[t] >= 0) ? 1 : 0;
+        let symbol = QAM4_LOOKUP[index_i][index_q];
+        // 恢复为字节
+        let shift = (3 - (t % 4)) * 2;
+        current_byte = (current_byte | (symbol << shift));
+        if(t % 4 === 3) {
+            byte_stream.push(current_byte);
+            current_byte = 0;
+        }
+    }
+    return byte_stream;
+}
+
+//////////////////////////////////////////////////////////////////////////
+// OFDM调制
+//////////////////////////////////////////////////////////////////////////
+
+// 为序列添加循环前缀
+function add_cyclic_prefix(wave, cp_length) {
+    if(cp_length > wave.length) throw `循环前缀长度不能比原来的序列长。`;
+    let cp_wave = [];
+    for(let i = 0; i < cp_length; i++) {
+        cp_wave[i] = wave[wave.length - cp_length + i];
+    }
+    for(let i = 0; i < wave.length; i++) {
+        cp_wave[cp_length + i] = wave[i];
+    }
+    return cp_wave;
+}
+
+// 生成一个训练符号波形
+function generate_training_symbol_wave() {
+    let quarter = TRAINING_PATTERN.slice(0, TRAINING_SYMBOL_LENGTH / 4);
+    let quarter_reverse = quarter.map((v) => (-v));
+    let half = quarter.concat(quarter);
+    let half_reverse = quarter_reverse.concat(quarter_reverse);
+    let training_symbol = half.concat(half_reverse);
+
+    return training_symbol; // add_cyclic_prefix(training_symbol);
+}
+
+// 使用一组IQ数据（长度为子载波数），生成一个OFDM符号波形
+function generate_symbol_wave(symbol_iq, has_cp) {
+    let symbol_i = symbol_iq[0];
+    let symbol_q = symbol_iq[1];
+    // 合成时域波形（IQ调制取实部，可视为数字上变频）
+    let symbol_wave = [];
+    for(let t = 0; t < SYMBOL_LENGTH; t++) {
+        symbol_wave[t] = 0;
+    }
+    for(let c = 0; c < CARRIER_NUMBER; c++) {
+        let cwave_i = CARRIER_I[c];
+        let cwave_q = CARRIER_Q[c];
+        let ofdm_i = symbol_i[c];
+        let ofdm_q = symbol_q[c];
+        for(let t = 0; t < SYMBOL_LENGTH; t++) {
+            let rep = ofdm_i * cwave_i[t] - ofdm_q * cwave_q[t];
+            symbol_wave[t] += rep;
+        }
+    }
+    // 添加循环前缀
+    let cp_wave = add_cyclic_prefix(symbol_wave, CP_LENGTH);
+    // 符号加窗
+    cp_wave = raised_cosine_window(cp_wave, 0.01);
+    return cp_wave;
+}
+
+// 将字节序列调制为OFDM模拟波形
+function OFDM_Modulate(byte_stream, amp) {
+    // 16QAM 符号映射
+    let iq_stream = qam4_mapping(byte_stream, amp);
+    // 把[IQ]序列转为[I,Q]两个序列
+    let iqstream_i = [];
+    let iqstream_q = [];
+    for(let t = 0; t < iq_stream.length; t++) {
+        iqstream_i[t] = iq_stream[t][0];
+        iqstream_q[t] = iq_stream[t][1];
+    }
+    // 构建OFDM波形
+    let symbol_count = iqstream_i.length / CARRIER_NUMBER;
+    let ofdm_wave = [];
+    for(let i = 0; i < symbol_count; i++) {
+        let symbol_i = iqstream_i.slice(i * CARRIER_NUMBER, (i+1) * CARRIER_NUMBER);
+        let symbol_q = iqstream_q.slice(i * CARRIER_NUMBER, (i+1) * CARRIER_NUMBER);
+        let symbolWave = generate_symbol_wave([symbol_i, symbol_q], true);
+        for(let j = 0; j < symbolWave.length; j++) {
+            ofdm_wave.push(symbolWave[j]);
+        }
+        // 插入同步训练符号
+        if(i > 0 && i % TRAINING_SYMBOL_INTERVAL === 0) {
+            let training_wave = generate_training_symbol_wave();
+            for(let j = 0; j < training_wave.length; j++) {
+                ofdm_wave.push(training_wave[j]);
+            }
+        }
+    }
+    return ofdm_wave;
+}
+
+//////////////////////////////////////////////////////////////////////////
+// OFDM解调
+//////////////////////////////////////////////////////////////////////////
+
+// 解调一个不含CP的时域OFDM符号
+function demodulate_ofdm_symbol(symbol_wave) {
+    let ofdm_i = []; let ofdm_q = [];
+    // IQ demod
+    for(let c = 0; c < CARRIER_NUMBER; c++) {
+        let ofdm_sub_i = [];
+        let ofdm_sub_q = [];
+        let cwave_i = CARRIER_I[c];
+        let cwave_q = CARRIER_Q[c];
+        for(let t = 0; t < SYMBOL_LENGTH; t++) {
+            ofdm_sub_i[t] = symbol_wave[t] * cwave_i[t];
+            ofdm_sub_q[t] = symbol_wave[t] * cwave_q[t] * (-1);
+        }
+        ofdm_i[c] = ofdm_sub_i;
+        ofdm_q[c] = ofdm_sub_q;
+    }
+    // LPF
+    let dc_i = [];
+    let dc_q = [];
+    for(let c = 0; c < CARRIER_NUMBER; c++) {
+        dc_i[c] = ofdm_i[c].reduce((p, c) => { return (p + c);}, 0);
+        dc_q[c] = ofdm_q[c].reduce((p, c) => { return (p + c);}, 0);
+    }
+    return [dc_i, dc_q];
+}
+
+//////////////////////////////////////////////////////////////////////////
+// 符号同步
+//////////////////////////////////////////////////////////////////////////
+
+// 符号定时偏差（STO）估计
+// 参考文献：Minn H., Zeng M.. On Timing Offset Estimation for OFDM Systems[J]. IEEE Communications Letters, 2000, 4(7):242-244.
+function estimate_STO(ofdm_wave) {
+    let max_likelihood = Number.MIN_VALUE;
+    let estimated_offset = 0;
+    let t = 0;
+    // 搜索匹配点
+    // while(t < ofdm_wave.length - TRAINING_SYMBOL_LENGTH) {
+    while(t < GROSS_SYMBOL_LENGTH * (TRAINING_SYMBOL_INTERVAL + 2)) {
+        let watch_window_1 = ofdm_wave.slice(t, t + TRAINING_SYMBOL_LENGTH / 4);
+        let watch_window_2 = ofdm_wave.slice(t + TRAINING_SYMBOL_LENGTH / 4, t + TRAINING_SYMBOL_LENGTH / 2);
+        let watch_window_3 = ofdm_wave.slice(t + TRAINING_SYMBOL_LENGTH / 2, t + TRAINING_SYMBOL_LENGTH / 4 * 3);
+        let watch_window_4 = ofdm_wave.slice(t + TRAINING_SYMBOL_LENGTH / 4 * 3, t + TRAINING_SYMBOL_LENGTH);
+        let likelihood = 0;
+        let p = 0;
+        let r = 0;
+
+        for(let i = 0; i < TRAINING_SYMBOL_LENGTH / 4; i++) {
+            p += (watch_window_1[i] * watch_window_2[i]);
+            r += (watch_window_2[i] * watch_window_2[i]);
+        }
+
+        for(let i = 0; i < TRAINING_SYMBOL_LENGTH / 4; i++) {
+            p += (watch_window_3[i] * watch_window_4[i]);
+            r += (watch_window_4[i] * watch_window_4[i]);
+        }
+
+        likelihood = (p * p) / (r * r);
+
+        if(likelihood > max_likelihood) {
+            max_likelihood = likelihood;
+            estimated_offset = t;
+        }
+        t++;
+    }
+    return (estimated_offset + TRAINING_SYMBOL_LENGTH);
+}
+
+//////////////////////////////////////////////////////////////////////////
+// 接收机（测试）
+//////////////////////////////////////////////////////////////////////////
+
+let AUDIO_BUFFER = [];
+const AUDIO_BUFFER_LENGTH = (TRAINING_SYMBOL_INTERVAL + 3) * GROSS_SYMBOL_LENGTH;
+
+let is_need_sync = true; // 是否立即同步
+
+function receiver_test(ofdm_wave, is_soft_loop) {
+    let byte_graph = create_graph("byte_graph", "indicators", "解码出的字节", 64, 50, [0, 0], [64, 256]);
+    let pure_input_length_graph = create_graph("pure_input_length_graph", "indicators", "实际新读取的采样长度", 200, 50, [0, 0], [200, 5000]);
+    let buffer_length_graph = create_graph("buffer_length_graph", "indicators", "缓冲区现有采样数", 200, 50, [0, 0], [200, 5000]);
+
+    let prev_bytes = []; // 刚刚接收的前三个字节
+    let checksum = 0;    // 校验和
+
+    function on_success(stream) {
+        const audio_ctx_2 = new AudioContext();
+        const source      = audio_ctx_2.createMediaStreamSource(stream);
+        const analyser    = audio_ctx_2.createAnalyser();
+              analyser.fftSize = 8192;
+              analyser.smoothingTimeConstant = 0;
+        const window_length = analyser.frequencyBinCount;
+        source.connect(analyser);
+
+        let prev_frame = [];
+        let sync_countdown = 10000;
+
+        let test_timer = 0;
+        let test_overlap = 0;
+
+        let receive_timer = 0;
+
+        let symbol_count = 0;
+        let valid_symbol_count = 0;
+
+        function listen() {
+            $("#current_symbol_index").html(receive_timer);
+
+            let frame;
+            if(is_soft_loop) { // 环路测试
+                let test_overlap = Math.floor(Math.random() * 2048);
+                frame = ofdm_wave.slice(test_timer, test_timer + 4096);
+                test_timer += (4096 - test_overlap);
+            }
+            else { // 硬件麦克风
+                let input_wave = new Float32Array(window_length);
+                analyser.getFloatTimeDomainData(input_wave);
+                frame = Array.from(input_wave);
+            }
+
+            // 计算当前读取帧与上一帧的重叠量
+            let offset = overlap_offset(prev_frame, frame);
+            prev_frame = Array.from(frame);
+            update_graph(pure_input_length_graph, 4096 - offset);
+
+            // 将不与上一帧重叠的部分，压入缓冲区
+            let new_samples = frame.slice(offset);
+            for(let i = 0; i < new_samples.length; i++) {
+                push_value(AUDIO_BUFFER, new_samples[i], AUDIO_BUFFER_LENGTH * 2);
+            }
+
+            update_graph(buffer_length_graph, AUDIO_BUFFER.length);
+
+            // 同步时间到，如果缓冲区未满，继续填充
+            if((is_need_sync || (sync_countdown <= 0)) && (AUDIO_BUFFER.length < AUDIO_BUFFER_LENGTH)) {
+                // 跳过，继续填充缓冲区
+            }
+            // 同步时间到，且缓冲区内容大于一个符号间隔，则执行STO估计
+            else if((is_need_sync || (sync_countdown <= 0)) && (AUDIO_BUFFER.length >= AUDIO_BUFFER_LENGTH)) {
+                let start_offset = estimate_STO(AUDIO_BUFFER);
+                $("#estimated_offset").html(start_offset);
+                // 丢弃缓冲区左端不同步的采样
+                for(let i = 0; i < start_offset; i++) {
+                    AUDIO_BUFFER.shift();
+                }
+                sync_countdown = 10000; // 同步定时器复位
+                symbol_count = 0;
+                is_need_sync = false;
+            }
+            // 已同步，但缓冲区内不足一个符号
+            else if((sync_countdown > 0) && (AUDIO_BUFFER.length < GROSS_SYMBOL_LENGTH)) {
+                // 跳过，继续填充缓冲区
+                sync_countdown--;
+            }
+            // 已同步，且缓冲区内多于1个符号
+            else if((sync_countdown > 0) && (AUDIO_BUFFER.length >= GROSS_SYMBOL_LENGTH)) {
+                // 从缓冲区最左端（即同步起点）取出所有能取出的符号
+                while(AUDIO_BUFFER.length >= GROSS_SYMBOL_LENGTH) {
+                    let symbol_wave = [];
+                    for(let i = 0; i < CP_LENGTH; i++) {
+                        AUDIO_BUFFER.shift(); // 丢弃CP
+                    }
+                    for(let i = 0; i < SYMBOL_LENGTH; i++) {
+                        symbol_wave.push(AUDIO_BUFFER.shift());
+                    }
+                    // 跳过训练符号
+                    if((symbol_count > 0) && (symbol_count % (TRAINING_SYMBOL_INTERVAL + 1) === TRAINING_SYMBOL_INTERVAL)) {
+                        // 训练符号跳过
+                    }
+                    else {
+                        // 对时域符号波形进行解码
+                        plot_wave(oscilloscope, symbol_wave);
+                        let frame_iq = demodulate_ofdm_symbol(symbol_wave);
+                        plot_constellation(constellation, frame_iq);
+                        // IQ解码
+                        let frame_bytes = qam4_decoding(frame_iq[0], frame_iq[1], IQ_AMP);
+                        // 校验
+                        for(let n = 0; n < frame_bytes.length; n++) {
+                            let abyte = frame_bytes[n];
+                            update_graph(byte_graph, abyte);
+                            // 检测分帧符号
+                            if(prev_bytes[0] === 0 && prev_bytes[1] === 0 && prev_bytes[2] === 0) {
+                                if(checksum % 256 === abyte) {
+                                    console.log("✔");
+                                }
+                                else {
+                                    console.log("❌");
+                                }
+                                checksum = 0;
+                            }
+                            else {
+                                checksum += abyte;
+                            }
+                            push_value(prev_bytes, abyte, 3);
+                        }
+                        valid_symbol_count++;
+                    }
+                    symbol_count++;
+                }
+                sync_countdown--;
+            }
+
+            receive_timer++;
+            requestAnimationFrame(listen);
+        }
+        requestAnimationFrame(listen);
+    }
+
+    if(navigator.mediaDevices.getUserMedia) {
+        navigator.mediaDevices.getUserMedia({
+            "audio": {
+                echoCancellation: false,
+                noiseSuppression: false,
+                autoGainControl:  false
+            }
+        }).then(
+            on_success,
+            (err) => {
+                console.error(err);
+            }
+        );
+    }
+}
+
+
+// 生成随机的发射测试波形
+function generate_testing_ofdm_signal(byte_length, snr) {
+    // 测试用字节序列（不包括0）
+    let source = [];
+    for(let t = 0; t < byte_length; t++) {
+        source[t] = Math.round(Math.random() * 255 + 1);
+    }
+    // 加入分帧标记和校验和
+    let checksum = 0;
+    let byte_stream = [];
+    for(let t = 0; t < byte_length; t++) {
+        let abyte = source[t];
+        checksum += abyte;
+        byte_stream.push(abyte);
+        if(t % 16 === 15) { // 每16个字节为一帧
+            byte_stream.push(0);
+            byte_stream.push(0);
+            byte_stream.push(0);
+            byte_stream.push(checksum % 256); // 使校验和落在255范围内
+            checksum = 0;
+        }
+    }
+    // 随机指定信号起始位置
+    let init_offset = Math.floor(Math.random() * (TRAINING_SYMBOL_INTERVAL * GROSS_SYMBOL_LENGTH + TRAINING_SYMBOL_LENGTH));
+    // 生成OFDM波形
+    let ofdm_wave = OFDM_Modulate(byte_stream, IQ_AMP);
+    ofdm_wave = ofdm_wave.slice(init_offset);
+    // AWGN信道
+    ofdm_wave = awgn(ofdm_wave, snr);
+    return ofdm_wave;
+}
+
+// 音频发射
+$("#btn_transmitter").click(() => {
+    let ofdm_wave = generate_testing_ofdm_signal(100000, 30);
+    Transmit(ofdm_wave);
+});
+
+// 音频接收
+$("#btn_receiver").click(() => {
+    receiver_test(null, false);
+});
+
+// 软件自环
+$("#btn_loop").click(() => {
+    let ofdm_wave = generate_testing_ofdm_signal(100000, 30);
+    receiver_test(ofdm_wave, true);
+});
+
+// 立即同步
+$("#btn_sync").click(() => {
+    is_need_sync = true;
+});
+
+</script>
+<!--脚本结束-->
+
+</body>
+</html>

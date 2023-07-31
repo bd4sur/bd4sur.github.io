@@ -1,0 +1,115 @@
+<!-- Project Aurora - Blog Framework V4.0 -->
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<link rel="stylesheet" type="text/css" href="../style/framework.css" charset="utf-8"/>
+<link rel="stylesheet" type="text/css" href="../style/markdown.css" charset="utf-8"/>
+<title>Project Aurora - Demo page</title>
+<script src="../script/framework/jquery/jquery.min.js"></script>
+
+
+<!--页面自定义样式开始-->
+<style>
+
+canvas {
+    display: block;
+    border: none;
+    box-shadow: 0 2px 5px 0 rgba(0,0,0,0.2);
+    margin: 10px auto 10px auto;
+}
+
+</style>
+<!--页面自定义样式结束-->
+
+</head>
+<body>
+
+<!--页面内容开始-->
+
+<div>2019-08-11</div>
+
+<canvas id="cv" style="width:320px;height:320px;" width="320" height="320"></canvas>
+
+<!--页面内容结束-->
+
+<!--脚本开始-->
+<script src="../script/canvas.js"></script>
+<script>
+
+let cv = new Canvas('cv', [-160, -160], [160, 160]);
+cv.SetBackgroundColor("#000");
+
+let amplitude = 80;
+
+let X = (t)=>{
+    if(Math.sin(t) > 0) {
+        return amplitude * Math.sin(t*2+(Math.PI/4)) - amplitude;
+    }
+    else {
+        return amplitude * Math.sin(-(t*2+(Math.PI/4))) + amplitude;
+    }
+};
+let Y = (t)=>{
+    if(Math.sin(t) > 0) {
+        return -amplitude * Math.cos(t*2+(Math.PI/4)) + amplitude;
+    }
+    else {
+        return amplitude * Math.cos(-(t*2+(Math.PI/4))) - amplitude;
+    }
+};
+/*
+let FRAME = [
+    [-50, -50], [-50, -40], [-50, -30], [-50, -20], [-50, -10],
+    [-50, 0], [-50, 10], [-50, 20], [-50, 30], [-50, 40],
+    [-50, 50], [-40, 50], [-30, 50], [-20, 50], [-10, 50],
+    [0, 50], [10, 50], [20, 50], [30, 50], [40, 50],
+    [50, 50], [50, 40], [50, 30], [50, 20], [50, 10],
+    [50, 0], [50, -10], [50, -20], [50, -30], [50, -40],
+    [50, -50], [40, -50], [30, -50], [20, -50], [10, -50],
+    [0, -50], [-10, -50], [-20, -50], [-30, -50], [-40, -50]
+];
+
+X = (t)=>{
+    let index = Math.round(Math.abs(t) * 1000) % (FRAME.length);
+    return FRAME[index][0];
+}
+Y = (t)=>{
+    let index = Math.round(Math.abs(t) * 1000) % (FRAME.length);
+    return FRAME[index][1];
+}
+*/
+
+let t = 0;
+let step = 1;
+
+// 绘制各帧
+let tt = 0;
+setInterval(()=> {
+    amplitude = 20 * Math.sin(tt) + 60;
+    tt += 0.1;
+}, 20);
+
+// 绘制单帧
+function Oscilloscope() {
+    cv.SetBackgroundColor("#000");
+    // 余辉拖尾效果
+    const interval = 0.01;
+    for(let delta = 0; delta < 10; delta += interval) {
+        let x = X(t - delta);
+        let y = Y(t - delta);
+        let x0 = X(t - delta - interval);
+        let y0 = Y(t - delta - interval);
+        cv.Line([x0, y0], [x, y], "#66ffaa");
+    }
+    t += step;
+    window.requestAnimationFrame(Oscilloscope);
+}
+window.requestAnimationFrame(Oscilloscope);
+
+
+</script>
+<!--脚本结束-->
+
+</body>
+</html>

@@ -1,0 +1,693 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0">
+    <title>Tempo</title>
+    <style>
+        * {
+            outline: none;
+        }
+
+        body {
+            margin: 0;
+            padding: 0;
+        }
+
+        .Title {
+            padding: 30px 40px 0px 40px;
+        }
+
+        @media(min-width:651px) { /* Desktop */
+            .Main {
+                width: 60%;
+                max-width: 800px;
+                margin: 30px auto;
+                font-size: 14px;
+                border-radius: 10px;
+                box-shadow: 0 0px #e5e5e5, 0 0 15px rgba(0,0,0,0.12), 0 2px 4px rgba(0,0,0,0.05);
+            }
+        }
+        @media(max-width:650px) { /* Mobile */
+            .Main {
+                width: 100%;
+                font-size: 14px;
+            }
+        }
+
+        .Block {
+            padding: 0 40px;
+            margin: 20px 0;
+        }
+
+        .Footer {
+            padding: 20px 0;
+            background: linear-gradient(180deg, white, #fafafa);
+            border-radius: 0 0 20px 20px;
+        }
+
+        .Copyright {
+            font-size: 12px; text-align: center; line-height: 25px; color: #ccc;
+        }
+
+        .Input {
+            position: absolute;
+            top: 0; left: 0;
+            width: 100%; height: 80px;
+            opacity: 0;
+        }
+
+        .InputButton {
+            position: relative;
+            border: 1px dashed #ddd;
+            width: 100%; height: 80px;
+            line-height: 80px;
+            border-radius: 5px;
+            text-align: center;
+        }
+
+        .InputButton:hover {
+            background-color: #00000005;
+        }
+
+        .InputButtonLabel {
+            width: 100%;
+            color: #666;
+            font-size: 12px;
+            text-align: center;
+        }
+
+        a {
+            color: inherit;
+            text-decoration: none;
+            border-bottom: 1px dotted #666;
+        }
+        a:hover{
+            color: #0066dd;
+            text-decoration:none;
+            border-bottom: 1px solid #0066dd;
+        }
+        p {
+            margin: 5px 0;
+        }
+        .output {
+            font-family: 'Microsoft YaHei Mono', 'consolas', Courier, monospace;
+            font-size: 12px;
+            line-height: 1.5;
+        }
+        table {
+            border-collapse: collapse;
+            margin: 10px 0;
+        }
+        th, td {
+            text-align: center;
+            min-width: 3em;
+            padding: 1px 6px;
+            border: 1px solid #ccc;
+        }
+
+        button {
+            height:30px; line-height: 30px; font-size: 14px; border: none; border-radius: 5px;
+            color: #00aaff; border: 1px solid #e1f5ff; background-color: #e1f5ff; padding: 0 10px; }
+        button:hover { color: #00aaff; background-color: #cdeeff; border: 1px solid #cdeeff; }
+        button:active { color: #ffffff; background-color: #40bfff; border: 1px solid #40bfff; }
+        button:disabled { color: #888888; background-color: #eeeeee; border: 1px solid #eeeeee; }
+
+        .prompt {
+            margin: 10px 0;
+            font-size: 13px;
+            color: #666;
+            line-height: 1.5;
+        }
+    </style>
+</head>
+<body>
+<div class="Main">
+    <div class="Title">
+        <span style="font-size: 24px; font-weight: bold;">
+            🎵 Tempo<span style="font-size: 18px; font-weight: bold; color: #ccc;"> / BPM Analyzer</span>
+        </span>
+
+        <div style="float: right; right: 0; margin-top: 5px;">
+            <a style="border-bottom: none;" href="https://bd4sur.com">BD4SUR.com</a>
+        </div>
+    </div>
+
+    <div class="Block">
+        <div class="prompt">计算音乐节拍速度（单位BPM，拍每分钟）的小工具。需要注意的是，很多乐曲并没有一个全曲恒定的BPM，因此本程序在原曲中等距选取11个点，计算11个位置的BPM，获得一个长度为11的序列作为计算结果。作为参考，程序会给出一个最可能的全曲平均BPM值。音频文件通过JavaScript在浏览器内部处理，不涉及任何网络通信，可查看本页代码以了解实现详情。算法比较朴素，结果仅供参考。算法：</div>
+        <ul class="prompt">
+            <li>对PCM数据分帧、计算每一帧的能量。</li>
+            <li>对长周期能量-时间谱计算FFT，取峰值对应的频率为BPM。</li>
+        </ul>
+        <div class="InputButton" id="inputButton">
+            <input type="file" id="fileSelector" name="files" class="Input">
+            <div id="inputButtonLabel" class="InputButtonLabel">
+                <div style="line-height: 0px; margin-top: 10px;">
+                    <svg t="1590511838623" class="icon" viewBox="0 0 1024 1024" version="1.1" xmlns="http://www.w3.org/2000/svg" p-id="23587" width="30" height="30"><path d="M777.846 119.65l-422.479 80.896c-22.016 4.333-37.809 23.592-37.77 45.923v449.339c-33.83-13.588-78.06-13.706-121.068 2.836-73.925 28.435-116.066 95.271-94.168 149.267 21.897 53.957 99.564 74.713 173.45 46.277 62.345-24.024 102.124-75.303 99.879-123.195V360.212l371.712-71.208V602.9c-33.792-13.627-78.14-13.785-121.147 2.796-73.886 28.475-115.988 95.31-94.13 149.268 21.898 53.957 99.486 74.712 173.332 46.277 61.204-23.592 100.628-73.531 99.88-120.675h0.157V142.572a23.237 23.237 0 0 0-27.57-22.922z" fill="#bbbbbb" p-id="23588"></path></svg>
+                </div>
+                <div style="line-height: 30px;">选择输入文件...</div>
+            </div>
+        </div>
+
+        <div id="output" class="output"></div>
+
+        <div style="margin: 10px 0;">
+            <button id="play" data-state="stopped"><span id="playLabel">开始分析并播放</span></button>
+            <button id="refresh" onclick="window.location.reload();">刷新</button>
+        </div>
+    </div>
+
+    <footer class="Footer">
+        <div class="Copyright">&copy; 2016-2021 BD4SUR</div>
+    </footer>
+</div>
+
+<script src="../script/framework/jquery/jquery.min.js"></script>
+
+<script>
+
+// 以下代码是自持的，除jQuery以外无依赖
+
+/**
+ * 复数类
+ */
+ var Complex = /** @class */ (function () {
+    function Complex(rep, imp) {
+        this.rep = 0;
+        this.imp = 0;
+        this.rep = rep;
+        this.imp = imp;
+    }
+    Complex.prototype.add = function (c) {
+        return new Complex(c.rep + this.rep, c.imp + this.imp);
+    };
+    Complex.prototype.sub = function (c) {
+        return new Complex(this.rep - c.rep, this.imp - c.imp);
+    };
+    Complex.prototype.scale = function (r) {
+        return new Complex(r * this.rep, r * this.imp);
+    };
+    Complex.prototype.mul = function (c) {
+        var newrep = this.rep * c.rep - this.imp * c.imp;
+        var newimp = this.rep * c.imp + this.imp * c.rep;
+        return new Complex(newrep, newimp);
+    };
+    Complex.prototype.copyFrom = function (c) {
+        this.rep = c.rep;
+        this.imp = c.imp;
+    };
+    Complex.prototype.show = function () {
+        console.log('Complex:[ ' + this.rep + ' , ' + this.imp + ' ]');
+    };
+    Complex.prototype.absSqr = function() {
+        return (this.rep * this.rep + this.imp * this.imp);
+    };
+    return Complex;
+}());
+
+// 将实数序列转换为复数序列
+Array.prototype.toComplexList = function() {
+    let list = this;
+    let clist = new Array();
+    let normLen = (LOG[list.length] === undefined) ? parseInt(Math.pow(2, parseInt(Math.log2(list.length) + 1))) : list.length;
+    for(let i = 0; i < normLen; i++) {
+        if(list[i] !== undefined) {
+            clist.push(new Complex(list[i], 0));
+        }
+        else {
+            clist.push(new Complex(0, 0));
+        }
+    }
+    return clist;
+};
+
+// 指数查找表
+var POW = [1, 2, 4, 8, 16, 32, 64, 128, 256, 512, 1024, 2048, 4096, 8192, 16384, 32768, 65536];
+// 对数查找表
+var LOG = {
+    '1': 0, '2': 1, '4': 2, '8': 3, '16': 4, '32': 5, '64': 6, '128': 7, '256': 8,
+    '512': 9, '1024': 10, '2048': 11, '4096': 12, '8192': 13, '16384': 14, '32768': 15, '65536': 16
+};
+// FFT 快速傅立叶变换
+function BasicFFT(IN, size, isIFFT) {
+    // 计算旋转因子
+    function calculateTwiddleFactor(fftSize, isIFFT) {
+        var W = new Array(fftSize);
+        var ReP = 0;
+        var ImP = 0;
+        // 只需要用到0~(fftSize-1)的旋转因子
+        for (var i = 0; i < (fftSize >> 1); i++) {
+            // W[i] = exp(-2*pi*j*(i/N))
+            ReP = Math.cos(2.0 * Math.PI * (i / fftSize));
+            if (isIFFT) {
+                ImP = Math.sin(2.0 * Math.PI * (i / fftSize));
+            }
+            else {
+                ImP = -Math.sin(2.0 * Math.PI * (i / fftSize));
+            }
+            W[i] = new Complex(ReP, ImP);
+        }
+        return W;
+    }
+    // 生成码位倒置序列
+    function bitReverse(fftSize) {
+        var brevIndex = new Array();
+        var temp = 0;
+        var bitSize = LOG[fftSize];
+        for (var i = 0; i < fftSize; i++) {
+            temp = i;
+            brevIndex[i] = 0;
+            for (var c = 0; c < bitSize; c++) {
+                if (((temp >> c) & 1) !== 0) {
+                    brevIndex[i] += (1 << (bitSize - 1 - c)); // POW[bitSize - 1 - c];
+                }
+            }
+        }
+        return brevIndex;
+    }
+    // 两个数组，用来交替存储各级蝶形运算的结果
+    var buf = new Array();
+    buf[0] = new Array();
+    buf[1] = new Array();
+    for (var i = 0; i < size; i++) {
+        buf[0][i] = new Complex(0, 0);
+        buf[1][i] = new Complex(0, 0);
+    }
+    var M = LOG[size];
+    if (!(size in LOG)) {
+        throw '[FFT] 输入序列长度必须是2的幂';
+    }
+    // 码位倒置后的输入序列下标
+    var indexIn = bitReverse(size);
+    // 旋转因子备用
+    var W = calculateTwiddleFactor(size, isIFFT);
+    var level = 0;
+    for (level = 0; level < (((M & 1) === 0) ? M : (M + 1)); level++) {
+        for (var group = 0; group < POW[M - level - 1]; group++) {
+            for (var i = 0; i < (1 << level) /*POW[level]*/; i++) {
+                var indexBuf = i + (group << (level + 1));
+                var scalingFactor = (1 << (M - level - 1)); // POW[M-level-1];
+                if (level === 0) {
+                    (buf[0])[indexBuf].copyFrom(IN[indexIn[indexBuf]].add(W[i * scalingFactor].mul(IN[indexIn[indexBuf + (1 << level) /*POW[level]*/]])));
+                    (buf[0])[indexBuf + (1 << level) /*POW[level]*/].copyFrom(IN[indexIn[indexBuf]].sub(W[i * scalingFactor].mul(IN[indexIn[indexBuf + (1 << level) /*POW[level]*/]])));
+                }
+                else {
+                    (buf[level & 1])[indexBuf].copyFrom((buf[(level + 1) & 1])[indexBuf].add(W[i * scalingFactor].mul((buf[(level + 1) & 1])[indexBuf + (1 << level) /*POW[level]*/])));
+                    (buf[level & 1])[indexBuf + (1 << level) /*POW[level]*/].copyFrom((buf[(level + 1) & 1])[indexBuf].sub(W[i * scalingFactor].mul((buf[(level + 1) & 1])[indexBuf + (1 << level) /*POW[level]*/])));
+                }
+            }
+        }
+    }
+    var result = null;
+    if ((M & 1) === 0) {
+        result = buf[(level + 1) & 1];
+    }
+    else {
+        result = buf[level & 1];
+    }
+    if (isIFFT) {
+        return result.map(function (value) { return value.scale(1 / size); });
+    }
+    else {
+        return result;
+    }
+}
+function FFT(IN, size) {
+    return BasicFFT(IN, size, false);
+}
+function IFFT(IN, size) {
+    return BasicFFT(IN, size, true);
+}
+
+
+
+
+
+function cluster(samples, k, distance) {
+    distance = distance || ((a, b) => Math.abs(a - b));
+    let means = [];
+    let clusters = [];
+    let newSamples = [];
+    for(let i = 0; i < samples.length; i++) {
+        newSamples[i] = samples[i];
+    }
+    newSamples.sort((a, b) => a - b);
+
+    // 初始聚类中心：等距选取样本最大最小值之间的值
+    let max = Math.max.apply(null, newSamples);
+    let min = Math.min.apply(null, newSamples);
+    let delta = (max - min) / (k - 1);
+    for(let j = 0; j < k; j++) {
+        means.push(min);
+        min += delta;
+    }
+    means.sort((a, b) => a - b);
+
+    while(true) {
+        for(let j = 0; j < k; j++) {
+            clusters[j] = [];
+        }
+        // 计算每个样本与k个聚类中心的举例，将样本分配到距离最小的cluster
+        for(let i = 0; i < newSamples.length; i++) {
+            let clusterIndex = 0;
+            let minDist = Number.MAX_VALUE;
+            for(let j = 0; j < k; j++) {
+                let dist = distance(newSamples[i], means[j]);
+                if(dist <= minDist) {
+                    clusterIndex = j;
+                    minDist = dist;
+                }
+            }
+            clusters[clusterIndex].push(newSamples[i]);
+        }
+        // 计算新的聚类中心
+        let newMeans = [];
+        for(let j = 0; j < k; j++) {
+            let mean = 0;
+            // 有些聚类可能是空的，此时聚类中心维持上一次计算的结果不变
+            if(clusters[j].length <= 0) {
+                mean = means[j];
+            }
+            else {
+                mean = clusters[j].reduce(
+                    (prev, currentValue) => prev + currentValue, 0
+                ) / clusters[j].length;
+            }
+            newMeans[j] = mean;
+        }
+        newMeans.sort((a, b) => a - b);
+        // 判断是否终止
+        let finished = true;
+        for(let i = 0; i < means.length; i++) {
+            // 聚类结果稳定，终止计算
+            if(distance(means[i], newMeans[i]) > 1e-2) {
+                finished = false;
+                break;
+            }
+        }
+        if(finished) {
+            // 剔除空的聚类
+            let resClusters = [];
+            let resMeans = [];
+            for(let j = 0; j < k; j++) {
+                if(clusters[j].length > 0) {
+                    resClusters.push(clusters[j]);
+                    resMeans.push(newMeans[j]);
+                }
+            }
+            return {
+                "k": k,
+                "clusterCount": resClusters.length,
+                "means": resMeans,
+                "clusters": resClusters
+            };
+        }
+        else {
+            means = newMeans;
+        }
+    }
+}
+
+function clusterTest(samples) {
+    let result = null;
+    let clst;
+    for(let k = 5; k >= 2; k--) {
+        clst = cluster(samples, k);
+        // 实际聚类数等于k值
+        if(clst.k === clst.clusterCount) {
+            let isBestResult = true;
+            let isGoodResult = false;
+            let means = clst.means;
+            for(let i = means.length - 1; i >= 0; i--) {
+                if(samples.indexOf(Math.round(means[i])) < 0) {
+                    isBestResult = false;
+                }
+                else {
+                    isGoodResult = true;
+                }
+            }
+            if(isBestResult) {
+                console.log("最佳结果");
+                result = clst;
+                break;
+            }
+            else if(isGoodResult) {
+                console.log("可接受结果");
+                result = clst;
+            }
+            else {
+                console.log("无结果");
+                result = clst;
+            }
+        }
+    }
+    if(result === null) {
+        result = cluster(samples, 1);
+    }
+    return result;
+}
+
+
+
+// 将原始采样分帧（不重叠不间隔，不加窗），并计算每一帧的能量，得到能量序列
+function GetEnergySeries(PCM, frameOffset, frameNumber, frameLength) {
+     function ToComplexList(list) {
+        let clist = new Array();
+        let normLen = (LOG[list.length] === undefined) ? parseInt(Math.pow(2, parseInt(Math.log2(list.length) + 1))) : list.length;
+        for(let i = 0; i < normLen; i++) {
+            if(list[i] !== undefined) {
+                clist.push(new Complex(list[i], 0));
+            }
+            else {
+                clist.push(new Complex(0, 0));
+            }
+        }
+        return clist;
+    };
+    function calculateEnergy(arr) {
+        let sum = 0;
+        for(let i = 0; i < arr.length; i++) {
+            sum += (arr[i] * arr[i]);
+        }
+        return sum;
+    }
+    let maxFrameNumber = (PCM.length / frameLength) >> 0;
+    if(frameOffset >= maxFrameNumber || frameOffset + frameNumber > maxFrameNumber) {
+        throw `帧超出原始数据范围`;
+    }
+    else {
+        let energySeries = new Array();
+        let offset = frameOffset * frameLength;
+        let finish = (frameOffset + frameNumber) * frameLength;
+        while(offset < finish) {
+            let frame = PCM.slice(offset, offset + frameLength);
+            energySeries.push(calculateEnergy(frame));
+            offset += frameLength;
+        }
+        return energySeries;
+    }
+}
+
+
+// 计算bpm
+function BPMAnalyseByFT(
+    PCM,
+    SampleRate,
+    FRAME_NUMBER,
+    FRAME_LENGTH,
+    callbackRunning,
+    callbackFinished
+) {
+    let maxBPM = 60 * SampleRate / FRAME_LENGTH / 2;
+
+    let BPMs = [];
+    callbackRunning(`输入长度：${PCM.length}采样点（${(PCM.length / SampleRate).toFixed(2)}s）`);
+    callbackRunning(`节拍帧宽度：${FRAME_LENGTH}采样（${(FRAME_LENGTH / SampleRate * 1000).toFixed(2)}ms）`);
+    callbackRunning(`窗长度：${FRAME_NUMBER}个节拍帧（${(FRAME_NUMBER * (FRAME_LENGTH / SampleRate)).toFixed(2)}s）`);
+
+    let POSITION = 0.0;
+    let TIMER = setInterval(() => {
+    // for(let POSITION = 0.0; POSITION <= 1.0; POSITION += 0.1) {
+        // 取能量序列的一个窗口
+        let center = Math.floor((FRAME_NUMBER >> 1) + POSITION * (PCM.length / FRAME_LENGTH - FRAME_NUMBER));
+        let startFrom = Math.floor(center - (FRAME_NUMBER >> 1));
+        let energySeries = GetEnergySeries(PCM, startFrom, FRAME_NUMBER, FRAME_LENGTH);
+
+        // 求能量-时间谱的FFT
+        let etSpect = FFT(energySeries.toComplexList(), FRAME_NUMBER);
+
+        let maxValue = 0;
+        let maxIndex = 0;
+        // 从BPM=30的点开始，寻找谱的峰值位置
+        for(let index = Math.ceil(etSpect.length * 30 / maxBPM); index < etSpect.length / 2; index++) {
+            if(etSpect[index].absSqr() >= maxValue) {
+                maxValue = etSpect[index].absSqr();
+                maxIndex = index;
+            }
+        }
+
+        // 将BPM标准化到60~180的范围内
+        function normalize(bpm) {
+            if(bpm >= 60 && bpm <= 180) return bpm;
+            else if(bpm > 180) return normalize(bpm >> 1);
+            else if(bpm <= 0) return 0;
+            else return normalize(bpm << 1);
+        }
+    
+        let BPM = Math.round(maxBPM * maxIndex / (etSpect.length / 2 - 1));
+        let normalizedBPM = normalize(BPM);
+        BPMs.push(normalizedBPM);
+
+        let windowStartTime = (startFrom * FRAME_LENGTH / SampleRate).toFixed(2);
+        // callbackRunning(`BPM @ ${POSITION.toFixed(2)} (from ${windowStartTime}s) = ${normalizedBPM}`);
+    // }
+        POSITION += 0.1;
+        if(POSITION >= 1.0) {
+            clearInterval(TIMER);
+            callbackFinished(evaluate(BPMs));
+            return;
+        }
+    }, 0);
+
+    // 根据速度谱，估计总体BPM
+    function evaluate(BPMs) {
+        // 频数统计
+        let BPMdistribution = new Object();
+        for(let i = 0; i < BPMs.length; i++) {
+            let bpm = BPMs[i];
+            if(!(bpm in BPMdistribution)) {
+                BPMdistribution[bpm] = 1;
+            }
+            else {
+                BPMdistribution[bpm]++;
+            }
+        }
+
+        // 尝试对BPM进行聚类
+        let BPM_clusters = clusterTest(BPMs);
+
+        // 选择频数最大的作为计算得到的BPM
+        let maxFreq = 0;
+        let maxClusterIndex = 0;
+        for(let j = 0; j < BPM_clusters.clusters.length; j++) {
+            let cluster = BPM_clusters.clusters[j];
+            if(cluster.length >= maxFreq) {
+                maxFreq = cluster.length;
+                maxClusterIndex = j;
+            }
+        }
+        return {
+            BPM_clusters: BPM_clusters,
+            TempoDistribution: BPMdistribution,
+            TempoSpectrum: BPMs,
+            BPM: Math.round(BPM_clusters.means[maxClusterIndex])
+        };
+
+    }
+}
+
+function BPM(PCM, SampleRate, callbackRunning, callbackFinished) {
+    const FRAME_NUMBER = 2048; // 帧的数量（44100Hz，帧宽1024点的情况下，1024帧持续时间约23.8s）
+    const FRAME_LENGTH = 2048;
+    BPMAnalyseByFT(PCM, SampleRate, FRAME_NUMBER, FRAME_LENGTH, callbackRunning, callbackFinished);
+}
+
+
+
+
+
+
+let PCM;
+let AudioContext = new window.AudioContext();
+
+let rawAudioData;
+
+let fileSelector = document.getElementById('fileSelector');
+fileSelector.onchange = () => {
+    let file = fileSelector.files[0];
+    let Reader = new FileReader();
+    Reader.onloadend = () => {
+        rawAudioData = Reader.result;
+    }
+    Reader.readAsArrayBuffer(file);
+};
+
+function Render(rawAudioData) {
+    AudioContext.decodeAudioData(rawAudioData, (audioBuffer) => {
+        // 获取两个声道的原始数据
+        let SampleRate = audioBuffer.sampleRate;
+        let leftChannel  = audioBuffer.getChannelData(0);
+        let rightChannel = audioBuffer.getChannelData(1);
+
+        let AudioBufferSourceNode = AudioContext.createBufferSource();
+        AudioBufferSourceNode.connect(AudioContext.destination);
+        AudioBufferSourceNode.buffer = audioBuffer;
+        AudioBufferSourceNode.start(0);
+
+        BPM(leftChannel, SampleRate,
+            (msg) => {
+                let html = $("#output").html();
+                $("#output").html(html + msg + `<br>`);
+            },
+            (res) => {
+                let html = $("#output").html();
+
+                let line1 = ``, line2 = ``;
+                for(let bpm in res.TempoDistribution) {
+                    line1 += `<td>${bpm}</td>`;
+                    line2 += `<td>${res.TempoDistribution[bpm]}</td>`;
+                }
+                let table1 = `<table><tr>${line1}</tr><tr>${line2}</tr></table>`;
+
+                line1 = `<td><b>位置</b></td>`, line2 = `<td><b>BPM</b></td>`;
+                for(let i = 0; i < res.TempoSpectrum.length; i++) {
+                    line1 += `<td>${i}</td>`;
+                    line2 += `<td>${res.TempoSpectrum[i]}</td>`;
+                }
+                let table2 = `<table><tr>${line1}</tr><tr>${line2}</tr></table>`;
+
+                let table3 = `<table><tr><th>簇#</th><th>簇均值</th><th>簇内BPM</th></tr>`;
+                for(let c = 0; c < res.BPM_clusters.clusterCount; c++) {
+                    table3 += `<tr><td>${c+1}</td><td>${Math.round(res.BPM_clusters.means[c])}</td><td>${res.BPM_clusters.clusters[c]}</td></tr>`;
+                }
+                table3 += "</table>";
+
+
+                $("#output").html(`
+                ${html}
+                <p><b>各时间段BPM</b></p>
+                ${table2}
+                <p><b>BPM聚类分析</b></p>
+                ${table3}
+                <b style="color: #f00;">估计BPM = ${res.BPM}（或者其分频、倍频）</b>
+                <br>`);
+            }
+        );
+    });
+}
+
+
+$("#play").click(() => {
+    let state = $("#play").attr("data-state");
+    if(state === "stopped") {
+        $("#playLabel").html("暂停");
+        Render(rawAudioData);
+        $("#play").attr("data-state", "playing");
+    }
+    else if(state === "playing") {
+        AudioContext.suspend();
+        $("#playLabel").html("继续播放");
+        $("#play").attr("data-state", "pausing");
+    }
+    else if(state === "pausing") {
+        AudioContext.resume();
+        $("#playLabel").html("暂停");
+        $("#play").attr("data-state", "playing");
+    }
+});
+
+</script>
+
+
+</body>
+</html>

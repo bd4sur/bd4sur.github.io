@@ -1,0 +1,306 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0">
+<script src="../script/framework/jquery/jquery.min.js"></script>
+<title>无线电单位换算速查数表</title>
+
+<!--页面自定义样式开始-->
+<style>
+* {
+    margin: 0;
+    padding: 0;
+    outline: none;
+}
+.unit {
+    font-size: 10px;
+    text-align: center;
+}
+.title {
+    font-size: 10px;
+    text-align: center;
+    border-bottom: 1px solid #aaa;
+}
+.bar {
+    position: relative;
+    background-color: #f0f8ff;
+    height: 688px;
+    width: 42px;
+}
+.split {
+    width: 10px;
+}
+.cursor {
+    display: flex;
+    width: 42px;
+    border-top: solid 1px #15e;
+    position: absolute;
+    align-content: center;
+    justify-content: center;
+}
+.value {
+    position: absolute;
+    font-size: 10px;
+    font-weight: bold;
+    background-color: #f0f8ff;
+    left: 0px;
+    top: -7px;
+    padding: 0 3px;
+}
+.value_right {
+    position: absolute;
+    font-size: 10px;
+    font-weight: bold;
+    background-color: #f0f8ff;
+    right: 0px;
+    top: -7px;
+    padding: 0 3px;
+}
+.value_middle {
+    position: absolute;
+    font-size: 10px;
+    transform: scale(0.8);
+    font-weight: bold;
+    background-color: #f0f8ff;
+    margin-top: -7px;
+    padding: 0 2px;
+    text-align: center;
+}
+.cursor_divided {
+    display: inline-block;
+    width: 5px;
+    bottom: 0;
+    border-top: solid 1px #666;
+    font-size: 10px;
+    position: absolute;
+}
+
+</style>
+<!--页面自定义样式结束-->
+
+</head>
+<body>
+
+<!--页面内容开始-->
+
+<table style="margin: 0 auto;">
+    <tr>
+        <td class="title" colspan="2"><b>信号电平</b><br>Z<sub>0</sub> = 50Ω</td>
+        <td class="split"></td>
+        <td class="title" colspan="3"><b>回损和电压驻波比</b></td>
+        <td class="split"></td>
+        <td class="title" colspan="3"><b>噪声水平</b><br>T<sub>0</sub> = 290K</td>
+    </tr>
+    <tr>
+        <td class="unit">P<br>(dBm)</td>
+        <td class="unit">V<sub>RMS</sub><br>(dBuV)</td>
+        <td class="unit"></td>
+        <td class="unit">RL<br>(dB)</td>
+        <td class="unit">VSWR</td>
+        <td class="unit">P<sub>ref</sub></td>
+        <td class="unit"></td>
+        <td class="unit">NF<br>(dB)</td>
+        <td class="unit">PSD<br>(dBm/Hz)</td>
+    </tr>
+    <tr style="height: 5px;"></tr>
+    <tr>
+        <td><div class="bar" id="dBm_bar"></div></td>
+        <td><div class="bar" id="dBuV_bar"></div></td>
+        <td></td>
+        <td><div class="bar" id="returnloss_bar"></div></td>
+        <td><div class="bar" id="vswr_bar"></div></td>
+        <td><div class="bar" id="pref_bar"></div></td>
+        <td></td>
+        <td><div class="bar" id="nf_bar"></div></td>
+        <td><div class="bar" id="psd_bar"></div></td>
+    </tr>
+</table>
+
+<!--页面内容结束-->
+
+<!--脚本开始-->
+<script>
+
+const BOLTZMANN_CONST = 1.380649e-23; // 玻尔兹曼常数，单位(J/K)
+
+const IMPEDANCE = 50; // 无线电通信常用阻抗，单位(Ω)
+const BAR_HEIGHT = 688;
+
+// 电压均为RMS
+function dBuV_to_dBm(dBuV, impedance) {
+    let volts = Math.pow(10, (dBuV / 20)) * 1e-6;
+    let watts = volts * volts / impedance;
+    let dBm = 10 * Math.log10(watts / 1e-3);
+    return dBm;
+}
+function dBm_to_dBuV(dBm, impedance) {
+    let watts = Math.pow(10, (dBm / 10)) * 1e-3;
+    let volts = Math.sqrt(watts * impedance);
+    let dBuV = 20 * Math.log10(volts / 1e-6);
+    return dBuV;
+}
+function dBuV_to_uV(dBuV) {
+    return Math.pow(10, (dBuV / 20));
+}
+function uV_to_dBuV(uV) {
+    return 20 * Math.log10(uV);
+}
+
+// 电压驻波比、回波损耗和散射参数S11换算
+function vswr_to_returnloss(vswr) {
+    let s11 = (vswr - 1) / (vswr + 1);
+    return -20 * Math.log10(Math.abs(s11));
+}
+function returnloss_to_vswr(rl) {
+    let s11 = Math.pow(10, rl / (-20));
+    return (1 + s11) / (1 - s11);
+}
+function vswr_to_s11(vswr) {
+    return (vswr - 1) / (vswr + 1);
+}
+function s11_to_vswr(s11) {
+    s11 = Math.abs(s11);
+    return (1 + s11) / (1 - s11);
+}
+
+// 噪声系数nf(dB)、等效噪声温度nt(K)和噪声功率谱密度psd(dBm/Hz)（无增益，噪声系数以290K噪声作为输入进行计算）
+function psd_to_nt(psd) {
+    let psd_linear = Math.pow(10, (psd / 10)) / 1000;
+    return psd_linear / BOLTZMANN_CONST;
+}
+function nt_to_psd(nt) {
+    let psd_linear = nt * BOLTZMANN_CONST;
+    return 10 * Math.log10(psd_linear * 1000);
+}
+function nt_to_nf(nt) {
+    return 10 * Math.log10(1 + nt / 290);
+}
+function nf_to_nt(nf) {
+    return (Math.pow(10, nf / 10) - 1) * 290;
+}
+function nf_to_psd(nf) {
+    return nt_to_psd(nf_to_nt(nf));
+}
+function psd_to_nf(psd) {
+    return nt_to_nf(psd_to_nt(nf));
+}
+
+
+
+let dBm_bar = $(`#dBm_bar`);
+let dBuV_bar = $(`#dBuV_bar`);
+
+const dBm_FROM  = -140;
+const dBm_TO    = 40;
+
+for(let dBm = dBm_FROM; dBm <= dBm_TO; dBm += 10) {
+    let top = BAR_HEIGHT - (dBm - dBm_FROM) / (dBm_TO - dBm_FROM) * BAR_HEIGHT;
+    dBm_bar.append(`<div class="cursor" style="top: ${top}px;"><span class="value">${dBm}</span></div>`);
+    if(dBm < dBm_TO) {
+        for(let i = dBm + 1; i < dBm + 10; i++) {
+            let top_divided = BAR_HEIGHT - (i - dBm_FROM) / (dBm_TO - dBm_FROM) * BAR_HEIGHT;
+            dBm_bar.append(`<div class="cursor_divided" style="top: ${top_divided}px; right: 0px;"></div>`);
+        }
+    }
+}
+
+for(let dBuV = -30; dBuV <= 140; dBuV += 10) {
+    let dBm = dBuV_to_dBm(dBuV, IMPEDANCE);
+    let top = BAR_HEIGHT - (dBm - dBm_FROM) / (dBm_TO - dBm_FROM) * BAR_HEIGHT;
+    dBuV_bar.append(`<div class="cursor" style="top: ${top}px;"><span class="value_right">${dBuV}</span></div>`);
+    if(dBuV < 140) {
+        for(let i = dBuV + 1; i < dBuV + 10; i++) {
+            let dBm_divided = dBuV_to_dBm(i, IMPEDANCE);
+            let top_divided = BAR_HEIGHT - (dBm_divided - dBm_FROM) / (dBm_TO - dBm_FROM) * BAR_HEIGHT;
+            dBuV_bar.append(`<div class="cursor_divided" style="top: ${top_divided}px; left: 0px;"></div>`);
+        }
+    }
+}
+
+let vswr_bar = $(`#vswr_bar`);
+let returnloss_bar = $(`#returnloss_bar`);
+let pref_bar = $(`#pref_bar`);
+
+const RL_FROM  = 0;
+const RL_TO    = 50;
+
+for(let rl = RL_TO; rl >= RL_FROM; rl -= 5) {
+    let vswr = returnloss_to_vswr(rl);
+    let s11 = vswr_to_s11(vswr);
+    let top = BAR_HEIGHT - (rl - RL_FROM) / (RL_TO - RL_FROM) * BAR_HEIGHT;
+    returnloss_bar.append(`<div class="cursor" style="top: ${top}px;"><span class="value">${rl}</span></div>`);
+    if(rl < RL_TO) {
+        for(let i = rl + 1; i < rl + 5; i++) {
+            let top_divided = BAR_HEIGHT - (i - RL_FROM) / (RL_TO - RL_FROM) * BAR_HEIGHT;
+            returnloss_bar.append(`<div class="cursor_divided" style="top: ${top_divided}px; right: 0px;"></div>`);
+        }
+    }
+}
+
+for(let vswr = 1.01; vswr < 1.1; vswr += 0.01) {
+    let rl = vswr_to_returnloss(vswr);
+    let top = BAR_HEIGHT - (rl - RL_FROM) / (RL_TO - RL_FROM) * BAR_HEIGHT;
+    vswr_bar.append(`<div class="cursor" style="top: ${top}px;"><span class="value_middle">${vswr}</span></div>`);
+    let s11 = vswr_to_s11(vswr);
+    pref_bar.append(`<div class="cursor" style="top: ${top}px;"><span class="value_middle">${(s11 * s11 * 100).toFixed(2)}%</span></div>`);
+}
+for(let vswr = 1.1; vswr < 1.2; vswr += 0.05) {
+    let rl = vswr_to_returnloss(vswr);
+    let top = BAR_HEIGHT - (rl - RL_FROM) / (RL_TO - RL_FROM) * BAR_HEIGHT;
+    vswr_bar.append(`<div class="cursor" style="top: ${top}px;"><span class="value_middle">${vswr.toFixed(2)}</span></div>`);
+    let s11 = vswr_to_s11(vswr);
+    pref_bar.append(`<div class="cursor" style="top: ${top}px;"><span class="value_middle">${(s11 * s11 * 100).toFixed(2)}%</span></div>`);
+}
+for(let vswr = 1.2; vswr < 2; vswr += 0.1) {
+    let rl = vswr_to_returnloss(vswr);
+    let top = BAR_HEIGHT - (rl - RL_FROM) / (RL_TO - RL_FROM) * BAR_HEIGHT;
+    vswr_bar.append(`<div class="cursor" style="top: ${top}px;"><span class="value_middle">${vswr.toFixed(1)}</span></div>`);
+    let s11 = vswr_to_s11(vswr);
+    pref_bar.append(`<div class="cursor" style="top: ${top}px;"><span class="value_middle">${(s11 * s11 * 100).toFixed(1)}%</span></div>`);
+}
+for(let vswr = 2; vswr < 2.8; vswr += 0.3) {
+    let rl = vswr_to_returnloss(vswr);
+    let top = BAR_HEIGHT - (rl - RL_FROM) / (RL_TO - RL_FROM) * BAR_HEIGHT;
+    vswr_bar.append(`<div class="cursor" style="top: ${top}px;"><span class="value_middle">${vswr.toFixed(1)}</span></div>`);
+    let s11 = vswr_to_s11(vswr);
+    pref_bar.append(`<div class="cursor" style="top: ${top}px;"><span class="value_middle">${(s11 * s11 * 100).toFixed(0)}%</span></div>`);
+}
+for(let vswr = 3; vswr < 6; vswr += 1) {
+    let rl = vswr_to_returnloss(vswr);
+    let top = BAR_HEIGHT - (rl - RL_FROM) / (RL_TO - RL_FROM) * BAR_HEIGHT;
+    vswr_bar.append(`<div class="cursor" style="top: ${top}px;"><span class="value_middle">${vswr.toFixed(0)}</span></div>`);
+    let s11 = vswr_to_s11(vswr);
+    pref_bar.append(`<div class="cursor" style="top: ${top}px;"><span class="value_middle">${(s11 * s11 * 100).toFixed(0)}%</span></div>`);
+}
+for(let vswr = 10; vswr < 20; vswr += 5) {
+    let rl = vswr_to_returnloss(vswr);
+    let top = BAR_HEIGHT - (rl - RL_FROM) / (RL_TO - RL_FROM) * BAR_HEIGHT;
+    vswr_bar.append(`<div class="cursor" style="top: ${top}px;"><span class="value_middle">${vswr.toFixed(0)}</span></div>`);
+    let s11 = vswr_to_s11(vswr);
+    pref_bar.append(`<div class="cursor" style="top: ${top}px;"><span class="value_middle">${(s11 * s11 * 100).toFixed(0)}%</span></div>`);
+}
+vswr_bar.append(`<div class="cursor" style="top: ${BAR_HEIGHT}px;"><span class="value_middle">∞</span></div>`);
+pref_bar.append(`<div class="cursor" style="top: ${BAR_HEIGHT}px;"><span class="value_middle">100%</span></div>`);
+
+
+
+let nf_bar = $(`#nf_bar`);
+let psd_bar = $(`#psd_bar`);
+
+const NF_FROM  = 1;
+const NF_TO    = 40;
+
+for(let nf = NF_FROM; nf <= NF_TO; nf++) {
+    let psd = nf_to_psd(nf);
+    let top = BAR_HEIGHT - (nf - NF_FROM) / (NF_TO - NF_FROM) * BAR_HEIGHT;
+    nf_bar.append(`<div class="cursor" style="top: ${top}px;"><span class="value_middle">${nf.toFixed(0)}</span></div>`);
+    psd_bar.append(`<div class="cursor" style="top: ${top}px;"><span class="value_middle">${psd.toFixed(0)}</span></div>`);
+}
+
+
+</script>
+<!--脚本结束-->
+
+</body>
+</html>

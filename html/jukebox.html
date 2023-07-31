@@ -1,0 +1,1270 @@
+<!-- Project Aurora - Blog Framework V4.0 -->
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<link rel="stylesheet" type="text/css" href="../style/framework.css" charset="utf-8"/>
+<link rel="stylesheet" type="text/css" href="../style/markdown.css" charset="utf-8"/>
+<title>Project Aurora - Demo page</title>
+<script src="../script/framework/jquery/jquery.min.js"></script>
+
+
+<!--页面自定义样式开始-->
+<style>
+
+table {
+    margin: auto;
+}
+.btn_div {
+    text-align: center;
+    font-size: 14px;
+    margin: 10px;
+}
+
+table {
+    display: table;
+    border-collapse: collapse;
+    border-spacing: 0px;
+    border-color: grey;
+}
+td {
+    height: 40px;
+    width: 40px;
+    text-align: center;
+    border: 1px solid #888888;
+}
+td:hover {
+    background-color: #66ccff;
+}
+.piano {
+    overflow: auto;
+    padding: 10px;
+}
+
+
+</style>
+<!--页面自定义样式结束-->
+
+</head>
+<body>
+
+<!--页面内容开始-->
+
+
+<p>東方萃夢想</p>
+
+<ul>
+<li>BPM：120</li>
+<li>降B调</li>
+<li>2019年3月2日</li>
+</ul>
+
+<p>星の在り処</p>
+
+<ul>
+<li>2018年5月，未完成</li>
+<li>BPM：81</li>
+<li>E调，两声部</li>
+</ul>
+
+<p>春のかたみ</p>
+
+<ul>
+<li>BPM：70</li>
+<li>升C调</li>
+<li>2018年5月，未完成</li>
+</ul>
+
+
+<button id="Suimusou" class="MikumarkButton">東方萃夢想（请等待伴奏加载完成）</button>
+<button id="HoshiNoArika" class="MikumarkButton">星の在り処（点击播放）</button>
+<button id="HaruNoKatami" class="MikumarkButton">春のかたみ（点击播放）</button>
+
+<div class="piano">
+    <table>
+        <tr><td id="tone1">C2</td><td id="tone2">D2</td><td id="tone3">E2</td><td id="tone4">F2</td><td id="tone5">G2</td><td id="tone6"><span style="color:red;">A2</span></td><td id="tone7">B2</td></tr>
+        <tr><td id="tone8">C3</td><td id="tone9">D3</td><td id="tone10">E3</td><td id="tone11">F3</td><td id="tone12">G3</td><td id="tone13">A3</td><td id="tone14">B3</td></tr>
+        <tr><td id="tone15">C4</td><td id="tone16">D4</td><td id="tone17">E4</td><td id="tone18">F4</td><td id="tone19">G4</td><td id="tone20">A4</td><td id="tone21">B4</td></tr>
+        <tr><td id="tone22">C5</td><td id="tone23">D5</td><td id="tone24">E5</td><td id="tone25">F5</td><td id="tone26">G5</td><td id="tone27">A5</td><td id="tone28">B5</td></tr>
+        <tr><td id="tone29">C6</td><td id="tone30">D6</td><td id="tone31">E6</td><td id="tone32">F6</td><td id="tone33">G6</td><td id="tone34">A6</td><td id="tone35">B6</td></tr>
+    </table>
+</div>
+
+<!--页面内容结束-->
+
+<!--脚本开始-->
+
+<script>
+
+// Haru no Katami
+// BPM=140.5，1=#C
+const haru = [
+  // 音高 时长
+    '.3','1',
+    '.5','1',//
+    '.6','2',
+    '.3','1',
+    '.1','0.5',//
+    '-6','2.5',
+    '.3','1',
+    '.1','1',//
+    '.2','2',
+    '.5','2',//
+    '.3','2',
+    '.3','1',
+    '.5','1',//
+    '.6','1',
+    '.6','1',
+    '.5','1',
+    '.3','0.5',
+    '+1','1.5',//
+    '.7','1',
+    '.3','1',
+    '.5','1',//
+    '.6','6',
+    '.6','1',
+    '.7','1',//
+    '+1','1',
+    '+1','1',
+    '.7','1',
+    '.5','0.5',//
+    '.3','2.5',
+    '.3','1',
+    '.5','1',//
+    '.6','1',
+    '.6','1',
+    '.5','1',
+    '.3','0.5',//
+    '.1','2.5',
+    '.3','1',
+    '.5','1',//
+    '.6','2',
+    '.3','1',
+    '.1','0.5',
+    '-6','2.5',//
+    '.2','1',
+    '.3','1',
+    '.1','6',//
+
+
+    '.3','1',
+    '.5','1',//
+    '.6','2',
+    '.3','1',
+    '.1','0.5',//
+    '-6','2.5',
+    '.3','1',
+    '.1','1',//
+    '.2','2',
+    '.5','2',//
+    '.3','2',
+    '.3','1',
+    '.5','1',//
+    '.6','1',
+    '.6','1',
+    '.5','1',
+    '.3','0.5',
+    '+1','1.5',//
+    '.7','1',
+    '.3','1',
+    '.5','1',//
+    '.6','6',
+    '.6','1',
+    '.7','1',//
+    '+1','1',
+    '+1','1',
+    '.7','1',
+    '.5','0.5',//
+    '.3','2.5',
+    '.3','1',
+    '.5','1',//
+    '.6','1',
+    '.6','1',
+    '.5','1',
+    '.3','0.5',//
+    '.1','2.5',
+    '.3','1',
+    '.5','1',//
+    '.6','2',
+    '.3','1',
+    '.1','0.5',
+    '-6','2.5',//
+    '.2','1',
+    '.3','1',
+    '.1','6',//
+
+
+
+    '.3','1',
+    '.5','1',//
+    '.6','2',
+    '.3','1',
+    '.1','0.5',//
+    '-6','2.5',
+    '.3','1',
+    '.1','1',//
+    '.2','2',
+    '.5','2',//
+    '.3','2',
+    '.3','1',
+    '.5','1',//
+    '.6','1',
+    '.6','1',
+    '.5','1',
+    '.3','0.5',
+    '+1','1.5',//
+    '.7','1',
+    '.3','1',
+    '.5','1',//
+    '.6','6',
+    '.6','1',
+    '.7','1',//
+    '+1','1',
+    '+1','1',
+    '.7','1',
+    '.5','0.5',//
+    '.3','2.5',
+    '.3','1',
+    '.5','1',//
+    '.6','1',
+    '.6','1',
+    '.5','1',
+    '.3','0.5',//
+    '.1','2.5',
+    '.3','1',
+    '.5','1',//
+    '.6','2',
+    '.3','1',
+    '.1','0.5',
+    '-6','2.5',//
+    '.2','1',
+    '.3','1',
+    '.1','6',//
+
+
+
+    '.3','1',
+    '.5','1',//
+    '.6','2',
+    '.3','1',
+    '.1','0.5',//
+    '-6','2.5',
+    '.3','1',
+    '.1','1',//
+    '.2','2',
+    '.5','2',//
+    '.3','2',
+    '.3','1',
+    '.5','1',//
+    '.6','1',
+    '.6','1',
+    '.5','1',
+    '.3','0.5',
+    '+1','1.5',//
+    '.7','1',
+    '.3','1',
+    '.5','1',//
+    '.6','6',
+    '.6','1',
+    '.7','1',//
+    '+1','1',
+    '+1','1',
+    '.7','1',
+    '.5','0.5',//
+    '.3','2.5',
+    '.3','1',
+    '.5','1',//
+    '.6','1',
+    '.6','1',
+    '.5','1',
+    '.3','0.5',//
+    '.1','2.5',
+    '.3','1',
+    '.5','1',//
+    '.6','2',
+    '.3','1',
+    '.1','0.5',
+    '-6','2.5',//
+    '.2','1',
+    '.3','1',
+    '.1','6',//
+];
+
+// Hoshi no Arika
+// BPM=163，1=E
+const hoshi = [
+  // 音高 时长
+    // 前奏
+    '.6','0.5',
+    '.7','0.5',
+    '+1','1.5',
+    '.7','1.5',
+    '.6','1',
+    '.5','1.5',
+    '.3','1.5',
+    '.1','1',
+    '.2','7',
+
+    '.6','0.5',
+    '.7','0.5',
+    '+1','1.5',
+    '.7','1.5',
+    '.6','1',
+    '.5','1.5',
+    '.3','1.5',
+    '.1','1',
+    '.2','4',
+    '.3','4',
+
+    // 主歌1
+    '+1','1', // ki
+    '.7','1', // mi
+    '+1','1', // no
+    '+3','1', // ka
+    '.7','4', // ge
+
+    '.6','1', // ho
+    '.5','1', // shi
+    '.6','1', // no
+    '+1','1', // yo-
+    '.5','4', // ni
+
+    '.4','1', // a
+    '.3','1', // sa
+    '.4','1', // ni
+    '+1','1', // to
+    '.7','2', // ke
+    '.5','2', // te
+
+    '.6','1', // ki
+    '.7','1', // e
+    '+1','1', // te
+    '+3','1', // yu
+    '+2','4', // ku
+
+    '+1','1', // i
+    '.7','1', // ki
+    '+1','1', // sa
+    '+3','1', // ki
+    '.7','2', // wo
+    '.5','2', // na
+
+    '.6','1', // ku
+    '.7','1', // shi
+    '+1','1', // ta
+    '+2','1', // ma
+    '+3','3', // ma
+    '+3','1', // o
+
+    '+4','1', // mo
+    '+3','1', // i
+    '+2','1', // wa
+    '+1','1', // a
+    '.7','1', // fu
+    '+3','1', // re
+    '.5#','1', // te
+    '.7','1', // ku
+
+    '.6','8', // ru
+
+    // 主歌2
+    '+1','1', // tsu
+    '.7','1', // yo
+    '+1','1', // sa
+    '+3','1', // ni
+    '.7','4', // mo
+
+    '.6','1', // yo
+    '.5','1', // wa
+    '.6','1', // sa
+    '+1','1', // ni
+    '.5','4', // mo
+
+    '.4','1', // ko
+    '.3','1', // no
+    '.4','1', // ko
+    '+1','1', // ko
+    '.7','2', // ro
+    '.5','2', // wa
+
+    '.6','1', // mu
+    '.7','1', // ki
+    '+1','1', // a
+    '+3','1', // e
+    '+2','4', // ta
+
+    '+1','1', // ki
+    '.7','1', // mi
+    '+1','1', // to
+    '+3','1', // na
+    '.7','2', // ra
+    '.5','2', // don
+
+    '.6','1', // na
+    '.7','1', // a
+    '+1','1', // shi
+    '+2','1', // ta
+    '+3','3', // ga
+    '+3','1', // ki
+
+    '+4','1', // te
+    '+3','1', // mo
+    '+2','1', // ko
+    '+1','1', // wa
+    '.7','1', // ku
+    '+3','1', // na
+    '.5#','1', // i
+    '.7','1', // no
+
+    '.6','8', // ni
+
+    // 过渡
+    '0','4',
+    '+3','2', // fu
+    '+2','2', // ta
+    '+5','2', // ri
+    '+4','2', // a
+    '+3','2', // ru
+    '+2','2', // i
+    '.7','5', // ta
+    '.7','1', // to
+    '+1','1', // ki
+
+    '.6','9', // wo
+
+    '.4','2', // shi
+    '.5','2', // n
+    '.6','1', // ji
+    '+1','3', // te
+    '.7','2', // i
+    '+1','2', // te
+    '+2','1', // ho
+    '+4','2', // shi
+    '+3','1', // i
+
+    '+3','8', // i
+];
+
+const hoshi2 = [
+  // 音高 时长
+    // 前奏
+    '0','1',
+    '.1#','1',
+    '.5#','1',
+    '+2#','1',
+    '+3','1',
+    '.5#','4',
+
+    '.2','4',
+    '+4#','3',
+    '0','1',
+
+    '-6','1',
+    '.3','1',
+    '.6','1',
+    '+1#','1',
+    '-3','2',
+    '-7','1',
+    '.5#','1',
+
+    '.2','4',
+
+    '-5#','0.5',
+    '.5#','0.5',
+    '+1#','0.5',
+    '+2#','0.5',
+    '.7#','2',
+
+    '+1#','4',
+    '.7','4',
+    '.6','4',
+    '.5#','4',
+
+    '.4#','1',
+    '+1#','1',
+    '+3','2',
+    '.7','2',
+    '+2#','2',
+
+    '.6','1',
+    '+3','1',
+    '+6','1',
+    '+5#','1',
+    '+4#','4',
+
+    '+3','2',
+    '+5#','2',
+    '+2#','2',
+    '+5#','2',
+
+    '.6','1',
+    '.7','1',
+    '+1#','1',
+    '+2#','1',
+    '+3','1',
+    '+4#','1',
+    '+5#','2',
+
+    '+1#','4',
+    '+5#','2',
+    '.7#','2',
+
+    '+1#','2',
+    '.5#','2',
+    '+1#','4',
+];
+
+
+
+const touhousuimusou = [
+  // 音高 时长
+    '-6','1',
+    '-7','1',
+
+    '.1','3',
+    '.3','1',
+
+    '.2','1',
+    '.1','1',
+    '-7','1',
+    '.2','1',
+
+    // '-6','1',
+    '-6','3',
+    '-7','1',
+
+    '.1','3',
+    '-6','1',
+
+    '.2','3',
+    '.1','1',
+
+    '.2','1',
+    '.1','1',
+    '.2','1',
+    '.3','1',
+
+    '.3','6',
+    '0','1',
+/////////////////////
+    '-6','0.5',
+    '-7','0.5',
+
+    '.1','3',
+    '.3','1',
+
+    '.2','1',
+    '.1','1',
+    '.2','1',
+    '.3','1',
+
+    // '.5','1',
+    '.5','3',
+    '.6','1',
+
+    '.1','3',
+    '-6','1',
+
+    '-7','3',
+    '-6','1',
+
+    '-7','1',
+    '.1','1',
+    '.2','1',
+    '-7','1',
+
+    '-7','3',
+    // '0','0.5',
+    '.1','0.5',
+    '-7','0.5',
+
+    '-6','1',
+    '0','1',
+    '-6','1',
+    '-7','1',
+///////////
+    '.1','3',
+    '.3','1',
+
+    '.2','1',
+    '.1','1',
+    '-7','1',
+    '.2','1',
+
+    // '-6','1',
+    '-6','3',
+    '-7','1',
+
+    '.1','3',
+    '-6','1',
+
+    '.2','3',
+    '.1','1',
+
+    '.2','1',
+    '.1','1',
+    '.2','1',
+    '.3','1',
+
+    '.3','6',
+    '0','1',
+/////////////////////
+    '-6','0.5',
+    '-7','0.5',
+
+    '.1','3',
+    '.3','1',
+
+    '.2','1',
+    '.1','1',
+    '.2','1',
+    '.3','1',
+
+    // '.5','1',
+    '.5','3',
+    '.6','1',
+
+    '.1','3',
+    '-6','1',
+
+    '-7','3',
+    '-6','1',
+
+    '-7','1',
+    '.1','1',
+    '.2','1',
+    '-7','1',
+
+    '-7','3',
+    '.1','0.5',
+    '-7','0.5',
+
+    '-6','2',
+
+    '.2','1',
+    '.3','1',
+//////////////
+    '.5','1',
+    '.6','1',
+    '.3','1',
+    '.2','1',
+
+    '.3','2',
+    '.1','1',
+    '.2','1',
+
+    '-7','1',
+    '.1','1',
+    '-7','1',
+    '-5','1',
+
+    '-6','2',
+    '-3','1',
+    '-5','1',
+
+    '-6','1',
+    '.1','1',
+    '.2','1',
+    '.1','1',
+
+    '.2','2',
+    '.2','1',
+    '.1','1',
+
+    '.2','1',
+    '.5','1',
+    '.3','4',
+//////
+    '.3','1',
+    '.5','1',
+
+    '.6','1',
+    '.6','1',
+    '.5','1',
+    '.6','1',
+
+    '.3','2',
+    '.3','1',
+    '.1','1',
+
+    '.2','1',
+    '.3','1',
+    '.2','1',
+    '.1','1',
+
+    '-6','2',
+    '-6','1',
+    '-5','1',
+
+    '-6','2',
+    '-6','1',
+    '.1','1',
+
+    '.2','1',
+    '.1','1',
+    '.2','1',
+    '.3','1',
+
+    '-6','5',
+    '0','1',
+//////////////////////////////////////
+    '-6','1',
+    '-7','1',
+
+    '.1','3',
+    '.3','1',
+
+    '.2','1',
+    '.1','1',
+    '-7','1',
+    '.2','1',
+
+    // '-6','1',
+    '-6','3',
+    '-7','1',
+
+    '.1','3',
+    '-6','1',
+
+    '.2','3',
+    '.1','1',
+
+    '.2','1',
+    '.1','1',
+    '.2','1',
+    '.3','1',
+
+    '.3','6',
+    '0','1',
+/////////////////////
+    '-6','0.5',
+    '-7','0.5',
+
+    '.1','3',
+    '.3','1',
+
+    '.2','1',
+    '.1','1',
+    '.2','1',
+    '.3','1',
+
+    // '.5','1',
+    '.5','3',
+    '.6','1',
+
+    '.1','3',
+    '-6','1',
+
+    '-7','3',
+    '-6','1',
+
+    '-7','1',
+    '.1','1',
+    '.2','1',
+    '-7','1',
+
+    '-7','3',
+    // '0','0.5',
+    '.1','0.5',
+    '-7','0.5',
+
+    '-6','1',
+    '0','1',
+    '.2','1',
+    '.3','1',
+//////////////
+    '.5','1',
+    '.6','1',
+    '.3','1',
+    '.2','1',
+
+    '.3','2',
+    '.1','1',
+    '.2','1',
+
+    '-7','1',
+    '.1','1',
+    '-7','1',
+    '-5','1',
+
+    '-6','2',
+    '-3','1',
+    '-5','1',
+
+    '-6','1',
+    '.1','1',
+    '.2','1',
+    '.1','1',
+
+    '.2','2',
+    '.2','1',
+    '.1','1',
+
+    '.2','1',
+    '.5','1',
+    '.3','4',
+//////
+    '.3','1',
+    '.5','1',
+
+    '.6','1',
+    '.6','1',
+    '.5','1',
+    '.6','1',
+
+    '.3','2',
+    '.3','1',
+    '.1','1',
+
+    '.2','1',
+    '.3','1',
+    '.2','1',
+    '.1','1',
+
+    '-6','2',
+    '-6','1',
+    '-5','1',
+
+    '-6','2',
+    '-6','1',
+    '.1','1',
+
+    '.2','1',
+    '.1','1',
+    '.2','1',
+    '.3','1',
+
+    '-6','5',
+    '0','1',
+    '.2','1',
+    '.3','1',
+//////////////
+    '.5','1',
+    '.6','1',
+    '.3','1',
+    '.2','1',
+
+    '.3','2',
+    '.1','1',
+    '.2','1',
+
+    '-7','1',
+    '.1','1',
+    '-7','1',
+    '-5','1',
+
+    '-6','2',
+    '-3','1',
+    '-5','1',
+
+    '-6','1',
+    '.1','1',
+    '.2','1',
+    '.1','1',
+
+    '.2','2',
+    '.2','1',
+    '.1','1',
+
+    '.2','1',
+    '.5','1',
+    '.3','4',
+//////
+    '.3','1',
+    '.5','1',
+
+    '.6','1',
+    '.6','1',
+    '.5','1',
+    '.6','1',
+
+    '.3','2',
+    '.3','1',
+    '.1','1',
+
+    '.2','1',
+    '.3','1',
+    '.2','1',
+    '.1','1',
+
+    '-6','2',
+    '-6','1',
+    '-5','1',
+
+    '-6','2',
+    '-6','1',
+    '.1','1',
+
+    '.2','1',
+    '.1','1',
+    '.2','1',
+    '.3','1',
+
+    '-6','3',
+
+];
+
+
+
+// 频率：采用十二平均律，以A4=440Hz为基准频率
+// index = 12 × (组号-1) + 列号
+const freq = [
+    0, 
+ // 1        2        3        4        5        6        7        8        9        10       11       12
+ // 1(C)     #1(C)    2(D)     b3(E)    3(E)     4(F)     #4(F)    5(G)     #5(G)    6(A)     b7(B)    7(B)
+    32.70,    34.65,   36.71,   38.89,   41.20,   43.65,   46.25,   49.00,   51.91,   55.00,   58.27,  61.74,     // 1
+    65.41,    69.30,   73.42,   77.78,   82.41,   87.31,   92.50,   98.00,  103.83,  110.00,  116.54,  123.47,    // 2
+    130.81,  138.59,  146.83,  155.56,  164.81,  174.61,  185.00,  196.00,  207.65,  220.00,  233.08,  246.94,    // 3
+    261.62,  277.18,  293.66,  311.13,  329.63,  349.23,  369.99,  392.00,  415.30,  440.00,  466.16,  493.88,    // 4
+    523.25,  554.36,  587.33,  622.25,  659.26,  698.46,  740.00,  783.99,  830.61,  880.00,  932.33,  987.77,    // 5
+    1046.50, 1108.73, 1174.66, 1244.50, 1318.51, 1396.91, 1479.98, 1567.98, 1661.22, 1760.00, 1864.66, 1975.53,   // 6
+    2093.00, 2217.46, 2349.32, 2489.02, 2637.02, 2793.83, 2959.96, 3135.96, 3322.44, 3520.00, 3729.31, 3951.07,   // 7
+    4186.01, 4434.92, 4698.64, 4978.03, 5274.04, 5587.65, 5919.91, 6271.93, 6644.88, 7040.00, 7458.62, 7902.13];  // 8
+
+const TONENAME_TO_INDEX = {
+    "C1": 1,   "C#1": 2,   "D1": 3,   "Eb1": 4,   "E1": 5,   "F1": 6,   "F#1": 7,   "G1": 8,   "G#1": 9,   "A1": 10,  "Bb1": 11,  "B1": 12,
+    "C2": 13,  "C#2": 14,  "D2": 15,  "Eb2": 16,  "E2": 17,  "F2": 18,  "F#2": 19,  "G2": 20,  "G#2": 21,  "A2": 22,  "Bb2": 23,  "B2": 24,
+    "C3": 25,  "C#3": 26,  "D3": 27,  "Eb3": 28,  "E3": 29,  "F3": 30,  "F#3": 31,  "G3": 32,  "G#3": 33,  "A3": 34,  "Bb3": 35,  "B3": 36,
+    "C4": 37,  "C#4": 38,  "D4": 39,  "Eb4": 40,  "E4": 41,  "F4": 42,  "F#4": 43,  "G4": 44,  "G#4": 45,  "A4": 46,  "Bb4": 47,  "B4": 48,
+    "C5": 49,  "C#5": 50,  "D5": 51,  "Eb5": 52,  "E5": 53,  "F5": 54,  "F#5": 55,  "G5": 56,  "G#5": 57,  "A5": 58,  "Bb5": 59,  "B5": 60,
+    "C6": 61,  "C#6": 62,  "D6": 63,  "Eb6": 64,  "E6": 65,  "F6": 66,  "F#6": 67,  "G6": 68,  "G#6": 69,  "A6": 70,  "Bb6": 71,  "B6": 72,
+    "C7": 73,  "C#7": 74,  "D7": 75,  "Eb7": 76,  "E7": 77,  "F7": 78,  "F#7": 79,  "G7": 80,  "G#7": 81,  "A7": 82,  "Bb7": 83,  "B7": 84,
+    "C8": 85,  "C#8": 86,  "D8": 87,  "Eb8": 88,  "E8": 89,  "F8": 90,  "F#8": 91,  "G8": 92,  "G#8": 93,  "A8": 94,  "Bb8": 95,  "B8": 96
+};
+
+// 七声音阶各音名对应十二平均律的偏移
+// C+ C D E F G A B
+const TO_TONENAME = [12, 1, 3, 5, 6, 8, 10, 12];
+
+// 钢琴琴弦的振动时间(s)
+const PIANO_OSC_DELAY = 2.2;
+
+function Tone(context) {
+    this.context = context;
+}
+
+Tone.prototype = {
+    init: function() {
+        this.oscillator = this.context.createOscillator();
+        this.gainNode = this.context.createGain();
+        this.oscillator.connect(this.gainNode);
+        this.gainNode.connect(this.context.destination);
+    },
+    addOvertone: function(freq, gain) {
+        let osc = this.context.createOscillator();
+        let gainNode = this.context.createGain();
+
+        osc.frequency.value = freq;
+        gainNode.gain.value = gain / 10;
+        gainNode.gain.exponentialRampToValueAtTime(0.00001, this.context.currentTime + PIANO_OSC_DELAY);
+        
+        osc.connect(gainNode);
+        gainNode.connect(this.context.destination);
+        return osc;
+    },
+    tick: function(delay) {
+        var source = this.context.createBufferSource();
+        source.buffer = BUFFERS.tick;
+        source.connect(this.context.destination);
+        source.start();
+        source.stop(this.context.currentTime + (delay/1000));
+    },
+    tick2: function(delay) {
+        var source = this.context.createBufferSource();
+        source.buffer = BUFFERS.tick2;
+        source.connect(this.context.destination);
+        source.start();
+        source.stop(this.context.currentTime + (delay/1000));
+    },
+    tock: function(delay) {
+        var source = this.context.createBufferSource();
+        source.buffer = BUFFERS.tock;
+        source.connect(this.context.destination);
+        source.start();
+        source.stop(this.context.currentTime + (delay/1000));
+    },
+    play: function(value, delay) {
+        this.init();
+        tone.oscillator.type = 'sine';
+        this.gainNode.gain.setValueAtTime(0.3, this.context.currentTime);
+        this.oscillator.frequency.value = value;
+        this.oscillator.start();
+        this.gainNode.gain.exponentialRampToValueAtTime(0.01, this.context.currentTime + PIANO_OSC_DELAY);
+        this.oscillator.stop(this.context.currentTime + PIANO_OSC_DELAY);
+
+        // 象征性地加一点泛音
+        for(let i = 1; i <= 3; i++) {
+            let osc = this.addOvertone(value * Math.pow(2, i), Math.pow(2.2, -i));
+            osc.start();
+            osc.stop(this.context.currentTime + PIANO_OSC_DELAY);
+        }
+    },
+    stop: function() {
+        this.gainNode.gain.exponentialRampToValueAtTime(0.001, this.context.currentTime + 0.5);
+        this.oscillator.stop(this.context.currentTime + 0.5);
+    }
+}
+
+var context = new AudioContext();
+var tone = new Tone(context);
+tone.init();
+
+function JukeBox(bpm, shift, spect) {
+    let offset = 0;
+    let C = shift;
+    let DELAY = (60000 / bpm);
+
+    let jukebox = function() {
+        clearInterval(timer);
+        let tn =  spect[offset * 2];
+        let delay = spect[offset * 2 + 1];
+        if(tn === undefined) {
+            clearInterval(jukebox);
+            return;
+        }
+
+        // parse tone
+        let toneNum = 0;
+        if(tn[0] === '.') {
+            toneNum = parseInt(TO_TONENAME[tn[1]]) + C;
+        }
+        else if(tn[0] === '+') {
+            toneNum = parseInt(TO_TONENAME[tn[1]]) + C + 12;
+        }
+        else if(tn[0] === '-') {
+            toneNum = parseInt(TO_TONENAME[tn[1]]) + C - 12;
+        }
+        else {
+            toneNum = 0;
+        }
+
+        // parse 升降号
+        if(tn[2] === '#') {
+            toneNum++;
+        }
+        else if(tn[2] === 'b'){
+            toneNum--;
+        }
+
+        // parse delay
+        DELAY = (60000 / bpm) * parseFloat(delay);
+        if(parseInt(tn[1]) > 0 && parseInt(tn[1]) < 8) {
+            tone.play(freq[toneNum], DELAY);
+        }
+        else if(parseInt(tn[0]) === 0){
+            tone.tick(DELAY);
+        }
+        else if(parseInt(tn[0]) === 8){
+            tone.tick2(DELAY);
+        }
+        else if(parseInt(tn[0]) === 9){
+            tone.tock(DELAY);
+        }
+
+        offset++;
+
+        timer = setInterval(jukebox, DELAY);
+    };
+
+    let timer = setInterval(jukebox, DELAY);
+}
+
+function BufferLoader(context, urlList, callback) {
+    this.context = context;
+    this.urlList = urlList;
+    this.onload = callback;
+    this.bufferList = new Array();
+    this.loadCount = 0;
+  }
+  
+BufferLoader.prototype.loadBuffer = function(url, index) {
+// Load buffer asynchronously
+var request = new XMLHttpRequest();
+request.open("GET", url, true);
+request.responseType = "arraybuffer";
+
+var loader = this;
+
+request.onload = function() {
+    // Asynchronously decode the audio file data in request.response
+    loader.context.decodeAudioData(
+    request.response,
+    function(buffer) {
+        if (!buffer) {
+        alert('error decoding file data: ' + url);
+        return;
+        }
+        loader.bufferList[index] = buffer;
+        if (++loader.loadCount == loader.urlList.length)
+        loader.onload(loader.bufferList);
+    }
+    );
+}
+
+request.onerror = function() {
+    console.error('BufferLoader: XHR error');
+}
+
+request.send();
+}
+  
+BufferLoader.prototype.load = function() {
+    for (var i = 0; i < this.urlList.length; ++i)
+        this.loadBuffer(this.urlList[i], i);
+}
+
+// Keep track of all playing sources
+var SOURCES = [];
+// Keep track of all loaded buffers.
+var BUFFERS = {};
+// Page-wide audio context.
+var context = null;
+
+// An object to track the buffers to load {name: path}
+var BUFFERS_TO_LOAD = {
+    tick: './js/tick.wav',
+    tick2: './js/tick2.wav',
+    tock: './js/tock.wav',
+};
+
+// Stops all playing sources
+function stopSources() {
+    for (var i = 0; i < SOURCES.length; i++) {
+        var source = SOURCES[i];
+        source.noteOff(0);
+    }
+    SOURCES = [];
+}
+
+// Loads all sound samples into the buffers object.
+function loadBuffers() {
+    // Array-ify
+    var names = [];
+    var paths = [];
+    for (var name in BUFFERS_TO_LOAD) {
+        var path = BUFFERS_TO_LOAD[name];
+        names.push(name);
+        paths.push(path);
+    }
+    bufferLoader = new BufferLoader(context, paths, function(bufferList) {
+        for (var i = 0; i < bufferList.length; i++) {
+        var buffer = bufferList[i];
+        var name = names[i];
+        BUFFERS[name] = buffer;
+        }
+    });
+    bufferLoader.load();
+}
+
+document.addEventListener('DOMContentLoaded', function() {
+    try {
+        context = new AudioContext();
+    }
+    catch(e) {
+        console.error("Web Audio API is not supported in this browser");
+    }
+    loadBuffers();
+});
+
+
+
+
+
+$(function(){
+    const instGain = 0.35; // 伴奏增益
+    let audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    let source;
+    (function getData() {
+        source = audioCtx.createBufferSource();
+        var request = new XMLHttpRequest();
+        request.open('GET', '', true);
+        request.responseType = 'arraybuffer';
+        request.onload = function() {
+            var audioData = request.response;
+            audioCtx.decodeAudioData(audioData, function(buffer) {
+                source.buffer = buffer;
+                // 伴奏→增益→终点
+                var gainNode = audioCtx.createGain();
+                source.connect(gainNode);
+                gainNode.connect(audioCtx.destination);
+                gainNode.gain.setValueAtTime(instGain, 0);
+                source.loop = false;
+                $('#Suimusou').attr('disabled', false);
+                $('#Suimusou').html('東方萃夢想（点击播放，<strong>音量可能较大</strong>）');
+            },
+            function(e){"Error with decoding audio data" + e.err});
+        }
+        request.send();
+    })();
+
+    // 春痕
+    $('#HaruNoKatami').click(function() {
+        JukeBox(140.5, 37, haru); // bpm=140.5，调号（升C），乐谱
+    });
+    // 星之所在
+    $('#HoshiNoArika').click(function() {
+        JukeBox(162, 40, hoshi); // bpm=162，调号（E），乐谱
+        JukeBox(162, 24, hoshi2); // bpm=162，调号（E），乐谱
+    });
+    // 东方萃梦想
+    $('#Suimusou').click(function() {
+        const TONE_DELAY = 16990; // 这个延时可能需要微调
+        source.start(0);
+        setTimeout(()=>{
+            JukeBox(240.9, 39+12, touhousuimusou); // bpm=240.9，调号（降B），乐谱
+        }, TONE_DELAY);
+        $('#Suimusou').attr('disabled', true);
+        $('#Suimusou').html('東方萃夢想（播放中，刷新以停止）');
+    });
+    
+    $("td[id^='tone']").each(function(index, e) {
+        // console.log(parseInt(($(this).attr('id').match(/\d+/ig))[0]));
+        $(e).click(function() {
+            let n = parseInt((e.id.match(/\d+/ig))[0])+7;
+            let group = (n % 7 === 0) ? Math.floor(n / 7) - 1 : Math.floor(n / 7);
+            let f = freq[TO_TONENAME[n % 7] + parseInt(parseInt(group) * 12)];
+            console.log(n + ' / ' + (TO_TONENAME[n % 7] + parseInt(parseInt(group) * 12)) + ':' + f);
+            tone.play(f);
+        });
+    });
+
+    $(document).keydown((event) => {
+        console.log(event.keyCode);
+        switch(event.keyCode) {
+            case 81: tone.play(freq[TONENAME_TO_INDEX["C3"]]); break; // Q
+            case 87: tone.play(freq[TONENAME_TO_INDEX["D3"]]); break; // W
+            case 69: tone.play(freq[TONENAME_TO_INDEX["E3"]]); break; // E
+            case 82: tone.play(freq[TONENAME_TO_INDEX["F3"]]); break; // R
+            case 84: tone.play(freq[TONENAME_TO_INDEX["G3"]]); break; // T
+            case 89: tone.play(freq[TONENAME_TO_INDEX["A3"]]); break; // Y
+            case 85: tone.play(freq[TONENAME_TO_INDEX["B3"]]); break; // U
+            case 73: tone.play(freq[TONENAME_TO_INDEX["C4"]]); break; // I
+
+            case 65: tone.play(freq[TONENAME_TO_INDEX["C4"]]); break; // A
+            case 83: tone.play(freq[TONENAME_TO_INDEX["D4"]]); break; // S
+            case 68: tone.play(freq[TONENAME_TO_INDEX["E4"]]); break; // D
+            case 70: tone.play(freq[TONENAME_TO_INDEX["F4"]]); break; // F
+            case 71: tone.play(freq[TONENAME_TO_INDEX["G4"]]); break; // G
+            case 72: tone.play(freq[TONENAME_TO_INDEX["A4"]]); break; // H
+            case 74: tone.play(freq[TONENAME_TO_INDEX["B4"]]); break; // J
+            case 75: tone.play(freq[TONENAME_TO_INDEX["C5"]]); break; // K
+
+            case 90: tone.play(freq[TONENAME_TO_INDEX["C5"]]); break; // Z
+            case 88: tone.play(freq[TONENAME_TO_INDEX["D5"]]); break; // X
+            case 67: tone.play(freq[TONENAME_TO_INDEX["E5"]]); break; // C
+            case 86: tone.play(freq[TONENAME_TO_INDEX["F5"]]); break; // V
+            case 66: tone.play(freq[TONENAME_TO_INDEX["G5"]]); break; // B
+            case 78: tone.play(freq[TONENAME_TO_INDEX["A5"]]); break; // N
+            case 77: tone.play(freq[TONENAME_TO_INDEX["B5"]]); break; // M
+            case 188: tone.play(freq[TONENAME_TO_INDEX["C6"]]); break; // ,
+
+            default: break;
+        }
+     });
+});
+
+</script>
+<!--脚本结束-->
+
+</body>
+</html>

@@ -1,0 +1,209 @@
+<!-- Framework Iroha -->
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<link rel="stylesheet" type="text/css" href="../style/framework.css" charset="utf-8"/>
+<link rel="stylesheet" type="text/css" href="../style/markdown.css" charset="utf-8"/>
+<title>Frame Iroha - Demo page</title>
+<script src="../script/framework/jquery/jquery.min.js"></script>
+
+
+<!--页面自定义样式开始-->
+<style>
+
+.edit_distance_charblock {
+    display: inline-block;
+    font-size: 15px;
+    height: 22px;
+    line-height: 22px;
+    padding: 2px 5px 2px 5px;
+    margin: 0 2px 0 2px;
+    background-color: rgb(190,229,245);
+    color: #233333;
+}
+.edit_distance_highlight {
+    background-color: pink;
+}
+.edit_distance_line {
+    padding: 2px;
+}
+.edit_distance_table {
+    font-size: 14px;
+    border: 1px solid #dddddd;
+    border-collapse: collapse;
+    background-color: transparent;
+    border-spacing: 0;
+    font-weight: normal;
+}
+.edit_distance_table td {
+    text-align: center;
+    vertical-align: middle;
+    border: 1px solid #dddddd;
+    padding: 0px 8px 0px 8px;
+    /* min-width: 25px; */
+}
+.edit_distance_table tr:nth-child(1) td, .edit_distance_table td:nth-child(1) {
+    background-color: #f2f2f2;
+    font-weight: bold;
+}
+
+</style>
+<!--页面自定义样式结束-->
+
+</head>
+<body>
+
+<!--页面内容开始-->
+
+<button id="auto" class="MikumarkButton">自动</button> <button id="step" class="MikumarkButton">步进</button> <br>
+
+<input id="input1" value="sitting">
+<input id="input2" value="kitten">
+
+<div class="edit_distance_line" id="line2"></div><div class="edit_distance_line" id="line1"></div>
+
+<div id="matrix"></div>
+
+<!--页面内容结束-->
+
+<!--脚本开始-->
+<script src="../script/canvas.js"></script>
+<script>
+
+/*
+ * Levenshtein编辑距离算法/可视化
+ * 2018.08.15
+ */
+
+function stringToBlocks(str, highlightIndex, divId) {
+    let html = '';
+    for(let i = 0; i < str.length; i++) {
+        if(i <= highlightIndex) {
+            html += `<span class="edit_distance_charblock edit_distance_highlight">${str[i]}</span>`;
+        }
+        else {
+            html += `<span class="edit_distance_charblock">${str[i]}</span>`;
+        }
+    }
+    document.getElementById(divId).innerHTML = html;
+}
+
+function showMatrix(mat, highlightX, highlightY, str1, str2, divId) {
+    let html = `<table class="edit_distance_table"><tr><td>&nbsp;</td><td>.</td>`;
+    for(let c = 0; c < str2.length; c++) {
+        html += `<td>${str2[c]}</td>`;
+    }
+    html += '</tr>';
+
+    for(let i = 0; i < mat.length; i++) {
+        let line = mat[i];
+        html += `<tr><td>${(str1[i-1]===undefined)?'.':str1[i-1]}</td>`;
+        for(let j = 0; j < line.length; j++) {
+            if(j === highlightX && i === highlightY) {
+                html += `<td class="edit_distance_highlight">${line[j]}</td>`;
+            }
+            else {
+                html += `<td>${line[j]}</td>`;
+            }
+        }
+        html += '</tr>';
+    }
+    html += '</table>';
+    document.getElementById(divId).innerHTML = html;
+}
+
+function LevenshteinDistance(str1, str2) {
+    this.str1 = str1;
+    this.str2 = str2;
+    this.substitutionCost = 0;
+    this.m = this.str1.length;
+    this.n = this.str2.length;
+    this.d = new Array(this.m + 1);
+    this.gen = this.generator();
+    this.init();
+}
+
+LevenshteinDistance.prototype = {
+    generator: function*() {
+        let i = 1; let j = 1;
+        while(true) {
+            if(i > this.m) {
+                i = 1;
+                j++;
+            }
+            if(j > this.n) {
+                return true;
+            }
+            // 以下是算法核心
+            if(this.str1[i - 1] === this.str2[j - 1]) {
+                this.substitutionCost = 0;
+            }
+            else {
+                this.substitutionCost = 1;
+            }
+            this.d[i][j] = Math.min(this.d[i-1][j] + 1,
+                                    this.d[i][j-1] + 1,
+                                    this.d[i-1][j-1] + this.substitutionCost);
+            stringToBlocks(this.str1, i-1, 'line2');
+            stringToBlocks(this.str2, j-1, 'line1');
+            showMatrix(this.d, j, i, this.str1, this.str2, 'matrix');
+            i++;
+            yield false;
+        }
+    },
+    init: function() {
+        for(let i = 0; i <= this.m; i++) {
+            this.d[i] = new Array(this.n + 1);
+            for(let j = 0; j <= this.n; j++) {
+                this.d[i][j] = 0;
+            }
+        }
+        for(let i = 1; i <= this.m; i++) {
+            this.d[i][0] = i;
+        }
+        for(let j = 1; j <= this.n; j++) {
+            this.d[0][j] = j;
+        }
+    },
+    auto: function() {
+        clearTimeout(this.timer);
+        this.init();
+        this.timer = setInterval(()=>{
+            if(!this.gen.next()) {
+                clearTimeout(this.timer);
+            }
+        }, 100);
+    },
+    step: function() {
+        clearTimeout(this.timer);
+        this.gen.next();
+    },
+};
+
+
+let editDistance = null;
+let initFlag = false;
+document.getElementById('auto').addEventListener('click', ()=> {
+    let argv = new Array();
+    argv[0] = document.getElementById('input1').value;
+    argv[1] = document.getElementById('input2').value;
+    let editDistance = new LevenshteinDistance(argv[0], argv[1]);
+    editDistance.auto();
+});
+
+document.getElementById('step').addEventListener('click', ()=> {
+    let argv = new Array();
+    argv[0] = document.getElementById('input1').value;
+    argv[1] = document.getElementById('input2').value;
+    if(!initFlag) {
+        initFlag = true;
+        editDistance = new LevenshteinDistance(argv[0], argv[1]);
+    }
+    editDistance.step();
+});
+</script>
+<!--脚本结束-->
+
+</body>
+</html>

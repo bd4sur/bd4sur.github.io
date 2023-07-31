@@ -1,0 +1,291 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<svg
+   xmlns:dc="http://purl.org/dc/elements/1.1/"
+   xmlns:cc="http://creativecommons.org/ns#"
+   xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#"
+   xmlns:svg="http://www.w3.org/2000/svg"
+   xmlns="http://www.w3.org/2000/svg"
+   xmlns:xlink="http://www.w3.org/1999/xlink"
+   xmlns:inkscape="http://www.inkscape.org/namespaces/inkscape"
+   version="1.1"
+   width="1010"
+   height="750">
+  <defs>
+    <marker
+       orient="auto"
+       id="Arrow1Lend"
+       style="overflow:visible">
+      <path
+         d="m 2,0 -17.5,5 5,-5 -5,-5 L 2,0" />
+    </marker>
+  </defs>
+  <path
+     d="M 54,601.25 54,11"
+     style="stroke:#000000;stroke-width:2.5;marker-end:url(#Arrow1Lend)" />
+  <path
+     d="m 54,600 927,0"
+     style="stroke:#000000;stroke-width:2.5;marker-end:url(#Arrow1Lend)" />
+  <path
+     d="m 56,140 880,0"
+     id="path1"
+     style="stroke:#808080" />
+  <use
+     transform="translate(0,324)"
+     xlink:href="#path1" />
+  <use
+     transform="translate(0,173)"
+     xlink:href="#path1" />
+  <use
+     transform="translate(0,61)"
+     xlink:href="#path1" />
+  <path
+     d="m 66,545 c 0,0 59.53937,-39.58131 93,-51 34.49024,-11.77005 108,-17 108,-17"
+     style="fill:none;stroke:#d40000;stroke-width:6.5" />
+  <path
+     d="m 742,589 0,23"
+     style="stroke:#000000;stroke-width:1.5" />
+  <path
+     d="m 542,587.5 0,23"
+     style="stroke:#000000;stroke-width:1.5" />
+  <path
+     d="m 152,589.5 0,23"
+     style="stroke:#000000;stroke-width:1.5" />
+  <path
+     d="m 339,587.5 0,23"
+     style="stroke:#000000;stroke-width:1.5" />
+  <path
+     d="m 110,533.5 c 0,0 88.0744,-86.98401 136,-126 29.99904,-24.42207 54.35606,-51.52254 94.49685,-67.36295 C 383.54121,323.15068 436.99962,326.5 436.99962,326.5"
+     style="fill:none;stroke:#d40000;stroke-width:6.5" />
+  <use
+     transform="translate(125.979,-195.6211)"
+     xlink:href="#circle1" />
+  <path
+     d="m 640,375.56288 47.05856,-27.73544 54.91886,-17.30053"
+     style="fill:none;stroke:#0000FF;stroke-width:6.5" />
+  <path
+     d="m 54.5,590.5 c 0,0 119.29034,-92.17939 179.962775,-106.80834 30.80214,-21.04194 83.0768,-87.3015 132.29694,-121.58986 C 418.16799,327.15803 540.49963,324.5 540.49963,324.5"
+     style="fill:none;stroke:#0000FF;stroke-width:6.5" />
+  <path
+     d="m 438.01129,364.51799 c 0,0 84.11186,-67.2359 129.05856,-96.73544 26.60255,-17.45985 82.91886,-47.30053 82.91886,-47.30053"
+     style="fill:none;stroke:#000000;stroke-width:6.5" />
+  <path
+     d="m 541.01129,252.51799 c 0,0 58.89827,-43.72363 92.05856,-58.73544 34.12182,-15.4471 107.91885,-31.30053 107.91885,-31.30053"
+     style="fill:none;stroke:#000000;stroke-width:6.5" />
+  <text
+     style="font-size:32px;fill:#0000FF;stroke:#0000FF;font-family:Sans">
+    <tspan
+       x="686"
+       y="384">G.722</tspan>
+  </text>
+  <text
+     style="font-size:40px;fill:#0000FF;stroke:#0000FF;font-family:Sans">
+    <tspan
+       x="555"
+       y="96">Opus</tspan>
+  </text>
+  <text
+     style="font-size:32px;fill:#0000FF;stroke:#0000FF;font-family:Sans">
+    <tspan
+       x="376"
+       y="404">Speex</tspan>
+  </text>
+  <text
+     style="font-size:28px;fill:#d40000;stroke:#d40000;font-family:Sans">
+    <tspan
+       x="368"
+       y="319">AMR-WB</tspan>
+  </text>
+  <text
+     style="font-size:28px;fill:#d40000;stroke:#d40000;font-family:Sans">
+    <tspan
+       x="275.0625"
+       y="472.66406">AMR-NB</tspan>
+  </text>
+  <text
+     style="font-size:32px;fill:#000000;stroke:#000000;font-family:Sans">
+    <tspan
+       x="684.64844"
+       y="205.64844">G.719</tspan>
+  </text>
+  <text
+     style="font-size:32px;fill:#000000;stroke:#000000;font-family:Sans">
+    <tspan
+       x="625.17188"
+       y="263.64844">G.722.1C</tspan>
+  </text>
+  <text
+     style="font-size:32px;fill:#0000FF;stroke:#0000FF;font-family:Sans">
+    <tspan
+       x="690.64844"
+       y="514.64844">G.711</tspan>
+  </text>
+  <text
+     style="font-size:28px;font-family:Sans">
+    <tspan
+       x="320"
+       y="679">bitrate (kb/s)</tspan>
+  </text>
+  <text
+     style="font-size:28px;font-family:Sans">
+    <tspan
+       x="142.77441"
+       y="639.79102">8</tspan>
+  </text>
+  <text
+     style="font-size:28px;font-family:Sans">
+    <tspan
+       x="319.09961"
+       y="639.19244">16</tspan>
+  </text>
+  <text
+     style="font-size:28px;font-family:Sans">
+    <tspan
+       x="523.52246"
+       y="638.19244">32</tspan>
+  </text>
+  <text
+     style="font-size:28px;font-family:Sans">
+    <tspan
+       x="723.52246"
+       y="638.19244">64</tspan>
+  </text>
+  <text
+     x="302.36218"
+     y="-8.0003748"
+     transform="matrix(0,-1,1,0,0,0)"
+     style="font-size:28px;font-family:Sans">
+    <tspan
+       x="-379.68359"
+       y="32.132812">Quality</tspan>
+  </text>
+  <text
+     style="font-size:20px;font-family:Sans">
+    <tspan
+       x="62"
+       y="459">narrowband</tspan>
+  </text>
+  <text
+     style="font-size:20px;font-family:Sans">
+    <tspan
+       x="64.195312"
+       y="307.45605">wideband</tspan>
+  </text>
+  <text
+     style="font-size:20px;font-family:Sans">
+    <tspan
+       x="63.855469"
+       y="197.45605">super-wideband</tspan>
+  </text>
+  <text
+     style="font-size:20px;font-family:Sans">
+    <tspan
+       x="65.549797"
+       y="136.51758">fullband</tspan>
+  </text>
+  <use
+     transform="translate(126.979,-340.6211)"
+     xlink:href="#circle1" />
+  <use
+     transform="translate(74.979004,-324.6211)"
+     xlink:href="#circle1" />
+  <use
+     transform="translate(28.979004,-298.6211)"
+     xlink:href="#circle1" />
+  <path
+     d="m 279.01129,489.51799 41.97742,-0.036"
+     style="fill:none;stroke:#0000FF;stroke-width:6.5" />
+  <use
+     transform="translate(-295.021,-181.6211)"
+     xlink:href="#circle1" />
+  <use
+     transform="translate(-334.021,-181.6211)"
+     xlink:href="#circle1" />
+  <text
+     style="font-size:32px;fill:#0000FF;stroke:#0000FF;font-family:Sans">
+    <tspan
+       x="266.28125"
+       y="526.54688">iLBC</tspan>
+  </text>
+  <circle
+     cx="616.021"
+     cy="670.6210976"
+     r="8.25"
+     id="circle1"
+     style="fill:#0000FF" />
+  <text
+     style="font-size:24px;font-family:Sans">
+    <tspan
+       x="630.02148"
+       y="677.62109">royalty-free, open-source</tspan>
+  </text>
+  <circle
+     cx="616.021"
+     cy="699.6210976"
+     r="8.25"
+     style="fill:#000000" />
+  <text
+     style="font-size:24px;font-family:Sans">
+    <tspan
+       x="629.02148"
+       y="706.62109">free license, not open-source</tspan>
+  </text>
+  <circle
+     cx="616.021"
+     cy="728.6210976"
+     r="8.25"
+     style="fill:#d40000" />
+  <text
+     style="font-size:24px;font-family:Sans">
+    <tspan
+       x="628.56055"
+       y="735.62109">licensing fees, not open-source</tspan>
+  </text>
+  <use
+     transform="translate(0,-85.91113)"
+     xlink:href="#path1" />
+  <text
+     style="font-size:20px;font-family:Sans">
+    <tspan
+       x="67.549797"
+       y="50.606445">fullband stereo</tspan>
+  </text>
+  <path
+     d="m 935.46484,589.58054 0,23"
+     style="stroke:#000000;stroke-width:1.5" />
+  <text
+     style="font-size:28px;font-family:Sans">
+    <tspan
+       x="906.9873"
+       y="640.77295">128</tspan>
+  </text>
+  <path
+     d="m 691.0113,129.51799 c 0,0 51.42122,-21.62916 78.05855,-29.735442 54.3019,-16.52516 165.91885,-38.30053 165.91885,-38.30053"
+     style="fill:none;stroke:#0000FF;stroke-width:6.5" />
+  <path
+     d="m 614.0113,129.01799 c 0,0 76.8316,-24.55278 116.05855,-33.735442 66.90471,-15.66178 202.91885,-36.30053 202.91885,-36.30053"
+     style="fill:none;stroke:#d40000;stroke-width:6.5" />
+  <text
+     style="font-size:32px;fill:#0000FF;stroke:#0000FF;font-family:Sans">
+    <tspan
+       x="679.64844"
+       y="156.64844">Vorbis</tspan>
+  </text>
+  <text
+     style="font-size:32px;fill:#d40000;stroke:#d40000;font-family:Sans">
+    <tspan
+       x="597.14062"
+       y="161.20605">AAC</tspan>
+  </text>
+  <path
+     d="m 106,564 c 0,0 108.62764,-130.93334 171.41061,-187.90905 104.57989,-94.9065 197.30824,-194.96992 339.16443,-253.9001 145.1082,-60.281132 204.73066,-56.202052 318.42497,-64.190852"
+     style="fill:none;stroke:#0000FF;stroke-width:6.5" />
+  <path
+     d="m 763.0113,173.01799 c 0,0 71.82567,-66.35467 115.05855,-87.735442 17.32221,-8.56668 55.91885,-15.30053 55.91885,-15.30053"
+     style="fill:none;stroke:#000000;stroke-width:6.5" />
+  <text
+     style="font-size:32px;fill:#000000;stroke:#000000;font-family:Sans">
+    <tspan
+       x="850.14062"
+       y="133.20605">MP3</tspan>
+  </text>
+</svg>

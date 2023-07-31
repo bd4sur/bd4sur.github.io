@@ -1,0 +1,399 @@
+<!-- Project Aurora - Blog Framework V4.0 -->
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<link rel="stylesheet" type="text/css" href="../style/framework.css" charset="utf-8"/>
+<link rel="stylesheet" type="text/css" href="../style/markdown.css" charset="utf-8"/>
+<title>Project Aurora - Demo page</title>
+<script src="../script/framework/jquery/jquery.min.js"></script>
+
+
+<!--页面自定义样式开始-->
+<style>
+
+canvas {
+    display: block;
+    border: none;
+    box-shadow: 0 2px 5px 0 rgba(0,0,0,0.2);
+    margin: 10px auto 10px auto;
+}
+
+table {
+    margin: auto;
+}
+.btn_div {
+    text-align: center;
+    font-size: 13px;
+    line-height: 20px;
+    margin: 10px;
+    color: #233333;
+}
+a {
+    color: #558bc4;
+    text-decoration: none;
+}
+a:hover {
+    color:#66ccff;
+    text-decoration: none;
+}
+td {
+    text-align: left;
+    padding: 0px 5px 0px 5px;
+    vertical-align: top;
+}
+.label {
+    text-align: center;
+    color: #7faa3a;
+    margin: 15px 0 10px 0;
+    letter-spacing: 3px;
+    font-weight: bold;
+}
+
+</style>
+<!--页面自定义样式结束-->
+
+</head>
+<body>
+
+<!--页面内容开始-->
+
+<div class="btn_div">
+    <button id="start" class="MikumarkButtonGreen">运行/暂停</button>
+    <button id="step" class="MikumarkButtonRed">单步运行</button>
+</div>
+
+<div class="btn_div">
+    <button id="glider" class="MikumarkButton">空战</button>
+    <button id="gun" class="MikumarkButton">GliderGun</button>
+    <button id="refresh" class="MikumarkButtonYellow">刷新</button>
+    <button id="clear" class="MikumarkButtonYellow">自由创作</button>
+</div>
+
+<canvas id="cv" width="360" height="280"></canvas>
+
+<div class="btn_div">
+    生命游戏是图灵完备的元胞自动机<br>每个细胞有生死两种状态<br>若死细胞的8邻域有3个活细胞，则复苏<br>若活细胞的8邻域有多于3个或少于2个活细胞，则死掉<br>若活细胞的8邻域有2或3个活细胞，则继续生存
+</div>
+
+<div class="btn_div">
+    <div class="label">更新日志</div>
+    <table class="changelog">
+        <tr><td>2018.05.22</td><td>初始版本</td></tr>
+        <tr><td>2018.05.23</td><td>增加GliderGun图案<br><a href="http://www.conwaylife.com/wiki/RLE">RLE</a>解析<br>优化空间复杂度</td></tr>
+    </table>
+</div>
+
+<div class="btn_div">
+    <div class="label">参考资料</div>
+    <a href="http://conwaylife.com/">社区和Wiki</a> · <a href="http://beltoforion.de/article.php?a=game_of_life">GoL模拟器</a> · <a href="http://www.sparetimegizmos.com/Hardware/Life_Game.htm">硬件的</a> · <a href="http://www.igblan.free-online.co.uk/igblan/ca/index.html">UTM</a>
+</div>
+
+<div style="text-align: center;margin: 10px;font-size:13px;color:#cccccc;">Copyright &copy 2018 BD4SUR</div>
+
+<!--页面内容结束-->
+
+<!--脚本开始-->
+<script>
+
+// A simulator for Conway's Game of Life
+// 2018.5.22 BD4SUR
+
+function LifeGame(w, h) {
+    this.width = w;
+    this.height = h;
+    this.matrix = new Array(this.width * this.height);
+}
+
+LifeGame.prototype = {
+    className: 'LifeGame',
+    init: function() {
+        for(let i = 0; i < this.width * this.height; i++) {
+            this.matrix[i] = 0;
+        }
+    },
+    setValue: function(x, y, v) {
+        if(v === 0 || v === '0' || v === false || v == 0) {
+            this.matrix[this.width * y + x] = 0;
+        }
+        else {
+            this.matrix[this.width * y + x] = 1;
+        }
+    },
+    getValue: function(x, y) {
+        x = (x < 0) ? (this.width  + x) : x;
+        y = (y < 0) ? (this.height + y) : y;
+        return this.matrix[this.width * y + x];
+    },
+    nextState: function(x, y) {
+        let count = 0;
+        count += (this.getValue(x-1, y-1) === 1) ? 1 : 0;
+        count += (this.getValue(x  , y-1) === 1) ? 1 : 0;
+        count += (this.getValue(x+1, y-1) === 1) ? 1 : 0;
+
+        count += (this.getValue(x-1, y  ) === 1) ? 1 : 0;
+        count += (this.getValue(x+1, y  ) === 1) ? 1 : 0;
+
+        count += (this.getValue(x-1, y+1) === 1) ? 1 : 0;
+        count += (this.getValue(x  , y+1) === 1) ? 1 : 0;
+        count += (this.getValue(x+1, y+1) === 1) ? 1 : 0;
+
+        let center = this.getValue(x, y);
+        if(center === 0) {
+            if(count === 3) {
+                return 1;
+            }
+            else {
+                return 0;
+            }
+        }
+        else {
+            if(count === 2 || count === 3) {
+                return 1;
+            }
+            else {
+                return 0;
+            }
+        }
+    },
+    step: function() {
+        // let newmat = new Array(this.width * this.height);
+        // for(let i = 0; i < this.width * this.height; i++) {
+        //     newmat[i] = this.nextState(i % this.width, Math.floor(i / this.width));
+        // }
+        // this.matrix = null;
+        // this.matrix = newmat;
+        let flip = new Array();
+        for(let i = 0;i < this.width * this.height; i++) {
+            let oldval = this.matrix[i];
+            let newval = this.nextState(i % this.width, Math.floor(i / this.width));
+            if(oldval !== newval) {
+                flip.push(i);
+            }
+        }
+        for(let i = 0; i < flip.length; i++) {
+            let index = flip[i];
+            this.matrix[index] = (this.matrix[index] === 0) ? 1 : 0;
+        }
+        flip = null;
+    }
+};
+
+function show(lg, dotsize) {
+    if(lg.__proto__.className !== 'LifeGame') {
+        console.error('Type error.');
+    }
+
+    let canvas = document.getElementById('cv');
+    let context = canvas.getContext('2d');
+
+    canvas.width = lg.width * (dotsize + 1) - 1;
+    canvas.height = lg.height * (dotsize + 1) - 1;
+
+    const WIDTH = canvas.width;
+    const HEIGHT = canvas.height;
+
+    let mat = lg.matrix;
+
+
+    context.fillStyle = '#000000';
+    context.fillRect(0, 0, canvas.width, canvas.height);
+
+    context.fillStyle = '#66ccff';
+    for(let i = 0;i < lg.width * lg.height; i++) {
+        let value = mat[i];
+        if(value !== 0) {
+            context.fillRect((i % lg.width) * (dotsize+1), Math.floor(i / lg.width) * (dotsize+1), dotsize, dotsize);
+        }
+    }
+}
+
+function RLEParser(code) {
+    let lines = code.split(/\n+/i);
+
+    // size
+    let format = lines[0];
+    format = format.replace(/\s/gi, '');
+    format = format.replace(',', '=');
+    let args = format.split('=');
+    let width = parseInt(args[1]);
+    let height = parseInt(args[3]);
+
+    let matrix = new Array(width * height);
+    for(let i = 0; i < width * height; i++) {
+        matrix[i] = 0;
+    }
+
+    let count = 0; //总的细胞计数
+    for(let i = 1; i < lines.length; i++) {
+        let line = lines[i];
+        let inlinecount = 0;
+        let num = 1;
+        for(let j = 0; j < line.length; j++) {
+            let post = line.substring(j);
+            if(post.search(/[0-9]+/gi) === 0) {
+                num = parseInt((post.match(/[0-9]+/gi))[0]);
+                j += ((post.match(/[0-9]+/gi))[0]).length - 1;
+            }
+            else if(line[j] === 'b') {
+                for(let c = 0; c < num; c++) {
+                    matrix[count] = 0; count++; inlinecount++;
+                }
+                num = 1;
+            }
+            else if(line[j] === 'o') {
+                for(let c = 0; c < num; c++) {
+                    matrix[count] = 1; count++; inlinecount++;
+                }
+                num = 1;
+            }
+            else if(line[j] === '!') {
+                console.log('Finished.');
+                return matrix;
+            }
+            else if(line[j] === '$') {
+                // 空行
+                for(let k = inlinecount; k < width; k++) {
+                    matrix[count] = 0; count++;
+                }
+                // inlinecount = width;
+                for(let c = 1; c < num; c++) {
+                    console.log('===');
+                    for(let k = 0; k < width; k++) {
+                        matrix[count] = 0; count++;
+                    }
+                }
+                num = 1;
+                inlinecount = 0;
+            }
+            else {
+                console.error('Unexpected character: ' + line[j]);
+                return;
+            }
+        }
+    }
+    return matrix;
+}
+
+
+
+
+$(function() {
+    const WIDTH = 100;
+    const HEIGHT = 100;
+    const DOTSIZE = 2;
+
+    let state = 0;
+    let lg = new LifeGame(WIDTH, HEIGHT);
+
+    // 随机矩阵
+    let randmat = function() {
+        for(let i = 0; i < WIDTH * HEIGHT; i++) {
+            lg.matrix[i] = parseInt((Math.random()) * 100) % 2;
+        }
+    };
+
+    randmat();
+
+    show(lg, DOTSIZE);
+
+    let timer = 0;
+
+    $('#start').click(function() {
+        if(state === 0) {
+            state = 1;
+            timer = setInterval(function() {
+                lg.step();
+                show(lg, DOTSIZE);
+            }, 20);
+        }
+        else {
+            state = 0;
+            clearInterval(timer);
+        }
+    });
+
+    $('#step').click(function() {
+        clearInterval(timer);
+        state = 0;
+        lg.step();
+        show(lg, DOTSIZE);
+    });
+
+    $('#glider').click(function() {
+        clearInterval(timer);
+        state = 0;
+        lg.init();
+        lg.setValue(1+5, 0+5, 1); lg.setValue(2+5, 1+5, 1); lg.setValue(2+5, 2+5, 1); lg.setValue(1+5, 2+5, 1); lg.setValue(0+5, 2+5, 1);
+        lg.setValue(1+5, 0, 1); lg.setValue(2+5, 1, 1); lg.setValue(2+5, 2, 1); lg.setValue(1+5, 2, 1); lg.setValue(0+5, 2, 1);
+        lg.setValue(1, 0+5, 1); lg.setValue(2, 1+5, 1); lg.setValue(2, 2+5, 1); lg.setValue(1, 2+5, 1); lg.setValue(0, 2+5, 1);
+
+        lg.setValue(50, 50, 1); lg.setValue(50, 51, 1); lg.setValue(51, 50, 1); lg.setValue(51, 51, 1);
+        lg.setValue(50, 52, 1); lg.setValue(51, 52, 1); lg.setValue(50, 53, 1); lg.setValue(51, 53, 1);
+
+        show(lg, DOTSIZE);
+    });
+
+    $('#gun').click(function() {
+        clearInterval(timer);
+        state = 0;
+        lg.init();
+
+        let RLECode = `x = ${WIDTH} , y = ${HEIGHT}
+25bo$22b4o$13bo7b4o9b2o$
+12bobo6bo2bo9b2o$2o9bo3b2o4b4o5bo$
+2o9bo3b2o5b4o4bo$11bo3b2o8bo$12bobo$13bo$`;
+
+        lg.matrix = RLEParser(RLECode);
+
+        show(lg, DOTSIZE);
+    });
+
+    $('#refresh').click(function() {
+        clearInterval(timer);
+        state = 0;
+        lg.init();
+        randmat();
+        show(lg, DOTSIZE);
+    });
+
+    $('#clear').click(function() {
+        clearInterval(timer);
+        state = 0;
+        lg.init();
+        show(lg, DOTSIZE);
+    });
+
+    
+    document.getElementById('cv').addEventListener("click", function(){
+        clearInterval(timer);
+        state = 0;
+
+        let canvas = document.getElementById('cv');
+        let context = canvas.getContext('2d');
+
+        let x = event.pageX - canvas.getBoundingClientRect().left;
+        let y = event.pageY - canvas.getBoundingClientRect().top;
+        
+        let mx = Math.floor(x / (DOTSIZE+1));
+        let my = Math.floor(y / (DOTSIZE+1));
+
+        if(lg.getValue(mx, my) === 0) {
+            context.fillStyle = "#ff0000";
+            context.fillRect(mx * (DOTSIZE+1), my * (DOTSIZE+1), DOTSIZE, DOTSIZE);
+            lg.setValue(mx, my, 1);
+        }
+        else {
+            context.fillStyle = "#000000";
+            context.fillRect(mx * (DOTSIZE+1), my * (DOTSIZE+1), DOTSIZE, DOTSIZE);
+            lg.setValue(mx, my, 0);
+        }
+    });
+});
+
+
+</script>
+<!--脚本结束-->
+
+</body>
+</html>

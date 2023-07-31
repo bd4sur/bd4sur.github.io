@@ -1,0 +1,236 @@
+<!-- Project Aurora - Blog Framework V4.0 -->
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<link rel="stylesheet" type="text/css" href="../style/framework.css" charset="utf-8"/>
+<link rel="stylesheet" type="text/css" href="../style/markdown.css" charset="utf-8"/>
+<title>Project Aurora - Demo page</title>
+<script src="../script/framework/jquery/jquery.min.js"></script>
+
+
+<!--页面自定义样式开始-->
+<style>
+
+canvas {
+    display: block;
+    border: none;
+    box-shadow: 0 2px 5px 0 rgba(0,0,0,0.2);
+    margin: 10px auto 10px auto;
+}
+.btn_div {
+    text-align: center;
+    font-size: 13px;
+    line-height: 20px;
+    margin: 10px;
+    color: #233333;
+}
+
+</style>
+<!--页面自定义样式结束-->
+
+</head>
+<body>
+
+<!--页面内容开始-->
+
+<p style="text-align: center;">
+    <button id="gd" class="MikumarkButton">开始训练</button>
+    <button id="point" class="MikumarkButtonRed">正样本</button>
+    <button id="clear" class="MikumarkButton">重置</button>
+</p>
+
+<div id="prompt" class="btn_div" style="font-size: 15px;"><span style="color:#ff0000;">点击添加正样本点</span></div>
+
+<canvas id="perceptron" style="width:320px;height:320px;" width="320" height="320"></canvas>
+
+<!--页面内容结束-->
+
+<!--脚本开始-->
+<script src="../script/canvas.js"></script>
+<script>
+
+function Perceptron(xs, ys, label) {
+    this.xs = xs;
+    this.ys = ys;
+    this.label = label;
+    this.args = new Array();
+}
+Perceptron.prototype = {
+    Classifier: function(x,y) {
+        return this.args[0] * x + this.args[1] * y + this.args[2];
+    },
+    setArgs: function(wx, wy, b) {
+        this.args[0] = wx;
+        this.args[1] = wy;
+        this.args[2] = b;
+    },
+    // 批量梯度（没有用到）
+    lossd0: function() {
+        let size = this.xs.length;
+        let sum = 0;
+        for(let i = 0; i < size; i++) {
+            sum += ((this.label[i] >= 0) ? 1 : -1) * this.xs[i];
+        }
+        return (-sum);
+    },
+    lossd1: function() {
+        let size = this.xs.length;
+        let sum = 0;
+        for(let i = 0; i < size; i++) {
+            sum += ((this.label[i] >= 0) ? 1 : -1) * this.ys[i];
+        }
+        return (-sum);
+    },
+    lossd2: function() {
+        let size = this.xs.length;
+        let sum = 0;
+        for(let i = 0; i < size; i++) {
+            sum += ((this.label[i] >= 0) ? 1 : -1);
+        }
+        return (-sum);
+    },
+};
+
+
+function GD(pt, cv) {
+
+    let STEP = 0.01; // Learn rate
+
+    const drawLine = function(w1, w2, b) {
+        let B = -b / w2;
+        let w = - w1 / w2;
+        cv.context.textBaseline = 'top';
+        cv.Text('斜率=' + w.toFixed(3).toString(), [-150, cv.Ymax-(8+14*0)], "#000", "20px consolas");
+        cv.Text('截距=' + B.toFixed(3).toString(), [-150, cv.Ymax-(8+14*1)], "#000", "20px consolas");
+        cv.Text('wx=' + w1.toFixed(3).toString(), [-150, cv.Ymax-(8+14*2)], "#000", "20px consolas");
+        cv.Text('wy=' + w2.toFixed(3).toString(), [-150, cv.Ymax-(8+14*3)], "#000", "20px consolas");
+        cv.Text('bias=' + b.toFixed(3).toString(), [-150, cv.Ymax-(8+14*4)], "#000", "20px consolas");
+
+        let color = '#666666';
+        cv.context.lineWidth = 2;
+        cv.Line([cv.Xmin, cv.Xmin * w + B],[cv.Xmax, cv.Xmax * w + B], color);
+    };
+
+    let w1 = Math.random();
+    let w2 = Math.random();
+    let b  = Math.random();
+
+    function shuffle_index(n) {
+        let indexes = [];
+        for(let i = 0; i < n; i++) indexes[i] = i;
+        indexes.sort(() => (Math.random() - 0.5));
+        return indexes;
+    }
+
+    pt.setArgs(w1, w2, b);
+
+    let timer = setInterval(function() {
+        let classified = true;
+        let epoch_indexes = shuffle_index(pt.xs.length);
+        for(let i = 0; i < pt.xs.length; i++) {
+            let c = epoch_indexes[i];
+            let test = pt.label[c] * pt.Classifier(pt.xs[c], pt.ys[c]);
+            if(test <= 0) {
+                classified = false;
+                w1 += STEP * pt.label[c] * pt.xs[c];
+                w2 += STEP * pt.label[c] * pt.ys[c];
+                b  += STEP * pt.label[c] * 50; // 截距的步长要长一点（玄学）
+                pt.setArgs(w1, w2, b);
+                cv.Clear();
+                plot(pt.xs, pt.ys, pt.label, cv);
+                drawLine(w1, w2, b);
+            }
+        }
+
+        // 检查是否所有样本均被正确分类
+        if(classified === true) {
+            clearInterval(timer);
+            cv.Clear();
+            plot(pt.xs, pt.ys, pt.label, cv);
+            w1 = pt.args[0];
+            w2 = pt.args[1];
+            b = pt.args[2];
+            drawLine(w1, w2, b);
+            return;
+        }
+    }, 0);
+    return timer;
+}
+
+function plot(xs, ys, label, cv) {
+    for(let i = 0; i < xs.length; i++) {
+        let color = null;
+        if(label[i] >= 0) {
+            color = '#ff0000';
+        }
+        else {
+            color = '#0000ff';
+        }
+        cv.Circle([xs[i], ys[i]], 3, color);
+    }
+}
+
+
+(function () {
+    let cv = new Canvas('perceptron', [-160, -160], [160, 160]);
+    cv.Clear();
+
+    let xs    = new Array();
+    let ys    = new Array();
+    let label = new Array();
+
+    let flag = 0;
+    let timer = 0;
+
+    $('#point').attr('class', 'MikumarkButtonRed');
+    $('#point').click(function() {
+        if(flag === 0) {
+            flag = 1;
+            $('#prompt').html('<span style="color:#0000ff;">点击添加负样本点</span>');
+            $('#point').html('负样本');
+            $('#point').attr('class', 'MikumarkButton');
+        }
+        else {
+            flag = 0;
+            $('#prompt').html('<span style="color:#ff0000;">点击添加正样本点</span>');
+            $('#point').html('正样本');
+            $('#point').attr('class', 'MikumarkButtonRed');
+        }
+    });
+
+    $('#gd').click(function() {
+        clearInterval(timer);
+        let pt = new Perceptron(xs, ys, label);
+        timer = GD(pt, cv);
+    });
+
+    $('#clear').click(function() {
+        clearInterval(timer);
+        cv.Clear();
+        xs = new Array();
+        ys = new Array();
+        label = new Array();
+    });
+
+    cv.AddClickHandler((point)=>{
+        let x = point[0];
+        let y = point[1];
+        if(flag <= 0) {
+            label.push(1);
+        }
+        else {
+            label.push(-1);
+        }
+        xs.push(x);
+        ys.push(y);
+        cv.Clear();
+        plot(xs, ys, label, cv);
+    });
+})();
+
+</script>
+<!--脚本结束-->
+
+</body>
+</html>

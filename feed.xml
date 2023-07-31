@@ -1,0 +1,21 @@
+<?xml version="1.0"?>
+<rss version="2.0">
+    <channel>
+        <title>业余无线电台BD4SUR</title>
+        <link>https://bd4sur.com/</link>
+        <description>业余无线电台BD4SUR</description>
+        <language>zh-cn</language>
+        <docs>https://bd4sur.com/about.html#RSS</docs>
+        <pubDate>Sun, 04 Apr 2021 16:31:34 GMT</pubDate>
+        <lastBuildDate>Sun, 04 Apr 2021 16:31:34 GMT</lastBuildDate>
+        <generator>BD4SUR-RSS</generator>
+        <copyright><![CDATA[Copyright &copy; 2016-2021 BD4SUR]]></copyright>
+        <item>
+            <title>欢迎访问业余无线电台BD4SUR</title>
+            <link>https://bd4sur.com/</link>
+            <description><![CDATA[请移步<a href="https://bd4sur.com/">电台博客</a>]]></description>
+            <pubDate>Sun, 04 Apr 2021 16:31:34 GMT</pubDate>
+            <guid isPermaLink="false">https://bd4sur.com/</guid>
+        </item>
+    </channel>
+</rss>

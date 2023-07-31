@@ -1,0 +1,303 @@
+<!-- Framework Iroha -->
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0">
+<title>Digital Filter - BD4SUR</title>
+<script src="../script/framework/jquery/jquery.min.js"></script>
+
+
+<!--页面自定义样式开始-->
+<style>
+body { margin: 0; padding: 0; font-size: 14px; }
+.Title { font-size: 18px; margin: 10px 0; color: #234; font-weight: bold; }
+.Block { margin: 10px; }
+canvas { display: block; margin: 20px auto; width: 100%; max-width: 800px; }
+.ProcessbarContainer { position: relative; width: 100%; border: 1px solid #00aaff; height: 16px; border-radius: 2px; overflow: hidden; }
+#progressbar { height: 100%; background-color: #00aaff; width: 5px; }
+#timer { position: absolute; top: 0; left: 0; font-size: 10px; height: 16px; line-height: 16px; margin: 0px 10px; }
+a { color: inherit; text-decoration: none; border-bottom: 1px dotted #666; }
+a:hover{ color: #0066dd; text-decoration:none; border-bottom: 1px solid #0066dd; }
+button {
+    height:30px; line-height: 30px; font-size: 14px; border: none; border-radius: 5px;
+    color: #00aaff; border: 1px solid #e1f5ff; background-color: #e1f5ff; padding: 0 10px; }
+button:hover { color: #00aaff; background-color: #cdeeff; border: 1px solid #cdeeff; }
+button:active { color: #ffffff; background-color: #40bfff; border: 1px solid #40bfff; }
+button:disabled { color: #888888; background-color: #eeeeee; border: 1px solid #eeeeee; }
+</style>
+<!--页面自定义样式结束-->
+
+</head>
+<body>
+
+<!--页面内容开始-->
+
+    <div class="Block" style="text-align: center;">
+        <div class="Title">🎵 有限冲激响应数字滤波器演示</div>
+        <div style="font-size: 12px;">&copy; 2019-11-14 / 2022-12-03 <a href="https://bd4sur.com/">BD4SUR.com</a></div>
+        <div style="text-align: center; margin: 10px 0; padding: 10px; border-radius: 5px; background: #f0f1f2; font-weight: bold;">
+            打开音频文件：<input type="file" id="fileSelector" name="files[]" multiple>
+        </div>
+        <div style="margin: 10px 0;">
+            截止频率：<input type="text" id="cutoff" value="300" style="box-sizing:border-box; height: 30px; width: 60px;"> Hz
+            <button id="btn_LPF">低通滤波</button>
+            <button id="btn_HPF">高通滤波</button>
+        </div>
+        <div class="ProcessbarContainer">
+            <div id="progressbar"></div>
+            <div id="timer"></div>
+        </div>
+        <canvas id="osc" height="300px" width="600px"></canvas>
+    </div>
+
+<!--页面内容结束-->
+
+<!--脚本开始-->
+<script src="../script/canvas.js"></script>
+<script src="../script/fourier-legacy.js"></script>
+<script>
+
+const cv = new Canvas("osc", [0, -150], [800, 50]);
+cv.Init();
+cv.SetBackgroundColor("#000");
+
+const WINDOW_LENGTH = 2048;
+
+const fft = new FFT(WINDOW_LENGTH * 2);
+const fft_spectrum = new FFT(WINDOW_LENGTH);
+
+const audioContext = new window.AudioContext();
+const SAMPLE_RATE = audioContext.sampleRate;
+
+const LineColor = "#ff0";
+
+let scriptNode = audioContext.createScriptProcessor(WINDOW_LENGTH, 2, 2);
+
+let zeros = new Float32Array(WINDOW_LENGTH);
+
+let prev_re = [new Float32Array(WINDOW_LENGTH * 2), new Float32Array(WINDOW_LENGTH * 2)]; // 对应两个声道
+let prev_im = [new Float32Array(WINDOW_LENGTH * 2), new Float32Array(WINDOW_LENGTH * 2)]; // 对应两个声道
+
+let filter_kernel_re = new Float32Array(WINDOW_LENGTH);
+let filter_kernel_im = new Float32Array(WINDOW_LENGTH);
+
+let rawAudioData;
+
+let fileSelector = document.getElementById('fileSelector');
+fileSelector.onchange = () => {
+    let file = fileSelector.files[0];
+    let Reader = new FileReader();
+    Reader.onloadend = () => {
+        rawAudioData = Reader.result;
+    };
+    Reader.readAsArrayBuffer(file);
+};
+
+
+// 各种时域窗口
+// Ref. https://en.wikipedia.org/wiki/Window_function
+function Hann(t, length) {
+    return 0.5 * (1 - Math.cos(2 * Math.PI * t / (length - 1)));
+}
+function Hamming(t, length) {
+    return 0.54 - 0.46 * Math.cos(2 * Math.PI * t / (length - 1));
+}
+function Blackman(t, length) {
+    return 0.42 - 0.5 * Math.cos(2 * Math.PI * t / (length - 1)) + 0.08 * Math.cos(4 * Math.PI * t / (length - 1));
+}
+
+// 加窗sinc低通
+function LPF_Kernel(length, cutoff) {
+    let lpf = new Array();
+    // h(t) = a * sinc(at) = sin(πat) / πt
+    const h = (t) => {
+        return (t === 0) ? cutoff : (Math.sin(t * Math.PI * cutoff) / (t * Math.PI));
+    };
+    for(let i = 0; i < length; i++) {
+        lpf[i] = h(i-length/2) * Blackman(i, length);
+    }
+    return lpf;
+}
+
+// 高通=全通-低通
+function HPF_Kernel(length, cutoff) {
+    let lpf_kernel = LPF_Kernel(length, cutoff);
+    let hpf_kernel = new Array();
+    // HPF = Thru - LPF
+    for(let i = 0; i < lpf_kernel.length; i++) {
+        hpf_kernel[i] = lpf_kernel[i] * (-1);
+    }
+    hpf_kernel[length/2] = hpf_kernel[length/2] + 1;
+    return hpf_kernel;
+}
+
+// 两个复数数组卷积
+function Conv(a_re, a_im, b_re, b_im) {
+    const LOG_2 = {
+        '1':0,      '2':1,      '4':2,      '8':3,      '16':4,      '32':5,      '64':6,      '128':7,      '256':8,
+        '512':9,    '1024':10,  '2048':11,  '4096':12,  '8192':13,   '16384':14,  '32768':15,  '65536':16,
+    };
+    // 序列补零到2^n
+    let a_re_expanded = new Array();
+    let a_im_expanded = new Array();
+    let b_re_expanded = new Array();
+    let b_im_expanded = new Array();
+    let normal_length = 
+        (LOG_2[a_re.length + b_re.length] === undefined) ?
+        parseInt(Math.pow(2, parseInt(Math.log2(a_re.length + b_re.length) + 1))) :
+        (a_re.length + b_re.length);
+    for(let i = 0; i < normal_length; i++) {
+        a_re_expanded.push(a_re[i] || 0);
+        a_im_expanded.push(a_im[i] || 0);
+        b_re_expanded.push(b_re[i] || 0);
+        b_im_expanded.push(b_im[i] || 0);
+    }
+
+    let A = fft.fft([a_re_expanded, a_im_expanded]);
+    let B = fft.fft([b_re_expanded, b_im_expanded]);
+
+    let A_re = A[0]; let A_im = A[1];
+    let B_re = B[0]; let B_im = B[1];
+
+    let product_spectrum_re = new Array();
+    let product_spectrum_im = new Array();
+    // 复数相乘
+    for(let i = 0; i < normal_length; i++) {
+        product_spectrum_re[i] = A_re[i] * B_re[i] - A_im[i] * B_im[i];
+        product_spectrum_im[i] = A_re[i] * B_im[i] + A_im[i] * B_re[i];
+    }
+
+    return fft.ifft([product_spectrum_re, product_spectrum_im]);
+}
+
+// 绘制频谱
+function DrawSpectrum(data) {
+    cv.Clear();
+    cv.SetBackgroundColor("#000");
+    cv.context.lineWidth = 1;
+    // 绘制纵坐标（dB）
+    for(let i = cv.Ymin + cv.Yrange / 20; i < cv.Ymax; i += cv.Yrange / 20) {
+        cv.Line([cv.Xmin, i], [cv.Xmax, i], "#666");
+        cv.Text(`${i}dB`, [5, i-2], "#fff", "36px serif");
+    }
+    // 绘制横坐标（Hz）
+    let delta = (SAMPLE_RATE >> 1) / cv.Xrange;
+    for(let i = cv.Xmin + cv.Xrange / 10; i < cv.Xmax; i += cv.Xrange / 10) {
+        cv.Line([i, cv.Ymin], [i, cv.Ymax], "#666");
+        cv.Text(String((i * delta).toFixed(0)), [i+3, cv.Ymin+2], "#fff", "36px serif");
+    }
+    // 截取音频帧
+    let buffer = new Array();
+    for(let i = 0; i < WINDOW_LENGTH; i++) {
+        buffer.push(data[i]);
+    }
+    // 加窗
+    let windowed = new Array();
+    for(let i = 0; i < WINDOW_LENGTH; i++) {
+        windowed.push(Blackman(i, WINDOW_LENGTH) * buffer[i]);
+    }
+    // 计算频谱
+    let spectrum = fft_spectrum.fft([windowed, new Float32Array(WINDOW_LENGTH)]);
+    // 绘制频谱曲线
+    let x = cv.Xmin;
+    cv.context.lineWidth = 3;
+    for(let i = 1; i < (WINDOW_LENGTH>>1); i++) {
+        let pwr1 = spectrum[0][i-1] * spectrum[0][i-1] + spectrum[1][i-1] * spectrum[1][i-1];
+        let pwr2 = spectrum[0][i] * spectrum[0][i] + spectrum[1][i] * spectrum[1][i];
+        let val1 = 10 * Math.log10(pwr1);
+        let val2 = 10 * Math.log10(pwr2);
+        let step = cv.Xrange / (WINDOW_LENGTH>>1);
+        cv.Line([x, val1], [x+step, val2], LineColor);
+        x += step;
+    }
+}
+
+// 执行卷积
+// Ref. https://en.wikipedia.org/wiki/Overlap%E2%80%93add_method
+scriptNode.onaudioprocess = function(audioProcessingEvent) {
+    let inputBuffer = audioProcessingEvent.inputBuffer;
+    let outputBuffer = audioProcessingEvent.outputBuffer;
+
+    for(let channel = 0; channel < outputBuffer.numberOfChannels; channel++) {
+        let inputData = inputBuffer.getChannelData(channel);
+        let outputData = outputBuffer.getChannelData(channel);
+
+        let frame_re = inputData;
+        // 重叠相加卷积：卷积结果长度是帧的两倍，因此向前滑动一帧后，相邻的卷积结果会有一帧长度的重叠，需要将重叠部分加起来
+        let conv_output = Conv(frame_re, zeros, filter_kernel_re, filter_kernel_im);
+        let conv_re = conv_output[0];
+        let conv_im = conv_output[1];
+        // 重叠相加
+        for(let c = 0; c < WINDOW_LENGTH; c++) {
+            conv_re[c] += prev_re[channel][c + WINDOW_LENGTH];
+            conv_im[c] += prev_im[channel][c + WINDOW_LENGTH];
+        }
+
+        for(let i = 0; i < WINDOW_LENGTH; i++) {
+            outputData[i] = conv_re[i];
+        }
+
+        prev_re[channel] = conv_re;
+        prev_im[channel] = conv_im;
+
+        if(channel === 0) DrawSpectrum(outputData); // 绘制一个声道的频谱
+    }
+}
+
+function Render() {
+    audioContext.decodeAudioData(rawAudioData, (audioBuffer) => {
+        // 获取两个声道的原始数据
+        let leftChannel  = audioBuffer.getChannelData(0);
+        let rightChannel = audioBuffer.getChannelData(1);
+
+        let AudioBufferSourceNode = audioContext.createBufferSource();
+        AudioBufferSourceNode.buffer = audioBuffer;
+        AudioBufferSourceNode.connect(scriptNode);
+        scriptNode.connect(audioContext.destination);
+        AudioBufferSourceNode.start(0);
+
+        let StartTime = audioContext.currentTime;
+
+        let timer = setInterval(() => {
+            let offset = Math.round((audioContext.currentTime - StartTime) * SAMPLE_RATE);
+            $("#timer").html(`${offset} / ${audioBuffer.length} (${(offset / audioBuffer.length * 100).toFixed(1)}%)`);
+            $("#progressbar").css("width", `${(offset / audioBuffer.length * 100).toFixed(2)}%`);
+            if(offset >= audioBuffer.length) {
+                AudioBufferSourceNode.stop();
+                clearInterval(timer);
+            }
+        }, 10);
+    });
+}
+
+$("#btn_LPF").click(() => {
+    let cutoff_freq = parseFloat($("#cutoff").val());
+    filter_kernel_re = LPF_Kernel(WINDOW_LENGTH, cutoff_freq / SAMPLE_RATE * 2);
+    filter_kernel_im = new Float32Array(WINDOW_LENGTH);
+    try {
+        Render();
+    }
+    catch(e) {
+        throw e;
+    }
+});
+
+$("#btn_HPF").click(() => {
+    let cutoff_freq = parseFloat($("#cutoff").val());
+    filter_kernel_re = HPF_Kernel(WINDOW_LENGTH, cutoff_freq / SAMPLE_RATE * 2);
+    filter_kernel_im = new Float32Array(WINDOW_LENGTH);
+    try {
+        Render();
+    }
+    catch(e) {
+        throw e;
+    }
+});
+
+
+</script>
+<!--脚本结束-->
+
+</body>
+</html>

@@ -1,0 +1,434 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0">
+<script src="../script/framework/jquery/jquery.min.js"></script>
+<script src="../script/canvas-legacy.js"></script>
+<script src="../script/image.js"></script>
+<script src="../script/fourier-legacy.js"></script>
+<title>AM32点阵图形调制</title>
+
+<!--页面自定义样式开始-->
+<style>
+* {
+    margin: 0;
+    padding: 0;
+    outline: none;
+}
+body {
+    width: 70%;
+    max-width: 1000px;
+    margin: auto;
+    font-size: 14px;
+}
+button {
+    border: none;
+    background-color: #1155ee11;
+    color: #15e;
+    padding: 5px 10px;
+    margin: 5px;
+}
+button:hover {
+    background-color: #1155ee22;
+    cursor: pointer;
+}
+#matrixCode {
+    display: block;
+    width: 100%;
+    height: 100px;
+}
+
+.Box {
+    padding: 10px;
+    border-radius: 8px;
+    box-shadow: 0 1px 1px 0 rgb(64 64 64 / 8%), 0 1px 3px 1px rgb(64 64 64 / 16%);
+}
+
+.pixel {
+    display: inline-block;
+    width: 15px;
+    height: 15px;
+    margin: 0;
+    padding: 0;
+    border: 0.5px solid #ddd;
+    background-color: #f8f8f8;
+    border-radius: 0;
+    box-sizing: border-box;
+}
+.pixel:hover {
+    border: 0.5px solid #f00;
+}
+.line {
+    margin: 0;
+    padding: 0;
+    line-height: 0;
+}
+</style>
+<!--页面自定义样式结束-->
+
+</head>
+<body>
+
+<!--页面内容开始-->
+
+<div style="font-size: 20px; font-weight: bold; margin: 20px 0 0 0;">AM32 <span style="font-size: smaller; font-weight: normal; color: #aaa;">(Audio Matrix 32)</span></div>
+<div style="font-size: 13px; margin: 0; color: #666;">直接在频谱瀑布图上绘制点阵图像的窄带信号调制方式</div>
+<div style="font-size: 13px; margin: 0 0 10px 0; color: #666;">A narrow-band modulation method for plotting matrix image on radio spectrogram</div>
+
+
+<table style="margin: 10px 0;">
+    <tr>
+        <td><img style="width: 50px;" src="data:image/jpeg;base64,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"></td>
+        <td><div style="font-size: 13px; margin: 10px 0 10px 5px;">Copyright &copy; 2021 <b>BD4SUR</b> | <a target="_blank" href="https://bd4sur.com">BD4SUR.com</a> | <a target="_blank" href="https://github.com/bd4sur">GitHub</a></div></td>
+    </tr>
+</table>
+
+<hr>
+
+<div>打开图像：<input type="file" id="input_file_selector" name="files" multiple class="Input"></div>
+<canvas id="input_cv" style="width:256px;height:256px;" width="256px" height="256px"></canvas>
+
+<hr>
+
+<div style="margin: 10px 0; font-size: 14px;"><b>首先</b>，请使用以下工具，绘制宽度为32点、高度不限的二值点阵图，同时自动生成点阵编码。</div>
+<div style="margin: 10px 0; font-size: 12px;"><b>First</b>, plot a 32-dot wide, unlimited high dual-value matrix image using the tool below. The matrix code will be generated in the textarea below.</div>
+
+<div class="Box">
+    <div id="matrix">
+        <button style="width: 480px; margin: 0 0 3px 0;" onclick="addLine();">增加一行 +</button>
+    </div>
+
+    <div style="margin: 10px 0;">点阵编码 Matrix code：</div>
+
+    <pre style="background-color: #f8f8f8; padding: 5px; white-space: pre-wrap; word-wrap: break-word;"><code id="codeArray"></code></pre>
+</div>
+
+
+
+<div style="margin: 10px 0; font-size: 14px;"><b>然后</b>，请将上面生成的点阵编码，复制到下面的文本框里。在发射之前，请设法将计算机输出的音频输入到电台，将发射模式调整为上边带（USB）。点击“播放”按钮并按下电台的发射按钮即可。<br>⚠ 注意：以下文本框内的点阵编码含有本人呼号（BD4SUR），仅供非发射条件下的测试。如需发射，请替换为自己的呼号，否则将构成冒用呼号的违法行为。</div>
+<div style="margin: 10px 0; font-size: 12px;"><b>Second</b>, copy the matrix code to the textarea below. Before transmitting, try to input the audio frequency signal output by computer to the transmitter, and change the transmitting mode to Upper Side-band (USB). Click the "Play" button and push the PTT button of the transmitter.<br>⚠ Note that the default matrix code below includes the callsign of the author (BD4SUR), thus only for testing without transmitting. Please replace my callsign in the matrix below with your own callsign before transmitting, otherwise it will constitute an illegal act of fraudulent use of callsign.</div>
+
+<textarea id="matrixCode">[954207800, 1158680900, 1091571780, 1095766100, 1159729480, 953159220, 0, 0,
+1938056376, 1246532772, 1247052964, 1918133432, 1247679656, 1246008484, 1938055972, 0, 0,
+269516816, 4278083326, 268437634, 4269574144, 2856601854, 3128690704, 2450540560, 3126102032, 2461187632]
+</textarea>
+
+<div style="margin: 10px 0;">
+    <button id="play">播放 Play</button>
+    <button id="stop">停止 Stop</button>
+</div>
+
+<div style="margin: 10px 0;">欢迎使用此模式与我取得通联，成功通联后可交换QSL卡片。</div>
+
+<div style="margin: 20px 0 0 0;">发射系统框图：</div>
+
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE svg PUBLIC "-//W3C//DTD SVG 1.1//EN" "http://www.w3.org/Graphics/SVG/1.1/DTD/svg11.dtd">
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" version="1.1" width="482px" height="190px" viewBox="-0.5 -0.5 482 190" style="background-color: rgb(255, 255, 255);"><defs/><g><path d="M 80 151 L 80 181 L 320 181 L 320 151.24" fill="none" stroke="#000000" stroke-width="2" stroke-miterlimit="10" pointer-events="stroke"/><path d="M 320 143.24 L 322.67 151.24 L 317.33 151.24 Z" fill="#000000" stroke="#000000" stroke-width="2" stroke-miterlimit="10" pointer-events="all"/><g transform="translate(-0.5 -0.5)"><switch><foreignObject style="overflow: visible; text-align: left;" pointer-events="none" width="100%" height="100%" requiredFeatures="http://www.w3.org/TR/SVG11/feature#Extensibility"><div xmlns="http://www.w3.org/1999/xhtml" style="display: flex; align-items: unsafe center; justify-content: unsafe center; width: 1px; height: 1px; padding-top: 181px; margin-left: 200px;"><div style="box-sizing: border-box; font-size: 0; text-align: center; "><div style="display: inline-block; font-size: 11px; font-family: Helvetica; color: #000000; line-height: 1.2; pointer-events: all; background-color: #ffffff; white-space: nowrap; ">自动或手动PTT  Auto/Manual PTT</div></div></div></foreignObject><text x="200" y="184" fill="#000000" font-family="Helvetica" font-size="11px" text-anchor="middle">自动或手动PTT  Auto/Manual PTT</text></switch></g><rect x="0" y="41" width="160" height="110" rx="10" ry="10" fill="#ffffff" stroke="#000000" pointer-events="all"/><g transform="translate(-0.5 -0.5)"><switch><foreignObject style="overflow: visible; text-align: left;" pointer-events="none" width="100%" height="100%" requiredFeatures="http://www.w3.org/TR/SVG11/feature#Extensibility"><div xmlns="http://www.w3.org/1999/xhtml" style="display: flex; align-items: unsafe flex-start; justify-content: unsafe center; width: 158px; height: 1px; padding-top: 50px; margin-left: 1px;"><div style="box-sizing: border-box; font-size: 0; text-align: center; "><div style="display: inline-block; font-size: 12px; font-family: Helvetica; color: #000000; line-height: 1.2; pointer-events: all; white-space: normal; word-wrap: normal; "><b>计算机 Computer</b></div></div></div></foreignObject><text x="80" y="62" fill="#000000" font-family="Helvetica" font-size="12px" text-anchor="middle">计算机 Computer</text></switch></g><path d="M 400 106 L 460 106 L 460 1" fill="none" stroke="#000000" stroke-width="2" stroke-miterlimit="10" pointer-events="stroke"/><rect x="240" y="71" width="160" height="70" rx="10" ry="10" fill="#ffffff" stroke="#000000" pointer-events="all"/><g transform="translate(-0.5 -0.5)"><switch><foreignObject style="overflow: visible; text-align: left;" pointer-events="none" width="100%" height="100%" requiredFeatures="http://www.w3.org/TR/SVG11/feature#Extensibility"><div xmlns="http://www.w3.org/1999/xhtml" style="display: flex; align-items: unsafe center; justify-content: unsafe center; width: 158px; height: 1px; padding-top: 106px; margin-left: 241px;"><div style="box-sizing: border-box; font-size: 0; text-align: center; "><div style="display: inline-block; font-size: 12px; font-family: Helvetica; color: #000000; line-height: 1.2; pointer-events: all; font-weight: bold; white-space: normal; word-wrap: normal; ">单边带发信机<br />SSB Transmitter<br /><span style="font-weight: normal">（上边带 Upper Sideband）</span></div></div></div></foreignObject><text x="320" y="110" fill="#000000" font-family="Helvetica" font-size="12px" text-anchor="middle" font-weight="bold">单边带发信机SSB Transmitter...</text></switch></g><path d="M 150 106 L 227.65 106" fill="none" stroke="#000000" stroke-width="3" stroke-miterlimit="10" pointer-events="stroke"/><path d="M 236.65 106 L 227.65 109 L 227.65 103 Z" fill="#000000" stroke="#000000" stroke-width="3" stroke-miterlimit="10" pointer-events="all"/><g transform="translate(-0.5 -0.5)"><switch><foreignObject style="overflow: visible; text-align: left;" pointer-events="none" width="100%" height="100%" requiredFeatures="http://www.w3.org/TR/SVG11/feature#Extensibility"><div xmlns="http://www.w3.org/1999/xhtml" style="display: flex; align-items: unsafe center; justify-content: unsafe center; width: 1px; height: 1px; padding-top: 106px; margin-left: 195px;"><div style="box-sizing: border-box; font-size: 0; text-align: center; "><div style="display: inline-block; font-size: 11px; font-family: Helvetica; color: #000000; line-height: 1.2; pointer-events: all; background-color: #ffffff; white-space: nowrap; ">音频 AF</div></div></div></foreignObject><text x="195" y="109" fill="#000000" font-family="Helvetica" font-size="11px" text-anchor="middle">音频 AF</text></switch></g><rect x="10" y="71" width="140" height="70" rx="10" ry="10" fill="#ffffff" stroke="#000000" pointer-events="all"/><g transform="translate(-0.5 -0.5)"><switch><foreignObject style="overflow: visible; text-align: left;" pointer-events="none" width="100%" height="100%" requiredFeatures="http://www.w3.org/TR/SVG11/feature#Extensibility"><div xmlns="http://www.w3.org/1999/xhtml" style="display: flex; align-items: unsafe flex-start; justify-content: unsafe center; width: 138px; height: 1px; padding-top: 78px; margin-left: 11px;"><div style="box-sizing: border-box; font-size: 0; text-align: center; "><div style="display: inline-block; font-size: 12px; font-family: Helvetica; color: #000000; line-height: 1.2; pointer-events: all; white-space: normal; word-wrap: normal; "><b>AM32 调制器<br />AM32 Modulator</b><br />（本网页）<br />(This Page)</div></div></div></foreignObject><text x="80" y="90" fill="#000000" font-family="Helvetica" font-size="12px" text-anchor="middle">AM32 调制器...</text></switch></g><path d="M 445 -4 L 475 16 L 445 36 Z" fill="none" stroke="#000000" stroke-width="2" stroke-miterlimit="10" transform="rotate(90,460,16)" pointer-events="all"/></g><switch><g requiredFeatures="http://www.w3.org/TR/SVG11/feature#Extensibility"/><a transform="translate(0,-5)" xlink:href="https://www.diagrams.net/doc/faq/svg-export-text-problems" target="_blank"><text text-anchor="middle" font-size="10px" x="50%" y="100%">Viewer does not support full SVG 1.1</text></a></switch></svg>
+
+<div>2023-01-24试验：<br><img src="../image/G3/waterfall-art.png" width="300px"></div>
+
+<!--页面内容结束-->
+
+<!--脚本开始-->
+<script>
+
+const SAMPLE_RATE = 48000;
+const CUTOFF_FREQ = 12000;
+const FFT_LENGTH = 1024;
+
+const fft = new FFT(FFT_LENGTH);
+
+const IMAGE_WIDTH = Math.floor(FFT_LENGTH * CUTOFF_FREQ / SAMPLE_RATE);
+
+let line_duration = FFT_LENGTH / SAMPLE_RATE * 1000;
+console.log(line_duration);
+
+
+let WIDTH = 0;
+let HEIGHT = 0;
+
+let input_cv = new Canvas('input_cv', [0,0], [255,255]);
+
+$("#input_file_selector").change(() => {
+    // 获取文件名
+    let fakepath = $("#input_file_selector").val().split(/\\|\//gi);
+    let filename = fakepath[fakepath.length - 1];
+    // 读取文件
+    let file = $("#input_file_selector")[0].files[0];
+    let reader = new FileReader();
+    reader.readAsDataURL(file);
+    reader.onload = () => {
+        loadImage(reader.result, (img)=>{
+            WIDTH = IMAGE_WIDTH;
+            HEIGHT = Math.round(IMAGE_WIDTH * img.height / img.width);
+            input_cv.canvas.width = WIDTH;
+            input_cv.canvas.height = HEIGHT;
+            input_cv.canvas.style = `width:${WIDTH}px;height:${HEIGHT}px;`;
+            input_cv.Resize([0, HEIGHT], [WIDTH, 0]);
+
+            input_cv.context.drawImage(img, 0, 0, WIDTH, HEIGHT);
+            read_image();
+        });
+    };
+});
+
+function loadImage(src, callback) {
+    let img = new Image();
+    img.src = src;
+    img.onload = () => {
+        callback(img);
+    }
+}
+
+// 标准化到[-1, +1]
+function normalization(input, min, max) {
+    let output = [];
+    for(let i = 0; i < input.length; i++) {
+        output[i] = (input[i] - min) / (max - min);
+    }
+    return output;
+}
+
+function Hann(t, length) {
+    return 0.5 * (1 - Math.cos(2 * Math.PI * t / (length - 1)));
+}
+function Hamming(t, length) {
+    return 0.54 - 0.46 * Math.cos(2 * Math.PI * t / (length - 1));
+}
+function Blackman(t, length) {
+    return 0.42 - 0.5 * Math.cos(2 * Math.PI * t / (length - 1)) + 0.08 * Math.cos(4 * Math.PI * t / (length - 1));
+}
+
+function Gamma(x) {
+    if(x >= 0) return Math.pow(x, 5);
+    else return Math.pow(x, 5);
+}
+
+
+function read_image() {
+    let RGB = input_cv.ReadRGB();
+    let YUV = RGB_to_YUV420(RGB, WIDTH, HEIGHT);
+    let Y = YUV[0];
+    let pcm = [];
+    for(let i = Y.length - 1; i >= 0; i--) {
+    // for(let i = 0; i < Y.length; i++) {
+        let row = Y[i];
+        let row_amp = normalization(row, 0, IMAGE_WIDTH);
+
+        let row_re = [];
+        let row_im = [];
+        for(let f = 0; f < IMAGE_WIDTH; f++) {
+            let phase = Math.random() * Math.PI * 2;
+            row_re[f] = Gamma(row_amp[f]) * Math.cos(phase);
+            row_im[f] = Gamma(row_amp[f]) * Math.sin(phase);
+        }
+        let ifft = fft.ifft([row_re.concat(new Array(FFT_LENGTH-IMAGE_WIDTH).fill(0)), row_im.concat(new Array(FFT_LENGTH-IMAGE_WIDTH).fill(0))]);
+
+        let wave = ifft[0];
+        for(let t = 0; t < wave.length; t++) {
+            let windowed_wave = Hann(t, wave.length) * wave[t];
+            pcm.push(windowed_wave);
+        }
+    }
+
+    let pcmAudioBuffer = audioCtx.createBuffer(1, pcm.length, SAMPLE_RATE);
+    let channelBuffer = pcmAudioBuffer.getChannelData(0);
+    for(let t = 0; t < pcm.length; t++) {
+        channelBuffer[t] = pcm[t];
+    }
+
+    let source = audioCtx.createBufferSource();
+    source.buffer = pcmAudioBuffer;
+    source.loop = true;
+    source.connect(audioCtx.destination);
+    source.start();
+}
+
+/////////////////////////////////////
+// 以下是点阵编码工具
+
+
+let lineCount = 0;
+
+let codes = new Array();
+
+function encodeLine(lineIndex) {
+    let lineDOM = $(`#line_${lineIndex}`);
+    let code = 0;
+    lineDOM.children(".pixel").each((index, elem) => {
+        let id = elem.id;
+        let coord = id.split("_");
+        let line = coord[1];
+        let offset = coord[2];
+        let value = $(elem).attr("data-value");
+
+        if(value === "1") {
+            // code += (1 << (31 - offset));
+            code += Math.pow(2, (31 - offset));
+        }
+    });
+
+    codes[lineIndex] = code;
+
+    lineDOM.children(".lineCode").text(code);
+
+    let codeArrayStr = `[`;
+    for(let i = 0; i < lineCount-1; i++) {
+        if(!codes[i]) codes[i] = 0;
+        codeArrayStr += String(codes[i]) + ", ";
+    }
+    if(!codes[lineCount-1]) codes[lineCount-1] = 0;
+    codeArrayStr += String(codes[lineCount-1]);
+    $("#codeArray").text(codeArrayStr + "]");
+}
+
+function addLine() {
+    let lineDOM = $(`<div class="line" id="line_${lineCount}"></div>`);
+    let pixels = [];
+    for(let i = 0; i < 32; i++) {
+        let pixelDOM = $(`<button class="pixel" id="pixel_${lineCount}_${i}" data-value="0"> </button>`);
+        lineDOM.append(pixelDOM);
+    }
+    lineDOM.append(`<span class="lineCode" id="lineCode_${lineCount}"></span>`);
+    $("#matrix").append(lineDOM);
+    lineCount++;
+
+    lineDOM.children().each((index, elem) => {
+        $(elem).click(() => {
+            let id = elem.id;
+            let coord = id.split("_");
+            let line = coord[1];
+            let offset = coord[2];
+            console.log(`${line}, ${offset}`);
+
+            let value = $(elem).attr("data-value");
+            if(value === "0") {
+                $(elem).attr("data-value", "1");
+                $(elem).css("background-color", "#000");
+            }
+            else {
+                $(elem).attr("data-value", "0");
+                $(elem).css("background-color", "#f8f8f8");
+            }
+
+            encodeLine(line);
+        })
+    });
+}
+
+
+
+
+/////////////////////////////////////
+// 以下是AM32调制
+
+
+
+
+
+// 利用 Web Audio API 输出正弦波
+let audioCtx = new window.AudioContext();
+
+const SLOT_LEN = 100;
+
+
+let TONES = new Array();
+
+for(let i = 0; i < 32; i++) {
+    TONES[i] = 300 + 80 * i;
+}
+
+function playLine(lineCode) {
+    // 根据每行的字形编码，挑选需要播放的频点
+    let freqPoints = [];
+    for(let i = 0; i < 32; i++) {
+        let mask = (lineCode >> i) & 1;
+        if(mask > 0) {
+            freqPoints.push(TONES[31-i]);
+        }
+    }
+    // console.log(freqPoints);
+
+    // 构造各个单音节点
+    let OSCS = new Array();
+    let NODES = new Array();
+    let GAIN = 0.8 / freqPoints.length;
+
+    for(let i = 0; i < freqPoints.length; i++) {
+        let osc = audioCtx.createOscillator();
+        osc.type = "sine";
+        osc.frequency.value = freqPoints[i];
+        OSCS.push(osc);
+
+        let gain = audioCtx.createGain();
+        gain.gain.setValueAtTime(0.0000001, audioCtx.currentTime);
+        NODES.push(gain);
+
+        osc.connect(gain);
+        gain.connect(audioCtx.destination);
+    }
+
+
+    // 播放各个单音，本质上是ASK（OOK）。加简单三角窗以抑制旁瓣，防止瀑布图不清晰。
+    for(let i = 0; i < NODES.length; i++) {
+        OSCS[i].start();
+        NODES[i].gain.linearRampToValueAtTime(GAIN, audioCtx.currentTime + SLOT_LEN/1000/2);
+        NODES[i].gain.linearRampToValueAtTime(0.0000001, audioCtx.currentTime + SLOT_LEN/1000);
+    }
+
+    // 停止
+    setTimeout(() => {
+        for(let i = 0; i < NODES.length; i++) {
+            OSCS[i].stop();
+            NODES[i].disconnect(audioCtx.destination);
+        }
+    }, SLOT_LEN);
+}
+
+let slotTimer = 0;
+let repeatTimer = 0;
+
+$("#play").click(() => {
+
+    clearInterval(slotTimer);
+    clearInterval(repeatTimer);
+
+    let seqText = $("#matrixCode").val().trim().replace(/\n/gi, "");
+    let seq = JSON.parse(seqText);
+
+    let count = seq.length;
+
+    let start = () => {
+        clearInterval(slotTimer);
+        if(count < 0) {
+            clearInterval(slotTimer);
+            return;
+        }
+        playLine(seq[count]);
+        count--;
+        slotTimer = setInterval(start, SLOT_LEN);
+    };
+
+    let repeat = () => {
+        clearInterval(repeatTimer);
+        slotTimer = setInterval(start, SLOT_LEN);
+        count = seq.length;
+        repeatTimer = setInterval(repeat, SLOT_LEN * seq.length * 1.5);
+    }
+
+    repeat();
+
+});
+
+$("#stop").click(() => {
+    clearInterval(slotTimer);
+    clearInterval(repeatTimer);
+});
+
+</script>
+<!--脚本结束-->
+
+</body>
+</html>

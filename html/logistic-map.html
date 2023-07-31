@@ -1,0 +1,172 @@
+<!-- Project Aurora - Blog Framework V4.0 -->
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<link rel="stylesheet" type="text/css" href="../style/framework.css" charset="utf-8"/>
+<link rel="stylesheet" type="text/css" href="../style/markdown.css" charset="utf-8"/>
+<title>Project Aurora - Demo page</title>
+<script src="../script/framework/jquery/jquery.min.js"></script>
+
+
+<!--页面自定义样式开始-->
+<style>
+canvas {
+    display: block;
+    border: none;
+    box-shadow: 0 2px 5px 0 rgba(0,0,0,0.2);
+    margin: 10px auto 20px auto;
+}
+table {
+    margin: auto;
+}
+</style>
+<!--页面自定义样式结束-->
+
+</head>
+<body>
+
+<!--页面内容开始-->
+
+<canvas id="cv" style="width:360px;height:280px;" width="360" height="280"></canvas>
+
+<div style="text-align: center;">
+    <img src="https://wikimedia.org/api/rest_v1/media/math/render/svg/d24f962b8466e0e0e2262961e76a449b68e61afd">
+</div>
+
+<table>
+    <tr>
+        <td>初始值：</td><td><input id="init" value="0.01"></td>
+    </tr>
+    <tr>
+        <td>R值：</td><td><input id="rvalue" value="2.0"></td>
+    </tr>
+    <tr>
+        <td>迭代数：</td><td><input id="len" value="100"></td>
+    </tr>
+</table>
+
+<div style="text-align: center;">
+    <button id="plot" class="MikumarkButton">绘图</button> <button id="clear" class="MikumarkButton">清除</button> <button id="auto" class="MikumarkButtonGreen">自动演示</button>
+</div>
+
+<!--页面内容结束-->
+
+<!--脚本开始-->
+<script src="../script/canvas.js"></script>
+<script>
+
+function logistic(init, R, length) {
+    let result = [];
+    let current = init;
+    result.push(current);
+    for(let i = 0; i < length; i++) {
+        current = R * current * (1.0 - current);
+        result.push(current);
+    }
+    return result;
+}
+
+function plot(list, text, cv) {
+    const RANGE = 1;
+
+    cv.context.textBaseline = 'top';
+    cv.Text(text, [8, cv.Ymax-8], "rgba(0,0,0,0.7)", "14px Consolas");
+
+    // axis
+    cv.Line([0,0],[0,cv.Ymax],'rgba(0, 0, 0, 0.15)');
+    cv.Line([0,cv.Ymax],[cv.Xmax,cv.Ymax],'rgba(0, 0, 0, 0.15)');
+    cv.Line([0,0],[0,cv.Ymax],'rgba(0, 0, 0, 0.15)');
+
+    // horizontal lines
+    cv.context.textBaseline = 'bottom';
+
+    cv.Text('0', [1, 0], "rgba(0,0,0,0.15)");
+
+    cv.Line([0, cv.Ymax/4],[cv.Xmax, cv.Ymax/4],'rgba(0,0,0,0.15)')
+    cv.Text('0.25', [1, cv.Ymax/4], "rgba(0,0,0,0.15)");
+
+    cv.Line([0, cv.Ymax/2],[cv.Xmax, cv.Ymax/2],'rgba(0,0,0,0.15)')
+    cv.Text('0.50', [1, cv.Ymax/2], "rgba(0,0,0,0.15)");
+
+    cv.Line([0, cv.Ymax*3/4],[cv.Xmax, cv.Ymax*3/4],'rgba(0,0,0,0.15)')
+    cv.Text('0.75', [1, cv.Ymax*3/4], "rgba(0,0,0,0.15)");
+
+    // calculate x
+    let xMax = list.length;
+    let xDelta = cv.Xmax / (xMax-1);
+
+    // calculate y
+    cv.context.lineWidth = 1;
+    // let color = `rgba(${parseInt(Math.random() * 256)},${parseInt(Math.random() * 256)},${parseInt(Math.random() * 256)},0.5)`;
+    let color = `rgb(0,0,255)`;
+    let x0 = 0;
+    let y0 = cv.Ymax * list[0];
+    for(let x = 1; x < xMax; x++) {
+        let x1 = x * xDelta;
+        let y1 = cv.Ymax * list[x];
+        cv.Line([x0,y0],[x1,y1],color);
+        x0 = x1;
+        y0 = y1;
+    }
+}
+
+function prompt(cv) {
+    cv.Text('Logistic Mapping', [cv.Xmax/3, cv.Ymax/2], "rgba(0,0,0,1)", "14px Consolas");
+}
+
+$(function() {
+    let cv = new Canvas('cv', [0,0], [360,280]);
+    cv.Clear();
+    prompt(cv);
+
+    $('#plot').click(function() {
+        let init = $('#init').val();
+        let r = parseFloat($('#rvalue').val());
+        let len = $('#len').val();
+        let list = logistic(init, r, len);
+        plot(list, "R=" + r.toFixed(4).toString(), cv);
+    });
+
+    $('#clear').click(function() {
+        cv.Clear();
+    });
+
+    var auto = 0;
+    var state = 0;
+    $('#auto').click(function() {
+        if(state === 0) {
+            let r = parseFloat($('#rvalue').val());
+            auto = setInterval(function() {
+                if(r > 4) {
+                    state = 0;
+                    $('#auto').html('开始演示');
+                    $('#auto').attr('class', 'MikumarkButtonGreen');
+                    $('#rvalue').val('2.0');
+                    clearInterval(auto);
+                    return;
+                }
+                cv.Clear();
+                let list = logistic(parseFloat($('#init').val()), r, parseInt($('#len').val()));
+                plot(list, "R=" + r.toFixed(4).toString(), cv);
+                r = r + 0.001;
+                $('#rvalue').val(r.toFixed(4));
+            }, 5);
+            state = 1;
+            $('#auto').html('暂停演示');
+            $('#auto').attr('class', 'MikumarkButtonRed');
+        }
+        else {
+            clearInterval(auto);
+            state = 0;
+            $('#auto').html('开始演示');
+            $('#auto').attr('class', 'MikumarkButtonGreen');
+        }
+    });
+});
+
+</script>
+<!--脚本结束-->
+
+</body>
+</html>

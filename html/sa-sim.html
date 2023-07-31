@@ -1,0 +1,247 @@
+<!-- Framework Iroha -->
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0">
+<link rel="stylesheet" type="text/css" href="../style/framework.css" charset="utf-8"/>
+<link rel="stylesheet" type="text/css" href="../style/markdown.css" charset="utf-8"/>
+<title>Spectrum</title>
+<script src="../script/framework/jquery/jquery.min.js"></script>
+
+
+<!--页面自定义样式开始-->
+<style>
+.box {
+    width: 70%;
+    max-width: 700px;
+    margin: 30px auto;
+    border-radius: 10px;
+    box-shadow: 0 0px #e5e5e5, 0 0 15px rgb(0 0 0 / 12%), 0 2px 4px rgb(0 0 0 / 5%);
+}
+.panel {
+    padding: 20px;
+    margin: auto;
+    border-collapse: separate;
+    border-spacing: 10px 5px;
+}
+.panel td {
+    text-align: center;
+}
+.display {
+    border: 2px solid #666;
+    border-radius: 6px;
+    background-color: #000;
+    overflow: hidden;
+}
+.top {
+    font-size: 11px;
+    color: #fff;
+}
+.softkeys {
+    height: 24px;
+    display: flex;
+    flex-wrap: nowrap;
+    justify-content: space-around;
+    align-items: flex-start;
+}
+.softkey_item {
+    width: 20%;
+    height: 24px;
+    line-height: 21px;
+    margin: 0 2px;
+    color: #fff;
+    font-size: 11px;
+    border-top: 3px solid #666;
+}
+
+.btn {
+    box-sizing: border-box;
+    width: 75px;
+    height: 30px;
+    font-size: 11px;
+    background-color: #f0f0f0;
+    border: none;
+    border-radius: 4px;
+    box-shadow: 0 1px 2px 0 #3c40434d, 0 1px 3px 1px #3c404326;
+    text-align: center;
+    font-weight: bold;
+}
+.btn:active {
+    padding: 2px 0 0 2px;
+    box-shadow: inset 1px 1px 2px 1px #3c40434d;
+}
+.btn-num {
+    background-color: #fff; font-weight: bold; font-size: 13px;
+}
+.btn-fsl {
+    background-color: #d7e8f7; font-weight: bold; font-size: 13px;
+}
+.scfunc {
+    padding-bottom: 3px;
+    font-size: 10px;
+    color: #666;
+    text-align: center;
+}
+.knob {
+    width: 130px;
+    height: 130px;
+    margin: auto;
+    border-radius: 130px;
+    box-shadow: 0 1px 2px 0 #3c40434d, 0 1px 3px 1px #3c404326;
+    line-height: 130px;
+    text-align: center;
+}
+
+</style>
+<!--页面自定义样式结束-->
+
+</head>
+<body>
+
+<!--页面内容开始-->
+
+<div class="box">
+    <table class="panel">
+        <tr>
+            <td class="display" colspan="5">
+                <div class="top">
+                    <div><b>Spectrum Analyser</b></div>
+                    <div style="display: flex; justify-content: space-between; color: #ccc; font-size: 10px; line-height: 3; padding: 0 5px;">
+                        <div>Center: 2.4GHz</div>
+                        <div>Span: 100MHz</div>
+                        <div>RBW: 10kHz</div>
+                        <div>VBW: 10kHz</div>
+                        <div>10dB/div</div>
+                    </div>
+                </div>
+                <canvas id="spectrum" width="400px" height="200px" style="width: 400px; height: 200px;"></canvas>
+                <div class="softkeys">
+                    <div class="softkey_item" id="softkey_0">Trace</div>
+                    <div class="softkey_item" id="softkey_1" style="border-color: #ff0000;">Att</div>
+                    <div class="softkey_item" id="softkey_2" style="border-color: #00c400;">PreAmp</div>
+                    <div class="softkey_item" id="softkey_3">Demod</div>
+                    <div class="softkey_item" id="softkey_4">More..</div>
+                </div>
+            </td>
+        </tr>
+        <tr>
+            <td><button class="btn btn-num">F1</button></td>
+            <td><button class="btn btn-num">F2</button></td>
+            <td><button class="btn btn-num">F3</button></td>
+            <td><button class="btn btn-num">F4</button></td>
+            <td><button class="btn btn-num">F5</button></td>
+        </tr>
+        <tr>
+            <td><div class="scfunc">Lock</div><button class="btn">Home</button></td>
+            <td><div class="scfunc">Scan</div><button class="btn">Marker</button></td>
+            <td><div class="scfunc">Center</div><button class="btn btn-fsl">Freq</button></td>
+            <td rowspan="3" colspan="2">
+                <div class="knob">OK</div>
+            </td>
+        </tr>
+        <tr>
+            <td><div class="scfunc">Measure</div><button class="btn">Demod</button></td>
+            <td><div class="scfunc">View</div><button class="btn">BW</button></td>
+            <td><div class="scfunc">Range</div><button class="btn btn-fsl">Span</button></td>
+        </tr>
+        <tr>
+            <td><div class="scfunc">Capture</div><button class="btn">Record</button></td>
+            <td><div class="scfunc">Sweep</div><button class="btn">Gain</button></td>
+            <td><div class="scfunc">Amptd</div><button class="btn btn-fsl">Level</button></td>
+        </tr>
+        <tr>
+            <td><div class="scfunc">[Symbol]</div><button class="btn btn-num">1</button></td>
+            <td><div class="scfunc">ABC</div><button class="btn btn-num">2</button></td>
+            <td><div class="scfunc">DEF</div><button class="btn btn-num">3</button></td>
+            <td><div class="scfunc">Save</div><button class="btn">Step+</button></td>
+            <td><div class="scfunc">Recall</div><button class="btn">Step-</button></td>
+        </tr>
+        <tr>
+            <td><div class="scfunc">GHI</div><button class="btn btn-num">4</button></td>
+            <td><div class="scfunc">JKL</div><button class="btn btn-num">5</button></td>
+            <td><div class="scfunc">MNO</div><button class="btn btn-num">6</button></td>
+            <td><div class="scfunc">&lt;&lt;</div><button class="btn">◀</button></td>
+            <td><div class="scfunc">&gt;&gt;</div><button class="btn">▶</button></td>
+        </tr>
+        <tr>
+            <td><div class="scfunc">PQRS</div><button class="btn btn-num">7</button></td>
+            <td><div class="scfunc">TUV</div><button class="btn btn-num">8</button></td>
+            <td><div class="scfunc">WXYZ</div><button class="btn btn-num">9</button></td>
+            <td><div class="scfunc">.</div><button class="btn">Shift</button></td>
+            <td><div class="scfunc">Trigger</div><button class="btn">⏯</button></td>
+        </tr>
+        <tr>
+            <td><div class="scfunc">.</div><button class="btn btn-num">±</button></td>
+            <td><div class="scfunc">[ _ ]</div><button class="btn btn-num">0</button></td>
+            <td><div class="scfunc">Mute</div><button class="btn btn-num">▪</button></td>
+            <td><div class="scfunc">Reset</div><button class="btn">ESC</button></td>
+            <td><div class="scfunc">.</div><button class="btn">ENTER</button></td>
+        </tr>
+    </table>
+
+
+</div>
+
+<!--页面内容结束-->
+
+<!--脚本开始-->
+<script src="../script/canvas.js"></script>
+<script>
+
+const WIDTH = 400;
+const HEIGHT = 200;
+let spect = new Canvas("spectrum", [0, HEIGHT], [WIDTH, 0]);
+
+
+// Box-Muller算法，生成一个高斯分布的随机数
+// https://en.wikipedia.org/wiki/Box%E2%80%93Muller_transform
+function gaussian_random(mu, sigma) {
+    let u = Math.random();
+    let v = Math.random();
+    let scale = sigma * Math.sqrt(-2 * Math.log(u));
+    let z0 = scale * Math.cos(2 * Math.PI * v) + mu;
+    return z0;
+}
+
+// 生成一个瑞利分布的随机数
+function rayleigh_random(sigma) {
+    let u = Math.random();
+    return sigma * Math.sqrt(-2 * Math.log(u));
+}
+
+setInterval(() => {
+    spect.SetBackgroundColor("#000");
+
+    for(let i = 0; i <= 10; i++) {
+        let unit = (i === 0) ? "dBm" : "";
+        spect.Line([0, HEIGHT / 10 * i], [WIDTH, HEIGHT / 10 * i], "#666");
+        spect.Text(`${-i * 10 - 20}${unit}`, [0, HEIGHT / 10 * i + 5], "#ccc");
+        spect.Line([WIDTH / 10 * i, 0], [WIDTH / 10 * i, HEIGHT], "#666");
+    }
+
+    const avr = HEIGHT * 7 / 8;
+    spect.context.fillStyle = "#ff0";
+    for(let x = 0; x < WIDTH; x++) {
+        if(x === 100) {
+            spect.Rect([x, avr + Math.random() * 5], 1, 140 + Math.random() * 5);
+        }
+        else if(x === 200) {
+            spect.Rect([x, avr + Math.random() * 5], 1, 100 + Math.random() * 5);
+        }
+        else if(x === 300) {
+            spect.Rect([x, avr + Math.random() * 5], 1, 80 + Math.random() * 5);
+        }
+        else {
+            let rand = gaussian_random(0, 5);
+            spect.context.fillRect(spect.toCanvasX(x), spect.toCanvasY(avr + rand), spect.canvas.width / spect.Xrange, (40) * spect.canvas.height / spect.Yrange);
+        }
+    }
+}, 10);
+
+
+</script>
+<!--脚本结束-->
+
+</body>
+</html>

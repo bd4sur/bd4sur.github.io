@@ -1,0 +1,239 @@
+<!-- Project Aurora - Blog Framework V4.0 -->
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<title>Project Vita</title>
+<script src="../script/framework/jquery/jquery.min.js"></script>
+
+<style>
+canvas {
+    display: block;
+    border: none;
+    box-shadow: 0 2px 5px 0 rgba(0,0,0,0.2);
+    margin: 5px auto;
+}
+
+.main_framework {
+    margin: 20px auto;
+}
+
+.main_framework td {
+    text-align: center;
+}
+
+</style>
+</head>
+<body>
+
+<p style="text-align: center;">
+    <button id="watermark">加水印</button>
+    <input type="file" id="input_file_selector" name="files" multiple class="Input">
+    <input type="file" id="watermark_file_selector" name="files" multiple class="Input">
+</p>
+
+<table class="main_framework">
+    <tr>
+        <td>原图</td>
+        <td>加水印后</td>
+        <td>恢复水印</td>
+    </tr>
+    <tr>
+        <td><canvas id="input_cv" style="width:320px;height:240px;" width="320" height="240"></canvas></td>
+        <td><canvas id="output_cv" style="width:320px;height:240px;" width="320" height="240"></canvas></td>
+        <td><canvas id="recovered_cv" style="width:320px;height:240px;" width="320" height="240"></canvas></td>
+    </tr>
+</table>
+
+<canvas id="watermark_cv" style="width:256px;height:256px;display: none;" width="256" height="256"></canvas>
+
+<script src="../script/fourier-legacy.js"></script>
+<script src="../script/canvas-legacy.js"></script>
+<script src="../script/image.js"></script>
+<script>
+
+
+function add_watermark(image, watermark, energy, width, height, wm_width, wm_height) {
+
+    // 选择一个与原图大小最接近的2幂数字，作为DCT变换的size
+    const block_size = (1 << Math.ceil(Math.log2(Math.max(width, height))));
+    let dct_2d = new DCT_2D(block_size);
+
+    // 根据块大小对原图作扩展
+    let expanded_width = Math.ceil(width / block_size) * block_size;
+    let expanded_height = Math.ceil(height / block_size) * block_size;
+
+    let expanded_image = new Array();
+
+    // 复制原图
+    for(let y = 0; y < height; y++) {
+        expanded_image[y] = new Array();
+        for(let x = 0; x < width; x++) {
+            expanded_image[y][x] = image[y][x];
+        }
+    }
+
+    // 将原图外的边缘置0
+    for(let y = height; y < expanded_height; y++) {
+        let zero_row = new Array(expanded_width);
+        zero_row.fill(0);
+        expanded_image[y] = zero_row;
+    }
+    for(let y = 0; y < height; y++) {
+        for(let x = width; x < expanded_width; x++) {
+            expanded_image[y][x] = 0;
+        }
+    }
+
+    // 对扩展后的图像作DCT
+    let spectrum = dct_2d.dct(expanded_image);
+
+    // 叠加水印
+    for(let y = 0; y < wm_height; y++) {
+        for(let x = 0 ; x < wm_width; x++) {
+            let wmvalue = watermark[y][x];
+            if(wmvalue > 0) {
+                spectrum[height - wm_height + y][width - wm_width + x] = energy;
+            }
+        }
+    }
+
+    // IDCT并裁剪
+    let expanded_watermarked = dct_2d.idct(spectrum);
+    let watermarked = new Array();
+    for(let y = 0; y < height; y++) {
+        watermarked[y] = expanded_watermarked[y].slice(0, width);
+    }
+
+    return watermarked;
+
+}
+
+function show_watermark(image, width, height) {
+    // 选择一个与原图大小最接近的2幂数字，作为DCT变换的size
+    const block_size = (1 << Math.ceil(Math.log2(Math.max(width, height))));
+    let dct_2d = new DCT_2D(block_size);
+
+    // 根据块大小对原图作扩展
+    let expanded_width = Math.ceil(width / block_size) * block_size;
+    let expanded_height = Math.ceil(height / block_size) * block_size;
+
+    let expanded_image = new Array();
+
+    // 复制原图
+    for(let y = 0; y < height; y++) {
+        expanded_image[y] = new Array();
+        for(let x = 0; x < width; x++) {
+            expanded_image[y][x] = image[y][x];
+        }
+    }
+
+    // 将原图外的边缘置0
+    for(let y = height; y < expanded_height; y++) {
+        let zero_row = new Array(expanded_width);
+        zero_row.fill(0);
+        expanded_image[y] = zero_row;
+    }
+    for(let y = 0; y < height; y++) {
+        for(let x = width; x < expanded_width; x++) {
+            expanded_image[y][x] = 0;
+        }
+    }
+
+    let expanded_spectrum = dct_2d.dct(expanded_image);
+
+    let spectrum = new Array();
+    for(let y = 0; y < height; y++) {
+        spectrum[y] = expanded_spectrum[y].slice(0, width);
+    }
+
+    return spectrum;
+}
+
+
+//////////////////////////////////////////////////////////////////////////
+
+let watermark_cv = new Canvas('watermark_cv', [0,0], [0,0]);
+
+let input_cv = new Canvas('input_cv', [0,0], [255,255]);
+let output_cv = new Canvas('output_cv', [0,0], [255,255]);
+let recovered_cv = new Canvas('recovered_cv', [0,0], [255,255]);
+
+let WIDTH = 0;
+let HEIGHT = 0;
+
+$("#watermark_file_selector").change(() => {
+    // 读取文件
+    let file = $("#watermark_file_selector")[0].files[0];
+    let reader = new FileReader();
+    reader.readAsDataURL(file);
+    reader.onload = () => {
+        loadImage(reader.result, (img)=>{
+            watermark_cv.context.drawImage(img, 0, 0);
+        });
+    };
+});
+
+$("#input_file_selector").change(() => {
+    // 获取文件名
+    let fakepath = $("#input_file_selector").val().split(/\\|\//gi);
+    let filename = fakepath[fakepath.length - 1];
+    // 读取文件
+    let file = $("#input_file_selector")[0].files[0];
+    let reader = new FileReader();
+    reader.readAsDataURL(file);
+    reader.onload = () => {
+        loadImage(reader.result, (img)=>{
+            WIDTH = img.width;
+            HEIGHT = img.height;
+
+            input_cv.canvas.width = WIDTH;
+            input_cv.canvas.height = HEIGHT;
+            input_cv.canvas.style = `width:${WIDTH}px;height:${HEIGHT}px;`;
+            input_cv.Resize([0, HEIGHT], [WIDTH, 0]);
+            input_cv.context.drawImage(img, 0, 0);
+
+            output_cv.canvas.width = WIDTH;
+            output_cv.canvas.height = HEIGHT;
+            output_cv.canvas.style = `width:${WIDTH}px;height:${HEIGHT}px;`;
+            output_cv.Resize([0, HEIGHT], [WIDTH, 0]);
+
+            recovered_cv.canvas.width = WIDTH;
+            recovered_cv.canvas.height = HEIGHT;
+            recovered_cv.canvas.style = `width:${WIDTH}px;height:${HEIGHT}px;`;
+            recovered_cv.Resize([0, HEIGHT], [WIDTH, 0]);
+        });
+    };
+});
+
+function loadImage(src, callback) {
+    let img = new Image();
+    img.src = src;
+    img.onload = () => {
+        callback(img);
+    };
+}
+
+$("#watermark").click(() => {
+    let RGB_watermark = watermark_cv.ReadRGB();
+    let YUV_watermark = RGB_to_YUV420(RGB_watermark, 256, 256);
+
+    let RGB = input_cv.ReadRGB();
+    let YUV = RGB_to_YUV420(RGB, WIDTH, HEIGHT);
+
+    let YUV_watermarked_Y = add_watermark(YUV[0], YUV_watermark[0], 255, WIDTH, HEIGHT, 256, 256);
+
+    let RGB_watermarked = YUV420_to_RGB([YUV_watermarked_Y, YUV[1], YUV[2]], WIDTH, HEIGHT);
+    output_cv.DrawRGB(RGB_watermarked, WIDTH, HEIGHT);
+
+    let YUV_recovered_Y = show_watermark(YUV_watermarked_Y, WIDTH, HEIGHT);
+
+    recovered_cv.DrawRGB([YUV_recovered_Y, YUV_recovered_Y, YUV_recovered_Y], WIDTH, HEIGHT);
+
+});
+
+
+</script>
+
+</body>
+</html>

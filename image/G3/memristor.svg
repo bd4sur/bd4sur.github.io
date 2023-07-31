@@ -1,0 +1,29 @@
+<svg width="1024" height="1024" xmlns="http://www.w3.org/2000/svg">
+<g stroke="#000" stroke-width="5" stroke-linecap="round" stroke-linejoin="round">
+<path d="M512 512 896 128V448h48v32H848v32h96v32H848v32h48V896Z" fill="#C3FFC3"/>
+<path d="M512 512 896 896H592a20 20 0 0 0-40 0 20 20 0 0 0-40 0 20 20 0 0 0-40 0 20 20 0 0 0-40 0H128Z" fill="#C3C3FF"/>
+<path d="M512 512 128 128H896Z" fill="#FFFFC3"/>
+<path d="M512 512 128 896V128Z" fill="#FFC3C3"/>
+<g fill="#FFF">
+<circle cx="128" cy="128" r="80"/>
+<circle cx="896" cy="128" r="80"/>
+<circle cx="128" cy="896" r="80"/>
+<circle cx="896" cy="896" r="80"/>
+<path d="M96 432h64V592H96Z"/>
+<path d="M496 64V192h32V64" stroke="none"/>
+</g>
+<path d="M496 64V192m32 0V64" fill="none"/>
+</g>
+<g font-family="Liberation Sans" font-size="40" text-anchor="middle">
+<text x="950.35" y="-22.63" transform="rotate(45)">d<tspan font-style="italic">Φ</tspan> = <tspan font-style="italic">v</tspan> d<tspan font-style="italic">t</tspan></text>
+<text x="720" y="464">Memristor<tspan x="720" dy="50">d<tspan font-style="italic">Φ</tspan> = <tspan font-style="italic">M</tspan> d<tspan font-style="italic">q</tspan></tspan></text>
+<text x="512" y="720">Inductor<tspan x="512" dy="50">d<tspan font-style="italic">Φ</tspan> = <tspan font-style="italic">L</tspan> d<tspan font-style="italic">i</tspan></tspan></text>
+<text x="512" y="288">Capacitor<tspan x="512" dy="50">d<tspan font-style="italic">q</tspan> = <tspan font-style="italic">C</tspan> d<tspan font-style="italic">v</tspan></tspan></text>
+<text x="-226.27" y="701.45" transform="rotate(-45)">d<tspan font-style="italic">q</tspan> = <tspan font-style="italic">i</tspan> d<tspan font-style="italic">t</tspan></text>
+<text x="288" y="464">Resistor<tspan x="288" dy="50">d<tspan font-style="italic">v</tspan> = <tspan font-style="italic">R</tspan> d<tspan font-style="italic">i</tspan></tspan></text>
+<text x="128" y="124">voltage<tspan x="128" dy="50" font-style="italic">v</tspan></text>
+<text x="896" y="124">charge<tspan x="896" dy="50" font-style="italic">q</tspan></text>
+<text y="892" x="128">current<tspan x="128" dy="50" font-style="italic">i</tspan></text>
+<text x="896" y="892">flux<tspan x="896" dy="50" font-style="italic">Φ</tspan></text>
+</g>
+</svg>
