@@ -3,6 +3,141 @@
 
 #!content
 
+# Programming Language Checklist
+
+以下全文引自[这里](https://www.mcmillen.dev/language_checklist.html)：
+
+```
+by Colin McMillen, Jason Reed, and Elly Fong-Jones, 2011-10-10.
+You appear to be advocating a new:
+[ ] functional  [ ] imperative  [ ] object-oriented  [ ] procedural [ ] stack-based
+[ ] "multi-paradigm"  [ ] lazy  [ ] eager  [ ] statically-typed  [ ] dynamically-typed
+[ ] pure  [ ] impure  [ ] non-hygienic  [ ] visual  [ ] beginner-friendly
+[ ] non-programmer-friendly  [ ] completely incomprehensible
+programming language.  Your language will not work.  Here is why it will not work.
+
+You appear to believe that:
+[ ] Syntax is what makes programming difficult
+[ ] Garbage collection is free                [ ] Computers have infinite memory
+[ ] Nobody really needs:
+    [ ] concurrency  [ ] a REPL  [ ] debugger support  [ ] IDE support  [ ] I/O
+    [ ] to interact with code not written in your language
+[ ] The entire world speaks 7-bit ASCII
+[ ] Scaling up to large software projects will be easy
+[ ] Convincing programmers to adopt a new language will be easy
+[ ] Convincing programmers to adopt a language-specific IDE will be easy
+[ ] Programmers love writing lots of boilerplate
+[ ] Specifying behaviors as "undefined" means that programmers won't rely on them
+[ ] "Spooky action at a distance" makes programming more fun
+
+Unfortunately, your language (has/lacks):
+[ ] comprehensible syntax  [ ] semicolons  [ ] significant whitespace  [ ] macros
+[ ] implicit type conversion  [ ] explicit casting  [ ] type inference
+[ ] goto  [ ] exceptions  [ ] closures  [ ] tail recursion  [ ] coroutines
+[ ] reflection  [ ] subtyping  [ ] multiple inheritance  [ ] operator overloading
+[ ] algebraic datatypes  [ ] recursive types  [ ] polymorphic types
+[ ] covariant array typing  [ ] monads  [ ] dependent types
+[ ] infix operators  [ ] nested comments  [ ] multi-line strings  [ ] regexes
+[ ] call-by-value  [ ] call-by-name  [ ] call-by-reference  [ ] call-cc
+
+The following philosophical objections apply:
+[ ] Programmers should not need to understand category theory to write "Hello, World!"
+[ ] Programmers should not develop RSI from writing "Hello, World!"
+[ ] The most significant program written in your language is its own compiler
+[ ] The most significant program written in your language isn't even its own compiler
+[ ] No language spec
+[ ] "The implementation is the spec"
+   [ ] The implementation is closed-source  [ ] covered by patents  [ ] not owned by you
+[ ] Your type system is unsound  [ ] Your language cannot be unambiguously parsed
+   [ ] a proof of same is attached
+   [ ] invoking this proof crashes the compiler
+[ ] The name of your language makes it impossible to find on Google
+[ ] Interpreted languages will never be as fast as C
+[ ] Compiled languages will never be "extensible"
+[ ] Writing a compiler that understands English is AI-complete
+[ ] Your language relies on an optimization which has never been shown possible
+[ ] There are less than 100 programmers on Earth smart enough to use your language
+[ ] ____________________________ takes exponential time
+[ ] ____________________________ is known to be undecidable
+
+Your implementation has the following flaws:
+[ ] CPUs do not work that way
+[ ] RAM does not work that way
+[ ] VMs do not work that way
+[ ] Compilers do not work that way
+[ ] Compilers cannot work that way
+[ ] Shift-reduce conflicts in parsing seem to be resolved using rand()
+[ ] You require the compiler to be present at runtime
+[ ] You require the language runtime to be present at compile-time
+[ ] Your compiler errors are completely inscrutable
+[ ] Dangerous behavior is only a warning
+[ ] The compiler crashes if you look at it funny
+[ ] The VM crashes if you look at it funny
+[ ] You don't seem to understand basic optimization techniques
+[ ] You don't seem to understand basic systems programming
+[ ] You don't seem to understand pointers
+[ ] You don't seem to understand functions
+
+Additionally, your marketing has the following problems:
+[ ] Unsupported claims of increased productivity
+[ ] Unsupported claims of greater "ease of use"
+[ ] Obviously rigged benchmarks
+   [ ] Graphics, simulation, or crypto benchmarks where your code just calls
+       handwritten assembly through your FFI
+   [ ] String-processing benchmarks where you just call PCRE
+   [ ] Matrix-math benchmarks where you just call BLAS
+[ ] Noone really believes that your language is faster than:
+    [ ] assembly  [ ] C  [ ] FORTRAN  [ ] Java  [ ] Ruby  [ ] Prolog
+[ ] Rejection of orthodox programming-language theory without justification
+[ ] Rejection of orthodox systems programming without justification
+[ ] Rejection of orthodox algorithmic theory without justification
+[ ] Rejection of basic computer science without justification
+
+Taking the wider ecosystem into account, I would like to note that:
+[ ] Your complex sample code would be one line in: _______________________
+[ ] We already have an unsafe imperative language
+[ ] We already have a safe imperative OO language
+[ ] We already have a safe statically-typed eager functional language
+[ ] You have reinvented Lisp but worse
+[ ] You have reinvented Javascript but worse
+[ ] You have reinvented Java but worse
+[ ] You have reinvented C++ but worse
+[ ] You have reinvented PHP but worse
+[ ] You have reinvented PHP better, but that's still no justification
+[ ] You have reinvented Brainfuck but non-ironically
+
+In conclusion, this is what I think of you:
+[ ] You have some interesting ideas, but this won't fly.
+[ ] This is a bad language, and you should feel bad for inventing it.
+[ ] Programming in this language is an adequate punishment for inventing it.
+```
+
+# 2023笔记
+
+## 2023-08-16 哈基米和闭包
+
+对于“哈基米上长了个小豆豆”这句话来说，由于无法确定“哈基米”的含义，因而这整句话也是令人费解的。
+
+我们说一句话，这句话里涉及很多指称。要想理解这句话，首先要知道各个指称的含义是什么。因此，我们理解一句话，一般都是在一个确切的“环境”中去理解，这个“环境”就是指称和含义之间的映射。因此，一句话如果想要不被误解地传达给它的听众，首先应该建立起有关“环境”的共识。
+
+而全人类跨文化交流所需的基本公共“环境”是什么，似乎是个开放问题。语言学中有个概念叫斯瓦迪士核心词，大概有助于理解这个问题。
+
+理论上，将不含自由指称的句子称为“封闭”的，相反，将含有自由指称的句子称为“开放”的。所谓“自由指称”，指的是语言环境中尚未建立起指称含义映射的指称，例如“哈基米上长了个小豆豆”中的“哈基米”，进而，这句话就是个“开放的”句子。
+
+为了将开放句转变为封闭句，就要给自由指称赋予含义。而这个过程，在编程语言中即体现为作用域策略。例如，如果采取词法作用域策略，那么“哈基米”这个指称的含义，就应当与其词法语境保持一致，即日语原始语境中“蜂蜜”的含义。而如果采取动态作用域策略，则直接在这句话所在的语境（上下文）中灵活地确定“哈基米”的含义。自由指称“哈基米”一旦有了具体含义，整句话就变成了含义较为明确的封闭句，进而可以对其做出解释。
+
+在编程语言的实现中，为了将开放语句变成封闭的，就一定要事先获取自由变量的具体取值，并且将绑定关系连同语句本身“封闭”在一个统一的结构中，这就是所谓的“闭包”。简而言之，闭包就是开放语句（如函数）在具体语境和环境下的实例。
+
+这启发我们，在人际沟通中，为了提升沟通的效率和信噪比，一定要提前建立足够的共识，包括术语概念和指称含义的约定、沟通程序和机制、沟通的情感基调等等。因此我们说，对于社畜来说，开会是个核心技能，因为开会，尤其是组织和主持会议，基本上是对上面原则和方法的全面实践，是取得世俗成功的一个必要的元技能。
+
+------
+
+编程语言设计中，符号的作用域问题是个基本问题。它关系到一个符号、一个指称如何解释为实际的含义。
+
+对于Scheme语言来说，典型的作用域策略有：词法作用域和动态作用域。很多人觉得“哈基米”在不同的语境（上下文）中应当被解释为不同的含义，这是一种动态作用域式的观点。但还有很多人觉得，“哈基米”就是蜂蜜，应该遵照日语的原来意思去解释，除此之外都是错误的，这是一种词法作用域式的观点。
+
+在Scheme历史上的多种不同的实现中，两种作用域策略都有实践过。最后，R5RS标准选择了词法作用域作为标准。词法作用域策略还贯穿了Scheme的一个重要特性“卫生宏”，使得Scheme的宏体系比起传统的诸如C语言的宏体系而言更为精确而强大，深刻影响了诸如Rust一类的现代语言。
+
 # 2020笔记
 
 ## 笔记
@@ -381,6 +516,94 @@ Scheme创新性地引入了**卫生宏**的概念。所谓的卫生宏，指的�
      (if p-res
          (T* cont)
          (F* cont)))))
+```
+
+案例：将普通的阶乘递归函数彻底展开为CPS形式：
+
+```lisp
+#|
+(define fac
+  (lambda (n)
+    (if (= n 0)
+        1
+        (* n (fac (- n 1))))))
+
+
+;; Lambda* =
+(lambda (cont)
+  (cont (lambda (x)
+          (lambda (k)
+            (BODY*
+             (lambda (m) (k m)))))))
+
+;; BODY* =
+(lambda (cont)
+  (P*
+   (lambda (p-res)
+     (if p-res
+         (T* cont)
+         (F* cont)))))
+
+
+;; P* =
+(lambda (cont)
+  ((lambda (cont) (lambda (x y) (lambda (k) (k (= x y))))) ; 内置相等判断
+   (lambda (cont0)
+     ((cont 0 n)
+      (lambda (res) (cont res))))))
+
+;; T* =
+(lambda (cont) (cont 1))
+
+;; F* =
+(lambda (cont)
+  ; 以下仅仅是对每个AST节点进行简单的遍历CPST/重命名，并未体现求值顺序
+  ((lambda (cont) (lambda (x y) (lambda (k) (k (* x y))))) (lambda (node0) ; 内置乘法
+  ( fac-cps                                                (lambda (node1) ; 递归调用（重命名后的）
+  ((lambda (cont) (lambda (x y) (lambda (k) (k (- x y))))) (lambda (node2) ; 内置减法
+  ; 从这里开始体现求值顺序，几乎等于是 A-Normal Form
+  ((node2 n 1)    (lambda (res2)
+  ((node1 res2)   (lambda (res1)
+  ((node0 n res1) (lambda (res)
+  ; 最后执行总的continuation
+  ( cont res))))))))))))))
+|#
+
+;; Lambda* =
+(begin
+(define fac-cps
+(lambda (cont)
+  (cont (lambda (n)
+          (lambda (k)
+            ((lambda (cont)
+               ((lambda (cont)
+                  ((lambda (cont) (cont (lambda (x y) (lambda (k) (k (= x y)))))) ; 内置相等判断
+                   (lambda (node0)
+                     ((node0 0 n)
+                      (lambda (res) (cont res))))))
+                (lambda (p-res)
+                  (if p-res
+                      ((lambda (cont) (cont 1))
+                       cont)
+                      ((lambda (cont)
+                         ; 以下仅仅是对每个AST节点进行简单的遍历CPST/重命名,并未体现求值顺序
+                         ( fac-cps                                                (lambda (node1) ; 递归调用(重命名后的)
+                         ((lambda (cont) (cont (lambda (x y) (lambda (k) (k (- x y)))))) (lambda (node2) ; 内置减法
+                         ((lambda (cont) (cont (lambda (x y) (lambda (k) (k (* x y)))))) (lambda (node0) ; 内置乘法
+                         
+                         
+                         ; 从这里开始体现求值顺序,几乎等于是 A-Normal Form
+                         ((node2 n 1)    (lambda (res2)
+                         ((node1 res2)   (lambda (res1)
+                         ((node0 n res1) (lambda (res)
+                         ; 最后执行总的continuation
+                         ( cont res))))))))))))))
+                       cont)))))
+             (lambda (m) (k m))))))))
+
+(((fac-cps (lambda (x) x)) 10) (lambda (x) (display x)))
+)
+
 ```
 
 # 执行机设计/2019-04-23
