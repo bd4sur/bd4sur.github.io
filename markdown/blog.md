@@ -28,8 +28,8 @@
 
 
 .TopLink {
-    color: #567 !important;
-    border-bottom: 1px solid #ccd !important;
+    color: #4c566d !important;
+    border-bottom: 1px solid #bbc0cc !important;
     font-size: 13px;
     letter-spacing: 0.5px;
     line-height: normal;
@@ -70,14 +70,15 @@
     align-items: stretch;
 }
 .CategoryIcon {
-    display:inline-block;
-    width:26px; height:26px;
+    display: inline-block;
+    width: 26px; height:26px;
     line-height: 26px;
-    background: linear-gradient(0deg, #b2c1d7, #ecf5ff);
-    color:#fff;
-    text-align:center;
-    font-size:16px;
-    font-weight:bold;
+    background: linear-gradient(0deg, #7e90ab, #ecf5ff);
+    color: #fff;
+    text-align: center;
+    font-size: 14px;
+    font-weight: bold;
+    text-shadow: 1px 1px 2px #263a66;
     border-radius: 3px;
     cursor: pointer;
 }

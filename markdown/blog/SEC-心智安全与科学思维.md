@@ -329,11 +329,13 @@
 
 ![ ](./image/A/other-universe.jpg)
 
+![ ](./image/A/maze-inside.jpg)
+
+## 打破第四面墙
+
 ![ ](./image/A/monkey.jpg)
 
 ![ ](./image/A/bubble.jpg)
-
-![ ](./image/A/maze-inside.jpg)
 
 # 论理与修辞
 
