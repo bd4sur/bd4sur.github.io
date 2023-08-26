@@ -177,7 +177,7 @@
 
     <div id="plt">
         <div class="TopArticleFlex" style="margin: 10px 0 15px 0;">
-            <div class="FlexTitle"><a class="TopLink" href="./html/scheme-interpreter.html">Scheme解释器原型</a> / <a class="TopLink" href="./html/auroravm.html">虚拟机原型</a> / <a class="TopLink SPA_TRIGGER" data-target="blog/PL-Scheme学习笔记">学习笔记</a> / <a class="TopLink SPA_TRIGGER" data-target="blog/PL-Scheme编译器设计备忘录">设计备忘录</a></div>
+            <div class="FlexTitle"><a class="TopLink" href="./html/scheme-interpreter.html">Scheme解释器原型</a> / <a class="TopLink" href="./html/auroravm.html">虚拟机原型</a> / <a class="TopLink SPA_TRIGGER" data-target="blog/PL-Scheme学习笔记">学习笔记</a> / <a class="TopLink SPA_TRIGGER" data-target="blog/PL-Animac设计备忘录">Animac设计备忘录</a></div>
             <div class="FlexTitle"><a class="TopLink SPA_TRIGGER" data-target="blog/PL-驾驭复杂度">驾驭复杂度</a></div>
             <div class="FlexTitle"><a class="TopLink SPA_TRIGGER" data-target="blog/PL-我想给你整个世界">我想给你整个世界</a></div>
             <div class="FlexTitle"><a class="TopLink SPA_TRIGGER" data-target="blog/SEC-信息安全攻防">信息安全攻防</a></div>
