@@ -888,6 +888,8 @@ Closure：闭包是运行时的函数对象，因此仅出现在运行时。
 
 需要注意的是，在同一作用域中，如果自由变量和约束变量同名，则约束变量会覆盖掉自由变量的值，这也是Lambda演算的规定。但是，如果代码经过编译器预处理后，消除了这种混淆的可能性，那么实际上就不需要这种优先级了。
 
+根据[Belleve的文章](https://www.zhihu.com/question/24084277/answer/48464125)：一个 Closed Lambda Expression 就是没有自由变量的 Lambda Expression，如 λx. x，而 λx. yx 就不是 Closed。Closed Lambda Expression 最好的性质之一就是它的类型必然同构于某个逻辑重言式，如 λx. λy. xy 的类型就是「肯定前件」(α → β) → α → β。那么如何把某个 Open Lambda Expression 给 Enclose 住呢？答案就是把它引用的所有自由变量给保存到什么东西里面，这种保存了自由变量的 Lambda Expression 就是 Closure。在其同构的逻辑一面，则是在相继式左边加入前提。
+
 ### 闭包是栈帧的一般化
 
 一等函数的求值结果是闭包，闭包是函数的值。作为值的闭包，可以被调用，输出某个结果，也可能会有副作用。副作用对于程序的执行顺序是敏感的，但是，闭包的调用时机，是程序逻辑所确定的，是运行时才能得知的。例如CPS阶乘用例，乃至一切采用回调嵌套/CPS风格写成的程序，运行时的每一轮递归，都会生成一个新的续延闭包，并被保存下来，但是并不会立即被调用。只有到了递归出口的时候，这些续延闭包才会被调用，按照闭包内部嵌套引用的顺序，执行闭包内部的代码，也就是我们所期望的续延/回调业务逻辑。
@@ -1372,6 +1374,190 @@ Scheme创新性地引入了**卫生宏**的概念。所谓的卫生宏，指的�
 
 ```
 
+### call/cc的特殊性
+
+[全文摘录Belleve文章](https://www.zhihu.com/question/21954238/answer/23855834)
+
+call/cc是非常、非常特殊的，因为它根本无法用Lambda演算定义。研究中使用了扩展的$\lambda\mu$演算来处理。
+
+$\lambda\mu$演算引入了一个结构算符$\mu$，以及标记项$E^\alpha$（它表示将表达式标记为$\alpha$），对$\mu$算符的展开满足：
+
+- 左结构嬗变：$((\mu\alpha.E)\, x)=\mu\alpha.E[F^\alpha :=(F x)^\alpha]$
+- 右结构嬗变：$(u\, (\mu\alpha.E))=\mu\alpha.E[F^\alpha:=(u F)^\alpha]$
+
+换言之，在$\mu$「函数」被调用，或者被传入其他函数的时候，其体内所有和参数同标记的标记项都会以相同的形式被「调用」或者「传入其他函数」一次。$\mu$算符可以将自己「外面」的东西翻到自己里面来。
+
+在有这个算符之后，我们就能定义$\text{call/cc}=\kappa=\lambda f.\mu\alpha.(f \,\lambda x.x^\alpha)^\alpha$。在式子里$\lambda x.x^\alpha$就是Continuation，我们可以看下它会变化成怎样：
+
+- 被传入：$(g\, (\mu\alpha.(f \,\lambda x.x^\alpha)^\alpha)) = \mu\alpha.(g\, (f \,\lambda x.(g\, x)^\alpha))^\alpha$
+- 被调用：$((\mu\alpha.(f \,\lambda x.x^\alpha)^\alpha)\, v) = \mu\alpha.((f \,\lambda x.(x\, v)^\alpha)\, v)^\alpha$
+
+在Curry-Howard同构的层面，call/cc对应皮尔士定律，它代表着排中律，这条定律是Lambda演算所对应的直觉逻辑里没有的。$\lambda\mu$演算经过C-H同构可以得到经典逻辑。
+
+[以下是其他答主的补充](https://www.zhihu.com/question/21954238/answer/94731476)
+
+补充一下@Belleve最后所说的“在 Curry-Howard 同构的层面，call/cc 对应皮尔士定律，它代表着排中律，这条定律是 Lambda 演算所对应的直觉逻辑里没有的”是什么意思。
+
+**第一部分，先说什么是皮尔士定律（Peirce’s law）**
+
+按照wikipedia上的形式，在命题逻辑里面这个是恒成立的：
+
+```
+(1)  ((P→Q)→P)→P
+```
+
+大家可以列一下真值表验证一下，就4种情况不难算的。这就是皮尔士定律。然后一个特殊形式是把Q换成恒假命题⊥，则
+
+```
+(2)  ((P→⊥)→P)→P
+```
+
+也是恒成立的。
+
+Peirce’s law在直觉主义逻辑（构造性逻辑）里是不成立的，因为其特殊形式(2)可以推出排中律，而排中律在构造性逻辑里不成立。
+
+**第二部分，简单介绍Curry-Howard 同构**
+
+一个程序对应一个证明，其证明的命题是这个程序的类型。要证明一个命题是否成立只需2步：1. 把这个命题写出对应的类型；2. 看是否能构造一个程序满足相应的类型（也叫做Type inhabitation problem）。
+
+例子1：命题 “A → A”。显然无论命题A是真是假，“A → A”这个命题总是成立的。Curry-Howard同构如下：
+
+- 命题A 对应 类型A。注意“命题A可能真可能假”对应“类型A可能存在一个成员，也可能不存在任何成员”。
+- 蕴含符号“→”对应函数定义符号“->”。
+- 命题“A → A”对应一个新的类型，是一个函数类型“A -> A”。
+
+显然我们可以构造函数$id = \lambda x. x$, 这个函数id直接返回其参数，所以无论参数的类型A是什么，其返回值还是类型A。所以id函数是类型“A -> A”的成员，所以命题“A → A”成立。
+
+例子2：命题“A → B”。这个命题不成立，画一下真值表可以知道。
+
+你可以试试看能否写出一个函数，对于任意类型A，B，给一个A类型的参数，返回一个B类型的值。应该是写不出来的。
+
+**第三部分，“call/cc”这个特殊的东西的类型是什么?**
+
+直接给答案：`call/cc :: ((P -> Q) -> P) -> P`。
+
+这个跟皮尔士定律的(1)式一模一样！
+
+解释一下：你的current continuation （cc）需要一个输入，不妨就把这个输入的类型叫做P，然后这个cc可能算出某种Q类型的结果，至于Q是什么我们根本不关心，Q完全可以是“⊥”（不停机）。所以这个cc的类型是 P -> Q。
+
+你的call/cc有唯一的参数f，这个f本身接受的参数是cc。所以f的类型应该是
+
+```
+f :: (P->Q) -> X
+```
+
+这里X是某种类型，但是我们不知道它是啥。没关系，我们来分析一下它可能是啥：
+
+call/cc最后会返回，而且其返回值的类型是 P。(按照 @王霄池 的说法就是当你“触发回去的事件”，call/cc所处的位置被填充一个具体的值，其类型为P，然后计算接着进行下去。）
+
+但是call/cc不能无中生有地得到一个P类型的值！怎么才能得到呢？答案是它只能从它唯一的参数f里面得到。我们再看一遍f的类型`f :: (P->Q) -> X`
+
+其中，前一个P在逆变的位置，所以无法从中得到一个P类型的值，Q又完全可以跟P毫不相关，所以唯一能够得到P类型值的地方就只有处于协变位置的X了！
+
+所以，X和P是一回事儿。f的类型是`(P->Q) -> P`。
+
+那么我们回头来看 call/cc。它有一个参数`f :: (P->Q) -> P`，然后当它“返回”的时候，给出一个值类型为P。所以
+
+```
+call/cc :: ((P -> Q) -> P) -> P
+```
+
+这在Curry-Howard 同构里对应皮尔士定律。
+
+又由于lambda演算对应直觉主义逻辑，而皮尔士定律在直觉主义逻辑里面不成立，所以call/cc不能被lambda calculus表达。
+
+上面第三部分说的基本上是翻译自[此处](https://golem.ph.utexas.edu/category/2008/01/the_continuation_passing_trans.html)。作者Joker_vD。
+
+### CPS在数理逻辑中的对应
+
+[全文摘录Belleve文章](https://www.zhihu.com/question/24453254/answer/27846244)
+
+带 callcc 的 Lambda 演算（叫$\lambda\mu$演算）可以经 Curry-Howard 同构到经典逻辑，而普通的$\lambda$演算只能同构到直觉逻辑。但是形式逻辑中有一个 Gilvenko 定理，它声称：对任何命题$p$和前提$\Gamma$，在经典逻辑中 $\Gamma\vdash p$若且唯若在直觉逻辑中$\Gamma\vdash\neg\neg p$
+
+在证明这个定理之后，哥德尔和根岑（自然演绎和相继式演算的发明人）发明了双否定变换，也叫哥德尔-根岑变换，其规则是：
+
+- $\alpha^{*}=(\alpha\rightarrow\bot)\rightarrow\bot$
+- $(\alpha\rightarrow\beta)^*=\alpha^* \rightarrow \beta^*$
+
+注意到哥德尔-根岑变换任意命题都和原命题经典等价，但并非直觉等价（直觉逻辑本身否认$\neg\neg\alpha\rightarrow\alpha$），但是按照 Gilvenko 定理，双否定命题$\alpha^*$若在直觉逻辑体系中可证明为真，则在经典逻辑体系里$\alpha$必为真，反之亦然。
+
+那么按照 Curry-Howard 同构，$\lambda\mu$演算下的类型指派$\Gamma\vdash e:\alpha$可以经过哥德尔-根岑变换得到一个$\lambda$演算类型指派：$\Gamma^*\vdash e^*:\alpha^*$，将表达式（同构于证明过程）$e$变为$e^*$的过程就是 CPS 变换。直接照搬哥德尔-根岑变换里的类型的话，我们有如下结果：
+
++ 原子：$a^*=\lambda\kappa.\kappa a$
++ 调用：$(EF)^*=\lambda\kappa.E^*(\lambda E'.F^* (\lambda F'.(E'F')\kappa))$
++ 抽象：$(\lambda x.E)^*=\lambda\kappa.\kappa(\lambda x.\lambda k. (e^*)k)$
++ call/cc算子：$\mathrm{call/cc}=\lambda\kappa.\kappa(\lambda f.\lambda k.f k k)$
+
+可以证明，$E^*(\lambda x.x) =_\beta E$，即：CPS 变换不改变语义。当然这个版本的 CPS 是非常冗长的，市面上见到的那些都是在变换是之后直接做了$\beta$规约，删掉大堆 Redex 的。
+
+### Curry-Howard同构
+
+- [香蕉空间：类型论–范畴论–逻辑学类比](https://www.bananaspace.org/wiki/%E7%B1%BB%E5%9E%8B%E8%AE%BA%E2%80%93%E8%8C%83%E7%95%B4%E8%AE%BA%E2%80%93%E9%80%BB%E8%BE%91%E5%AD%A6%E7%B1%BB%E6%AF%94)
+- [全文摘录Belleve文章](https://www.zhihu.com/question/22959608/answer/24770830)
+
+Curry-Howard 同构显示了推理系统和程序语言之间的相似性，在此框架下：
+
+- 程序语言的语言构造同构为推理系统的推理规则
+- 程序的类型同构为逻辑命题
+- 闭合程序（不依赖环境的程序）可以同构为一条定理的证明过程，其类型就是一条定理
+- 逻辑上下文同构为自由变量类型指派
+- Lambda 演算同构为 Gentzen 的自然演绎
+-- 函数调用就是蕴含消除
+-- 函数抽象就是蕴含介入
+-- 参数多态就是全称量化
+-- 模板类型就是谓词
+-- 结构类型就是合取
+-- 联合类型就是析取
+-- 收参数但不返回就是否定
+-- call/cc就是双重否定消除
+- SK 组合子演算同构为直觉 Hilbert 推理系统
+-- S 和 K 就是演算系统的两条公理
+
+这套同构的基础是对相继式$u_1:\gamma_1,...,u_n:\gamma_n\vdash E:\beta$的双重解释。在证明论中，$u_n$是假设的名字，E是一个证明构造，相继式的含义是「从假设$\gamma_1,...,\gamma_n$可以证明定理$\beta$」，而在编程中，$u_n$是自由变量，E则是一段程序，它的含义变成了「在自由变量$u_1,...,u_n$的类型是$\gamma_1,...,\gamma_n$时，程序E的类型是$\beta$」。
+
+这个框架里灵活性最高的是 Martin-Löf 的系统，两个高度抽象的算子——$\Pi$和$\Sigma$进一步泛化了函数调用与合取，这使得它有极其恐怖的抽象能力。这个系统的推理规则是 5 条：
+
+- $\frac { \Gamma, x:\alpha \vdash \pi : \beta } { \Gamma \vdash \lambda x. \pi : (\Pi x:\alpha). \beta }$（投影介入）
+- $\frac { \Gamma \vdash \pi _1 : (\Pi x:\alpha).\beta \quad \Gamma \vdash \pi _2 : \alpha } { \Gamma \vdash \pi _1 \pi _2 :  \beta[x:=\pi_2] }$（投影消除）
+- $\frac { \Gamma \vdash \pi _1 : \alpha \quad \Gamma, x:\alpha \vdash \pi _2 : \beta } { \Gamma \vdash (\pi _1, \pi _2) : (\Sigma x:\alpha).\beta }$（合并介入）
+- $\frac { \Gamma \vdash \pi : (\Sigma x:\alpha). \beta } { \Gamma \vdash \mathbf{fst} \ \pi : \alpha }$（合并消除，左）
+- $\frac { \Gamma \vdash \pi : (\Sigma x:\alpha).\beta } { \Gamma \vdash \mathbf{snd} \ \pi :\beta[x:=\mathbf{fst}\,\pi] }$（合并消除，右）
+
+|类型论|范畴论|拓扑|逻辑|
+|-----------------------|
+|类型|对象|拓扑空间|命题|
+|单位类型|终对象|单点空间|真|
+|空类型|始对象|空空间|假|
+|实例|从终对象出发的态射|点|证明|
+|函数类型|幂对象|映射空间|蕴含|
+|积类型|积|积空间|与|
+|无交并|余积|无交并空间|或|
+|Σ 类型|纤维化|纤维化|存在|
+|Π 类型|截面范畴|截面空间|全称|
+|相等类型|2-态射的空间|环路空间||
+|截断类型|截断|截断||
+
+## 相等性判定算子
+
+### 任意两个λ表达式的外延相等性是不可判定的
+
+[全文摘录Belleve文章](https://www.zhihu.com/question/25484990/answer/62409012)
+
+任意两个λ表达式（「程序」）的外延相等性是不可判定的。证明如下：考虑函数 f(n)，构造：
+
+- `f' = lambda(n). begin f(n); return 1; end`
+- `g(x) = lambda(n). if(x == n) then return 1; else return f'(n)`
+
+这两个函数对任意 x ≠ n 必等价，但是对 x = n 的情况，g 永远是返回的，f' 则未必，那么如果「判定两个函数外延等价」的函数 EQUIV 存在，我们就能解出停机问题：
+
+```
+HALT(f, x) = let
+        f1 = lambda(n). begin f(n); return 1; end
+        g  = lambda(n). if(x == n) then return 1; else return f1(n)
+    in EQUIV(f1, g)
+```
+
+显然和停机问题不可判定矛盾。然而对表达式加以限制之后，等价性就可判定了，如 STLC 的 beta-eta 等价性就是可判定的。
 
 # 参考资料
 
