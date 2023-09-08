@@ -174,6 +174,7 @@ function SPA_Render(pathString, callback) {
         $('.SPA_MAIN_CONTAINER').html(`<div class="Prompt">请稍等…</div>`);
         GetTextContentFrom(`./markdown/collections.md`, (text) => {
             $('.SPA_MAIN_CONTAINER').html(text);
+            LoadCollections();
         }, () => {
             console.error(`获取collections失败`);
         });

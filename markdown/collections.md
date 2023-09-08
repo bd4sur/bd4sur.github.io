@@ -47,10 +47,10 @@ a:hover {
     display: inline-block;
     background-color: #15e1;
     color: #15e;
-    font-size: inherit;
+    font-size: smaller;
     border-radius: 100px;
     padding: 2px 6px 2px 6px;
-    margin: 3px;
+    margin: 0 3px;
 }
 
 .RigListContainer {
@@ -370,431 +370,68 @@ a:hover {
 
 
 <style>
-.MusicCover {
-    width: 100%;
-    display: block;
-    max-height: 100px;
-    margin: 10px auto;
-    border-radius: 6px;
-    overflow: hidden;
-    box-shadow: 0 1px 2px 0 rgb(60 60 60 / 20%), 0 1px 3px 1px rgb(60 60 60 / 20%);
+@media(min-width:651px){
+    .MusicItem {
+        display: flex;
+        flex-direction: row;
+        align-items: center;
+        font-size: 13px;
+        padding: 5px 16px;
+        border-bottom: 1px solid #ebedf1;
+    }
 }
-.MusicBox {
-    max-width: 100px;
-    display: inline-block;
-    vertical-align: top;
-    margin: 10px;
-    border-radius: 10px;
+@media(max-width:650px){
+    .MusicItem {
+        display: flex;
+        align-items: flex-start;
+        flex-direction: column;
+        font-size: 12px;
+        border-bottom: 1px solid #ebedf1;
+        padding: 3px 5px;
+    }
+}
+
+.MusicItemLine {
+    display: flex;
+    align-items: center;
+    margin: 3px 0;
+}
+.MusicItemSlash {
+    color: #c5c6c7;
+    margin: 0px 6px;
 }
 .MusicTitle {
-    color: #494f53;
-    font-size: 12px;
+    color: #2a2d34;
     font-weight: bold;
-    margin: 10px 0;
-    text-align: center;
 }
 .MusicTitle a {
     text-decoration: none;
 }
 .MusicArtist {
-    font-size: 10px;
-    color: #494f53;
-    margin: 3px 0;
-    text-align: center;
+    font-size: 12px;
+    color: #2a2d34;
+    margin-right: 10px;
 }
-.MusicSubtitle {
-    font-size: 10px;
-    color: #aaa;
-    margin: 3px 0;
-    text-align: center;
-    transform: scale(0.9);
+.MusicDate {
+    font-size: 11px;
+    color: #c8cdd7;
+    margin-right: 10px;
+}
+.MusicAlbum {
+    font-size: 11px;
+    color: #656970;
+    margin-right: 10px;
+}
+.MusicInfo {
+    font-size: 11px;
+    color: #656970;
 }
 </style>
-
 
 <div class="SectionHeader SectionToggle" id="collections_music" onclick="$(`#collections_music_main`).fadeToggle(200);">
     音乐<!--div class="SectionHeaderComment">Music</div-->
 </div>
 
-<div id="collections_music_main">
-
-    <div style="text-align: center;">
-        <div class="MusicBox">
-            <div class="MusicIntro">
-                <img src="./image/B/cover/music/星の在り処.jpg" class="MusicCover" style="max-height: unset;">
-            </div>
-            <div class="MusicTitle" lang="ja"><a href="https://music.163.com/#/song?id=559262" target="_blank">星の在り処</a></div>
-            <div class="MusicArtist" lang="ja">う〜み</div>
-            <div class="MusicSubtitle"><span class="CollectionTag">实体CD收藏</span></div>
-            <div class="MusicSubtitle">游戏「空之轨迹FC」主题歌</div>
-            <div class="MusicSubtitle">2012-09</div>
-        </div>
-
-        <div class="MusicBox">
-            <div class="MusicIntro">
-                <img src="./image/B/cover/music/星の在り処-Guitar-Ver.jpg" class="MusicCover" style="max-height: unset;">
-            </div>
-            <div class="MusicTitle" lang="ja"><a href="https://music.163.com/#/song?id=730600" target="_blank">星の在り処 Guitar Ver.</a></div>
-            <div class="MusicArtist">Falcom Sound Team jdk</div>
-            <div class="MusicSubtitle"><span class="CollectionTag">实体CD收藏</span></div>
-            <div class="MusicSubtitle" lang="ja">空の轨迹FC&SC スーパーアレンジバージョン</div>
-            <!-- <div class="MusicSubtitle">2012-09</div> -->
-        </div>
-
-        <div class="MusicBox">
-            <div class="MusicIntro">
-                <img src="./image/B/cover/music/yanhe-2022.jpg" class="MusicCover">
-            </div>
-            <div class="MusicTitle"><a href="https://www.bilibili.com/video/BV1We4y1R7m7" target="_blank">心音盒</a></div>
-            <div class="MusicArtist">言和</div>
-            <div class="MusicSubtitle">2022官方生日贺曲</div>
-            <div class="MusicSubtitle">2022-07-11</div>
-        </div>
-
-        <div class="MusicBox">
-            <div class="MusicIntro">
-                <img src="./image/B/cover/music/絶対カラフル宣言.jpg" class="MusicCover">
-            </div>
-            <div class="MusicTitle" lang="ja"><a href="https://music.163.com/#/song?id=573115357" target="_blank">絶対カラフル宣言</a></div>
-            <div class="MusicArtist" lang="ja">佐藤利奈 等</div>
-            <div class="MusicSubtitle">动画『みなみけ おかえり』片尾歌</div>
-            <div class="MusicSubtitle">2022-05</div>
-        </div>
-
-        <div class="MusicBox">
-            <div class="MusicIntro">
-                <img src="./image/B/wo2022-snowflake.jpg" class="MusicCover">
-            </div>
-            <div class="MusicTitle"><a href="#" target="_blank">雪花</a></div>
-            <div class="MusicArtist">北京爱乐合唱团</div>
-            <div class="MusicSubtitle">北京冬奥会开幕式主题歌</div>
-            <div class="MusicSubtitle">2022-02</div>
-        </div>
-
-        <div class="MusicBox">
-            <div class="MusicIntro">
-                <img src="./image/B/cover/music/琉璃.jpg" class="MusicCover">
-            </div>
-            <div class="MusicTitle"><a href="https://music.163.com/#/song?id=1465162316" target="_blank">琉璃</a></div>
-            <div class="MusicArtist">银临</div>
-            <!-- <div class="MusicSubtitle"><span class="CollectionTag">实体CD收藏</span></div> -->
-            <div class="MusicSubtitle">琉璃</div>
-            <div class="MusicSubtitle">2021-08</div>
-        </div>
-
-        <div class="MusicBox">
-            <div class="MusicIntro">
-                <img src="./image/B/cover/music/この場所で。.jpg" class="MusicCover">
-            </div>
-            <div class="MusicTitle" lang="ja"><a href="https://y.qq.com/n/yqq/album/003G9wKv0OXrsY.html" target="_blank">この場所で。</a></div>
-            <div class="MusicArtist" lang="ja">佐々木恵梨 / 亜咲花</div>
-            <div class="MusicSubtitle">动画「摇曳露营△第2季」插入歌</div>
-            <div class="MusicSubtitle">2021-03</div>
-        </div>
-
-        <div class="MusicBox">
-            <div class="MusicIntro">
-                <img src="./image/B/cover/music/神代梦华谭.jpg" class="MusicCover">
-            </div>
-            <div class="MusicTitle"><a href="https://music.163.com/#/song?id=430026994" target="_blank">神代梦华谭</a></div>
-            <div class="MusicArtist">泠鸢yousa</div>
-            <div class="MusicSubtitle">游戏《神代梦华谭》主题歌</div>
-            <div class="MusicSubtitle">2021-02</div>
-        </div>
-
-        <div class="MusicBox">
-            <div class="MusicIntro">
-                <img src="./image/B/cover/music/ヴィヴァーチェ！.jpg" class="MusicCover">
-            </div>
-            <div class="MusicTitle" lang="ja"><a href="https://i.y.qq.com/v8/playsong.html?songid=109072317" target="_blank">ヴィヴァーチェ！</a></div>
-            <div class="MusicArtist" lang="ja">黒沢ともよ 等</div>
-            <div class="MusicSubtitle"><span class="CollectionTag">实体CD收藏</span></div>
-            <div class="MusicSubtitle" lang="ja">ヴィヴァーチェ！</div>
-            <div class="MusicSubtitle">动画「吹响！悠风号2」片尾歌</div>
-        </div>
-
-        <div class="MusicBox">
-            <div class="MusicIntro">
-                <img src="./image/B/cover/music/虹のカメリア.jpg" class="MusicCover">
-            </div>
-            <div class="MusicTitle" lang="ja"><a href="https://music.163.com/#/song?id=836339" target="_blank">虹のカメリア</a></div>
-            <div class="MusicArtist">Sensitive Heart</div>
-            <div class="MusicSubtitle">Scarlet Destiny</div>
-            <div class="MusicSubtitle"><a target="_blank" href="https://thwiki.cc/%E4%B8%8A%E6%B5%B7%E7%BA%A2%E8%8C%B6%E9%A6%86_%EF%BD%9E_Chinese_Tea">上海紅茶館</a>同人作</div>
-        </div>
-
-        <div class="MusicBox">
-            <div class="MusicIntro">
-                <img src="./image/B/cover/music/桜花繚乱.jpg" class="MusicCover">
-            </div>
-            <div class="MusicTitle" lang="ja"><a href="https://music.163.com/#/song?id=482636948" target="_blank">桜花繚乱</a></div>
-            <div class="MusicArtist" lang="ja">はちみつれもん</div>
-            <div class="MusicSubtitle" lang="ja">花天月地</div>
-            <div class="MusicSubtitle"><a target="_blank" href="https://thwiki.cc/%E6%A8%B1%E8%8A%B1%E4%B9%8B%E6%81%8B%E5%A1%9A_%EF%BD%9E_Flower_of_Japan">桜花之恋塚</a>同人作</div>
-        </div>
-
-        <div class="MusicBox">
-            <div class="MusicIntro">
-                <img src="./image/B/cover/music/東方萃夢想.jpg" class="MusicCover">
-            </div>
-            <div class="MusicTitle" lang="ja"><a href="https://music.163.com/#/song?id=412785229" target="_blank">東方萃夢想</a></div>
-            <div class="MusicArtist" lang="ja">交響アクティブNEETs</div>
-            <div class="MusicSubtitle" lang="ja">東方フィルハーモニー交響楽団 4 永&amp;萃</div>
-            <div class="MusicSubtitle"><a target="_blank" href="https://thwiki.cc/%E4%B8%9C%E6%96%B9%E8%90%83%E6%A2%A6%E6%83%B3%EF%BC%88%E6%9B%B2%E7%9B%AE%EF%BC%89">東方萃夢想</a>同人作</div>
-        </div>
-
-        <div class="MusicBox">
-            <div class="MusicIntro">
-                <img src="./image/B/cover/music/君をのせて.jpg" class="MusicCover">
-            </div>
-            <div class="MusicTitle" lang="ja"><a href="https://music.163.com/#/song?id=22824728" target="_blank">君をのせて</a></div>
-            <div class="MusicArtist" lang="ja">久木田 薫</div>
-            <div class="MusicSubtitle" lang="ja">Ghibli The Classics</div>
-        </div>
-
-        <div class="MusicBox">
-            <div class="MusicIntro">
-                <img src="./image/B/cover/music/remember.jpg" class="MusicCover">
-            </div>
-            <div class="MusicTitle" lang="ja"><a href="https://music.163.com/#/song?id=1311347592" target="_blank">remember</a></div>
-            <div class="MusicArtist" lang="ja">Uru</div>
-            <div class="MusicSubtitle" lang="ja">Remember</div>
-            <div class="MusicSubtitle">剧场版动画「夏目友人帐：缘结空蝉」主题歌</div>
-        </div>
-
-        <div class="MusicBox">
-            <div class="MusicIntro">
-                <img src="./image/B/cover/music/春来发几枝.jpg" class="MusicCover">
-            </div>
-            <div class="MusicTitle"><a href="https://music.163.com/#/song?id=33682876" target="_blank">春来发几枝</a></div>
-            <div class="MusicArtist">泠鸢yousa</div>
-            <div class="MusicSubtitle">三月雨</div>
-            <div class="MusicSubtitle">Days幻梦年华乐团创作</div>
-        </div>
-
-        <div class="MusicBox">
-            <div class="MusicIntro">
-                <img src="./image/B/cover/music/春のかたみ.jpg" class="MusicCover">
-            </div>
-            <div class="MusicTitle" lang="ja"><a href="https://music.163.com/#/song?id=574370" target="_blank">春のかたみ</a></div>
-            <div class="MusicArtist" lang="ja">元ちとせ</div>
-            <div class="MusicSubtitle" lang="ja">春のかたみ</div>
-            <div class="MusicSubtitle">动画「怪~ayakashi~」主题歌</div>
-        </div>
-
-        <div class="MusicBox">
-            <div class="MusicIntro">
-                <img src="./image/B/cover/music/クラウドライダー.jpg" class="MusicCover">
-            </div>
-            <div class="MusicTitle" lang="ja"><a href="https://music.163.com/#/song?id=26125980" target="_blank">クラウドライダー</a></div>
-            <div class="MusicArtist" lang="ja">IA/田中隼人</div>
-            <div class="MusicSubtitle"><span class="CollectionTag">实体CD收藏</span></div>
-            <div class="MusicSubtitle" lang="ja">IA/02 -COLOR-</div>
-        </div>
-
-        <div class="MusicBox">
-            <div class="MusicIntro">
-                <img src="./image/B/cover/music/京都の朝.jpg" class="MusicCover">
-            </div>
-            <div class="MusicTitle" lang="ja"><a href="https://music.163.com/#/song?id=26201942" target="_blank">京都の朝</a></div>
-            <div class="MusicArtist" lang="ja">百石元</div>
-            <div class="MusicSubtitle" lang="ja">K-ON! 原声音乐</div>
-            <div class="MusicSubtitle">2017-03</div>
-        </div>
-
-        <div class="MusicBox">
-            <div class="MusicIntro">
-                <img src="./image/B/cover/music/茜さす.jpg" class="MusicCover">
-            </div>
-            <div class="MusicTitle" lang="ja"><a href="https://music.163.com/#/song?id=441116287" target="_blank">茜さす</a></div>
-            <div class="MusicArtist" lang="ja">Aimer</div>
-            <div class="MusicSubtitle" lang="ja">茜さす/everlasting snow</div>
-            <div class="MusicSubtitle">动画「夏目友人帳·伍」主题歌<br>2016-11</div>
-        </div>
-
-        <div class="MusicBox">
-            <div class="MusicIntro">
-                <img src="./image/B/cover/music/黒翼は～と.jpg" class="MusicCover">
-            </div>
-            <div class="MusicTitle" lang="ja"><a href="https://music.163.com/#/song?id=4934355" target="_blank">黒翼は～と</a></div>
-            <div class="MusicArtist">Rosebleu</div>
-            <div class="MusicSubtitle">Tiny Dungeon - BLACK and WHITE OST</div>
-            <div class="MusicSubtitle">信号处理实验素材</div>
-        </div>
-
-        <div class="MusicBox">
-            <div class="MusicIntro">
-                <img src="./image/B/cover/music/ハナノイロ.jpg" class="MusicCover">
-            </div>
-            <div class="MusicTitle" lang="ja"><a href="https://music.163.com/#/song?id=26386031" target="_blank">ハナノイロ</a></div>
-            <div class="MusicArtist">nano.RIPE</div>
-            <div class="MusicSubtitle">动画《花开伊吕波》OP1</div>
-            <div class="MusicSubtitle">2016-05</div>
-        </div>
-
-        <div class="MusicBox">
-            <div class="MusicIntro">
-                <img src="./image/B/cover/music/あさき、ゆめみし.jpg" class="MusicCover">
-            </div>
-            <div class="MusicTitle" lang="ja"><a href="https://music.163.com/#/song?id=4956875" target="_blank">あさき、ゆめみし</a></div>
-            <div class="MusicArtist" lang="ja">瀧沢一留</div>
-            <div class="MusicSubtitle" lang="ja">ゲーム「あさき、ゆめみし」OST</div>
-            <div class="MusicSubtitle">游戏「晨曦时梦见兮」主题歌</div>
-        </div>
-
-        <div class="MusicBox">
-            <div class="MusicIntro">
-                <img src="./image/B/cover/music/裁梦为魂.jpg" class="MusicCover">
-            </div>
-            <div class="MusicTitle"><a href="https://music.163.com/#/song?id=489092574" target="_blank">裁梦为魂</a></div>
-            <div class="MusicArtist">银临</div>
-            <div class="MusicSubtitle"><span class="CollectionTag">实体CD收藏</span></div>
-            <div class="MusicSubtitle">蚍蜉渡海</div>
-        </div>
-
-        <div class="MusicBox">
-            <div class="MusicIntro">
-                <img src="./image/B/cover/music/棠梨煎雪.jpg" class="MusicCover">
-            </div>
-            <div class="MusicTitle"><a href="https://music.163.com/#/song?id=28188427" target="_blank">棠梨煎雪</a></div>
-            <div class="MusicArtist">银临</div>
-            <div class="MusicSubtitle">腐草为萤</div>
-        </div>
-
-        <div class="MusicBox">
-            <div class="MusicIntro">
-                <img src="./image/B/cover/music/God-knows.jpg" class="MusicCover">
-            </div>
-            <div class="MusicTitle" lang="ja"><a href="https://music.163.com/#/song?id=27876224" target="_blank">God knows...</a></div>
-            <div class="MusicArtist" lang="ja">平野綾</div>
-            <div class="MusicSubtitle"><span class="CollectionTag">实体CD收藏</span></div>
-            <div class="MusicSubtitle" lang="ja">TVアニメ『涼宮ハルヒの憂鬱』 Imaginary ENOZ featuring HARUHI</div>
-        </div>
-
-        <div class="MusicBox">
-            <div class="MusicIntro">
-                <img src="./image/B/cover/music/YELL.jpg" class="MusicCover">
-            </div>
-            <div class="MusicTitle" lang="ja"><a href="https://music.163.com/#/song?id=718563" target="_blank">YELL</a></div>
-            <div class="MusicArtist" lang="ja">いきものがかり</div>
-            <div class="MusicSubtitle" lang="ja">YELL/じょいふる</div>
-        </div>
-
-        <div class="MusicBox">
-            <div class="MusicIntro">
-                <img src="./image/B/cover/music/LIFE.jpg" class="MusicCover">
-            </div>
-            <div class="MusicTitle"><a href="https://y.qq.com/n/yqq/song/0037bZFH0EbqAc.html" target="_blank">LIFE</a></div>
-            <div class="MusicArtist">YUI</div>
-            <div class="MusicSubtitle"><span class="CollectionTag">实体CD收藏</span></div>
-            <div class="MusicSubtitle">LIFE</div>
-        </div>
-
-        <div class="MusicBox">
-            <div class="MusicIntro">
-                <img src="./image/B/cover/music/七色シンフォニー.jpg" class="MusicCover">
-            </div>
-            <div class="MusicTitle" lang="ja"><a href="https://music.163.com/#/song?id=30394711" target="_blank">七色シンフォニー</a></div>
-            <div class="MusicArtist" lang="ja">コアラモード.</div>
-            <div class="MusicSubtitle" lang="ja">七色シンフォニー</div>
-            <div class="MusicSubtitle">动画「四月は君の嘘」主题歌</div>
-        </div>
-
-        <div class="MusicBox">
-            <div class="MusicIntro">
-                <img src="./image/B/cover/music/LEVEL5-judgelight.jpg" class="MusicCover">
-            </div>
-            <div class="MusicTitle" lang="ja"><a href="https://music.163.com/#/song?id=725619" target="_blank">LEVEL5 -judgelight-</a></div>
-            <div class="MusicArtist" lang="ja">fripSide</div>
-            <div class="MusicSubtitle" lang="ja">LEVEL5-judgelight-</div>
-            <div class="MusicSubtitle">动画「とある科学の超電磁砲」主题歌</div>
-        </div>
-
-        <div class="MusicBox">
-            <div class="MusicIntro">
-                <img src="./image/B/cover/music/太阳.jpg" class="MusicCover">
-            </div>
-            <div class="MusicTitle"><a href="https://music.163.com/#/song?id=209112" target="_blank">太阳</a></div>
-            <div class="MusicArtist">陈绮贞</div>
-            <div class="MusicSubtitle"><span class="CollectionTag">实体CD收藏</span></div>
-            <div class="MusicSubtitle">太阳</div>
-        </div>
-
-        <div class="MusicBox">
-            <div class="MusicIntro">
-                <img src="./image/B/cover/music/幻の大地-セルペンティナ.jpg" class="MusicCover">
-            </div>
-            <div class="MusicTitle" lang="ja"><a href="https://music.163.com/#/song?id=731799" target="_blank">幻の大地 セルペンティナ</a></div>
-            <div class="MusicArtist" lang="ja">Falcom Sound Team jdk</div>
-            <div class="MusicSubtitle"><span class="CollectionTag">实体CD收藏</span></div>
-            <div class="MusicSubtitle" lang="ja">Zwei!! OST</div>
-        </div>
-
-        <div class="MusicBox">
-            <div class="MusicIntro">
-                <img src="./image/B/cover/music/素敵だね.jpg" class="MusicCover">
-            </div>
-            <div class="MusicTitle" lang="ja"><a href="https://music.163.com/#/song?id=640372" target="_blank">素敵だね</a></div>
-            <div class="MusicArtist" lang="ja">Rikki</div>
-            <div class="MusicSubtitle"><span class="CollectionTag">实体CD收藏</span></div>
-            <div class="MusicSubtitle" lang="ja">素敵だね</div>
-            <div class="MusicSubtitle">游戏 FINAL FANTASY X 主题歌</div>
-        </div>
-
-        <div class="MusicBox">
-            <div class="MusicIntro">
-                <img src="./image/B/cover/music/Time-after-time.jpg" class="MusicCover">
-            </div>
-            <div class="MusicTitle" lang="ja"><a href="https://y.qq.com/n/yqq/song/000Ia3aP0cjrN8.html" target="_blank">Time after time ～花舞う街で～</a></div>
-            <div class="MusicArtist" lang="ja">倉木麻衣</div>
-            <div class="MusicSubtitle" lang="ja">Time after time ～花舞う街で～</div>
-        </div>
-
-        <div class="MusicBox">
-            <div class="MusicIntro">
-                <img src="./image/B/cover/music/如果有来生.jpg" class="MusicCover">
-            </div>
-            <div class="MusicTitle"><a href="https://music.163.com/#/song?id=293948" target="_blank">如果有来生</a></div>
-            <div class="MusicArtist">谭维维</div>
-            <div class="MusicSubtitle">谭某某</div>
-            <div class="MusicSubtitle">不才翻唱</div>
-        </div>
-
-        <div class="MusicBox">
-            <div class="MusicIntro">
-                <img src="./image/B/cover/music/欧若拉.jpg" class="MusicCover">
-            </div>
-            <div class="MusicTitle"><a href="https://y.qq.com/n/yqq/song/001t1qJd0DaKOs.html" target="_blank">欧若拉</a></div>
-            <div class="MusicArtist">张韶涵</div>
-            <div class="MusicSubtitle">欧若拉</div>
-        </div>
-
-        <div class="MusicBox">
-            <div class="MusicIntro">
-                <img src="./image/B/cover/music/菊花台.jpg" class="MusicCover">
-            </div>
-            <div class="MusicTitle"><a href="https://y.qq.com/n/yqq/song/004RUiXu49ufy1.html" target="_blank">菊花台</a></div>
-            <div class="MusicArtist">周杰伦</div>
-            <div class="MusicSubtitle">依然范特西</div>
-        </div>
-
-    </div>
-
-    <div>一等</div>
-
-    <table>
-        <tr>
-            <th>标题</th>
-            <th>艺术家</th>
-            <th>专辑/出处</th>
-            <th>时间</th>
-        </tr>
-        <tr>
-            <td>1</td>
-            <td>2</td>
-            <td>3</td>
-            <td>2023-04</td>
-        </tr>
-    <table>
+<div id="collections_music_main"></div>
 
 </div>
