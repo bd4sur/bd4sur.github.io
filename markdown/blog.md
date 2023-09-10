@@ -177,13 +177,12 @@
 
     <div id="plt">
         <div class="TopArticleFlex" style="margin: 10px 0 15px 0;">
-            <div class="FlexTitle"><a class="TopLink" href="./html/scheme-interpreter.html">Scheme解释器原型</a> / <a class="TopLink" href="./html/auroravm.html">虚拟机原型</a> / <a class="TopLink SPA_TRIGGER" data-target="blog/PL-Scheme学习笔记">学习笔记</a> / <a class="TopLink SPA_TRIGGER" data-target="blog/PL-Animac设计备忘录">设计备忘录</a></div>
-            <div class="FlexTitle"><a class="TopLink SPA_TRIGGER" data-target="blog/PL-驾驭复杂度">驾驭复杂度</a></div>
-            <div class="FlexTitle"><a class="TopLink SPA_TRIGGER" data-target="blog/PL-我想给你整个世界">我想给你整个世界</a></div>
-            <div class="FlexTitle"><a class="TopLink SPA_TRIGGER" data-target="blog/SEC-信息安全攻防">信息安全攻防</a></div>
-            <div class="FlexTitle"><a class="TopLink SPA_TRIGGER" data-target="blog/SEC-心智安全与科学思维">心智安全与科学思维</a></div>
-            <div class="FlexTitle"><a class="TopLink SPA_TRIGGER" data-target="blog/燃烧你的卡路里">燃烧你的卡路里</a></div>
-            <div class="FlexTitle"><a class="TopLink SPA_TRIGGER" data-target="blog/知识管理策略">知识管理策略</a></div>
+            <div class="FlexTitle"><a class="TopLink" href="./html/scheme-interpreter.html">Scheme解释器原型</a> / <a class="TopLink" href="./html/auroravm.html">VM原型</a> / <a class="TopLink SPA_TRIGGER" data-target="blog/PL-Animac设计备忘录">设计备忘录</a></div>
+            <div class="FlexTitle"><a class="TopLink SPA_TRIGGER" data-target="blog/Cyber-计算原理">计算原理</a></div>
+            <div class="FlexTitle"><a class="TopLink SPA_TRIGGER" data-target="blog/Cyber-信息安全">信息安全</a></div>
+            <div class="FlexTitle"><a class="TopLink SPA_TRIGGER" data-target="blog/Cyber-系统思维">系统思维</a></div>
+            <div class="FlexTitle"><a class="TopLink SPA_TRIGGER" data-target="blog/Cyber-心智进化">心智进化</a></div>
+            <div class="FlexTitle"><a class="TopLink SPA_TRIGGER" data-target="blog/Cyber-新陈代谢">新陈代谢</a></div>
         </div>
     </div>
 

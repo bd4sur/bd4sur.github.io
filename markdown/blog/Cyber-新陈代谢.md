@@ -1,8 +1,13 @@
 
-#!title:    燃烧你的卡路里
+#!title:    新陈代谢
 #!date:     2018-11-13
 
 #!content
+
+|版次|日期|:摘要|
+|---------------------|
+|V1|2018-11-13|开始起草初稿，标题为《燃烧你的卡路里》，内容聚焦于细胞呼吸。|
+|V2|2023-09-10|更名为《新陈代谢》，期望从控制论的全局视角去观察生命物质能量转化运动规律。|
 
 : <iframe frameborder="no" border="0" marginwidth="0" marginheight="0" width=330 height=86 src="https://music.163.com/outchain/player?type=2&id=1294924781&auto=0&height=66"></iframe>
 
