@@ -18,7 +18,21 @@
 |V8|2023年4月|将Continuation简介、阴阳问题分析、计算理论（递归论）笔记的全部内容迁移到本文第七章“无穷”；将Brainfuck解释器的全部内容迁移到本文第六章“解释”。|
 |V9|2023年9月|从《我想给你整个世界》重新命名为更直白的《计算原理》；彻底重构目录结构；将 The Little Schemer 学习笔记、SICP学习笔记迁移到本文，作为附录，后续逐渐合并到正文。|
 
-摘要：本文从λ演算和丘奇编码出发，从无到有地构造出加减乘除、递归、乃至简单的解释器，展示了λ演算作为一种抽象计算模型的强大能力。
+# 参考资料总览
+
+- 郝兆宽, 杨睿之, 杨跃. **数理逻辑：证明及其限度**（第二版）[M]. 复旦大学出版社, 2020.
+- 余俊伟, 赵晓玉, 裘江杰, 张立英. **数理逻辑**（第二版）[M]. 中国人民大学出版社, 2020.
+- 郝兆宽, 杨睿之, 杨跃. **递归论：算法与随机性基础**[M]. 复旦大学出版社, 2018.
+- 杨睿之. **作为哲学的数理逻辑**[M]. 复旦大学出版社, 2018.
+- E Nagel, J Newman. **哥德尔证明**[M]. 侯世达编, 陈东威等译. 中国人民大学出版社, 2008.
+- E Nagel, J Newman. **哥德尔证明**[M]. 侯世达编, 刘新文译. 中国轻工业出版社, 2021.
+- Tom Stuart. **计算的本质**[M]. 张伟译. 人民邮电出版社, 2014.
+- Friedman D P, Wand M. [Essentials of Programming Languages (3rd Edition)](http://www.eopl3.com/)[M]. The MIT Press, 2008.
+- 张立昂. **可计算性与计算复杂性导引**（第3版）[M]. 北京大学出版社, 2011.
+- [类型与程序设计语言](https://book.douban.com/subject/1318672/)
+
+
+
 
 ![截自《南家三姐妹》第4季第4话](./image/G2/kanousei.jpg)
 
@@ -1595,7 +1609,9 @@ Y组合子的存在，意味着λ演算可以实现递归，也就意味着对�
 
 2018-07-10撰写大部分主要内容。2023-09-10重新组织已有内容。
 
-## 数学危机与数学基础
+## 引言：我们必须知道，我们必将知道
+
+Wir müssen wissen, wir werden wissen.
 
 在数学的发展历史中，曾经有过三次大的数学危机，直接动摇了数学的根本：
 
@@ -1678,7 +1694,7 @@ Y组合子的存在，意味着λ演算可以实现递归，也就意味着对�
 
 ![是时候展示真正的逻♂辑了<br>引自维基百科](https://upload.wikimedia.org/wikipedia/commons/d/d7/Principia_Mathematica_54-43.png)
 
-## “无穷”的梦魇
+------
 
 希尔伯特开了一家旅馆，这个旅馆有可数无穷多个房间，换言之，希尔伯特旅馆的房间数，和自然数的数量一样多。
 
@@ -1706,7 +1722,63 @@ Y组合子的存在，意味着λ演算可以实现递归，也就意味着对�
 
 ![逻辑代数化和算术逻辑化，双轨并行](./image/G2/architecture.png)
 
-## 目标系统：PM
+哥德尔第一不完全性定理的证明思路是：首先证明所有的递归（可计算）关系都是可表示的；然后证明算术语言语法的算术化是可计算的，进而是可表示的；而后在此基础上证明不动点引理，从而基于可表示的“证明”概念构造出表达“我不可证”的内部公式，导致悖论，最终推出哥德尔第一不完全性定理。
+
+## 语言与模型
+
+一阶算术语言：
+
+$$ \mathscr{L}_{1} = \{ \mathsf{0}, \mathsf{S}, \mathsf{+}, \mathsf{×} \} $$
+
+- 无衬线字体的符号，表示算术语言内部的符号；而常规的有衬线字体符号，表示元语言符号。
+
+初等数论的标准模型：
+
+$$ \mathfrak{N} = ( \mathbb{N} , 0 , S , + , × ) $$
+
+鲁宾逊算术$\mathsf{Q}$有以下7条公理：
+
+- (Q1) $\forall x (\mathsf{S} x \not \approx \mathsf{0})$
+- (Q2) $\forall x \forall y (\mathsf{S} x \approx \mathsf{S} y \to x \approx y)$
+- (Q3) $\forall x (x \not \approx \mathsf{0} \to \exists y (x \approx \mathsf{S} y))$
+- (Q4) $\forall x (x + \mathsf{0} \approx x)$
+- (Q5) $\forall x \forall y (x + \mathsf{S} y \approx \mathsf{S}(x + y))$
+- (Q6) $\forall x (x × \mathsf{0} \approx \mathsf{0})$
+- (Q7) $\forall x \forall y (x × \mathsf{S} y \approx x × y + x)$
+
+说明：
+
+- $\mathsf{Q}$中没有归纳法，但是(Q3)是归纳法的一个特例。
+- 标准自然数模型$\mathfrak{N}$是$\mathsf{Q}$的一个模型，但是$\mathsf{Q}$还有别的模型。
+- $\mathsf{Q}$是个很弱的系统，因为很多算术事实无法在$\mathsf{Q}$中证明。例如引理9.1.2。
+
+**引理9.1.2**（余5.3.4）
+
++ $\mathsf{Q} \not \vdash \forall x \mathsf{S} x \not \approx x$
++ 对每一个标准自然数$n \in \mathbb{N}$，$\mathsf{Q} \vdash \mathsf{S} \mathsf{n} \approx \mathsf{n}$，其中$\mathsf{n} := \mathsf{S}^{n} \mathsf{0}$。
+
+说明：
+
+- $\mathsf{n} := \mathsf{S}^{n} \mathsf{0}$称为自然数$n$的**数码**。数码是沟通自然数（元语言）与系统内部的桥梁。
+- 考虑例9.1.1的模型，断言1是显然的。而断言2可以在自然数上作归纳得到。
+- 断言2的归纳证明是逐点的，而断言1是一致的（统一的，uniform）。
+- 断言2的证明运用了归纳法，这是$\mathsf{Q}$外部的元语言证明。$\mathsf{Q}$中没有归纳法。
+
+**定义9.1.3** 将$x \le y$定义为$\exists z (z + y \approx y)$，并且用$x < y$表示$x \le y \land x \not \approx y$。
+
+**引理9.1.4**（余5.3.7） 内容略。
+
+## 可表示性
+
+令$T$是一个包含$\mathsf{Q}$的理论。以下如果不加说明，则隐含地假定理论$T$为$\mathsf{Q}$。
+
+**定义9.1.5**
+
+## 语法算术化（编码）
+
+## 不动点和自指句
+
+## 不完备性
 
 ## 可靠性、完备性和一致性
 
@@ -5141,19 +5213,3 @@ Brainfuck的行为几乎完全模仿图灵机，是图灵完备的。这段代�
 ```
 
 </details>
-
-# 参考资料选列
-
-- [我想给你整个世界](#)
-- Tom Stuart, 张伟（译）. [计算的本质](https://book.douban.com/subject/26148763/). 人民邮电出版社, 2014.
-- Friedman D P, Wand M. [Essentials of Programming Languages, 3rd Edition](http://www.eopl3.com/)[M]. The MIT Press, 2008.
-- [计算的本质](https://book.douban.com/subject/26148763/)
-- [A Tutorial Introduction to the Lambda Calculus](http://www.inf.fu-berlin.de/inst/ag-ki/rojas_home/documents/tutorials/lambda.pdf)
-- [维基百科 - Fixed-point combinator](https://en.wikipedia.org/wiki/Fixed-point_combinator)
-- [类型与程序设计语言](https://book.douban.com/subject/1318672/)
-- [https://en.wikipedia.org/wiki/Lambda_calculus]()
-- [https://en.wikipedia.org/wiki/Church_encoding]()
-- [http://www.yinwang.org/blog-cn/2013/03/31/purely-functional]()
-
-- 1 / 杨跃, 郝兆宽, 杨睿之. **数理逻辑：证明及其限度**[M]. 复旦大学出版社, 2014.
-- 2 / 张立昂. **可计算性与计算复杂性导引**（第3版）[M]. 北京大学出版社, 2011.
