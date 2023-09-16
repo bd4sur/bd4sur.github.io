@@ -1568,6 +1568,22 @@ $$ \mathfrak{N} = ( \mathbb{N} , 0 , S , + , × ) $$
 
 令$T$是一个包含$\mathsf{Q}$的理论。以下如果不加说明，则隐含地假定理论$T$为$\mathsf{Q}$。
 
+**定义9.1.5 (关系可表示性)** 称自然数上的k元关系$P$为在$T$中**数码逐点可表示的**（numeral-wise representable），简称为**可表示的**，如果存在算术语言公式$\rho(\pmb{x})$（称为关系$P$的一个**表示公式**），使得：
+
+$$
+\begin{align}
+(n_1, n_2, ... , n_k) \in P &\Rightarrow T \vdash \rho (\mathsf{n}_1 , \mathsf{n}_2 , ... , \mathsf{n}_k) 且 \\\\
+(n_1, n_2, ... , n_k) \not \in P &\Rightarrow T \vdash \neg \rho (\mathsf{n}_1 , \mathsf{n}_2 , ... , \mathsf{n}_k)
+\end{align}
+$$
+
+**引理9.1.7** 可表示性的一些简单性质：
+
+- 如果$P$是可表示的，则$P$是递归的。
+- 可表示的关系对布尔运算封闭。
+- 如果
+- $P$
+
 **定义9.1.10 (函数可表示性)** 称函数$f : \mathbb{N}^k \mapsto \mathbb{N}$是**可（在算术语言中）表示的**，如果存在算术语言语句$\phi (x_1 , x_2 , ... , x_k, y)$，使得对于所有的$(n_1, ... , n_k) \in \mathbb{N}^k$，都有$T \vdash \sigma$，则称$\phi$作为一个函数（在算术语言中）表示$f$。其中算术语言语句$\sigma := $
 
 $$ \forall y ( \phi (\mathsf{n}_1 , \mathsf{n}_2 , ... , \mathsf{n}_k, y) \leftrightarrow y \approx \mathsf{f}(\mathsf{n}_1 , \mathsf{n}_2 , ... , \mathsf{n}_k) ) $$
@@ -1584,11 +1600,17 @@ $$ \forall y ( \phi (\mathsf{n}_1 , \mathsf{n}_2 , ... , \mathsf{n}_k, y) \leftr
 
 ## 语法算术化（编码）
 
+所谓算术化的语法，指的是将语言$\mathscr{L}_1$的语法表示成元语言上有关自然数的关系、函数、谓词。
+
 自然数$n$的数码 $\mathsf{n} := \mathsf{S}^n \mathsf{0}$
 
 项的哥德尔编码的数码 $\lceil \sigma \rceil := \mathsf{S}^{\sharp \sigma} \mathsf{0}$
 
 算术语言符号（如$\forall$）的哥德尔编码：$\sharp \forall = 1$，详见下表。
+
+|s|$\mathsf{\forall}$|$\mathsf{0}$|$\mathsf{S}$|$\mathsf{+}$|$\mathsf{\cdot}$|$\mathsf{(}$|$\mathsf{)}$|$\mathsf{\neg}$|$\mathsf{\to}$|$\mathsf{\approx}$|$v_0$|$v_1$|...|
+|-------|
+|#s|1|3|5|7|9|11|13|15|17|19|21|23|...|
 
 算术语言的项或公式$\sigma$的哥德尔编码：$\sharp \sigma = x$；而某一哥德尔编码$x \in \mathbb{N}$所对应的算术语言字符串是$\natural x = \sigma$。注意：
 
@@ -1598,11 +1620,49 @@ $$ \forall y ( \phi (\mathsf{n}_1 , \mathsf{n}_2 , ... , \mathsf{n}_k, y) \leftr
 - 哥德尔编解码过程是互逆的，元语言表述为：$\sharp \sigma = x$，当且仅当$\natural x = \sigma$。
 - 并非所有的自然数都属于哥德尔编码的值域。对于不是哥德尔编码的“一般”自然数$x$，其解码结果$\natural x$是未定义的。
 
+定义“证明”关系和“可证”谓词：
+
+- 证明关系$\mathrm{bew}_T(n, \sharp \sigma) := \{(n, \sharp \sigma) \in \mathbb{N}^2 : \natural n 是 T 上对公式 \sigma 的一个证明序列 \}$
+- 可证谓词$\mathrm{bwb}_T(\sharp \sigma) := \{ \sharp \sigma \in \mathbb{N} : \exists n \mathrm{bew}_T (n, \sharp \sigma) \}$
+
+注意：对于关系$R$而言，$(x,y) \in R$在记法上等同于$R(x,y)$。
+
+将元语言上的“可证性”和“不可证”翻译成元语言表述（**我能理解，但是我找不到依据，所以我不理解**）：
+
+- 可证性：若$\sigma$在$T$中可证，即$T \vdash \sigma$，则 存在$n \in \mathbb{N}$，使得$\mathrm{bew}_T(n, \sharp \sigma)$。
+- 不可证：若$\sigma$在$T$中不可证，即$T \not \vdash \sigma$，则 所有$n \in \mathbb{N}$，使得$(n, \sharp \sigma) \not \in \mathrm{bew}_T$。
+
+现在将上面的元语言表述表示为算术语言的公式。由于关系$\mathrm{bew}_T$是递归的，因此，根据递归关系的可表示性定理，以及关系可表示性的定义（定义9.1.5），可知：
+
+- 若关系$\mathrm{bew}(n, \sharp \sigma)$成立，则 $T \vdash \mathsf{bew}(\mathsf{n}, \lceil \sigma \rceil)$，**并且**
+- 若关系$\mathrm{bew}(n, \sharp \sigma)$不成立，则 $T \vdash \neg \mathsf{bew}(\mathsf{n}, \lceil \sigma \rceil)$
+
+其中无衬线字体的符号$\mathsf{bew}$代表含有两个自由变元的算术语言公式，它是递归关系$\mathrm{bew}_T$在算术语言内部的表示公式。
+
+有了关系的表示公式，就可以把“可证性”和“不可证”的元语言表述，表示为算术语言内部的公式（**引理9.2.1(1)(2)**）：
+
+- 可证性的表示：若$T \vdash \sigma$，则 存在$n \in \mathbb{N}$，使得$T \vdash \mathsf{bew}(\mathsf{n}, \lceil \sigma \rceil)$。
+- 不可证的表示：若$T \not \vdash \sigma$，则 所有$n \in \mathbb{N}$，都使得$T \vdash \neg \mathsf{bew}(\mathsf{n}, \lceil \sigma \rceil)$。
+
+注意：①可以看到，在这里，“可证性”的表示并不是纯粹语法的，而是保留了有关自然数的元语言表述，最突出的表现是表示公式中出现了自然数的数码$\mathsf{n}$；②这里之所以能够把元语言层面的**不**可证“翻进”对象语言，使得元语言中的否定含义可以在对象语言中表示，是因为定义9.1.5的规定。因为递归关系可以同时确认正反两个方面的信息。随后立刻可以看到，对于递归可枚举的关系来说，否定符号是不能随随便便“翻进”对象语言的。
+
+现在考虑元语言中表述的可证性谓词$\mathrm{bwb}_T(x) := \exists y \mathrm{bew}_T (y, x)$。由于关系$\mathrm{bew}_T$是递归的，根据**引理7.5.2**，可证性谓词$\mathrm{bwb}_T$是递归可枚举的。这意味着，可以在有限时间内判定某个$\sharp \sigma \in \mathbb{N}$是否属于$\mathrm{bwb}_T$（即元语言层面$T \vdash \sigma$的含义），但是未必能够在有限的时间内判定其反面，即元语言层面的$T \not \vdash \sigma$（注意不是“证否”，即$T \vdash \neg \sigma$）。
+
+基于这种认识，从正面的角度来看，大致可以理解（但依然不知道如何证明）**引理9.2.1(3)**：
+
+- 若$T \vdash \sigma$，则$T \vdash \mathsf{bwb}(\lceil \sigma \rceil)$。
+
+但是从反面看，即若$T \not \vdash \sigma$，却不能说$\sharp \sigma \not \in \mathrm{bwb}_T$，更不能说“$T \vdash \neg \mathsf{bwb}(\lceil \sigma \rceil)$”，而只能回到引理9.2.1(2)。
+
+## ω-一致性
+
+关于ω-不一致的一种理解，来自Smullyan的《数理逻辑入门》P218：有这样一张支票，上面写着“在某家银行可以兑现”，然而跑遍了无穷多家银行，都说不能兑现。从眼下的状况来说，称这种情况是“ω-不一致”的。
+
 ## 不动点和自指句
 
-## 不完备性
+## 哥德尔-罗瑟不完全性
 
-## 可靠性、完备性和一致性
+## 可靠性、完全性和一致性
 
 |[[#ff0000:<span style="font-size: 18px;">黑</span>#]]|<span style="font-size: 18px;">红</span>|
 |-----|
