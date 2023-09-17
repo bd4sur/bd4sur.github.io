@@ -24,12 +24,13 @@
 - 余俊伟, 赵晓玉, 裘江杰, 张立英. **数理逻辑**[M]. 中国人民大学出版社, 2020.
 - 郝兆宽, 杨睿之, 杨跃. **递归论：算法与随机性基础**[M]. 复旦大学出版社, 2018.
 - 杨睿之. **作为哲学的数理逻辑**[M]. 复旦大学出版社, 2018.
+- R Smullyan. **数理逻辑入门**[M]. 刘新文等译. 中国轻工业出版社, 2021.
 - E Nagel, J Newman. **哥德尔证明**[M]. 侯世达编, 陈东威等译. 中国人民大学出版社, 2008.
 - E Nagel, J Newman. **哥德尔证明**[M]. 侯世达编, 刘新文译. 中国轻工业出版社, 2021.
 - 朱水林. **哥德尔不完全性定理**[M]. 辽宁教育出版社, 1987.
 - R Smullyan. **哥德尔不完全性定理**[M]. 余俊伟译. 科学出版社, 2019.
 - Tom Stuart. **计算的本质**[M]. 张伟译. 人民邮电出版社, 2014.
-- Friedman D P, Wand M. [Essentials of Programming Languages (3rd Edition)](http://www.eopl3.com/)[M]. The MIT Press, 2008.
+- Friedman D P, Wand M. [**Essentials of Programming Languages (3rd Edition)**](http://www.eopl3.com/)[M]. The MIT Press, 2008.
 - 张立昂. **可计算性与计算复杂性导引**（第3版）[M]. 北京大学出版社, 2011.
 - [类型与程序设计语言](https://book.douban.com/subject/1318672/)
 
@@ -1634,8 +1635,8 @@ $$ \forall y ( \phi (\mathsf{n}_1 , \mathsf{n}_2 , ... , \mathsf{n}_k, y) \leftr
 
 现在将上面的元语言表述表示为算术语言的公式。由于关系$\mathrm{bew}_T$是递归的，因此，根据递归关系的可表示性定理，以及关系可表示性的定义（定义9.1.5），可知：
 
-- 若关系$\mathrm{bew}(n, \sharp \sigma)$成立，则 $T \vdash \mathsf{bew}(\mathsf{n}, \lceil \sigma \rceil)$，**并且**
-- 若关系$\mathrm{bew}(n, \sharp \sigma)$不成立，则 $T \vdash \neg \mathsf{bew}(\mathsf{n}, \lceil \sigma \rceil)$
+- 若$(n, \sharp \sigma) \in \mathrm{bew}_T$，则 $T \vdash \mathsf{bew}(\mathsf{n}, \lceil \sigma \rceil)$，**并且**
+- 若$(n, \sharp \sigma) \not \in \mathrm{bew}_T$，则 $T \vdash \neg \mathsf{bew}(\mathsf{n}, \lceil \sigma \rceil)$
 
 其中无衬线字体的符号$\mathsf{bew}$代表含有两个自由变元的算术语言公式，它是递归关系$\mathrm{bew}_T$在算术语言内部的表示公式。
 
