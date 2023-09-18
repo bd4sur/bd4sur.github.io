@@ -1565,6 +1565,11 @@ $$ \mathfrak{N} = ( \mathbb{N} , 0 , S , + , × ) $$
 
 **引理9.1.4**（余5.3.7） 内容略。
 
+## 公式谱系和$\Sigma_1$完全性
+
+- 称算术语言中的公式为$\Delta_0$的，如果它只包含有界量词。
+- 称形如$\exists x_1 ... \exists x_n \theta$的公式是$\Sigma_1$的，其中$\theta$是$\Delta_0$的。
+
 ## 可表示性
 
 令$T$是一个包含$\mathsf{Q}$的理论。以下如果不加说明，则隐含地假定理论$T$为$\mathsf{Q}$。
@@ -1584,6 +1589,8 @@ $$
 - 可表示的关系对布尔运算封闭。
 - 如果
 - $P$
+
+**定理9.1.8 (可证与真的关系，$\mathsf{Q}$的$\Sigma_1$-完全性)** 对任何$\Sigma_1$-语句$\tau$，有$\mathfrak{N} \models \tau$当且仅当$\mathsf{Q} \vdash \tau$。
 
 **定义9.1.10 (函数可表示性)** 称函数$f : \mathbb{N}^k \mapsto \mathbb{N}$是**可（在算术语言中）表示的**，如果存在算术语言语句$\phi (x_1 , x_2 , ... , x_k, y)$，使得对于所有的$(n_1, ... , n_k) \in \mathbb{N}^k$，都有$T \vdash \sigma$，则称$\phi$作为一个函数（在算术语言中）表示$f$。其中算术语言语句$\sigma := $
 
@@ -1628,32 +1635,32 @@ $$ \forall y ( \phi (\mathsf{n}_1 , \mathsf{n}_2 , ... , \mathsf{n}_k, y) \leftr
 
 注意：对于关系$R$而言，$(x,y) \in R$在记法上等同于$R(x,y)$。
 
-将元语言上的“可证性”和“不可证”翻译成元语言表述（**我能理解，但是我找不到依据，所以我不理解**）：
-
-- 可证性：若$\sigma$在$T$中可证，即$T \vdash \sigma$，则 存在$n \in \mathbb{N}$，使得$\mathrm{bew}_T(n, \sharp \sigma)$。
-- 不可证：若$\sigma$在$T$中不可证，即$T \not \vdash \sigma$，则 所有$n \in \mathbb{N}$，使得$(n, \sharp \sigma) \not \in \mathrm{bew}_T$。
-
-现在将上面的元语言表述表示为算术语言的公式。由于关系$\mathrm{bew}_T$是递归的，因此，根据递归关系的可表示性定理，以及关系可表示性的定义（定义9.1.5），可知：
+由于关系$\mathrm{bew}_T$是递归的，因此，根据递归关系的可表示性定理，以及关系可表示性的定义（定义9.1.5），可知：
 
 - 若$(n, \sharp \sigma) \in \mathrm{bew}_T$，则 $T \vdash \mathsf{bew}(\mathsf{n}, \lceil \sigma \rceil)$，**并且**
 - 若$(n, \sharp \sigma) \not \in \mathrm{bew}_T$，则 $T \vdash \neg \mathsf{bew}(\mathsf{n}, \lceil \sigma \rceil)$
 
-其中无衬线字体的符号$\mathsf{bew}$代表含有两个自由变元的算术语言公式，它是递归关系$\mathrm{bew}_T$在算术语言内部的表示公式。
+其中无衬线字体的符号$\mathsf{bew}$代表含有两个自由变元的算术语言公式，它是递归关系$\mathrm{bew}_T$在算术语言内部的表示公式。根据推论9.1.26，$\mathsf{bew}$是$\Delta_1$的。定义$\mathsf{bwb}(x) := \exists y \mathsf{bew}(y, x)$，因此$\mathsf{bwb}$是$\Sigma_1$的。注意：现在还不能说$\mathsf{bwb}$能够表示$\mathrm{bwb}_T$关系。
 
-有了关系的表示公式，就可以把“可证性”和“不可证”的元语言表述，表示为算术语言内部的公式（**引理9.2.1(1)(2)**）：
+将元语言上的“可证性”和“不可证”表述，表示为算术语言内部的公式：
 
-- 可证性的表示：若$T \vdash \sigma$，则 存在$n \in \mathbb{N}$，使得$T \vdash \mathsf{bew}(\mathsf{n}, \lceil \sigma \rceil)$。
-- 不可证的表示：若$T \not \vdash \sigma$，则 所有$n \in \mathbb{N}$，都使得$T \vdash \neg \mathsf{bew}(\mathsf{n}, \lceil \sigma \rceil)$。
+可证性：即$T \vdash \sigma$，在语义层面，有$\mathfrak{N} \models \mathrm{bwb}_T(\sharp \sigma)$。根据可证谓词$\mathrm{bwb}_T$的定义，有：存在$n \in \mathbb{N}$，使得$\mathfrak{N} \models \mathrm{bew}_T(n, \sharp \sigma)$。由于表达“可证性”的算术语言公式$\mathsf{bew}$是$\Delta_1$的因而也是$\Sigma_1$的，根据定理9.1.8，$\mathfrak{N} \models \mathrm{bew}_T(n, \sharp \sigma)$等价于$T \vdash \mathsf{bew}(\mathsf{n}, \lceil \sigma \rceil)$。因此，可以得到重要引理：
+
+**引理9.2.1(1) (可证性的表示)** 若$T \vdash \sigma$，则 存在$n \in \mathbb{N}$，使得$T \vdash \mathsf{bew}(\mathsf{n}, \lceil \sigma \rceil)$。
+
+不可证性：即$T \not \vdash \sigma$，在语义层面，有$\mathfrak{N} \models \neg \mathrm{bwb}_T(\sharp \sigma)$。根据可证谓词$\mathrm{bwb}_T$的定义，有：对所有的$n \in \mathbb{N}$，都有$\mathfrak{N} \models \neg \mathrm{bew}_T(n, \sharp \sigma)$。类比上面的论证，可以得到另一个重要引理：
+
+**引理9.2.1(2) (不可证的表示)** 若$T \not \vdash \sigma$，则 所有$n \in \mathbb{N}$，都使得$T \vdash \neg \mathsf{bew}(\mathsf{n}, \lceil \sigma \rceil)$。
 
 注意：①可以看到，在这里，“可证性”的表示并不是纯粹语法的，而是保留了有关自然数的元语言表述，最突出的表现是表示公式中出现了自然数的数码$\mathsf{n}$；②这里之所以能够把元语言层面的**不**可证“翻进”对象语言，使得元语言中的否定含义可以在对象语言中表示，是因为定义9.1.5的规定。因为递归关系可以同时确认正反两个方面的信息。随后立刻可以看到，对于递归可枚举的关系来说，否定符号是不能随随便便“翻进”对象语言的。
 
-现在考虑元语言中表述的可证性谓词$\mathrm{bwb}_T(x) := \exists y \mathrm{bew}_T (y, x)$。由于关系$\mathrm{bew}_T$是递归的，根据**引理7.5.2**，可证性谓词$\mathrm{bwb}_T$是递归可枚举的。这意味着，可以在有限时间内判定某个$\sharp \sigma \in \mathbb{N}$是否属于$\mathrm{bwb}_T$（即元语言层面$T \vdash \sigma$的含义），但是未必能够在有限的时间内判定其反面，即元语言层面的$T \not \vdash \sigma$（注意不是“证否”，即$T \vdash \neg \sigma$）。
+现在考虑元语言中表述的可证性谓词$\mathrm{bwb}_T$。由于关系$\mathrm{bew}_T$是递归的，根据**引理7.5.2(6)**，可证性谓词$\mathrm{bwb}_T$是递归可枚举的。这意味着，可以在有限时间内判定某个$\sharp \sigma \in \mathbb{N}$是否属于$\mathrm{bwb}_T$（即元语言层面$T \vdash \sigma$的含义$\mathfrak{N} \models \mathrm{bwb}_T(\sharp \sigma)$），但是未必能够在有限的时间内判定其反面，即元语言层面的$T \not \vdash \sigma$（注意不是“证否”，即$T \vdash \neg \sigma$）。
 
-基于这种认识，从正面的角度来看，大致可以理解（但依然不知道如何证明）**引理9.2.1(3)**：
+基于这种认识，从正面的角度（$T \vdash \sigma$）来看，根据引理9.2.1(1)，既然标准自然数模型下存在标准自然数$n \in \mathbb{N}$能够作为公式$\sigma$的证明，那么在一般的非标准模型下（注意非标准模型都是标准自然数模型的尾节扩张），也当然有$\exists n \mathrm{bew}_T(n, \sharp \sigma)$即$\mathrm{bwb}_T(\sharp \sigma)$。因此根据定理9.1.8得以下引理：
 
-- 若$T \vdash \sigma$，则$T \vdash \mathsf{bwb}(\lceil \sigma \rceil)$。
+- **引理9.2.1(3)** 若$T \vdash \sigma$，则$T \vdash \mathsf{bwb}(\lceil \sigma \rceil)$。
 
-但是从反面看，即若$T \not \vdash \sigma$，却不能说$\sharp \sigma \not \in \mathrm{bwb}_T$，更不能说“$T \vdash \neg \mathsf{bwb}(\lceil \sigma \rceil)$”，而只能回到引理9.2.1(2)。
+但是从反面看，即若$T \not \vdash \sigma$，却不能说$\sharp \sigma \not \in \mathrm{bwb}_T$，更不能说“$T \vdash \neg \mathsf{bwb}(\lceil \sigma \rceil)$”。由于$\mathrm{bwb}_T$这种部分递归的性质，当我们想要讨论“不可证”时，只能回到引理9.2.1(2)。引理9.2.1(2)是涉及自然数的，因而不是纯粹语法的。而引理9.2.1(3)是纯粹语法的。这一现象，将对不完全性定理的论证产生重大的影响。一方面，哥德尔特地为此定义了比简单一致性更强的ω-一致性；另一方面，这启发了罗瑟通过引入有界量词来处理这种部分递归性质，从而得到与算术语义无关的、纯粹语法的哥德尔-罗瑟不完全性定理（1936年）。
 
 ## ω-一致性
 
