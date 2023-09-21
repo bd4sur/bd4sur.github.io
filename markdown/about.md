@@ -129,9 +129,9 @@ a.ContactLink:hover { text-decoration: none; border: none; }
             <td><img src="image/G3/crac-logo/CRAC-1.png" style="width: 40px; padding-right: 10px;"></td>
             <td style="text-align: left; font-size: 12px; line-height: 18px;">
                 <div><b>BD4SUR</b> 中国B类业余无线电台</div>
-                <div style="color: #99a; font-size: smaller;">Chinese Class B Amateur Radio Station</div>
+                <div style="color: #909299; font-size: smaller;">Chinese Class B Amateur Radio Station</div>
                 <div>中国·江苏·南京</div>
-                <div style="color: #99a; font-size: smaller;">Nanjing City, Jiangsu Province, China</div>
+                <div style="color: #909299; font-size: smaller;">Nanjing, Jiangsu, China</div>
                 <div style="font-size: smaller;">CQ 24 / ITU 44 / OM91</div>
             </td>
             <td><img src="image/nanjing-location.png" style="width: 80px; padding-left: 10px;"></td>

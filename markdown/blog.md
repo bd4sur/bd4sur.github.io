@@ -49,11 +49,12 @@
 .CategoryArticleTitle {
     color: #567;
     font-size: 10px;
-    line-height: 12px;
+    line-height: 13px;
     cursor: pointer;
-    height: 26px;
-    margin-left: 5px;
+    /* height: 26px; */
+    margin-top: 1px;
     letter-spacing: 1px;
+    transform: scale(0.8);
 }
 .CategoryList {
     display: flex;
@@ -63,29 +64,29 @@
 }
 .CategoryBlock {
     display: flex;
-    margin: 15px;
+    margin: 8px;
     border-radius: 10px;
-    align-content: space-between;
     justify-content: center;
-    align-items: stretch;
+    align-items: center;
+    flex-direction: column;
 }
 .CategoryIcon {
     display: inline-block;
     width: 26px; height:26px;
     line-height: 26px;
-    background: linear-gradient(0deg, #7e90ab, #ecf5ff);
+    background: linear-gradient(0deg, #aab6c7, #e6edf5);
     color: #fff;
     text-align: center;
     font-size: 14px;
     font-weight: bold;
-    text-shadow: 1px 1px 2px #263a66;
+    text-shadow: 1px 1px 2px #929aac;
     border-radius: 3px;
     cursor: pointer;
 }
 
 .Horizon {
     line-height: 16px;
-    margin: 24px auto;
+    margin: 20px auto;
     text-align: center;
     cursor: pointer;
     width: fit-content;
