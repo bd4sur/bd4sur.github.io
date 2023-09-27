@@ -6,17 +6,15 @@
 
 **版本记录**
 
-|版次|日期|:摘要|
-|---------------------|
-|V1|2016年9月5日|作为λ演算和Y组合子的学习笔记，完成《奇妙的Y组合子》第一版。|
-|V2|2017年9月30日|开始起草《我想给你整个世界》。|
-|V3|2018年9月18日|完成《奇妙的Y组合子》最终版。|
-|V4|2021年3月|将《奇妙的Y组合子》合并到本文。|
-|V5|2022年1月|将构造monus的方法（原为独立文章）合并到本文。|
-|V6|2022年5月|将《一条永恒的金带》文中部分内容整合到本文。《金带》一文完成于2018年7月，此后没有做过大规模的补充。|
-|V7|2022年9月|将《一条永恒的金带》文中剩余的关于数学基础和哥德尔不完全性定理的全部内容迁移到本文第八章“超越无穷”，《金带》一文被完全吸收至本文，不复存在。|
-|V8|2023年4月|将Continuation简介、阴阳问题分析、计算理论（递归论）笔记的全部内容迁移到本文第七章“无穷”；将Brainfuck解释器的全部内容迁移到本文第六章“解释”。|
-|V9|2023年9月|从《我想给你整个世界》重新命名为更直白的《计算原理》；彻底重构目录结构；将 The Little Schemer 学习笔记、SICP学习笔记迁移到本文，作为附录，后续逐渐合并到正文。|
+- 2016年9月5日：作为λ演算和Y组合子的学习笔记，完成《奇妙的Y组合子》第一版。
+- 2017年9月30日：开始起草《我想给你整个世界》。
+- 2018年9月18日：完成《奇妙的Y组合子》最终版。
+- 2021年3月：将《奇妙的Y组合子》合并到本文。
+- 2022年1月：将构造monus的方法（原为独立文章）合并到本文。
+- 2022年5月：将《一条永恒的金带》文中部分内容整合到本文。《金带》一文完成于2018年7月，此后没有做过大规模的补充。
+- 2022年9月：将《一条永恒的金带》文中剩余的关于数学基础和哥德尔不完全性定理的全部内容迁移到本文第八章“超越无穷”，《金带》一文被完全吸收至本文，不复存在。
+- 2023年4月：将Continuation简介、阴阳问题分析、计算理论（递归论）笔记的全部内容迁移到本文第七章“无穷”；将Brainfuck解释器的全部内容迁移到本文第六章“解释”。
+- 2023年9月：从《我想给你整个世界》重新命名为更直白的《计算原理》；彻底重构目录结构；将 The Little Schemer 学习笔记、SICP学习笔记迁移到本文，作为附录，后续逐渐合并到正文。
 
 # 参考资料总览
 
@@ -29,6 +27,7 @@
 - E Nagel, J Newman. **哥德尔证明**[M]. 侯世达编, 刘新文译. 中国轻工业出版社, 2021.
 - 朱水林. **哥德尔不完全性定理**[M]. 辽宁教育出版社, 1987.
 - R Smullyan. **哥德尔不完全性定理**[M]. 余俊伟译. 科学出版社, 2019.
+- Martin Hirzel. [**On formally undecidable propositions of Principia Mathematica and related systems I (An English translation)**](https://web.archive.org/web/20040916041216/http://www.research.ibm.com/people/h/hirzel/papers/canon00-goedel.pdf). 2000.
 - Tom Stuart. **计算的本质**[M]. 张伟译. 人民邮电出版社, 2014.
 - Friedman D P, Wand M. [**Essentials of Programming Languages (3rd Edition)**](http://www.eopl3.com/)[M]. The MIT Press, 2008.
 - 张立昂. **可计算性与计算复杂性导引**（第3版）[M]. 北京大学出版社, 2011.
@@ -178,7 +177,7 @@ f := (λ (x) (f x))
 + SICP的最大和问题，以及多步递归与多个寄存器、时域平移的关系
 + Ackermann函数
 
-## 原始递归函数和部分递归函数
+## 递归函数与可计算性
 
 **合成和原始递归操作**
 
@@ -530,7 +529,7 @@ The Little Schemer 第九章给出了这样的一个函数：
 
 基于这个“论题”，只要是图灵机可实现的计算，那么就认为它是直观可计算的。所谓的直观可计算并不是一个严格的形式化概念，所以这个论题也只能叫“论题”。因为还没有发现“直观可计算”但图灵机无法计算的算法，所以大家默认CT论题是正确的。
 
-## 通用计算机
+## 递归定理与通用计算机
 
 克林尼（Kleene）正规型定理
 
@@ -585,7 +584,7 @@ function foo(array, index) {
 }
 ```
 
-## 递归定理
+**递归定理**
 
 撰文时恰好发现一个绝妙的Quine，在这里：https://github.com/mame/quine-relay
 
@@ -721,6 +720,8 @@ http://blog.csdn.net/pongba/article/details/1336028
 > 总感觉递归是人类思维的一个奇点、一个bug。
 
 > 以上：2017.9.25
+
+## 归约和度
 
 ## 丘奇编码
 
@@ -1559,30 +1560,27 @@ Wir müssen wissen, wir werden wissen.
 
 进一步地，如果将$G$加入公理集合，则总可以构造出类似的$G'$。因此，算术理论是强不完全的。
 
-**细节**
+**第一步：构造自我指涉的PM命题$G$**
 
-【第一步：构造自我指涉的PM命题$G$】
+构造PM内部公式$G$，对应元数学命题“$G$在PM中不可证”，即“$G$不是PM的定理”。换句话说，“哥德尔数为$g$的公式不是定理”。
 
-- 构造PM内部公式$G$，对应元数学命题“$G$在PM中不可证”，即“$G$不是PM的定理”。
-- 换句话说，“哥德尔数为$g$的公式不是定理”。
+首先，构造含有一个自由变元$\sigma$的公式$\gamma(\sigma) := \neg (\exists x)\mathsf{Dem}(x, \mathsf{Sub}(\sigma, 17, \sigma))$，其中$\sigma$可以替换成其他合式PM公式，因而$\gamma$的哥德尔数由$\sigma$决定。
 
-- 首先，构造哥德尔数为$n$的公式$\gamma := ～(∃x)Dem(x, Sub(\mathrm Y, 17, \mathrm Y))$，其中$\mathrm Y$是一个“元”PM符号，可视为可以替换成其他合式PM公式的“占位符”。
-- 将哥德尔数$n$对应的PM数字表示形式$N$<sup>[注]</sup>，代入上式$\gamma$中的$\mathrm Y$，得到公式$\Gamma := ～(∃x)Dem(x, Sub(N, 17, N))$
-- 如何理解PM公式$\gamma$和$\Gamma$的关系呢？事实上$\gamma$**并不是一个确定的公式**，因为其中有个“变量”$\mathrm Y$，它的哥德尔数$n$实际上也是不确定的。我们不妨把$\gamma$看成是一个“公式方程”。而$\Gamma$是什么呢？$\Gamma$是一个**确定**的PM公式，它的哥德尔数是确定的数$n$，对应确定的PM表示形式$N$，它的PM公式形式也不含有任何不确定的部分。因为$N$和$n$是同一个数字的不同表示形式，而根据$\Gamma$的特点，$N$的形式决定了$n$的取值，也就是说，$\Gamma$通过哥德尔数进行了**自我指涉**。
-- 回想$\Gamma$的构造过程：将$\Gamma$自身的哥德尔数$N$代入$\gamma$自身的变量$\mathrm Y$中，就得到$\Gamma$。也就是说，$\Gamma$是“公式方程”$\mathrm Y = \mathrm{PM\_WFF\_of\_Godel\_Number\_of}(\gamma(\mathrm Y))$的一个解。
+哥德尔证明，存在某个$\sigma_0$，使得$\gamma(\sigma_0)$的哥德尔数的数码，恰好等于$\sigma_0$。那么，如果将$\gamma(\sigma_0)$记为$\Gamma$，则其哥德尔数的数码$\lceil \Gamma \rceil$就是$\sigma_0$，相应地，语句$\Gamma$就是
 
-- 依据对应引理，PM公式$\Gamma := ～(∃x)Dem(x, Sub(N, 17, N))$的元数学意义是：“哥德尔数为$sub(n, 17, n)$的PM公式是PM内不可证的。”注意这句话里面的符号都是小写的，也就是以数论的语言，表达了这个元数学命题。
-- 这个元数学意义，恰好是我们最初打算构造的PM公式$G$，所表达的元数学意义。
-- 也就是说，**PM公式$\Gamma := ～(∃x)Dem(x, Sub(N, 17, N))$就是我们所需要的$G$。**
+$$ \Gamma := \neg (\exists x)\mathsf{Dem}(x, \mathsf{Sub}(\lceil \Gamma \rceil, 17, \lceil \Gamma \rceil)) $$
 
-- PM公式$G$的哥德尔数$g=n$恰好是PM公式$G$对应的数论命题$～(∃x)dem(x, sub(N, 17, N))$的一部分！
-- 也就是说，构造了这样的一个对应的元数学诠释：
-- “‘哥德尔数为$g$的公式是不可证的’这个公式是不可证的”
-- 总之，的确可以构造出PM公式G，它说它自己不是PM的定理。
+因为$\lceil \Gamma \rceil$是自己所在语句$\Gamma$的哥德尔数的数码，因此可以说，$\Gamma$通过哥德尔数进行了**自我指涉**。
 
-> 注：“$n$对应的PM数字表示形式”，指的是在PM系统中，用于表示数$n$的合式公式$N$，即形如“ss..s0”这样的字符串。这里一定要理解，数和用于表示数字的公式，是不同语言层面上言说的东西。
+依据对应引理，算术理论内部的公式$\Gamma$的元数学意义是：“哥德尔数为$sub(\sharp \Gamma, 17, \sharp \Gamma)$的PM公式是PM内不可证的。”这个元数学意义，恰好是我们最初打算构造的PM公式$G$，所表达的元数学意义。
 
-【第二步：$G$在一致的PM系统中是不可判定的】
+也就是说，**PM公式$\Gamma := \neg (\exists x)\mathsf{Dem}(x, \mathsf{Sub}(\lceil \Gamma \rceil, 17, \lceil \Gamma \rceil))$就是我们所需要的$G$。**
+
+PM公式$G$的哥德尔数$g=n$恰好是PM公式$G$对应的数论命题$～(∃x)dem(x, sub(N, 17, N))$的一部分！也就是说，构造了这样的一个对应的元数学诠释：“‘哥德尔数为$g$的公式是不可证的’这个公式是不可证的。”
+
+总之，的确可以构造出PM公式G，它说它自己不是PM的定理。
+
+**第二步：$G$在一致的PM系统中是不可判定的**
 
 - 可以证明：“$G$是可证的，当且仅当$～G$是可证的”。<sup>[注]</sup>
 - 如果PM系统内部可以证明两个互相矛盾的命题，说明PM是不一致的。也就是说，若PM是一致的，则$G$和$～G$至少有一个不可证。
@@ -1593,7 +1591,7 @@ Wir müssen wissen, wir werden wissen.
 
 > 所谓的ω-不一致指的是：现有形式系统$C$，若其公式$(\exists x)P(x)$和无穷多个公式$～P(0)$、$～P(s0)$、$～P(ss0)$、……都是可证的，则$C$是ω-不一致的。
 
-【第三步：$G$是元数学层面上的“真理”】
+**第三步：$G$是元数学层面上的“真理”**
 
 - 哥德尔说明，尽管$G$是PM不可判定的，但$G$在元数学意义/算术意义上是真的。
 - 因为$G$的元数学意义是“某个命题自身是PM不可证的”，其算术意义是“并不存在一个数，满足这个数自身对应的某种性质”。
@@ -1601,22 +1599,21 @@ Wir müssen wissen, wir werden wissen.
 - 第二步的对$G$的不可判定性的元数学证明，实际上构成了对$G$的元数学真理性的证明。
 - 综上，$G$在元数学层面上是真的。
 
-【第四步：由于$G$的存在，PM是不完全的】
+**第四步：由于$G$的存在，PM是不完全的**
 
 - “不完全”的意思是：存在系统内部不可形式判定的真命题。
 - 在一致的前提下，存在PM命题$G$（第一步），它既是不可判定的（第二步），又是“真的”（第三步），所以PM必然是不完全的。
 
-【第五步：还可以抢救一下吗？放弃治疗吧】
+**第五步：还可以抢救一下吗？放弃治疗吧**
 
 - 如果把刚刚找到的$G$作为公理，给PM打补丁呢？
 - 然而，即便在PM中添加新的公理，使PM更强，但按照上面的套路，
 - 总可以类似地找到另外一个$G'$，它是在“增强PM系统”中不可判定的真命题。
 - 无论如何增强这个系统，都无法逃脱这个本质上的限制。
-- 也就是说，**PM在本质上是不完全的。**
 
 至此，得到了著名的哥德尔第一不完全性定理：PM系统是不完全的。
 
-## 语言与模型
+## 语言、模型、理论
 
 |[[#ff0000:<span style="font-size: 18px;">黑</span>#]]|<span style="font-size: 18px;">红</span>|
 |-----|
@@ -1665,7 +1662,7 @@ $$ \mathfrak{N} = ( \mathbb{N} , 0 , S , + , × ) $$
 
 **引理9.1.4**（余5.3.7） 内容略。
 
-## 公式谱系和$\Sigma_1$完全性
+**公式谱系和$\Sigma_1$完全性**
 
 - 称算术语言中的公式为$\Delta_0$的，如果它只包含有界量词。
 - 称形如$\exists x_1 ... \exists x_n \theta$的公式是$\Sigma_1$的，其中$\theta$是$\Delta_0$的。
@@ -1728,9 +1725,29 @@ $$ \forall y ( \phi (\mathsf{n}_1 , \mathsf{n}_2 , ... , \mathsf{n}_k, y) \leftr
 - 哥德尔编解码过程是互逆的，元语言表述为：$\sharp \sigma = x$，当且仅当$\natural x = \sigma$。
 - 并非所有的自然数都属于哥德尔编码的值域。对于不是哥德尔编码的“一般”自然数$x$，其解码结果$\natural x$是未定义的。
 
-定义“证明”关系和“可证”谓词：
+将算术语言的语法概念表示为自然数上的关系和谓词。这意味着，某个（某些）算术语言公式的哥德尔编码属于这些关系和谓词，等价于这个（这些）公式具备这些关系和谓词所描述的语法性质。有了这些谓词和关系，就可以将算术语言公式的元语言性质在元语言中表述出来，再根据关系的可表示性定理，就可以将算术语言的元语言性质用算术语言自身的公式来表述出来。这样，算术语言就真正实现了“自己描述自己”，同时明确将元语言（算术关系）和对象语言（纯粹符号序列）区分开来。
 
-证明关系：
+在哥德尔的论文中，构造了46个谓词和关系，最终构造出最为关键的“可证”谓词。前45个谓词和关系都是递归的，唯独第46个谓词、也是最重要的“可证”谓词，是递归可枚举的。正因为如此，哥德尔1931年发表的（第一）不完全性定理实际上是以一个较强的条件——ω-一致性——为前提，因而是一个较弱的结论。不过后面会讲到，Rosser证实了哥德尔第一不完全性定理可以被推广为更强的、更一般的不完全性定理。
+
+以下便是哥德尔论文中46个谓词和关系的构造方式和元语言含义。注意：对于关系$R$而言，$(x,y) \in R$在记法上等同于$R(x,y)$。
+
+**(1) 整除关系**
+
+$$ y \vert x \Leftrightarrow (\exists z ≤ x) (x \approx y \times z) $$
+
+**(2) 质数谓词**
+
+**(3) prFactor关系**
+
+**(4) 阶乘关系**
+
+**(42) 公理谓词** $\mathrm{isAxiom}(x)$
+
+**(43) xx序列关系** $\mathrm{immConseq}(x, y, z)$
+
+**(44) 证明序列谓词** $\mathrm{isProofFigure}(x)$
+
+**(45) 证明关系** $\mathrm{bew}(x, y)$
 
 $$
 \begin{align}
@@ -1739,11 +1756,10 @@ $$
 \end{align}
 $$
 
-可证谓词：
+**(46) 可证谓词** $\mathrm{bwb}(x)$
 
 $$ \mathrm{bwb}_T(\sharp \sigma) := \{ \sharp \sigma \in \mathbb{N} : \exists n \mathrm{bew}_T (n, \sharp \sigma) \} $$
 
-注意：对于关系$R$而言，$(x,y) \in R$在记法上等同于$R(x,y)$。
 
 由于关系$\mathrm{bew}_T$是递归的，因此，根据递归关系的可表示性定理，以及关系可表示性的定义（定义9.1.5），可知：
 
@@ -1752,15 +1768,15 @@ $$ \mathrm{bwb}_T(\sharp \sigma) := \{ \sharp \sigma \in \mathbb{N} : \exists n 
 
 其中无衬线字体的符号$\mathsf{bew}$代表含有两个自由变元的算术语言公式，它是递归关系$\mathrm{bew}_T$在算术语言内部的表示公式。根据推论9.1.26，$\mathsf{bew}$是$\Delta_1$的。定义$\mathsf{bwb}(x) := \exists y \mathsf{bew}(y, x)$，因此$\mathsf{bwb}$是$\Sigma_1$的。[[#f00:注意：现在还不能说$\mathsf{bwb}$能够表示$\mathrm{bwb}_T$关系。#]]
 
-将元语言上的“可证性”和“不可证”表述，表示为算术语言内部的公式：
-
-可证性：即$T \vdash \sigma$，在语义层面，根据可证性的元语言含义，存在$n \in \mathbb{N}$，使得$\mathfrak{N} \models \mathsf{bew}(\mathsf{n}, \lceil \sigma \rceil)$。由于$\mathsf{bew}$是$\Delta_1$的因而也是$\Sigma_1$的，根据定理9.1.8，$\mathfrak{N} \models \mathsf{bew}(\mathsf{n}, \lceil \sigma \rceil)$等价于$T \vdash \mathsf{bew}(\mathsf{n}, \lceil \sigma \rceil)$。因此，可以得到重要引理：
+将元语言上的“可证性”和“不可证”表述，表示为算术语言内部的公式，有以下4个重要引理。
 
 **引理9.2.1(1) (可证性的表示)** 若$T \vdash \sigma$，则 存在$n \in \mathbb{N}$，使得$T \vdash \mathsf{bew}(\mathsf{n}, \lceil \sigma \rceil)$。
 
-不可证性：即$T \not \vdash \sigma$，在语义层面，根据可证性的元语言含义，对所有的$n \in \mathbb{N}$，都有$\mathfrak{N} \models \neg \mathsf{bew}(\mathsf{n}, \lceil \sigma \rceil)$。类比上面的论证，可以得到另一个重要引理：
+证明：可证性，即$T \vdash \sigma$，在语义层面，根据可证性的元语言含义，存在$n \in \mathbb{N}$，使得$\mathfrak{N} \models \mathsf{bew}(\mathsf{n}, \lceil \sigma \rceil)$。由于$\mathsf{bew}$是$\Delta_1$的因而也是$\Sigma_1$的，根据定理9.1.8，$\mathfrak{N} \models \mathsf{bew}(\mathsf{n}, \lceil \sigma \rceil)$等价于$T \vdash \mathsf{bew}(\mathsf{n}, \lceil \sigma \rceil)$。因此，引理9.2.1(1)得证。□
 
 **引理9.2.1(2) (不可证的表示)** 若$T \not \vdash \sigma$，则 所有$n \in \mathbb{N}$，都使得$T \vdash \neg \mathsf{bew}(\mathsf{n}, \lceil \sigma \rceil)$。
+
+证明：不可证性，即$T \not \vdash \sigma$，在语义层面，根据可证性的元语言含义，对所有的$n \in \mathbb{N}$，都有$\mathfrak{N} \models \neg \mathsf{bew}(\mathsf{n}, \lceil \sigma \rceil)$。类比上面的论证，可以得到引理9.2.1(2)。□
 
 注意：①可以看到，在这里，“可证性”的表示并不是纯粹语法的，而是保留了有关自然数的元语言表述，最突出的表现是表示公式中出现了自然数的数码$\mathsf{n}$；②这里之所以能够把元语言层面的**不**可证“翻进”对象语言，使得元语言中的否定含义可以在对象语言中表示，是因为定义9.1.5的规定。因为递归关系可以同时确认正反两个方面的信息。随后立刻可以看到，对于递归可枚举的关系来说，否定符号是不能随随便便“翻进”对象语言的。
 
@@ -1777,6 +1793,8 @@ $$ \mathrm{bwb}_T(\sharp \sigma) := \{ \sharp \sigma \in \mathbb{N} : \exists n 
 另外，引理9.2.1(3)的逆命题，在一般情况下并不成立，除非知道$\mathfrak{N}$是$T$的模型，或者知道$T$是ω-一致的。用反证法可以证明这一点。假设$T \not \vdash \sigma$，根据引理9.1.2(2)，可知对于所有$n \in \mathbb{N}$，都使得$T \vdash \neg \mathsf{bew}(\mathsf{n}, \lceil \sigma \rceil)$。然而，$T \vdash \mathsf{bwb}(\lceil \sigma \rceil)$也就是$T \vdash \exists y \mathsf{bew}(y, \lceil \sigma \rceil)$，这与“$T$是ω-一致的”的前提矛盾，因此，假设不成立，从而得到以下引理（对应《数理逻辑入门》P222问题13）：
 
 **引理9.2.1(4)** 若$T \vdash \mathsf{bwb}(\lceil \sigma \rceil)$且$T$是ω-一致的，则$T \vdash \sigma$。
+
+[这里](http://www.von-eitzen.de/math/tntrep.xml)提供了不可证谓词的一个直观样貌。（[来源](https://www.zhihu.com/question/319365552/answer/2311005501)）
 
 ## 一致性、完全性和可判定性
 
@@ -1890,7 +1908,7 @@ $$ \mathsf{Q} \vdash \sigma \leftrightarrow \psi(\lceil \sigma \rceil) $$
 
 ![ ](./image/G1/Haruhi-8-22-34.jpg)
 
-一致性不可自证
+**一致性不可自证**
 
 PM足够强大到证明自身的一致性吗？很遗憾，不可能。请看证明：
 
@@ -1901,11 +1919,26 @@ PM足够强大到证明自身的一致性吗？很遗憾，不可能。请看证
 - 然而刚才已经证明，如果$G$可证，则$～G$可证，意味着PM不一致，矛盾。
 - 因此，**如果PM一致，则PM不可能证明自身的一致性。**
 
-这就是哥德尔第二不完全性定理。
+这就是哥德尔第二不完全性定理。该定理并未排除在PM系统外证明PM一致性的可能性！
 
-但请注意，哥德尔的证明**并未排除在PM系统外证明PM一致性的可能性！**
+**不完全性的推论**
+
+- 存在不一致的理论，它能证明自己一致，也能证明自己不一致。
+- 存在一致的理论，它不能证明自己一致，也不能证明自己不一致。
+- 存在一致的理论，它不能证明自己一致，但是能证明自己不一致。
+- 存在一致的理论，它能证明自己一致，但是不能证明自己不一致。
+
+**自然的不可判定的真命题**
+
+古德斯坦定理
 
 ## 向创造思维致敬
+
+**Gödel's Disjunction 哥德尔的选言命题**
+
+> So the following disjunctive conclusion is inevitable: Either mathematics is incompleteable in this sense, that its evident axioms can never be comprised in a finte rule, that is to say, **the human mind (even within the realm of pure mathematics) infinitely surpasses the powers of any finite machine, or else there exist absolutely unsolvable diophantine problems.**
+
+[参考资料](https://www.zhihu.com/question/549218308/answer/2711623909)
 
 > 演算机械的固有局限性并不意味着不能用物理学或者化学的方法来解释生命和理性。哥德尔定理既没有排除、也没有肯定这种可能性。哥德尔定理的确表明，**人类思想的结构和力量，要远比任何机器都要复杂和微妙。**哥德尔证明本身，便是这种**复杂**和微妙的显著例证。**我们完全不必为此失望，而应把握住这个对创造性理性再次赞赏的机会。**
 
@@ -1919,7 +1952,7 @@ PM足够强大到证明自身的一致性吗？很遗憾，不可能。请看证
 
 判定问题、函数问题（搜索问题）、优化问题
 
-算法信息论
+图灵度、算法信息论
 
 理解复杂系统
 
