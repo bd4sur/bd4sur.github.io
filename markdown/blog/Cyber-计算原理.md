@@ -1817,6 +1817,10 @@ $$ \mathrm{bwb}_T(\sharp \sigma) := \{ \sharp \sigma \in \mathbb{N} : \exists n 
 
 $$ \mathsf{Q} \vdash \sigma \leftrightarrow \psi(\lceil \sigma \rceil) $$
 
+参考资料【S C Kleene. [**Origins of Recursive Function Theory**](https://courses.fit.cvut.cz/MI-VYC/kleene-origins.pdf). Annals of the History of Computing, 1981,3(1). 已备份.】（被参考资料【刘晓力. **从丘奇-图灵论题到多奇原理**. 自然辩证法研究, 2022,18(增刊):23-27. 已备份.】所引用）指出，克林尼在了解到丘奇论题之后，试图运用对角线论证法推翻这个论题，然而：
+
+> When Church proposed this thesis, I sat down to disprove it by diagonalizing out of the class of the λ-definable functions. But, quickly realizing that the diagonalization cannot be done effectively, I became overnight a supporter of the thesis.
+
 参考资料《递归论：算法与随机性基础》书中分享了一个神秘的小故事：
 
 > A教授是著名数理逻辑专家，得到克林尼的真传，递归定理用得出神入化。有一次他和B教授聊天时，他说：“递归定理真是太神奇了，我用了无数次，但从不明白它说的是什么。”“尊嘟假嘟？”B教授说，“我跟你讲，递归定理其实是这么一回事……”。“从那时起，我终于明白了递归定理究竟说的是什么”，A教授后来回忆说，“但我再也不知道怎么用它了！”
@@ -1937,7 +1941,7 @@ PM足够强大到证明自身的一致性吗？很遗憾，不可能。请看证
 
 **Gödel's Disjunction 哥德尔的选言命题**
 
-> So the following disjunctive conclusion is inevitable: Either mathematics is incompleteable in this sense, that its evident axioms can never be comprised in a finte rule, that is to say, **the human mind (even within the realm of pure mathematics) infinitely surpasses the powers of any finite machine, or else there exist absolutely unsolvable diophantine problems.**
+> So the following disjunctive conclusion is inevitable: Either mathematics is incompletable in this sense, that its evident axioms can never be comprised in a finite rule, that is to say, **the human mind (even within the realm of pure mathematics) infinitely surpasses the powers of any finite machine, or else there exist absolutely unsolvable diophantine problems.**
 
 [参考资料](https://www.zhihu.com/question/549218308/answer/2711623909)
 
