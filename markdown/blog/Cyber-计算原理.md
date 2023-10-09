@@ -1331,34 +1331,7 @@ V[-1] = (lambda (u) x)
 
 ## Y组合子
 
-[皮亚诺算术](https://en.wikipedia.org/wiki/Peano_axioms)
-
-上文中，我们从无到有地实现了自然数和自然数上面的运算，其中最核心的构造方式就是“后继”。从0开始，不断地取后继数，可以枚举出“所有”的自然数。之所以要给“所有”打引号，是因为我们总是可以给“所有”自然数里面最大的那个取后继，得到的仍然是“所有”自然数。这暗示着，自然数集合是一种“自我同构”的集合。通过自我指涉以致无穷，这就是递归。
-
-在实现除法和求余运算的时候，我们已经用到了递归。事实上，加减乘除四则运算，无一不是在后继函数基础上的递归。例如：
-
-$$
-\begin{cases}
-{ADD}(0,n) = n, \\\\
-{ADD}(m,n) = \mathrm{INC}({ADD}(m-1,n))
-\end{cases}
-$$
-
-递归是普遍的。除了四则运算之外，还有许多问题是可以用递归的方法解决的。例如，阶乘运算`FACT`是一个非常典型的递归函数，几乎所有讲递归的文章都会提到阶乘。
-
-```:Scheme
-(define FACT
-  (lambda (n)
-    (IF (IS_EQUAL n @0)
-        @1
-        (lambda (x y) ((MUL n (FACT (DEC n)))
-                       x
-                       y)))))
-```
-
-目前，我们已经实现了三个递归形式的函数，也即自我调用的函数。不知道你有没有注意到，在我们写的代码中，除了`lambda`和`define`，已经没有任何“保留字”了。然而，在第一章我们提到过，λ演算并没有`define`机制，所有的函数都是匿名函数。如果函数没有名字，就不能通过名字引用自己，也就无法实现递归了。果真如此吗？
-
-我们看一个神奇的构造。下面的函数`Y`称为**Y不动点组合子**：
+上文描述的λ演算，除了`lambda`和`define`没有任何其他的“保留字”。然而，λ演算实际上并没有`define`机制，所有的函数都是匿名的。表面上看，这引发一个问题：如果不允许给函数命名，就无法通过名字实现自我引用，也就无法实现递归了。一门无法实现递归的形式语言，它的价值是要大打折扣的。幸运的是，Haskell Brooks Curry 发现了一个神奇的构造，被称为**Y不动点组合子**，其形式如下（请允许我最后一次使用`define`，因为有了Y组合子，我们就再也不需要`define`了）：
 
 ```:Scheme
 (define Y
@@ -1377,27 +1350,26 @@ $$
       即 (F (Y F))
 ```
 
-可以发现，左边的`(Y F)`和右边的`(Y F)`是同一个`(Y F)`，`(Y F)`的结果是给它自己又调用了一次`F`。这意味着，`(Y F)`就是我们寻找的能够实现自调用的递归函数，也是`F`的**不动点**。
+可以发现，左边的`(Y F)`和右边的`(Y F)`是同一个`(Y F)`，`(Y F)`的结果是给它自己又调用了一次`F`。这意味着，`(Y F)`就是我们寻找的能够实现自调用的递归函数，也是`F`的不动点。什么是不动点呢？在计算器上随便输入一个数字，反复按“cos”键，得到的结果一定会收敛到某个确定的值（弧度制下是0.739...）。这个值就是$\mathrm{cos}(x)$的不动点，也就是$\mathrm{cos}(x) = x$的根。
 
-这里的F，是一个“**高阶函数**”。所谓高阶函数，就是将有名字的递归函数的自调用部分抽象成参数，得到的新函数。例如，将阶乘函数的自调用部分`FACT`抽象成参数`f`，就得到了它的高阶函数：
+![余弦函数的不动点](./image/G2/cos_fixed_point.jpg)
+
+然而，在Scheme的应用序求值策略下，Y组合子实际上是不“收敛”的。由于`(x x)`的存在，代换的过程会无穷无尽地继续下去。为了解决这个问题，我们可以使用以往的经验，即将`(x x)`封装成`(lambda (y) ((x x) y)`，从而延迟对它的求值。注意到这种封装只适用于单参函数，这就是说，不论目标递归函数有几个参数，最好是经过柯里化，转换成单参函数。这在一定程度上牺牲了简洁性，却换来了通用性。这个经η-变换，将自调用部分`(x x)`封装起来的Y组合子，称为**Z组合子**，它是Y组合子在应用序求值策略下的实现。有了Z组合子，我们就可以写出可执行的、纯粹的λ演算版本的阶乘函数了：
 
 ```:Scheme
-(lambda (f)
-  (lambda (n)
-    (IF (IS_EQUAL n @0)
-        @1
-        (lambda (x y) ((MUL n (f (DEC n)))
-                       x
-                       y)))))
+((lambda (S)
+    ( (lambda (x) (S (lambda (y) ((x x) y))))
+      (lambda (x) (S (lambda (y) ((x x) y))))))
+ (lambda (f)
+     (lambda (n)
+       (IF (IS_EQUAL n @0)
+           @1
+           (lambda (x y) ((MUL n (f (DEC n)))
+                          x
+                          y))))))
 ```
 
-使用这个高阶函数去调用Y组合子，Y组合子就会不断地将参数代表的那个真正的递归函数应用到自身，从而实现了匿名函数的递归。
-
-> 在计算器上随便输入一个数字，反复按“cos”键，得到的结果一定会收敛到某个确定的值（弧度制下是0.739...）。这个值就是$\mathrm{cos}(x)$的不动点，也就是$\mathrm{cos}(x) = x$的根。
-
-> ![余弦函数的不动点](./image/G2/cos_fixed_point.jpg)
-
-Y组合子的存在，意味着λ演算可以实现递归，也就意味着对于λ函数而言，名字的有无并不是一个重要的问题。因此，为了使用上的方便，各种编程语言都引入了类似`define`的语法。可见，`define`的本质是一块甜甜哒语法糖，既然如此，我们还是继续给函数起名字好了。
+Y组合子的存在，意味着λ演算可以实现递归，进而其计算能力与递归函数和图灵机是等价的。这同时意味着对于λ演算而言，函数是否匿名是无关紧要的。因此，为了使用上的方便，各种编程语言都引入了类似`define`的语法。可见，`define`的本质是一块甜甜哒语法糖，既然如此，我们还是继续给函数起名字好了。
 
 > Scheme提供了多种变量定义的机制，如`let`、`let*`和`letrec`。这些机制有非常微妙的区别，但是它们的本质都是将局部作用域的外面包裹了一层，形成了新的“高阶函数”。例如，下面的`let`形式建立了一个局部变量`C`：
 
@@ -1416,46 +1388,6 @@ Y组合子的存在，意味着λ演算可以实现递归，也就意味着对�
 ```
 
 > JavaScript是一款Scheme血统非常明显的语言。在JavaScript中，可以用`var`关键字来声明变量。`var`有所谓“变量提升”的特性，也就是，在一个函数作用域中，只要出现了`var`声明，那么被声明的变量在整个作用域内部都是有效的。这种特性的原因显然是继承了Scheme的`let`的特性。
-
-尽管Y组合子看起来很奇妙，但是我们发现，它实际上是不“收敛”的。由于`(x x)`的存在，在应用序求值中，代换的过程会无穷无尽地继续下去。为了解决这个问题，我们可以使用以往的经验，即将`(x x)`封装成`(lambda (y) ((x x) y)`，从而延迟对它的求值。注意到这种封装只适用于单参函数，这就是说，不论目标递归函数有几个参数，最好是经过柯里化，转换成单参函数。这在一定程度上牺牲了简洁性，却换来了通用性。这个经η-变换，将自调用部分`(x x)`封装起来的Y组合子，称为**Z组合子**，它是Y组合子在应用序求值策略下的实现。
-
-> 在后文中，为了使用Z组合子，有些多参数函数会写成柯里化之后的形式。
-
-有了Z组合子，我们就可以写出可执行的、纯粹的λ演算版本的阶乘函数了：
-
-```:Scheme
-((lambda (S)
-    ( (lambda (x) (S (lambda (y) ((x x) y))))
-      (lambda (x) (S (lambda (y) ((x x) y))))))
- (lambda (f)
-     (lambda (n)
-       (IF (IS_EQUAL n @0)
-           @1
-           (lambda (x y) ((MUL n (f (DEC n)))
-                          x
-                          y))))))
-```
-
-现在已经不需要任何（除了`lambda`的）保留字了。但是很复杂，对不对？所以`define`这块语法糖不吃白不吃。
-
-刚才实现的这些递归函数，都只在内部调用自己一次，如果调用多次呢？这样的递归就是所谓的“树形递归”。最著名的树形递归就是斐波那契数列了：
-
-```:Scheme
-(define Fib
-  (lambda (num)
-    ((Z (lambda (f)
-          (lambda (n)
-            (IF (OR (IS_EQUAL n @0) (IS_EQUAL n @1))
-                @1
-                (lambda (x y) ((ADD (f (SUB n @1)) (f (SUB n @2))) x y))
-            )))) num)))
-```
-
-这段代码是可以运行的。理论上，树形递归也是一种普通的递归，它与递归函数有相同的计算能力。（见[计算理论学习笔记](./computation-theory-note.html)）
-
-至此，我们在纯粹λ演算的框架内，实现了递归。有了递归，终于可以看到地平线上慢慢浮现出来的“万能机器”的幻影。
-
-> 列宁有一次发表演讲：“共产主义已经出现在地平线上。”台下有个工人问身边的教授：“什么是地平线？” 教授说：“地平线是一条假想的线，天和地在那里相接，但是当你走近它时，你就会发现它会离开你，然后又出现在远方。——苏联笑话
 
 # 第五章：证明的限度
 
@@ -1611,7 +1543,7 @@ PM公式$G$的哥德尔数$g=n$恰好是PM公式$G$对应的数论命题$～(∃
 - “不完全”的意思是：存在系统内部不可形式判定的真命题。
 - 在一致的前提下，存在PM命题$G$（第一步），它既是不可判定的（第二步），又是“真的”（第三步），所以PM必然是不完全的。
 
-**第五步：还可以抢救一下吗？放弃治疗吧**
+**第五步：给理论打补丁**
 
 - 如果把刚刚找到的$G$作为公理，给PM打补丁呢？
 - 然而，即便在PM中添加新的公理，使PM更强，但按照上面的套路，
@@ -1667,7 +1599,7 @@ Robinson算术理论$\mathsf{Q}$，是由以下7条公理生成的一阶理论�
 - 断言2的归纳证明是逐点的，而断言1是一致的（统一的，uniform）。
 - 断言2的证明运用了归纳法，这是$\mathsf{Q}$外部的元语言证明。$\mathsf{Q}$中没有归纳法。
 
-**定义9.1.3** 将$x \le y$定义为$\exists z (z + y \approx y)$，并且用$x < y$表示$x \le y \land x \not \approx y$。
+**定义9.1.3** 将$x \le y$定义为$\exists z (z + x \approx y)$，并且用$x < y$表示$x \le y \land x \not \approx y$。
 
 **引理9.1.4**（余5.3.7） 内容略。
 
@@ -1774,43 +1706,55 @@ $$
 
 $$ \mathrm{bwb}_T(\sharp \sigma) := \{ \sharp \sigma \in \mathbb{N} : \exists n \mathrm{bew}_T (n, \sharp \sigma) \} $$
 
+由于关系$\mathrm{bew}_T$是递归的，根据引理7.5.2(6)，可证性谓词$\mathrm{bwb}_T$是递归可枚举的。
 
-由于关系$\mathrm{bew}_T$是递归的，因此，根据递归关系的可表示性定理，以及关系可表示性的定义（定义9.1.5），可知：
-
-- 若$(n, \sharp \sigma) \in \mathrm{bew}_T$，则 $T \vdash \mathsf{bew}(\mathsf{n}, \lceil \sigma \rceil)$，**并且**
-- 若$(n, \sharp \sigma) \not \in \mathrm{bew}_T$，则 $T \vdash \neg \mathsf{bew}(\mathsf{n}, \lceil \sigma \rceil)$
-
-其中无衬线字体的符号$\mathsf{bew}$代表含有两个自由变元的算术语言公式，它是递归关系$\mathrm{bew}_T$在算术语言内部的表示公式。根据推论9.1.26，$\mathsf{bew}$是$\Delta_1$的。定义$\mathsf{bwb}(x) := \exists y \mathsf{bew}(y, x)$，因此$\mathsf{bwb}$是$\Sigma_1$的。[[#f00:注意：现在还不能说$\mathsf{bwb}$能够表示$\mathrm{bwb}_T$关系。#]]
 
 ------
 
-至此，经过大量工作，终于可以将元语言上的“可证性”和“不可证”表述，表示为算术语言内部的公式。这些成果总结为以下4个重要引理。
+至此，经过大量工作，终于可以将元语言上的“可证性”和“不可证”表述，表示为算术语言内部的公式。
+
+首先将证明关系$\mathrm{bew}_T$表示为算术语言公式。由于$\mathrm{bew}_T$是递归的，因此，根据可表示性定理，以及关系可表示性的定义（定义9.1.5），有：
+
+- 若$(n, \sharp \sigma) \in \mathrm{bew}_T$，则 $T \vdash \mathsf{bew}(\mathsf{n}, \lceil \sigma \rceil)$，同时
+- 若$(n, \sharp \sigma) \not \in \mathrm{bew}_T$，则 $T \vdash \neg \mathsf{bew}(\mathsf{n}, \lceil \sigma \rceil)$
+
+其中无衬线字体的符号$\mathsf{bew}$代表含有两个自由变元的算术语言公式，它是递归关系$\mathrm{bew}_T$在算术语言内部的表示公式。公式的具体形式，可以根据上面给出的45个递归关系的定义，递归地构建出来，想必是相当复杂的。但是可以确认的是，$\mathsf{bew}$必定是可以被能行地构造出来的，因而现在并不关心它的具体形式。如果还是觉得所谓的“可表示性”过于抽象，难以令人信服，不妨看看[这里](http://www.von-eitzen.de/math/tntrep.xml)（[来源](https://www.zhihu.com/question/319365552/answer/2311005501)）提供的（不）可证谓词的一个直观样貌。这也直观印证了元语言上有关形式系统的表述竟然能够在对象语言内部表达出来这一令人惊叹的事实。
+
+至于最重要的第46个谓词$\mathrm{bwb}_T$，由于它并非递归集，因此不满足可表示性定理。但是，这并不意味着它完全不可表示。事实上，后面会证明，$\mathrm{bwb}_T$是“部分可表示”的。在证明这一点之前，首先定义
+
+$$ \mathsf{bwb}(x) := \exists y \mathsf{bew}(y, x) $$
+
+[[#f00:注意：不能说$\mathsf{bwb}$能够**表示**$\mathrm{bwb}_T$关系。#]]根据推论9.1.26，$\mathsf{bew}$是$\Delta_1$的，因此$\mathsf{bwb}$是$\Sigma_1$的，因而$\mathsf{bwb}$符合$\Sigma_1$-完全性（定理9.1.8）。
+
+为了将元语言上的“可证性”与算术语言内部的表示联系起来，事先证明4个重要引理。这些引理距离证明目标仅一步之遥。之所以将这些引理单独列举出来，是因为这样可以大大简化第一不完全性定理的最终证明过程，使其简明易读。
 
 **引理9.2.1(1) (可证性的表示)** 若$T \vdash \sigma$，则 存在$n \in \mathbb{N}$，使得$T \vdash \mathsf{bew}(\mathsf{n}, \lceil \sigma \rceil)$。
 
-证明：可证性，即$T \vdash \sigma$，在语义层面，根据可证性的元语言含义，存在$n \in \mathbb{N}$，使得$\mathfrak{N} \models \mathsf{bew}(\mathsf{n}, \lceil \sigma \rceil)$。由于$\mathsf{bew}$是$\Delta_1$的因而也是$\Sigma_1$的，根据定理9.1.8，$\mathfrak{N} \models \mathsf{bew}(\mathsf{n}, \lceil \sigma \rceil)$等价于$T \vdash \mathsf{bew}(\mathsf{n}, \lceil \sigma \rceil)$。因此，引理9.2.1(1)得证。∎
+证明1：由于$T \vdash \sigma$，存在标准自然数$n \in \mathbb{N}$，使得$(n, \sharp \sigma) \in \mathrm{bew}_T(n, \sharp \sigma)$，因而根据递归关系$\mathrm{bew}_T$的可表示性，有$T \vdash \mathsf{bew}(\mathsf{n}, \lceil \sigma \rceil)$。因此，引理9.2.1(1)得证。∎
+
+证明2：根据$T \vdash \sigma$在标准算术模型$\mathfrak{N}$中的元语言语义，存在标准自然数$n \in \mathbb{N}$，使得$\mathfrak{N} \models \mathsf{bew}(\mathsf{n}, \lceil \sigma \rceil)$。由于$\mathsf{bew}$是$\Delta_1$的因而也是$\Sigma_1$的，根据定理9.1.8，$\mathfrak{N} \models \mathsf{bew}(\mathsf{n}, \lceil \sigma \rceil)$等价于$T \vdash \mathsf{bew}(\mathsf{n}, \lceil \sigma \rceil)$。因此，引理9.2.1(1)得证。∎
 
 **引理9.2.1(2) (不可证的表示)** 若$T \not \vdash \sigma$，则 所有$n \in \mathbb{N}$，都使得$T \vdash \neg \mathsf{bew}(\mathsf{n}, \lceil \sigma \rceil)$。
 
-证明：不可证性，即$T \not \vdash \sigma$，在语义层面，根据可证性的元语言含义，对所有的$n \in \mathbb{N}$，都有$\mathfrak{N} \models \neg \mathsf{bew}(\mathsf{n}, \lceil \sigma \rceil)$。类比上面的论证，可以得到引理9.2.1(2)。∎
+证明：与引理9.2.1(1)类似，也有两种证法。此处仅用一种。由于$T \not \vdash \sigma$，对于所有的标准自然数$n \in \mathbb{N}$，都有$(n, \sharp \sigma) \not \in \mathrm{bew}_T(n, \sharp \sigma)$，因而根据递归关系$\mathrm{bew}_T$的可表示性，有$T \vdash \neg \mathsf{bew}(\mathsf{n}, \lceil \sigma \rceil)$。因此，引理9.2.1(2)得证。∎
 
-注意：①可以看到，在这里，“可证性”的表示并不是纯粹语法的，而是保留了有关自然数的元语言表述，最突出的表现是表示公式中出现了自然数的数码$\mathsf{n}$；②这里之所以能够把元语言层面的**不**可证“翻进”对象语言，使得元语言中的否定含义可以在对象语言中表示，是因为定义9.1.5的规定。因为递归关系可以同时确认正反两个方面的信息。随后立刻可以看到，对于递归可枚举的关系来说，否定符号是不能随随便便“翻进”对象语言的。
+注意：①可以看到，在这里，“可证性”的表示并不是纯粹语法的，而是保留了有关自然数的元语言表述，最突出的表现是表示公式中出现了自然数的数码$\mathsf{n}$；②这里之所以能够把元语言层面的**不**可证“翻进”对象语言，使得元语言中的否定含义可以在对象语言中表示（定义9.1.5），是因为递归关系可以同时确认正反两个方面的信息。随后立刻可以看到，对于递归可枚举的关系来说，否定符号是不能随随便便“翻进”对象语言的。
 
-[[#00f:现在考虑元语言中表述的可证性谓词$\mathrm{bwb}_T$。（问题：为什么$\mathsf{bwb}$表示$\mathrm{bwb}$？）#]]由于关系$\mathrm{bew}_T$是递归的，根据**引理7.5.2(6)**，可证性谓词$\mathrm{bwb}_T$是递归可枚举的。这意味着，可以在有限时间内判定某个$\sharp \sigma \in \mathbb{N}$是否属于$\mathrm{bwb}_T$（即元语言层面$T \vdash \sigma$的含义$\mathfrak{N} \models \mathsf{bwb}(\lceil \sigma \rceil)$），但是未必能够在有限的时间内判定其反面，即元语言层面的$T \not \vdash \sigma$（注意不是“证否”，即$T \vdash \neg \sigma$）。从正面的角度（$T \vdash \sigma$）出发，至少可以得到以下引理：
+[[#00f:现在考虑元语言中表述的可证性谓词$\mathrm{bwb}_T$。#]]由于关系$\mathrm{bwb}_T$是递归可枚举的，因此无法保证能够在有限的时间内判断某个$\sharp \sigma \in \mathbb{N}$是否**不**属于$\mathrm{bwb}_T$（即$T \not \vdash \sigma$，注意不是“证否”，即$T \vdash \neg \sigma$），更不能保证$T \not \vdash \mathsf{bwb}(\lceil \sigma \rceil)$或者$T \vdash \neg \mathsf{bwb}(\lceil \sigma \rceil)$。因此，从反面的角度出发，理论$T$并不能在其内部表达“不可证”谓词。然而，如果从正面的角度（$T \vdash \sigma$）出发，则可以得到以下引理：
 
 **引理9.2.1(3)** 若$T \vdash \sigma$，则$T \vdash \mathsf{bwb}(\lceil \sigma \rceil)$。
 
-证明：由于$T \vdash \sigma$，根据引理9.2.1(1)，既然标准自然数模型下存在标准自然数$n \in \mathbb{N}$能够作为公式$\sigma$的证明，那么在一般的非标准模型下（注意非标准模型都是标准自然数模型的尾节扩张），也当然有$\exists n \mathrm{bew}_T(n, \sharp \sigma)$即$\mathrm{bwb}_T(\sharp \sigma)$。因此根据定理9.1.8可得$T \vdash \mathsf{bwb}(\lceil \sigma \rceil)$。∎
+证明：由于$T \vdash \sigma$，根据引理9.2.1(1)，存在标准自然数$n \in \mathbb{N}$，使得$T \vdash \mathsf{bew}(\mathsf{n}, \lceil \sigma \rceil)$。由于对于任意一阶语言公式$\phi$都有$T \vdash \phi \rightarrow \exists x \phi$（一阶语言有效式，其中$x$是变元），根据分离规则，有$T \vdash \exists x \mathsf{bew}(x, \lceil \sigma \rceil)$，即$T \vdash \mathsf{bwb}(\lceil \sigma \rceil)$。∎
 
-但是，从可证性谓词的反面（$T \not \vdash \sigma$）看，却不能说$\sharp \sigma \not \in \mathrm{bwb}_T$，更不能说“$T \vdash \neg \mathsf{bwb}(\lceil \sigma \rceil)$”。由于$\mathrm{bwb}_T$这种部分递归的性质，当我们想要讨论“不可证”时，只能回到引理9.2.1(2)。引理9.2.1(2)是涉及自然数的，因而不是纯粹语法的。而引理9.2.1(3)是纯粹语法的。总之，$\mathsf{bwb}$只能从正面去描述“可证性”概念，它并不完全表示$\mathrm{bwb}_T$谓词，不具备反面断言的能力，也就是说它其实并不具备完全描述可证性（可证+不可证）的能力。这就暗示着$T$是不可判定的。这一现象，将对不完全性定理的论证产生重大的影响。一方面，哥德尔特地为此定义了比简单一致性更强的ω-一致性；另一方面，这启发了罗瑟通过引入有界量词来处理这种部分递归性质，从而得到与算术语义无关的、纯粹语法的哥德尔-罗瑟不完全性定理（1936年）。
+引理9.2.1(3)表明：①$\mathsf{bwb}$只能从正面去描述“可证性”概念，而不具备反面断言的能力，因此它并不具备完全描述可证性（可证+不可证）的能力，但却能够“部分地”表示可证性。因此，当我们想要讨论“不可证”时，只能回到引理9.2.1(2)。②这一现象暗示着$T$这个理论本身确实很有可能是不可判定的，对不完全性定理的论证产生了重大的影响。一方面，哥德尔特地为此定义了比简单一致性更强的ω-一致性；另一方面，这启发了罗瑟通过引入有界量词来处理这种部分递归性质，从而得到与算术语义无关的、纯粹语法的哥德尔-罗瑟不完全性定理（1936年）。③引理9.2.1(2)是涉及自然数的，它的元语言表述中引入了“对于所有自然数”这样的算术概念，因而不是纯粹语法的。而引理9.2.1(3)是纯粹语法的。
 
-另外，引理9.2.1(3)的逆命题，在一般情况下并不成立，除非知道$\mathfrak{N}$是$T$的模型，或者知道$T$是ω-一致的。因此有以下引理（对应《数理逻辑入门》P222问题13）：
+引理9.2.1(3)的逆命题，在一般情况下并不成立，除非知道$\mathfrak{N}$是$T$的模型，或者知道$T$是ω-一致的。因此有以下引理（对应《数理逻辑入门》P222问题13）：
 
 **引理9.2.1(4)** 若$T \vdash \mathsf{bwb}(\lceil \sigma \rceil)$且$T$是ω-一致的，则$T \vdash \sigma$。
 
 证明：用反证法。假设$T \not \vdash \sigma$，根据引理9.1.2(2)，可知对于所有$n \in \mathbb{N}$，都使得$T \vdash \neg \mathsf{bew}(\mathsf{n}, \lceil \sigma \rceil)$。然而，前提$T \vdash \mathsf{bwb}(\lceil \sigma \rceil)$也就是$T \vdash \exists y \mathsf{bew}(y, \lceil \sigma \rceil)$，与“$T$是ω-一致的”矛盾，因此，假设不成立，从而引理9.2.1(4)得证。∎
 
-如果嫌上面的结论过于抽象，不妨看看[这里](http://www.von-eitzen.de/math/tntrep.xml)（[来源](https://www.zhihu.com/question/319365552/answer/2311005501)）提供的（不）可证谓词的一个直观样貌。这也直观印证了元语言上有关形式系统的表述竟然能够在对象语言内部表达出来这一令人惊叹的事实。
+有了以上引理的准备，就可以深入第一不完全性定理证明过程的核心了。
 
 ## 一致性、完全性和可判定性
 
@@ -1852,11 +1796,9 @@ $$ \mathsf{Q} \vdash \sigma \leftrightarrow \psi(\lceil \sigma \rceil) $$
 
 ## 第一不完全性定理
 
-**定理9.4.2 (Gödel第一不完全性定理)**
+**定理9.4.2 (Gödel第一不完全性定理)** 设$T \supseteq \mathsf{Q}$为一个递归可公理化的理论。如果$T$是ω-一致的（因而也是简单一致的），则$T$是不完全的，即存在$\Pi_1$-语句$\sigma$，使得$T \not \vdash \sigma$且$T \not \vdash \neg \sigma$。
 
-设$T \supseteq \mathsf{Q}$为一个递归可公理化的理论。如果$T$是ω-一致的（因而也是简单一致的），则$T$是不完全的，即存在$\Pi_1$-语句$\sigma$，使得$T \not \vdash \sigma$且$T \not \vdash \neg \sigma$。
-
-根据不动点引理，令语句$\sigma$是一元公式$\neg \mathsf{bwb}$的不动点，有$T \vdash \sigma \leftrightarrow \neg \mathsf{bwb}(\lceil \sigma \rceil)$。根据推论9.1.26，$\mathsf{bew} \in \Delta_1$，因而$\mathsf{bwb} \in \Pi_1$，据此观察不动点引理的构造性证明过程（上文省略了，请读者相信这一点），可知$\sigma \in \Pi_1$。$\sigma$可以理解为表达了“我不可证”的含义。
+证明：根据不动点引理，令语句$\sigma$是一元公式$\neg \mathsf{bwb}$的不动点，有$T \vdash \sigma \leftrightarrow \neg \mathsf{bwb}(\lceil \sigma \rceil)$。根据推论9.1.26，$\mathsf{bew} \in \Delta_1$，因而$\mathsf{bwb} \in \Sigma_1$，据此观察不动点引理的构造性证明过程（上文省略了，请读者相信这一点），可知$\sigma \in \Pi_1$。$\sigma$可以理解为表达了“我不可证”的含义。
 
 现在证明语句$\sigma$是不可判定的算术真命题。
 
@@ -1996,6 +1938,10 @@ GEB第326页：旨在破坏逻辑头脑的禅宗公案
 
 > 高峰要高到无穷，红旗要红过九重！
 ——中国科学技术大学校歌《永恒的东风》
+
+------
+
+> 列宁有一次发表演讲：“共产主义已经出现在地平线上。”台下有个工人问身边的教授：“什么是地平线？” 教授说：“地平线是一条假想的线，天和地在那里相接，但是当你走近它时，你就会发现它会离开你，然后又出现在远方。——苏联笑话
 
 # 尾声
 
