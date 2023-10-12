@@ -1,4 +1,4 @@
-#!title: 雷达遥感与射电天文
+#!title: 无线电测定
 
 #!content
 

@@ -105,15 +105,97 @@
     font-weight: bold;
 }
 
-.CategoryTitle {
-    font-size: 13px; color: #15d; line-height: 1.5; margin: 5px auto;
-}
+
 .TopArticleFlex {
     display: flex; flex-wrap: wrap; justify-content: center; align-items: baseline;
     margin: 0px auto;
 }
-.FlexTitle {
-    margin: 10px 10px;
+
+
+
+@media(min-width:651px){ /*Desktop*/
+    .CategoryTitle {
+        width: 100%;
+        background: linear-gradient(180deg, #1155ee10, #fff);
+        font-size: 13px;
+        color: #15e;
+        line-height: 1.5;
+        padding: 10px 0;
+        margin: 0 auto;
+        border-radius: 3px;
+    }
+    .category_container {
+        display: flex;
+        flex-wrap: wrap;
+        justify-content: center;
+    }
+    .block_container {
+        display: flex;
+        width: 150px;
+        margin: 0 5px 15px 0;
+        flex-wrap: wrap;
+        flex-direction: column;
+        align-items: center;
+    }
+    .item_container {
+        display: flex;
+        flex-wrap: wrap;
+        flex-direction: column;
+        align-items: center;
+    }
+    .FixedArticleTitle {
+        margin: 5px auto;
+    }
+    .FixedArticleTitle2 {
+        margin: 5px 10px;
+    }
+    .line_seperator {
+        display: none;
+    }
+}
+@media(max-width:650px) { /* Mobile */
+    .CategoryTitle {
+        font-size: 13px;
+        color: #15e;
+        line-height: 1.5;
+        padding: 10px 0;
+        margin: 0 auto;
+        border-radius: 3px;
+    }
+    .category_container {
+        display: flex;
+        flex-wrap: nowrap;
+        justify-content: flex-start;
+        flex-direction: column;
+        align-items: center;
+    }
+    .block_container {
+        display: flex;
+        margin: 0 5px 15px 0;
+        flex-wrap: wrap;
+        flex-direction: column;
+        align-items: center;
+    }
+    .item_container {
+        display: flex;
+        flex-wrap: wrap;
+        flex-direction: row;
+        align-items: center;
+        justify-content: center;
+    }
+    .FixedArticleTitle {
+        margin: 5px 10px;
+    }
+    .FixedArticleTitle2 {
+        margin: 5px 10px;
+    }
+    .line_seperator {
+        width: 100%;
+    }
+}
+
+.hrline {
+    background: linear-gradient(90deg, #fff, #e7e9ee, #fff); height: 2px; width: 100%; margin: 20px auto;
 }
 
 </style>
@@ -121,75 +203,88 @@
 
 <div class="SectionBody">
 
-    <div style="height: 1px;"></div>
+    <div style="height: 20px;"></div>
 
-    <div class="Horizon" onclick="$(`#amateur_radio`).fadeToggle(200);"><span class="HorizonContent">业 余 无 线 电</span></div>
+    <div class="category_container">
 
-    <div id="amateur_radio">
-        <div class="CategoryTitle">理 论</div>
-        <div class="TopArticleFlex">
-            <div class="FlexTitle"><a class="TopLink SPA_TRIGGER" data-target="blog/AR-数理基础">数理基础</a></div>
-            <div class="FlexTitle"><a class="TopLink SPA_TRIGGER" data-target="blog/AR-视听技术">视听技术</a></div>
-            <div class="FlexTitle"><a class="TopLink SPA_TRIGGER" data-target="blog/AR-机器学习">机器学习</a></div>
-            <div class="FlexTitle"><a class="TopLink SPA_TRIGGER" data-target="blog/AR-信息通信理论">信息通信</a></div>
-            <div class="FlexTitle"><a class="TopLink SPA_TRIGGER" data-target="blog/AR-射频电子技术">射频电子</a></div>
-            <div class="FlexTitle"><a class="TopLink SPA_TRIGGER" data-target="blog/AR-电波传播规律">电波传播</a></div>
-            <div class="FlexTitle"><a class="TopLink SPA_TRIGGER" data-target="blog/AR-能源动力技术">能源动力</a></div>
-            <div class="FlexTitle"><a class="TopLink SPA_TRIGGER" data-target="blog/AR-精密测量计量">测量计量</a></div>
+        <div class="block_container">
+            <div class="CategoryTitle">理 论 · 技 术</div>
+            <div class="item_container">
+                <div class="FixedArticleTitle"><a class="TopLink SPA_TRIGGER" data-target="blog/AR-数理基础">数理基础</a></div>
+                <div class="FixedArticleTitle"><a class="TopLink SPA_TRIGGER" data-target="blog/AR-视听技术">视听技术</a></div>
+                <div class="FixedArticleTitle"><a class="TopLink SPA_TRIGGER" data-target="blog/AR-机器学习">机器学习</a></div>
+                <div class="FixedArticleTitle"><a class="TopLink SPA_TRIGGER" data-target="blog/AR-信息通信理论">信息通信</a></div>
+                <div class="FixedArticleTitle"><a class="TopLink SPA_TRIGGER" data-target="blog/AR-射频电子技术">射频电子</a></div>
+                <div class="FixedArticleTitle"><a class="TopLink SPA_TRIGGER" data-target="blog/AR-电波传播规律">电波传播</a></div>
+                <div class="FixedArticleTitle"><a class="TopLink SPA_TRIGGER" data-target="blog/AR-能源动力技术">能源动力</a></div>
+                <div class="FixedArticleTitle"><a class="TopLink SPA_TRIGGER" data-target="blog/AR-精密测量计量">测量计量</a></div>
+            </div>
         </div>
 
-        <div class="CategoryTitle">设 备 · 工 具</div>
-        <div class="TopArticleFlex">
-            <div class="FlexTitle"><a class="TopLink SPA_TRIGGER" data-target="blog/AR-RIGS-IC-705备忘录">IC-705</a></div>
-            <div class="FlexTitle"><a class="TopLink SPA_TRIGGER" data-target="blog/AR-RIGS-KC908U备忘录">KC908U</a></div>
-            <div class="FlexTitle"><a class="TopLink SPA_TRIGGER" data-target="blog/AR-RIGS-EB200备忘录">EB200</a></div>
-            <div class="FlexTitle"><a class="TopLink SPA_TRIGGER" data-target="blog/AR-RIGS-计算机备忘录">计算机</a></div>
-            <div class="FlexTitle"><a class="TopLink SPA_TRIGGER" data-target="blog/AR-RIGS-仪器仪表备忘录">仪器仪表</a></div>
-            <div class="FlexTitle"><a class="TopLink SPA_TRIGGER" data-target="blog/AR-RIGS-收发信机备忘录">收发信机</a></div>
-            <div class="FlexTitle"><a class="TopLink SPA_TRIGGER" data-target="blog/AR-RIGS-天馈射频器件备忘录">天馈射频器件</a></div>
-            <div class="FlexTitle"><a class="TopLink SPA_TRIGGER" data-target="blog/AR-RIGS-传感执行器件备忘录">传感执行器件</a></div>
+        <div class="block_container">
+            <div class="CategoryTitle">设 备 · 工 具</div>
+            <div class="item_container">
+                <div class="FixedArticleTitle"><a class="TopLink SPA_TRIGGER" data-target="blog/AR-RIGS-IC-705备忘录">IC-705</a></div>
+                <div class="FixedArticleTitle"><a class="TopLink SPA_TRIGGER" data-target="blog/AR-RIGS-KC908U备忘录">KC908U</a></div>
+                <div class="FixedArticleTitle"><a class="TopLink SPA_TRIGGER" data-target="blog/AR-RIGS-EB200备忘录">EB200</a></div>
+                <div class="FixedArticleTitle"><a class="TopLink SPA_TRIGGER" data-target="blog/AR-RIGS-计算机备忘录">计算机</a></div>
+                <div class="FixedArticleTitle"><a class="TopLink SPA_TRIGGER" data-target="blog/AR-RIGS-仪器仪表备忘录">仪器仪表</a></div>
+                <div class="FixedArticleTitle"><a class="TopLink SPA_TRIGGER" data-target="blog/AR-RIGS-收发信机备忘录">收发信机</a></div>
+                <div class="FixedArticleTitle"><a class="TopLink SPA_TRIGGER" data-target="blog/AR-RIGS-天馈射频器件备忘录">天馈射频器件</a></div>
+                <div class="FixedArticleTitle"><a class="TopLink SPA_TRIGGER" data-target="blog/AR-RIGS-传感执行器件备忘录">传感执行器件</a></div>
+            </div>
         </div>
 
-        <div class="CategoryTitle">业 务 实 践</div>
-        <div class="TopArticleFlex">
-            <div class="FlexTitle"><a class="TopLink SPA_TRIGGER" data-target="blog/AR-法规协议标准">法规·协议·标准</a></div>
-            <div class="FlexTitle"><a class="TopLink SPA_TRIGGER" data-target="blog/AR-架台通联对抗">架台·通联·对抗</a></div>
-            <div class="FlexTitle"><a class="TopLink SPA_TRIGGER" data-target="blog/AR-软件无线电">软件无线电</a></div>
-            <div class="FlexTitle"><a class="TopLink SPA_TRIGGER" data-target="blog/AR-广播电视">广播电视</a></div>
-            <div class="FlexTitle"><a class="TopLink SPA_TRIGGER" data-target="blog/AR-业余电视">业余电视</a></div>
-            <div class="FlexTitle"><a class="TopLink SPA_TRIGGER" data-target="blog/AR-雷达遥感与射电天文">雷达·遥感·射电天文</a></div>
-            <div class="FlexTitle"><a class="TopLink" href="./html/ar-flyer.html">宣传单</a></div>
+        <div class="line_seperator"></div>
+
+        <div class="block_container">
+            <div class="CategoryTitle">业 务 实 践</div>
+            <div class="item_container">
+                <div class="FixedArticleTitle"><a class="TopLink SPA_TRIGGER" data-target="blog/AR-法规协议标准">法规·协议·标准</a></div>
+                <div class="FixedArticleTitle"><a class="TopLink SPA_TRIGGER" data-target="blog/AR-架台通联对抗">架台·通联·对抗</a></div>
+                <div class="FixedArticleTitle"><a class="TopLink SPA_TRIGGER" data-target="blog/AR-软件无线电">软件无线电</a></div>
+                <div class="FixedArticleTitle"><a class="TopLink SPA_TRIGGER" data-target="blog/AR-广播电视">广播电视</a></div>
+                <div class="FixedArticleTitle"><a class="TopLink SPA_TRIGGER" data-target="blog/AR-业余卫星">业余卫星</a></div>
+                <div class="FixedArticleTitle"><a class="TopLink SPA_TRIGGER" data-target="blog/AR-无线电测定">无线电测定</a></div>
+                <div class="FixedArticleTitle"><a class="TopLink SPA_TRIGGER" data-target="blog/AR-射电天文">射电天文</a></div>
+                <div class="FixedArticleTitle"><a class="TopLink" href="./html/ar-flyer.html">宣传海报</a></div>
+            </div>
         </div>
 
-        <div class="CategoryTitle">研 究 开 发 实 践</div>
-        <div class="TopArticleFlex">
-            <div class="FlexTitle"><a class="TopLink" href="./Aqua">MP3编码器<sup>RC</sup></a></div>
-            <div class="FlexTitle"><a class="TopLink" href="./html/bpm.html">BPM分析<sup>β</sup></a></div>
-            <div class="FlexTitle"><a class="TopLink" href="./html/cw-morse-encoder.html">CW练习器<sup>β</sup></a> / <a class="TopLink" href="./html/cw-morse-decoder.html">解码器<sup>α</sup></a></div>
-            <div class="FlexTitle"><a class="TopLink" href="./html/exam.html">操作证刷题<sup>RC</sup></a></div>
-            <div class="FlexTitle"><a class="TopLink" href="./html/am32.html">频谱绘图<sup>RC</sup></a></div>
-            <div class="FlexTitle"><a class="TopLink" href="./html/ofdm.html">OFDM<sup>α</sup></a></div>
-            <!-- <div class="FlexTitle"><a class="TopLink" href="./html/sa-sim.html">频谱仪面板<sup>α</sup></a></div> -->
-            <div class="FlexTitle"><a class="TopLink" href="./html/mechwatch-analyser.html">机械表校表仪<sup>α</sup></a></div>
+        <div class="block_container">
+            <div class="CategoryTitle">创 造 实 践</div>
+            <div class="item_container">
+                <div class="FixedArticleTitle"><a class="TopLink" href="./Aqua">MP3编码器<sup>RC</sup></a></div>
+                <div class="FixedArticleTitle"><a class="TopLink" href="./html/bpm.html">BPM分析<sup>β</sup></a></div>
+                <div class="FixedArticleTitle"><a class="TopLink" href="./html/cw-morse-encoder.html">CW练习器<sup>β</sup></a></div>
+                <div class="FixedArticleTitle"><a class="TopLink" href="./html/cw-morse-decoder.html">CW解码器<sup>α</sup></a></div>
+                <div class="FixedArticleTitle"><a class="TopLink" href="./html/exam.html">操作证刷题<sup>RC</sup></a></div>
+                <div class="FixedArticleTitle"><a class="TopLink" href="./html/am32.html">频谱绘图<sup>RC</sup></a></div>
+                <div class="FixedArticleTitle"><a class="TopLink" href="./html/ofdm.html">OFDM<sup>α</sup></a></div>
+                <!-- <div class="FixedArticleTitle"><a class="TopLink" href="./html/sa-sim.html">频谱仪面板<sup>α</sup></a></div> -->
+                <div class="FixedArticleTitle"><a class="TopLink" href="./html/mechwatch-analyser.html">机械表校表仪<sup>α</sup></a></div>
+            </div>
         </div>
     </div>
 
-    <div class="Horizon" onclick="$(`#plt`).fadeToggle(200);"><span class="HorizonContent">系 统 与 控 制</span></div>
+    <!-- <div class="Horizon" onclick="$(`#plt`).fadeToggle(200);"><span class="HorizonContent">系 统 与 控 制</span></div> -->
+
+    <div class="hrline"></div>
 
     <div id="plt">
         <div class="TopArticleFlex" style="margin: 10px 0 15px 0;">
-            <div class="FlexTitle"><a class="TopLink" href="./html/scheme-interpreter.html">Scheme解释器原型</a> / <a class="TopLink" href="./html/auroravm.html">VM原型</a> / <a class="TopLink SPA_TRIGGER" data-target="blog/PL-Animac设计备忘录">设计备忘录</a></div>
-            <div class="FlexTitle"><a class="TopLink SPA_TRIGGER" data-target="blog/Cyber-计算原理">计算原理</a></div>
-            <div class="FlexTitle"><a class="TopLink SPA_TRIGGER" data-target="blog/Cyber-信息安全">信息安全</a></div>
-            <div class="FlexTitle"><a class="TopLink SPA_TRIGGER" data-target="blog/Cyber-系统思维">系统思维</a></div>
-            <div class="FlexTitle"><a class="TopLink SPA_TRIGGER" data-target="blog/Cyber-心智进化">心智进化</a></div>
-            <div class="FlexTitle"><a class="TopLink SPA_TRIGGER" data-target="blog/Cyber-新陈代谢">新陈代谢</a></div>
+            <div class="FixedArticleTitle2"><a class="TopLink" href="./html/scheme-interpreter.html">Scheme解释器原型</a> / <a class="TopLink" href="./html/auroravm.html">VM原型</a> / <a class="TopLink SPA_TRIGGER" data-target="blog/PL-Animac设计备忘录">设计备忘录</a></div>
+            <div class="FixedArticleTitle2"><a class="TopLink SPA_TRIGGER" data-target="blog/Cyber-计算原理">计算原理</a></div>
+            <div class="FixedArticleTitle2"><a class="TopLink SPA_TRIGGER" data-target="blog/Cyber-信息安全">信息安全</a></div>
+            <div class="FixedArticleTitle2"><a class="TopLink SPA_TRIGGER" data-target="blog/Cyber-系统思维">系统思维</a></div>
+            <div class="FixedArticleTitle2"><a class="TopLink SPA_TRIGGER" data-target="blog/Cyber-心智进化">心智进化</a></div>
+            <div class="FixedArticleTitle2"><a class="TopLink SPA_TRIGGER" data-target="blog/Cyber-新陈代谢">新陈代谢</a></div>
         </div>
     </div>
 
-    <div class="Horizon" onclick="$(`#encyclopedia`).fadeToggle(200);"><span class="HorizonContent">百 科</span></div>
+    <div class="hrline"></div>
 
-    <div id="encyclopedia" class="CategoryList">
+    <div class="CategoryList">
         <div class="CategoryBlock SPA_TRIGGER" data-target="blog/A.哲学宗教伦理心理">
             <div class="CategoryIcon">A</div><div class="CategoryArticleTitle">哲学宗教<br>伦理心理</div></div>
         <div class="CategoryBlock SPA_TRIGGER" data-target="blog/B.文艺传播教育体育">
