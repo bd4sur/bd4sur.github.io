@@ -1862,6 +1862,27 @@ $$ \mathsf{Q} \vdash \sigma \leftrightarrow \psi(\lceil \sigma \rceil) $$
 
 设$T \supseteq \mathsf{Q}$为一个递归可公理化的理论。如果$T$是简单一致的，则$T$是不完全的，即存在$\Pi_1$-语句$\sigma$，使得$T \not \vdash \sigma$且$T \not \vdash \neg \sigma$。
 
+证明：首先引入一个原始递归函数$\mathrm{not}(x) := \sharp(\neg \natural x)$，即$\sharp \sigma \mapsto \sharp (\neg \sigma)$，其中$x$是自然数，$\sigma$是$\mathscr{L}_1$公式。可见，这个函数的作用是将某个公式的哥德尔数映射为它的否定公式的哥德尔数，它在元语言和算术语言之间横跳了两次。由于它是原始递归的，因而可以被表示为算术语言内部的公式，记为$\mathsf{not}(x)$，含有1个自由变量。在算术语言中，如果$x \approx \lceil \sigma \rceil$，则$\mathsf{not}(x) \approx \lceil \neg \sigma \rceil$。
+
+在哥德尔的原初证明中，公式$\mathsf{bwb}$只能表示可证性，而不能表示“不可证性”，因此只能得到在ω-一致的前提下导出的较弱的不完全性的结论。Rosser为了将前提减弱为简单一致性，从而得到更强的不完全性，他在$\mathsf{bew}$的基础上重新构造了一个改进版的表述“可证性”的公式$\mathsf{prov}$，这个定义的直观含义是：语句$\sigma$存在证明序列$y$，同时，所有比$y$“小”的公式序列，都不能证明其否定$\neg \sigma$。$\mathsf{prov}$的定义如下：
+
+$$ \begin{align}
+& \mathsf{prov}(x) := \\\\
+& \exists y (\mathsf{bew}(y, x) \wedge ((\forall z \lt y) \neg \mathsf{bew}(z, \mathsf{not}(x))))
+\end{align} $$
+
+首先证明两个断言：
+
+**断言1**：对任意语句$\sigma$，如果$T \vdash \sigma$，则$T \vdash \mathsf{prov}(\lceil \sigma \rceil)$。
+
+断言1的证明：
+
+**断言2**：对任意语句$\sigma$，如果$T \vdash \neg \sigma$，则$T \vdash \neg \mathsf{prov}(\lceil \sigma \rceil)$。
+
+断言2的证明：
+
+------
+
 哥德尔1930年证明的第一不完全性定理，是基于所谓的标准自然数模型的。这个模型某种意义上是潜无穷的，并不存在一个完成了的无穷“∞”，这符合人们的直观，所以它的前提实际上是所谓的“ω-一致性”。这个性质三言两语很难讲清楚，简单来说，首先，它是一个比简单一致性更强的条件，其次，它把元语言和对象语言搅和到一起去了。因此，哥德尔1930年的第一不完全性定理，实际上并没有完全解决算术系统的纯粹形式完全性的问题。
 
 而Rosser在1936年将不完全性定理的前提推广到简单一致性。在简单一致性的情况下，可以讨论所谓的“非标准自然数模型”。这个非标准模型是承认实无穷存在的，并且其内部并不是混乱无序的，而是有微妙的序结构。这是一个比较直观的现象：所有的“∞”一定是“大于”所有的“标准自然数”的。因此，只要能够从正面找到一个自然数，那么就可以讨论所有在它“之前”的自然数，而不会失去有关算术理论的一般性。
@@ -1869,6 +1890,8 @@ $$ \mathsf{Q} \vdash \sigma \leftrightarrow \psi(\lceil \sigma \rceil) $$
 正是因为算术理论有这种内在的序结构，使得算术系统不完全性定理的条件可以从比较严格的“ω-一致性”放松到简单一致性而依然正确。
 
 以上文字并没有讲清楚从Gödel的不完全性定理向Gödel-Rosser不完全性定理推广的奥义，事实上这个推广过程本身也是依赖很多前置知识的，因此对它的描述不可能同时做到完备和通俗。
+
+
 
 **塔斯基定理**
 

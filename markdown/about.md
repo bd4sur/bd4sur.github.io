@@ -334,7 +334,7 @@ a.ContactLink:hover { text-decoration: none; border: none; }
     <div class="SectionBody">版权所有 &copy; 2016-2023 BD4SUR</div>
     <div class="SectionBody" style="font-size: smaller;">除另有声明外，本站原创内容均可在<br>①署电台呼号BD4SUR & ②非盈利目的 & ③无实质修改<br>的前提下使用。</div>
     <div class="SectionBody" style="font-size: smaller;">非原创内容均尽可能注明原作者或出处<br>且遵守合理使用原则。</div>
-    <div class="SectionBody" style="font-size: smaller;"><b>使用开源组件</b><br>jQuery / jQuery.easing / fancybox / MathJax / Highlight.js</div>
+    <div class="SectionBody" style="font-size: smaller;"><b>使用开源组件</b><br>jQuery / jQuery.easing / fancybox / MathJax / Highlight.js / typograms</div>
 </div>
 
 <div class="SectionBody" style="color:#ff88aa; font-size: 18px; letter-spacing: 2px; margin: 30px 0; font-weight: bold;">VY 73!</div>
