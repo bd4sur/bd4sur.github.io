@@ -108,6 +108,8 @@
 
 ## 氧化磷酸化概述
 
+[Adenine nucleotide translocator](https://en.wikipedia.org/wiki/Adenine_nucleotide_translocator)
+
 ## 呼吸链的物理结构
 
 ![ ](./image/I/respiratory-chain-structure.png)
@@ -256,6 +258,13 @@ C、D亚基以血红素b<sub>566</sub>为辅基，含有UQ结合位点，可将C
 # 非线粒体氧化体系
 
 # 抗氧化体系
+
+
+# 生物地球化学循环
+
+- [生物地球化学循环](https://zh.wikipedia.org/wiki/%E7%94%9F%E7%89%A9%E5%9C%B0%E7%90%83%E5%8C%96%E5%AD%A6%E5%BE%AA%E7%8E%AF)
+- [海底热泉](https://zh.wikipedia.org/wiki/%E6%B5%B7%E5%BA%95%E7%86%B1%E6%B3%89)
+
 
 # 总结与整合
 

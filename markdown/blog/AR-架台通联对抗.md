@@ -97,6 +97,8 @@
 
 # 设备收纳打包
 
+[美军的MOLLE系统](https://zh.wikipedia.org/wiki/MOLLE)
+
 ## ESD防护研究
 
 可近似认为：稍不均匀电场中的最大场强达到30kV/cm时，间隙将击穿。

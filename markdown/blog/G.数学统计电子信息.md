@@ -14,6 +14,7 @@
 - [塔珀自指公式](https://en.wikipedia.org/wiki/Tupper%27s_self-referential_formula)
 - [蔡勒公式](https://zh.wikipedia.org/wiki/%E8%94%A1%E5%8B%92%E5%85%AC%E5%BC%8F)：计算任一天是星期几的公式。
 - [一些奇妙的测试](https://zh.wikipedia.org/wiki/Template:%E6%A0%87%E5%87%86%E6%B5%8B%E8%AF%95%E9%A1%B9%E7%9B%AE)
+- [蓄水池抽样](https://zh.wikipedia.org/wiki/%E6%B0%B4%E5%A1%98%E6%8A%BD%E6%A8%A3)
 
 # 有关“定理”的几个词的区别
 
