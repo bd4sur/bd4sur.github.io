@@ -130,6 +130,8 @@ function LoadArticle(PageID, ArticleID) {
         // 使用highlight.js处理代码高亮
         document.querySelectorAll('pre code').forEach((block) => { hljs.highlightBlock(block); });
 
+        // 绘制Typogram
+        Typograms();
     }
 
     // 渲染文章目录，并为每个按钮注册点击跳转事件
@@ -227,7 +229,7 @@ function LoadArticle(PageID, ArticleID) {
         OBSERVER_THROTTLE_TIMER = setTimeout(() => {
             console.log(`[Iroha-SPA] 监听器：框架Article节点已更新`);
             AfterRendering();
-        }, 200); // 200ms节流
+        }, 100); // 100ms节流
     });
     ARTICLE_OBSERVER.observe(document.getElementsByClassName('Article')[0], {characterData: true, childList: true, subtree: true});
 

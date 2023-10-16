@@ -44,6 +44,30 @@
 
 ![ ](./image/G3/sigint/correlative-interferometer.png)
 
+<script type="text/tg">
+Ant0 *----------------------------------+     EB200
+         +-+                            v    +-----+
+Ant1 *---|  \            PE44820        o--->| Rx  |
+         |   \      +--------------+    ^    +-----+
+Ant2 *---|    \     |     Phase    |    |       ^
+         | Mux +--->|    Shifter   |----+       |
+Ant3 *---|    /     | 0,90,180,270 |            |
+         |   /      +--------------+            |
+Ant4 *---|  /               ^               UART|
+         +-+                |                   |
+          ^            8bits|                   |
+     3bits|                 |                   v
+      +---+-----------------+-------------------+---+
+      |                 Controller                  |
+      +---------------------------------------------+
+</script>
+
+- 分时输出4×4特征矩阵。精确相移不重要，重要的是有一定的正交性。
+- 特征矩阵的每个元素都是dBμV，需要归一化。
+- 天线阵元排列在正五边形顶点。
+- 每隔一定时间获取一次特征矩阵，将其以热力图形式绘制出来。
+- 基于开场测试数据，运用XGBoost作回归分析。
+
 - 石荣. 干涉仪侧向原理、方法与应用[M]. 电子工业出版社, 2023.
 - R&S. [New digital direction finder for 0.5 MHz to 3000 MHz](https://www.rohde-schwarz.com/file/n174_ddf195.pdf)[J]. News from Rohde&Schwarz, Number 174 (2002/II)
 - 苟晓鸣 等. [单通道相关干涉仪测向系统的快速实现](https://www.hanspub.org/journal/PaperInformation.aspx?paperID=23940&btwaf=26513060)[J]. 无线通信, 2018, 8(1): 37-44.
