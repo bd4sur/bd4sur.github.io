@@ -21,6 +21,7 @@
 - [Deutsch limit](https://en.wikipedia.org/wiki/Deutsch_limit): The problem with visual programming is that you can't have more than 50 visual primitives on the screen at the same time.
 - [邓巴数](https://zh.wikipedia.org/wiki/%E9%82%93%E5%B7%B4%E6%95%B0)：也称150定律，指能与某个人维持紧密人际关系的人数上限，通常人们认为是150。
 - [时间晶体](https://zh.wikipedia.org/wiki/%E6%99%82%E9%96%93%E6%99%B6%E9%AB%94)
+- 选择与适应：控制的两个基本方面。
 
 # 复杂系统及其可视化
 

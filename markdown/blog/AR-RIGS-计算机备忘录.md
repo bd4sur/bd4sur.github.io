@@ -6,6 +6,12 @@
 
 ## ESP32
 
+开发板：ESP32-DevKitC V4
+
+[官方指南](https://docs.espressif.com/projects/esp-idf/zh_CN/latest/esp32/hw-reference/esp32/get-started-devkitc.html#get-started-esp32-devkitc-board-front)
+
+![ ](./image/G3/mcu/esp32-devkitC-v4-pinout.png)
+
 ESP32-WROVER-IE
 
 [官方指南](https://docs.espressif.com/projects/esp-idf/zh_CN/v3.3.1/get-started/index.html)
