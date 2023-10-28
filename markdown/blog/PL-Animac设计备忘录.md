@@ -176,6 +176,27 @@ Dict.parseJson string
 
 # 语义分析
 
+## λ可能存在的位置
+
+```
+;; 一类是λ在Application首项的
+(native ...)  call Math.abs
+(primitive ...)  call + (ExecuteOneInst)
+(λlabel ...)  call @&LAMBDA_x
+(var_to_native ...)  call var → Math.abs
+(var_to_primitive ...)  call var → +
+(var_to_λlabel ...)  call var → @&LAMBDA_x
+(var_to_handle_closure ...)  call var → &CLOSURE_x
+(var_to_handle_continuation ...)  call var → &CONT_x
+
+;; 另一类是λ在参数位置上的
+(xxx ... native ...)
+(xxx ... primitive ...)
+(xxx ... λlabel ...) ; loadclosure
+(xxx ... var_to_λlabel ...) ; 编译时保留变量；执行时解引用，得到IL标签
+(xxx ... var_to_closure ...) ; 编译时保留变量；执行时解引用，得到Handle，这个Handle应指向闭包
+```
+
 
 ## 关于静态作用域实现/20190331
 
@@ -592,7 +613,7 @@ PROCESS.Step();
 
 # 模块管理
 
-
+2019-04-22：对模块机制设计的反思。目前是把模块当做名字空间级别的一等对象，并且只允许顶级函数具有全局唯一的名字。这是好的，但是可不可以更好呢？我看可以。比如在编译时，把所有的lambda按照是否通过define命名分成“具名”和“匿名”两类，具名函数通过与lambda的层层嵌套的点分隔形式的名学，可以做到全局唯一。但是匿名函数内部defined的具名函数怎么办呢，用户的角度看当然是没法在外面引用的，但是在执行机看来，匿名函数其实也是有全局唯一名字的，这就是说所有的lambda都是有全局唯一名字的。这样，在实现静态作用域这一方面，也会得到简化。
 
 ## 模块机制
 
@@ -1153,7 +1174,13 @@ VM执行到30行`callnative`这个指令时，调用VM内部的`CallNative`接�
 
 # 虚拟机宿主互操作
 
+2019-03-27
 
+虚拟机暂停了半个多月，这几天开始捡起来了。昨天试验性地实现了https请求的接口，尽管node接口是异步的，但是在我的VM层面一番操作之后，就变成同步的了。当然异步也不是不可以，但就我目前实现的东西来说，只有同步大概就足够了。
+
+今天思考了一下Scheme与JavaScript互操作的问题（姑且称为ANI），类似Java的JNI。ANI主要用于两类场景，第一个场景比如说我想用Scheme做矩阵运算，但这显然是不合适的，所以我就可以利用ANI，使用JS（乃至WebAsm）去实现它，然后在Scheme的业务代码中调用它。第二个场景是面向VM开发者，比如我以后想强化VM的指令集，就可以利用ANI的形式，插件化地提供新的功能扩展。
+
+可见，ANI模糊了基础设施（VM实现）和具体业务 (Scheme用户代码）之间的界限，这就对VM的架构设计提出了更高的要求，需要通盘考虑，谨慎设计。但是我还不想把它做得太弱气，否则就没有搞这么一套的意义了。
 
 
 

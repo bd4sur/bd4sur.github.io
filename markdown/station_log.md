@@ -1559,5 +1559,24 @@
         "qth_self": "OM91 Base",
 
         "note":     ""
+    },
+    {
+        "time":     "2023-10-27 20:54",
+        "callsign": "BD4STQ",
+        "freq":     "430.610R",
+        "mode":     "FM",
+        "rst":      "T59/R59",
+
+        "rig":      "-",
+        "ant":      "-",
+        "pwr":      "-",
+        "qth":      "紫金山顶",
+
+        "rig_self": "UV-5R",
+        "ant_self": "原装天线",
+        "pwr_self": "5W",
+        "qth_self": "OM91 Base",
+
+        "note":     "石城73俱乐部中继点名，上差+9，亚音88.5"
     }
 ]

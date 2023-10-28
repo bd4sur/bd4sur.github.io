@@ -75,17 +75,16 @@
 
 # 概率图模型
 
-# 深度神经网络基础
+# 神经网络
 
-## 反向传播
-
-$$ Loss = J(\hat{y}, y) $$
+- [矩阵求导术（上）](https://zhuanlan.zhihu.com/p/24709748)、[矩阵求导术（下）](https://zhuanlan.zhihu.com/p/24863977)
+- [Matrix Calculus](https://www.matrixcalculus.org/)
 
 # 自然语言处理
 
 ## Transformer
 
-![[来源](https://peltarion.com/blog/data-science/self-attention-video)](./image/G4/bert-3d.png)
+![[来源](https://www.youtube.com/watch?v=-9vVhYEXeyQ)](./image/G4/bert-3d.png)
 
 - https://arxiv.org/abs/1706.03762
 - https://jalammar.github.io/illustrated-transformer/
