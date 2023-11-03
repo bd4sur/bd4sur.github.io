@@ -167,13 +167,17 @@ body { font-family: Microsoft YaHei, "宋体", "Helvetica Neue", Helvetica, Aria
         background: linear-gradient(0deg, #fff, #999da6, #fff);
         margin: 0 26px;
     }
-    .HeaderCS {
+    .HeaderCSContainer {
         width: 200px;
-        text-align: right;
-        font-size: 45px;
+        display: flex;
+        flex-wrap: nowrap;
+        justify-content: space-between;
+        align-items: center;
+    }
+    .HeaderCS {
+        font-size: 42px;
         /* font-weight: bold; */
         font-family: Arial, Helvetica, sans-serif;
-        letter-spacing: 3px;
         color: #77ebff;
         -webkit-text-stroke: 0.5px #fff;
         text-shadow: 2px 2px 3px #dfe3ec;
@@ -184,8 +188,8 @@ body { font-family: Microsoft YaHei, "宋体", "Helvetica Neue", Helvetica, Aria
         position: absolute;
         z-index: 2;
         color: #15e;
-        mask: linear-gradient(180deg, #fff, transparent 99%);
-        -webkit-mask: linear-gradient(180deg, #fff, transparent 99%);
+        mask: linear-gradient(180deg, #fff, transparent 100%);
+        -webkit-mask: linear-gradient(180deg, #fff, transparent 100%);
     }
 }
 @media(max-width:650px){
@@ -194,7 +198,7 @@ body { font-family: Microsoft YaHei, "宋体", "Helvetica Neue", Helvetica, Aria
         flex-wrap: nowrap;
         align-items: center;
         justify-content: center;
-        margin: 40px 0 20px 0;
+        margin: 30px 0;
         cursor: pointer;
     }
     .HeaderTitleZh {
@@ -223,15 +227,19 @@ body { font-family: Microsoft YaHei, "宋体", "Helvetica Neue", Helvetica, Aria
         background: linear-gradient(0deg, #fff, #999da6, #fff);
         margin: 0 15px;
     }
-    .HeaderCS {
+    .HeaderCSContainer {
         width: 150px;
-        text-align: right;
+        display: flex;
+        flex-wrap: nowrap;
+        justify-content: space-between;
+        align-items: center;
+    }
+    .HeaderCS {
         font-size: 32px;
         font-weight: bold;
         font-family: Arial, Helvetica, sans-serif;
-        letter-spacing: 3px;
         color: #77ebff;
-        -webkit-text-stroke: 0.5px #fff;
+        -webkit-text-stroke: 1px #fff;
         text-shadow: 2px 2px 3px #dfe3ec;
         font-style: italic;
     }
@@ -240,8 +248,8 @@ body { font-family: Microsoft YaHei, "宋体", "Helvetica Neue", Helvetica, Aria
         position: absolute;
         z-index: 2;
         color: #15e;
-        mask: linear-gradient(180deg, #fff, transparent 99%);
-        -webkit-mask: linear-gradient(180deg, #fff, transparent 99%);
+        mask: linear-gradient(180deg, #fff, transparent 100%);
+        -webkit-mask: linear-gradient(180deg, #fff, transparent 100%);
     }
 }
 
