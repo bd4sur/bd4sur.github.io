@@ -131,6 +131,120 @@ body { font-family: Microsoft YaHei, "宋体", "Helvetica Neue", Helvetica, Aria
     }
 }
 
+/* 顶部Logo文字 */
+@media(min-width:651px){
+    .HeaderContainer {
+        display: flex;
+        flex-wrap: nowrap;
+        align-items: center;
+        justify-content: center;
+        margin: 50px 0;
+        cursor: pointer;
+    }
+    .HeaderTitleZh {
+        font-size: 18px;
+        width: 200px;
+        text-align: justify;
+        text-align-last: justify;
+        font-weight: bold;
+        color: #596275;
+    }
+    .HeaderTitleEn {
+        font-size: 13px;
+        width: 200px;
+        text-align: justify;
+        text-align-last: justify;
+        letter-spacing: 2px;
+        color: #596275;
+        font-style: italic;
+        font-variant-caps: small-caps;
+        font-family: Arial;
+        padding-top: 3px;
+    }
+    .HeaderVert {
+        height: 50px;
+        width: 1px;
+        background: linear-gradient(0deg, #fff, #999da6, #fff);
+        margin: 0 26px;
+    }
+    .HeaderCS {
+        width: 200px;
+        text-align: right;
+        font-size: 45px;
+        /* font-weight: bold; */
+        font-family: Arial, Helvetica, sans-serif;
+        letter-spacing: 3px;
+        color: #77ebff;
+        -webkit-text-stroke: 0.5px #fff;
+        text-shadow: 2px 2px 3px #dfe3ec;
+        font-style: italic;
+    }
+    .HeaderCS::before {
+        content: attr(callsign);
+        position: absolute;
+        z-index: 2;
+        color: #15e;
+        mask: linear-gradient(180deg, #fff, transparent 99%);
+        -webkit-mask: linear-gradient(180deg, #fff, transparent 99%);
+    }
+}
+@media(max-width:650px){
+    .HeaderContainer {
+        display: flex;
+        flex-wrap: nowrap;
+        align-items: center;
+        justify-content: center;
+        margin: 40px 0 20px 0;
+        cursor: pointer;
+    }
+    .HeaderTitleZh {
+        font-size: 15px;
+        width: 150px;
+        text-align: justify;
+        text-align-last: justify;
+        font-weight: bold;
+        color: #596275;
+    }
+    .HeaderTitleEn {
+        font-size: 12px;
+        width: 150px;
+        text-align: justify;
+        text-align-last: justify;
+        letter-spacing: 0.5px;
+        color: #596275;
+        font-style: italic;
+        font-variant-caps: small-caps;
+        font-family: Arial;
+        padding-top: 3px;
+    }
+    .HeaderVert {
+        height: 50px;
+        width: 1px;
+        background: linear-gradient(0deg, #fff, #999da6, #fff);
+        margin: 0 15px;
+    }
+    .HeaderCS {
+        width: 150px;
+        text-align: right;
+        font-size: 32px;
+        font-weight: bold;
+        font-family: Arial, Helvetica, sans-serif;
+        letter-spacing: 3px;
+        color: #77ebff;
+        -webkit-text-stroke: 0.5px #fff;
+        text-shadow: 2px 2px 3px #dfe3ec;
+        font-style: italic;
+    }
+    .HeaderCS::before {
+        content: attr(callsign);
+        position: absolute;
+        z-index: 2;
+        color: #15e;
+        mask: linear-gradient(180deg, #fff, transparent 99%);
+        -webkit-mask: linear-gradient(180deg, #fff, transparent 99%);
+    }
+}
+
 /* 左右边栏 */
 @media(min-width:651px) { /* PC */
     .LeftAside  { position: sticky; top: 60px; width: 40px; height: 100%; z-index: 99999;}
