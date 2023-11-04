@@ -109,7 +109,7 @@ body { font-family: Microsoft YaHei, "宋体", "Helvetica Neue", Helvetica, Aria
     z-index: 1001;
 }
 .Footer {
-    padding: 20px 0; font-size: 12px; text-align: center; color: #616878;
+    padding: 20px 0; font-size: 12px; text-align: center; color: #596275;
 }
 
 /* 顶部Logo图片 */
@@ -138,12 +138,12 @@ body { font-family: Microsoft YaHei, "宋体", "Helvetica Neue", Helvetica, Aria
         flex-wrap: nowrap;
         align-items: center;
         justify-content: center;
-        margin: 50px 0;
+        margin: 40px 0;
         cursor: pointer;
     }
     .HeaderTitleZh {
         font-size: 18px;
-        width: 200px;
+        width: 180px;
         text-align: justify;
         text-align-last: justify;
         font-weight: bold;
@@ -151,10 +151,10 @@ body { font-family: Microsoft YaHei, "宋体", "Helvetica Neue", Helvetica, Aria
     }
     .HeaderTitleEn {
         font-size: 13px;
-        width: 200px;
+        width: 180px;
         text-align: justify;
         text-align-last: justify;
-        letter-spacing: 2px;
+        letter-spacing: 1.5px;
         color: #596275;
         font-style: italic;
         font-variant-caps: small-caps;
@@ -168,7 +168,7 @@ body { font-family: Microsoft YaHei, "宋体", "Helvetica Neue", Helvetica, Aria
         margin: 0 26px;
     }
     .HeaderCSContainer {
-        width: 200px;
+        width: 180px;
         display: flex;
         flex-wrap: nowrap;
         justify-content: space-between;
@@ -176,7 +176,7 @@ body { font-family: Microsoft YaHei, "宋体", "Helvetica Neue", Helvetica, Aria
     }
     .HeaderCS {
         font-size: 42px;
-        /* font-weight: bold; */
+        font-weight: bold;
         font-family: Arial, Helvetica, sans-serif;
         color: #77ebff;
         -webkit-text-stroke: 0.5px #fff;
@@ -185,6 +185,7 @@ body { font-family: Microsoft YaHei, "宋体", "Helvetica Neue", Helvetica, Aria
     }
     .HeaderCS::before {
         content: attr(callsign);
+        font-weight: bold;
         position: absolute;
         z-index: 2;
         color: #15e;
@@ -198,20 +199,20 @@ body { font-family: Microsoft YaHei, "宋体", "Helvetica Neue", Helvetica, Aria
         flex-wrap: nowrap;
         align-items: center;
         justify-content: center;
-        margin: 30px 0;
+        margin: 40px 0 30px 0;
         cursor: pointer;
     }
     .HeaderTitleZh {
         font-size: 15px;
-        width: 150px;
+        width: 140px;
         text-align: justify;
         text-align-last: justify;
         font-weight: bold;
         color: #596275;
     }
     .HeaderTitleEn {
-        font-size: 12px;
-        width: 150px;
+        font-size: 11.5px;
+        width: 140px;
         text-align: justify;
         text-align-last: justify;
         letter-spacing: 0.5px;
@@ -228,7 +229,7 @@ body { font-family: Microsoft YaHei, "宋体", "Helvetica Neue", Helvetica, Aria
         margin: 0 15px;
     }
     .HeaderCSContainer {
-        width: 150px;
+        width: 140px;
         display: flex;
         flex-wrap: nowrap;
         justify-content: space-between;
@@ -499,9 +500,9 @@ body { font-family: Microsoft YaHei, "宋体", "Helvetica Neue", Helvetica, Aria
 /*  首 页 电 台 日 志 样 式 */
 /****************************************/
 
-.StationLogSummary {text-align: center; letter-spacing: 1px; font-size: 14px; color: #666; margin: 0 0 10px 0; cursor: pointer;}
+.StationLogSummary {text-align: center; letter-spacing: 1px; font-size: 14px; color: #596275; margin: 0 0 10px 0; cursor: pointer;}
 .StationLogSummary:hover {color: #15e;}
-.StationLogLaw {font-size: 13px;line-height: 23px;color: #919da8;margin: 20px; text-align: center;}
+.StationLogLaw {font-size: 13px;line-height: 23px;color: #596275;margin: 20px; text-align: center;}
 .StationLog {text-align: center;line-height: 22px;overflow-x: auto;margin: 20px auto 20px auto;border-radius: 8px;box-shadow: 0 1px 1px 0 rgba(64,64,64,0.08), 0 1px 3px 1px rgba(64,64,64,0.16);}
 .StationLog table {font-size: 13px;color: #233;border-collapse: collapse;width: 100%;border-spacing: 0;}
 .StationLog td, .StationLog th {/*font-family: 'Consolas', Courier, monospace;*/ border: 1px solid #eee;padding: 2px 3px;}

@@ -16,6 +16,10 @@
 - [一些奇妙的测试](https://zh.wikipedia.org/wiki/Template:%E6%A0%87%E5%87%86%E6%B5%8B%E8%AF%95%E9%A1%B9%E7%9B%AE)
 - [蓄水池抽样](https://zh.wikipedia.org/wiki/%E6%B0%B4%E5%A1%98%E6%8A%BD%E6%A8%A3)
 
+# 滞回特性
+
+一对儿咬合不紧密的齿轮、施密特触发器、磁性材料（滞回线）
+
 # 有关“定理”的几个词的区别
 
 整理于2020.5.2，[来源](http://blog.sina.com.cn/s/blog_4b3651ad0101nk4o.html)。
