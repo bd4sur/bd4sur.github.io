@@ -84,7 +84,7 @@
 }
 
 .ContactLink { font-size: 20px; line-height: 30px; padding: 0 5px; }
-a.ContactLink { text-decoration: none; border: none; color: #666; }
+a.ContactLink { text-decoration: none; border: none; color: #596275; }
 a.ContactLink:hover { text-decoration: none; border: none; }
 .GitHub::before {
     font-family: "Font Awesome 5 Brands";
@@ -119,12 +119,18 @@ a.ContactLink:hover { text-decoration: none; border: none; }
 .BlogrollLink {
     margin: 3px 6px;
 }
-#mail-at:before  { content: "@"; font-style: normal; }
-#mail-dot:before { content: "."; font-style: normal; }
+#dianyou {
+    font-size: 13px;
+    margin: 5px 0;
+    color: #596275;
+}
+#dianyou-at:before  { content: "@"; font-style: normal; }
+#dianyou-dot:before { content: "."; font-style: normal; }
 </style>
 
 <div class="SectionBody" style="margin-top: 30px;">
-    <table style="margin: 20px auto 10px auto;">
+    <img src="image/G3/qsl/QSL2023-A-1-RGB.jpg" style="width: 80%; max-width: 550px; border-radius: 5px;">
+    <!--<table style="margin: 20px auto 10px auto;">
         <tr>
             <td><img src="image/G3/crac-logo/CRAC-1.png" style="width: 40px; padding-right: 10px;"></td>
             <td style="text-align: left; font-size: 12px; line-height: 18px;">
@@ -136,11 +142,12 @@ a.ContactLink:hover { text-decoration: none; border: none; }
             </td>
             <td><img src="image/nanjing-location.png" style="width: 80px; padding-left: 10px;"></td>
         </tr>
-    </table>
+    </table>-->
 </div>
 
 <div class="SectionBody">
-    <div><a class="ContactLink Weixin" onclick="alert(`请直接在微信中搜索微信号“bd4sur”。`);"></a><a class="ContactLink GitHub" target="_blank" href="https://github.com/bd4sur/"></a><a class="ContactLink Bilibili" target="_blank" href="https://space.bilibili.com/7919331"></a></div>
+    <div><a class="ContactLink Weixin" onclick="alert(`微信号“bd4sur”。`);"></a><a class="ContactLink GitHub" target="_blank" href="https://github.com/bd4sur/"></a><a class="ContactLink Bilibili" target="_blank" href="https://space.bilibili.com/7919331"></a></div>
+    <div id="dianyou">欢迎联系 bd4sur<span id="dianyou-at"></span>qq<span id="dianyou-dot"></span>com</div>
 </div>
 
 <div class="SectionHeader">友情链接<div class="SectionHeaderComment">以交换时间先后为序</div></div>
@@ -318,13 +325,14 @@ a.ContactLink:hover { text-decoration: none; border: none; }
 <div class="SectionHeader">QSL卡片</div>
 <div class="SectionBody">凡未经本台操作员签名或者加盖呼号印章的卡片<br>均为无效卡片，不能作为通联依据</div>
 <div class="SectionBody">
-    <div>2023年第2版</div>
-    <img src="image/G3/qsl/QSL2023-A-1-RGB.jpg" style="width: 33%; max-width: 350px; border-radius: 5px;">
-    <img src="image/G3/qsl/QSL2023-b.png" style="width: 33%; max-width: 350px; border-radius: 5px;">
-    <img src="image/G3/qsl/QSL2023-A-2-RGB.jpg" style="width: 33%; max-width: 350px; border-radius: 5px;">
+    <div><b>2023年第2版</b></div>
+    <div>使用了暖暖十周年音乐会海报底图</div>
+    <img src="image/G3/qsl/QSL2023-A-1-RGB.jpg" style="width: 30%; max-width: 350px; border-radius: 5px;">
+    <img src="image/G3/qsl/QSL2023-b.png" style="width: 30%; max-width: 350px; border-radius: 5px;">
+    <img src="image/G3/qsl/QSL2023-A-2-RGB.jpg" style="width: 30%; max-width: 350px; border-radius: 5px;">
 </div>
 <div class="SectionBody">
-    <div>2021年第1版</div>
+    <div><b>2021年第1版</b></div>
     <img src="image/G3/qsl/QSL-A.png" style="width: 45%; max-width: 270px;">
     <img src="image/G3/qsl/QSL-B.png" style="width: 45%; max-width: 270px;">
 </div>

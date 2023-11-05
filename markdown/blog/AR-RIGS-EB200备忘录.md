@@ -3,28 +3,6 @@
 
 #!content
 
-> 参考资料汇总（▲高价值 ★已备份）
-
-> - 1. ▲[★CryptoMuseum上的介绍](https://www.cryptomuseum.com/df/rs/eb200/index.htm)：个别信息有误。
-- 2. ▲科创论坛：[★EB200和ESMB拆解](https://www.kechuang.org/t/83307)、[出二手2020](https://www.kechuang.org/t/85747)、[出二手2021](https://www.kechuang.org/t/86323)、[搭棚](https://www.kechuang.org/t/86148)、[屏蔽](https://www.kechuang.org/s/f86etw18)
-- 3. ▲Алексеем Игониным 的视频：[★EB200评测](https://www.youtube.com/watch?v=k27Wb_RPkdo)、[★EB200户外收听](https://www.youtube.com/watch?v=mLgcZByOFFU)、[★EB200显示中频频谱](https://www.youtube.com/watch?v=vVb_wxN7Ss8)、[★EB200与AR5000A对比](https://www.youtube.com/watch?v=TD4kkQhAJMY)、[★EB100评测](https://www.youtube.com/watch?v=fFyiyOyYqs0)、[★EB100户外收听](https://www.youtube.com/watch?v=npGEoJQxv7c)
-- 4. ▲[★俄国论坛提供的固件和文档](http://www.radioscanner.ru/files/rohde-schwarz/)（[讨论](http://www.radioscanner.ru/forum/topic873.html)）
-- 5. ▲[★OK1ZOO的EB150评测文章](https://kmitocty.cz/?p=4600)
-- 6. ▲[★机器版本情报](https://www.tiiips.com/m/tiiips/home?action=listReviews&reviewID=7150&oID=2542)（关键信息已在本文中记录）
-- 7. ▲[★寻找说明书附录以及预选器射频开关芯片替换](https://groups.io/g/Rohde-and-Schwarz/topic/93496544)：提供了预选器维修的资料，以及说明书附录。
-- 8. ▲[★关于校准](https://groups.io/g/Rohde-and-Schwarz/message/3867)（[附件备份](https://xdevs.com/doc/R%26S/EB200/)）
-- 9. ▲[★2019年广坛EB200玩家](https://www.17bb.cn/thread/2MTI1aOC4x)、[广坛关于欧美退役接收机的讨论](https://17bb.cn/thread/3MTk0eMy43)
-- 10. ★Communications Receivers: DSP, Software Radios, and Design, 3rd Edition：U.Rohde（N1UL）的著作，其中有一章节简单介绍了EB200，并给出了部分原理框图。2003年中文译本《★通信接收机：DSP、软件无线电和设计》。
-- 12. [★中文介绍幻灯片](https://max.book118.com/html/2016/0912/54281978.shtm)：RS中国官方培训幻灯片，侧重使用。
-- 13. [★一般操作演示](https://www.youtube.com/watch?v=CSGVP126vDs)（[B站搬运](https://www.bilibili.com/video/BV1xf4y1A7ry)）
-- 14. [关于EB150及其电源修复](https://www.vintage-radio.net/forum/showthread.php?t=135539)
-- 15. [SWLing关于EB200的讨论](https://swling.com/blog/2017/07/dan-spots-a-rohde-schwarz-miniport-receiver-eb200-on-ebay/)
-- 16. ▲[★利用ESMB测定接收机阻塞电平](https://www.bilibili.com/video/BV1ef4y1D7oc)
-- 17. ▲[★科创论坛EB100拆解](https://www.kechuang.org/t/44829)：上一代机器的拆解资料，可供参考。
-- 18. ▲[★ITU-R 手册：频谱监测手册](https://extranet.itu.int/brdocsearch/R-HDB/R-HDB-23/R-HDB-23-2011/R-HDB-23-2011-PDF-C.pdf)
-- 19. [★ITU-R 手册：国家频谱管理手册](https://extranet.itu.int/brdocsearch/R-HDB/R-HDB-21/R-HDB-21-2015/R-HDB-21-2015-PDF-C.pdf)
-- 20. ▲★冯小平等. 通信对抗原理[M]. 西安电子科技大学出版社, 2009.
-
 # 产品概述
 
 - 产品定位：目标客户和市场、核心功能和应用场景、技术和市场背景（技术成熟度分析）、成本和性价比、差异化竞争策略
@@ -33,15 +11,15 @@
 
 ![EB200和配套测向天线HE200，图片来自Datasheet](./image/G3/eb200/eb200-ant.jpg)
 
-EB200是一款便携式监测接收机（Miniport Receiver），由德国 Rohde & Schwarz（罗德与施瓦茨）公司出品。EB200于1997年前后在德国慕尼黑设计开发，1998年上市，行销全球，直至2008年停产，今天仍有部分在使用中<sup>[ref](https://mp.weixin.qq.com/s/f5Feh8uwT3XP6Wag-dge_w)</sup>。
+EB200是一款便携式监测接收机（Miniport Receiver），由德国 Rohde & Schwarz（罗德与施瓦茨）公司出品。EB200于1997年前后在德国慕尼黑设计开发，1998年上市，行销全球，直至2008年停产，今天仍有部分在使用中（[参考](https://mp.weixin.qq.com/s/f5Feh8uwT3XP6Wag-dge_w)）。
 
 作为监测接收机，EB200的核心功能是无线电信号接收、扫描和测量，覆盖10kHz\~3GHz的所有频率，支持AM、FM、SSB、CW、脉冲等模拟解调方式，频率扫描速度飞快（在当时的技术条件下），可用于频谱监测、非合作信号扫描和接收、发射源搜索和测向、TSCM等对抗性任务。
 
-EB200主要面向无线电监管、电子对抗、安防、通信、广播电视等行业的专业机构用户，我国监管机关累计采购数千套，最低配置每台大约人民币20万元。2001～2012年期间，EB200是我国无线电监测部门和军队频谱管理部门的主力便携设备之一，曾经是市州二类监测站常用的接收设备<sup>[2]</sup>。近年来，随着EB200逐渐从专业机构中淘汰退役，少量机器流入民间市场，价格逐渐下降到爱好者可能负担的水平，但仍然相当昂贵。由于价格高昂，存量不大，且其定位并非面向一般用户和一般用途，因此在一般的无线电爱好者群体中，EB200的保有量可能并不很多；有关这款机器的情报，更是难得一见。
+EB200主要面向无线电监管、电子对抗、安防、通信、广播电视等行业的专业机构用户，我国监管机关累计采购数千套，最低配置每台大约人民币20万元。2001～2012年期间，EB200是我国无线电监测部门和军队频谱管理部门的主力便携设备之一，曾经是市州二类监测站常用的接收设备。近年来，随着EB200逐渐从专业机构中淘汰退役，少量机器流入民间市场，价格逐渐下降到爱好者可能负担的水平，但仍然相当昂贵。由于价格高昂，存量不大，且其定位并非面向一般用户和一般用途，因此在一般的无线电爱好者群体中，EB200的保有量可能并不很多；有关这款机器的情报，更是难得一见。
 
 > 根据文献（武钧. **无线电技术设备的使用情况**[J]. 电子技术与软件工程）介绍：通过对于湖南省的无线电站台状况进行分析可以得知：固定站在日常监测过程中占据较大的比重，其比例高达76.95%。基于时代的发展需要以及各项任务开展的实际状况可以得知：移动设备对相关工作的作用性更强。其中，移动无线电站的使用次数最多，高达795次，占到使用率的31.39%，其次为N9020、PR100，其使用次数分别为946次、846次。在对监测设备的分类分析中可以得知：移动站的使用比例最大，高达95.12%，在设备运行的过程中占有绝对优势，而固定站只有4.08%，可搬移站使用率最低，只有0.79%。在接收机设备分类中，PR100与EB200使用率相当，分别为59.04%、40.96%。在频谱分析类设备中，N9020占60.49%，MS2724占39.51%。
 
-罗德与施瓦茨公司是久负盛名的无线电仪器厂商，提供无线电监测“交钥匙”解决方案。EB200是解决方案的一部分，可以被整合到无线电监测系统（如无线电监测站、监测车）和台网中，也可以单独使用。EB200提供了丰富的对外接口，同时用户手册提供了详尽的技术资料，包括原理框图、接口定义、通信协议和遥控指令集、二次开发指南等等，可为上位机软件开发或者系统集成提供参考。然而，罗德施瓦茨公司提供的系统级解决方案，价格较为高昂，因此不少用户委托第三方提供系统集成和技术支持服务<sup>[2]</sup>。
+罗德与施瓦茨公司是久负盛名的无线电仪器厂商，提供无线电监测“交钥匙”解决方案。EB200是解决方案的一部分，可以被整合到无线电监测系统（如无线电监测站、监测车）和台网中，也可以单独使用。EB200提供了丰富的对外接口，同时用户手册提供了详尽的技术资料，包括原理框图、接口定义、通信协议和遥控指令集、二次开发指南等等，可为上位机软件开发或者系统集成提供参考。然而，罗德施瓦茨公司提供的系统级解决方案，价格较为高昂，因此不少用户委托第三方提供系统集成和技术支持服务。
 
 > [罗德与施瓦茨官方知乎账号](https://www.zhihu.com/question/593011387/answer/2966046299)：先来介绍R&S研发生产的ESP自动接收机，这是为了解决无线电监测和定向的自动化需求而制造的设备，堪称经典。到1980年，罗德与施瓦茨公司推出的ESM500再次成为一个里程碑式的产品，这是世界上第一台基于电脑主控的宽带接收器。在罗德与施瓦茨博物馆我们还可以看到**卖得最好的EB200**，这是罗德与施瓦茨在1985年推出便携式EB100的升级款。从1999年开始，EB200连续取得令人瞩目的销售成果。千禧年以后，随着移动电话、政府级无线电通信、导航系统和广播等移动无线数据交换需求的不断增加，作为一种有限的自然资源，无线电频谱正被越来越多的服务所使用。以数十年来所积累的频谱监测经验为强大后盾，R&S公司长期为政府频谱管理部门开发生产便携式、移动式和固定式系统，用于检测、定位和分析无线电通信信号。
 
@@ -72,7 +50,7 @@ EB200是1997年前后研发，当时是大哥大的年代，SDR和DSP技术还�
 - 北京创建基立科技有限公司. 监测接收机★
 - ITU-R SM.1839-1 [测量无线电监测接收机扫描速度的测试程序](https://www.itu.int/dms_pubrec/itu-r/rec/sm/R-REC-SM.1839-1-201109-I!!PDF-C.pdf)
 
-# 竞品分析
+# 竞品对比
 
 EB200有两型同族产品，分别是不带远程控制选件的EB150和不带前面板（但默认安装以太网接口）的EB110。
 
@@ -80,7 +58,7 @@ EB200有两型同族产品，分别是不带远程控制选件的EB150和不带�
 
 EB200的上一代产品是1985年推出的EB100，覆盖10MHz~1GHz，提供AM和FM解调模式和三种中频带宽，内置铅酸蓄电池，比EB200更便携，但受限于当时的技术水平，功能较为有限。EB200则在便携性、功能性能和远程控制等方面做了折中，因而大获成功。EB200的相近型号是ESMB，定位为台式监测接收机，用于固定监测站或者监测车，加装短波选件后可覆盖9kHz\~3GHz。
 
-EB200的后继产品为EB500，定位为高端台式监测接收机，舍弃了便携性，价格昂贵。而便携监测接收机的生态位由PR100及其后续型号PR200占据。据资料[10]介绍，PR100属于初代SDR，实时带宽10MHz，基带Bug始终未解决，短波低端有假信号，但是音质很正，AGC非常平坦，附件天线馈线的幅度和相位修正很好。PR200于2008年上市，2021年停产，目前是我国无线电监测部门主要便携式设备之一。
+EB200的后继产品为EB500，定位为高端台式监测接收机，舍弃了便携性，价格昂贵。而便携监测接收机的生态位由PR100及其后续型号PR200占据。据参考资料介绍，PR100属于初代SDR，实时带宽10MHz，基带Bug始终未解决，短波低端有假信号，但是音质很正，AGC非常平坦，附件天线馈线的幅度和相位修正很好。PR200于2008年上市，2021年停产，目前是我国无线电监测部门主要便携式设备之一。
 
 # 功能特性
 
@@ -326,8 +304,6 @@ Users had noticed a slowness in charging the batteries, which, for a portable re
 
 ## 附件与齐套性
 
-![套件](./image/G3/eb200/eb200-suite.jpg)
-
 - 4052.9304.02 EB200SC Transit Case
 - 4052.8708.02 EB200CB Carrying Bag
 - 4052.6005.02 EB200CC Car Converter
@@ -439,3 +415,29 @@ EB两洞洞是一款非常有趣的接收机，它面向频谱监测这个高度
 如今，软件无线电技术已经有了长足进步，接收机成本不断下降，但是高端机器依然昂贵。EB两洞洞和它的技术，在我看来，是连接两个时代和两个世界的桥梁，一端连接着模拟时代和物理世界，另一端连接着数字时代和赛博世界。世界是物质的，无论软件定义的范围有多大，这座桥梁永远不会消失。软件定义的部分，定义了接收机的上限，而软件无法定义的部分，兜住了接收机的下限。EB两洞洞这台有趣的电子手办，是在本台的财力范围内能够负担的最高端的接收机，它把我头脑中关于无线电的抽象知识，具象成一台看得见摸得到的机器，把无线电收听变成了一件知行合一的浪漫的事情。随着电波被解调出来的，不仅有熟悉的梅花三弄，还有无线电的奇妙魔法。
 
 关于EB两洞洞的介绍就到这里，谢谢观看，敬请指正。这里是 Bravo、Delta、four、Sierra、Uniform、Radio，七三，再见。
+
+# 参考资料
+
+▲高价值 ★已备份
+
+- ▲[★CryptoMuseum上的介绍](https://www.cryptomuseum.com/df/rs/eb200/index.htm)：个别信息有误。
+- ▲科创论坛：[★EB200和ESMB拆解](https://www.kechuang.org/t/83307)、[出二手2020](https://www.kechuang.org/t/85747)、[出二手2021](https://www.kechuang.org/t/86323)、[搭棚](https://www.kechuang.org/t/86148)、[屏蔽](https://www.kechuang.org/s/f86etw18)
+- ▲Алексеем Игониным 的视频：[★EB200评测](https://www.youtube.com/watch?v=k27Wb_RPkdo)、[★EB200户外收听](https://www.youtube.com/watch?v=mLgcZByOFFU)、[★EB200显示中频频谱](https://www.youtube.com/watch?v=vVb_wxN7Ss8)、[★EB200与AR5000A对比](https://www.youtube.com/watch?v=TD4kkQhAJMY)、[★EB100评测](https://www.youtube.com/watch?v=fFyiyOyYqs0)、[★EB100户外收听](https://www.youtube.com/watch?v=npGEoJQxv7c)
+- ▲[★俄国论坛提供的固件和文档](http://www.radioscanner.ru/files/rohde-schwarz/)（[讨论](http://www.radioscanner.ru/forum/topic873.html)）
+- ▲[★OK1ZOO的EB150评测文章](https://kmitocty.cz/?p=4600)
+- ▲[★机器版本情报](https://www.tiiips.com/m/tiiips/home?action=listReviews&reviewID=7150&oID=2542)（关键信息已在本文中记录）
+- ▲[★寻找说明书附录以及预选器射频开关芯片替换](https://groups.io/g/Rohde-and-Schwarz/topic/93496544)：提供了预选器维修的资料，以及说明书附录。
+- ▲[★关于校准](https://groups.io/g/Rohde-and-Schwarz/message/3867)（[附件备份](https://xdevs.com/doc/R%26S/EB200/)）
+- ▲[★2019年广坛EB200玩家](https://www.17bb.cn/thread/2MTI1aOC4x)、[广坛关于欧美退役接收机的讨论](https://17bb.cn/thread/3MTk0eMy43)
+- [2023年矿坛EB200玩家](http://www.crystalradio.cn/thread-2098575-1-1.html)
+- ★Communications Receivers: DSP, Software Radios, and Design, 3rd Edition：U.Rohde（N1UL）的著作，其中有一章节简单介绍了EB200，并给出了部分原理框图。2003年中文译本《★通信接收机：DSP、软件无线电和设计》。
+- [★中文介绍幻灯片](https://max.book118.com/html/2016/0912/54281978.shtm)：RS中国官方培训幻灯片，侧重使用。
+- [★一般操作演示](https://www.youtube.com/watch?v=CSGVP126vDs)（[B站搬运](https://www.bilibili.com/video/BV1xf4y1A7ry)）
+- [关于EB150及其电源修复](https://www.vintage-radio.net/forum/showthread.php?t=135539)
+- ▲[★2023年修复大旋钮](https://rbarrios.com/projects/eb200knob/)（[Hackaday](https://hackaday.com/2023/10/30/creating-a-new-metal-rohde-schwarz-eb200-miniport-receiver-dial-knob/)）
+- [SWLing关于EB200的讨论](https://swling.com/blog/2017/07/dan-spots-a-rohde-schwarz-miniport-receiver-eb200-on-ebay/)
+- ▲[★利用ESMB测定接收机阻塞电平](https://www.bilibili.com/video/BV1ef4y1D7oc)
+- ▲[★科创论坛EB100拆解](https://www.kechuang.org/t/44829)：上一代机器的拆解资料，可供参考。
+- ▲[★ITU-R 手册：频谱监测手册](https://extranet.itu.int/brdocsearch/R-HDB/R-HDB-23/R-HDB-23-2011/R-HDB-23-2011-PDF-C.pdf)
+- [★ITU-R 手册：国家频谱管理手册](https://extranet.itu.int/brdocsearch/R-HDB/R-HDB-21/R-HDB-21-2015/R-HDB-21-2015-PDF-C.pdf)
+- ▲★冯小平等. 通信对抗原理[M]. 西安电子科技大学出版社, 2009.
