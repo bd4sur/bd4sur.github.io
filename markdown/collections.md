@@ -210,7 +210,7 @@ a:hover {
         <div class="BlogrollLink"><a target="_blank" href="https://www.bananaspace.org/">香蕉空间</a></div>
         <div class="BlogrollLink"><a target="_blank" href="http://nightchina.net/">夜空中国</a></div>
         <div class="BlogrollLink"><a target="_blank" href="https://0.30000000000000004.com/">浮点数</a></div>
-        <div class="BlogrollLink"><a target="_blank" href="https://fwjmath.wordpress.com/">fwjmath</a></div>
+        <div class="BlogrollLink"><a target="_blank" href="https://fwjmath.wordpress.com/">方弦</a></div>
         <div class="BlogrollLink"><a target="_blank" href="http://www.changhai.org/">卢昌海</a></div>
         <div class="BlogrollLink"><a target="_blank" href="https://bellard.org/">Fabrice Bellard</a></div>
         <div class="BlogrollLink"><a target="_blank" href="http://madebyevan.com/">Evan Wallace</a></div>
@@ -225,7 +225,6 @@ a:hover {
         <div class="BlogrollLink"><a target="_blank" href="https://kcores.com/reading">氪金核心</a></div>
         <div class="BlogrollLink"><a target="_blank" href="https://retronn.de/">Hardware Gallery</a></div>
         <div class="BlogrollLink"><a target="_blank" href="https://bideyuanli.com/">比的原理</a></div>
-        <div class="BlogrollLink"><a target="_blank" href="http://www.yinwang.org/">王垠</a></div>
 
         <div class="BlogrollLink"><a target="_blank" href="https://thwiki.cc/">THBwiki</a></div>
         <div class="BlogrollLink"><a target="_blank" href="http://wuli.wiki/">小时物理百科</a></div>

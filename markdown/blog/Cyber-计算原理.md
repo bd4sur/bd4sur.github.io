@@ -29,6 +29,7 @@
 - 朱水林. **哥德尔不完全性定理**[M]. 辽宁教育出版社, 1987.
 - R Smullyan. **哥德尔不完全性定理**[M]. 余俊伟译. 科学出版社, 2019.
 - Martin Hirzel. [**On formally undecidable propositions of Principia Mathematica and related systems I (An English translation)**](https://web.archive.org/web/20040916041216/http://www.research.ibm.com/people/h/hirzel/papers/canon00-goedel.pdf). 2000.
+- 方弦(fwjmath). [**计算的极限**（系列文章）](https://fwjmath.wordpress.com/recommended-list/)[OL].
 - Tom Stuart. **计算的本质**[M]. 张伟译. 人民邮电出版社, 2014.
 - Friedman D P, Wand M. [**Essentials of Programming Languages (3rd Edition)**](http://www.eopl3.com/)[M]. The MIT Press, 2008.
 - 张立昂. **可计算性与计算复杂性导引**（第3版）[M]. 北京大学出版社, 2011.
@@ -1754,7 +1755,7 @@ $$ \mathsf{bwb}(x) := \exists y \mathsf{bew}(y, x) $$
 
 **引理9.2.1(1) (可证性的表示)** 若$T \vdash \sigma$，则 存在$n \in \mathbb{N}$，使得$T \vdash \mathsf{bew}(\mathsf{n}, \lceil \sigma \rceil)$。
 
-证明1：由于$T \vdash \sigma$，存在标准自然数$n \in \mathbb{N}$，使得$(n, \sharp \sigma) \in \mathrm{bew}_T(n, \sharp \sigma)$，因而根据递归关系$\mathrm{bew}_T$的可表示性，有$T \vdash \mathsf{bew}(\mathsf{n}, \lceil \sigma \rceil)$。因此，引理9.2.1(1)得证。∎
+证明1：由于$T \vdash \sigma$，存在标准自然数$n \in \mathbb{N}$，使得$(n, \sharp \sigma) \in \mathrm{bew}_T$，因而根据递归关系$\mathrm{bew}_T$的可表示性，有$T \vdash \mathsf{bew}(\mathsf{n}, \lceil \sigma \rceil)$。因此，引理9.2.1(1)得证。∎
 
 证明2：根据$T \vdash \sigma$在标准算术模型$\mathfrak{N}$中的元语言语义，存在标准自然数$n \in \mathbb{N}$，使得$\mathfrak{N} \models \mathsf{bew}(\mathsf{n}, \lceil \sigma \rceil)$。由于$\mathsf{bew}$是$\Delta_1$的因而也是$\Sigma_1$的，根据定理9.1.8，$\mathfrak{N} \models \mathsf{bew}(\mathsf{n}, \lceil \sigma \rceil)$等价于$T \vdash \mathsf{bew}(\mathsf{n}, \lceil \sigma \rceil)$。因此，引理9.2.1(1)得证。∎
 
