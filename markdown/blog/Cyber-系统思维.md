@@ -9,7 +9,7 @@
 
 说明：
 
-- 本专题主要是有关理论计算机科学、算法信息论、复杂系统科学、人工智能、软件工程、工业工程、管理学（管理科学）等方面的灵感和观点。
+- 本专题主要是有关理论计算机科学、算法信息论、复杂系统科学、控制理论、人工智能、软件工程、工业工程、管理学（管理科学）等方面的灵感和观点。
 - 本专题不再细分类别，每个一级标题都是一个独立的Idea。
 
 推荐文献：
@@ -25,13 +25,11 @@
 
 # 复杂系统及其可视化
 
-## 元胞自动机（康威生命游戏）
+## 元胞自动机
 
 <iframe class="MikumarkIframe" src="./html/conway-gol.html" height="750px"></iframe>
 
-## Particle Life
-
-[Particle Life | シャポ庫](https://www.shapoco.net/particlelife/)
+- [Particle Life | シャポ庫](https://www.shapoco.net/particlelife/)
 
 ## 单峰映射系统
 
@@ -43,11 +41,14 @@
 
 : [单峰映射](https://en.wikipedia.org/wiki/Logistic_map) | [费根鲍姆常数](https://en.wikipedia.org/wiki/Feigenbaum_constants) | [分岔理论](https://zh.wikipedia.org/wiki/%E5%88%86%E5%B2%94%E7%90%86%E8%AB%96)
 
-## 化学振荡
+## 化学振荡·自复制自催化·图灵模式
+
+<details>
+<summary>蓝瓶实验</summary>
 
 2018-02-27
 
-蓝瓶实验是非常容易实现的并且效果明显的小实验。淘宝上有卖蓝瓶实验的材料，很久以前就加入购物车了，但是因为在购物车的底部，所以直到最近才买回来。实验材料包括一个小瓶子和三种试剂，其中两种试剂是白色的粉末，还有一小管亚甲蓝溶液。说明书上并没有说试剂具体是什么，猜想除了亚甲蓝溶液之外，其余两种应该是葡萄糖和氢氧化钠。
+[蓝瓶实验](https://en.wikipedia.org/wiki/Blue_bottle_experiment)是非常容易实现的并且效果明显的小实验。淘宝上有卖蓝瓶实验的材料，很久以前就加入购物车了，但是因为在购物车的底部，所以直到最近才买回来。实验材料包括一个小瓶子和三种试剂，其中两种试剂是白色的粉末，还有一小管亚甲蓝溶液。说明书上并没有说试剂具体是什么，猜想除了亚甲蓝溶液之外，其余两种应该是葡萄糖和氢氧化钠。
 
 实验前，向小瓶子里加入一半多一点的水，总之不要装满。将三种试剂加入装水的小瓶子，拧紧盖子，振荡，直至所有固体溶解。静置片刻，就会发现蓝色的溶液变成了无色溶液。当溶液变成无色之后，充分振荡，无色的溶液又变回蓝色。静置，溶液又变成无色。如此重复，瓶中的溶液在蓝色—白色之间循环变化，很有意思。
 
@@ -79,12 +80,15 @@ $$ \mathrm{Cl_2 + 2HBr = 2HCl + Br_2} $$
 
 亚甲蓝是一种有毒性的染料。由于亚甲蓝可以氧化血红蛋白为易于与$\mathrm{CN^-}$结合的高铁血红蛋白，暂时缓解细胞缺氧，因此可作为氰化物中毒的解毒剂。
 
+</details>
+
 其他化学振荡：#(碘钟实验)#、[#(B-Z反应)#](https://zh.wikipedia.org/wiki/B-Z%E5%8F%8D%E5%BA%94)
 
-+ [维基百科](https://en.wikipedia.org/wiki/Blue_bottle_experiment)
-+ [百度百科](https://baike.baidu.com/item/%E8%93%9D%E7%93%B6%E5%AD%90%E5%AE%9E%E9%AA%8C)
-+ [标准电极电势表](http://www.doc88.com/p-3347640759022.html)
-+ [Reduction Potentials](http://butane.chem.uiuc.edu/pshapley/GenChem2/B9/2.html)
+化学自复制自催化行为：[会自我复制和进化的分子](https://zhuanlan.zhihu.com/p/20491568)、朊病毒等
+
+- [Turing pattern](https://en.wikipedia.org/wiki/Turing_pattern)、[反应-扩散系统](https://en.wikipedia.org/wiki/Reaction%E2%80%93diffusion_system)
+- [人为什么会有指纹？](https://www.zhihu.com/question/19962632/answer/3289200022)
+- [从简单规则中产生复杂图案，自然是如何做到的](https://swarma.org/?p=28086)
 
 ## Orchestrated objective reduction
 

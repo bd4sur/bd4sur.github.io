@@ -24,6 +24,7 @@
 - 韵目代日（[参考](https://www.zhihu.com/question/491852605/answer/2176136317)）
 - 宜芸是藏书的意思。古书用芸香防蛀。这个芸香指的是一种香草，今天叫零陵香（报春花科珍珠菜属的灵香草）。乾隆时宜芸馆用于藏书，光绪重建颐和园时，在宜芸馆的位置建造皇后寝宫，名字沿用乾隆时的名称。
 - 壹隻憂鬱臺灣烏龜尋釁幾羣骯髒變態囓齒鱷龞，幾羣骯髒變態囓齒鱷龞圍毆壹隻憂鬱臺灣烏龜
+- 湖北当阳方言存在大舌颤音：[分析](https://www.zhihu.com/question/402710922/answer/1406607075)、[视频](https://www.bilibili.com/video/BV1DW41137xP)、[音频](https://mp.weixin.qq.com/s/XIvqQmeLbJAOgE1TxWOWRQ)
 
 # 烫嘴单词
 

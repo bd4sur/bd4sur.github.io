@@ -1984,6 +1984,13 @@ GEB第326页：旨在破坏逻辑头脑的禅宗公案
 
 # 第七章：无穷的无穷
 
+[超计算模型](https://www.zhihu.com/question/21579465/answer/106995708)
+
+[大数的探寻](https://www.jianshu.com/p/35052a45e20f)（如[忙碌海狸数](https://zh.wikipedia.org/wiki/%E5%BF%99%E7%A2%8C%E7%9A%84%E6%B5%B7%E7%8B%B8)）
+
+- [会做数学证明的“忙碌海狸”，以及比TREE(3)还大的“不可计算数”](https://www.zhihu.com/tardis/zm/art/145975481)：文中提到，从传播效果看，“忙碌海狸”函数这样的名字的传播效果远比“Sigma函数”好。
+- [忙碌海狸函数BB(1)到BB(5)的值是怎么计算的](https://www.zhihu.com/tardis/zm/art/337546518)
+
 > 高峰要高到无穷，红旗要红过九重！
 ——中国科学技术大学校歌《永恒的东风》
 
