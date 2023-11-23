@@ -457,7 +457,9 @@ Execute `source /etc/profile` and reboot.
 
 必须**按顺序**安装以下组件：
 
-安装：`sudo apt install librtlsdr-dev`
+安装RTL-SDR：`sudo apt install librtlsdr-dev`
+
+安装HackRF：`sudo apt install hackrf libhackrf-dev`
 
 安装[libosmocore](https://osmocom.org/projects/libosmocore/wiki/Libosmocore)
 
@@ -480,16 +482,16 @@ sudo make install
 sudo ldconfig -i
 ```
 
-安装[gr-osmosdr](https://github.com/osmocom/gr-osmosdr)
+安装[gr-osmosdr](https://github.com/osmocom/gr-osmosdr)：
+
+首先直接下载代码仓库`https://gitea.osmocom.org/sdr/gr-osmosdr/src/branch/gr3.8`到`~/gr-osmosdr`目录。
+
+~注意：仓库中有部分代码使用了`boost::chrono`，这会导致最终编译出的so出现无法解析的符号，报`undefined symbol: _ZN5boost6chrono12steady_clock3nowEv`错误。其原因可以参考[这里](https://sources.debian.org/patches/gr-iio/0.3-9/)。因此，在编译之前，务必将`lib/CMakeLists.txt`中涉及这个问题的编译选项关闭掉。具体来说，就是注释掉208行附近RFSPACE相关的选项，以及240行附近FreeSRP相关的选项。~然后执行：
 
 ```
-cd ~
-git clone git://git.osmocom.org/gr-osmosdr
-git checkout gr3.8
-cd gr-osmosdr/
 mkdir build
-cd build/
-cmake ../
+cd build
+cmake ..
 make
 sudo make install
 sudo ldconfig
@@ -498,6 +500,7 @@ sudo ldconfig
 装好后，执行以下命令以测试（详见[这里](https://osmocom.org/projects/rtl-sdr/wiki/Rtl-sdr)）：
 
 ```
+hackrf_info
 rtl_test
 rtl_adsb
 rtl_fm -f 97500000 -M wbfm -s 200000 -r 48000 - | aplay -r 48000 -f S16_LE
