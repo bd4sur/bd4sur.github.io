@@ -2,6 +2,116 @@
 
 #!content
 
+# 计算机基线设置和必备软件
+
+## Ubuntu 20.04LTS
+
+硬盘分区设置：
+
+- UEFI分区（`/boot`分区）1GB，主分区，设为启动分区
+- 交换空间是内存的2倍，逻辑分区
+- 剩余所有空间挂载根目录，主分区
+
+设置代理、熄屏时间。
+
+设置声卡采样率到48kHz：`arecord --list-devices`查看声卡设备，`/etc/pulse/daemon.conf`编辑采样率。
+
+在应用商店中安装Chromium、VSCode。然后安装其他必备软件：
+
+```
+sudo apt install lame mpg123
+sudo apt install git
+sudo apt install npm
+sudo npm install -g n
+sudo n stable
+```
+
+设置git的网络代理：
+
+```
+git config --global http.proxy "socks5://192.168.10.5:1080"
+git config --global https.proxy "socks5://192.168.10.5:1080"
+```
+
+GUI优化：
+
+- `sudo nautilus`打开文件管理器。
+- 将微软雅黑字体放置在`/usr/share/fonts/msyh`目录下。
+- 添加权限：`sudo chmod 755 /usr/share/fonts/msyh/*`
+- 在此目录下执行`sudo mkfontscale && sudo mkfontdir && sudo fc-cache -fv`添加缓存。
+- 安装GUI美化工具：`sudo apt install gnome-tweak-tool`
+- 在应用-工具菜单中找到“优化”，除设置字体外，还可以设置其他。
+
+解决丢失GRUB启动项的问题（参考：https://io-oi.me/tech/how-to-reinstall-grub/）
+
+- 插入Linux安装盘，开机按F12进入U盘的Linux系统。
+- `fdisk -l`查看电脑原有的Linux分区，例如`/dev/nvmxx`
+- `sudo mount /dev/nvmxx /mnt`
+- 执行：
+
+```
+mount --bind /dev /mnt/dev
+mount --bind /dev/pts /mnt/dev/pts
+mount --bind /proc /mnt/proc
+mount --bind /sys /mnt/sys
+```
+
+- `sudo chroot /mnt`
+- `mount /dev/<通过fdisk查询到的EFI_System分区> /boot/efi/`
+- `grub-install /dev/nvmxx`
+- `grub-install --recheck /dev/nvmxx`
+- `update-grub`
+
+## Windows 10
+
+初始配置：
+
+- 运行`gpedit.msc`，计算机配置→管理模板→Windows组件→Windows更新，【配置自动更新】改为【已禁用】
+- 检查更新并安装
+- 电源设置：待机和熄屏时间、电源键和合盖动作等
+- 文件夹选项：打开文件资源管理器时打开此电脑、取消隐藏扩展名
+- **仅限内网**：开启远程桌面；允许空密码：运行gpedit.msc，在计算机配置/Windows设置/安全设置/本地策略/安全选项中，找到“账户：使用空密码的本地账户……”，将其设置为“禁用”
+- 卸载一切没用的预置软件
+- 安装必要软件
+- 在设置中清理掉传递优化等无用文件
+
+安装必备软件
+
+- VSCode、git、TortoiseGit
+- FSViewer(并替换exe)、PotPlayer、千千静听或者Foobar2000(安装插件)
+- SumatraPDF(绿色)
+- node、npm
+
+安装nssm：下载nssm，将其复制到`C:/Windows`。
+
+安装OpenHardwareMonitor
+
+- 将可执行文件放到`C:/app/monitor`
+- 管理员模式执行`nssm install openhwmonitor C:/app/monitor/OpenHardwareMonitor.exe`。
+- 打开OpenHardwareMonitor：选项→远程Web服务器→开启（默认端口8085）
+- 打开高级防火墙设置，增加**入站规则**：程序、允许连接、域/专用/公用、TCP、UDP
+
+安装filebrowser
+
+- 下载exe，放在`C:/app/filebrowser`，此为FB自身的工作目录，包含配置db和自定义样式等文件。
+- 修改`config.json`，将`root`字段改成文件服务器目标目录路径。
+- 在工作目录中执行`./filebrowser.exe config import ./config.json`。
+- 启动管理员命令行，输入`nssm install filebrowser C:/app/filebrowser/filebrowser.exe --disable-type-detection-by-header --disable-preview-resize`。
+- 打开高级防火墙设置，增加**入站规则**：程序、允许连接、域/专用/公用、TCP、UDP
+- 最后通过Web前端关掉一切修改类的权限，只保留只读权限，防止远端修改UPDB。
+
+安装gitea
+
+- 系统环境变量`Path`添加
+-- `C:\Program Files\Git\cmd`
+-- `C:\Program Files\TortoiseGit\bin`
+-- `C:\Program Files\nodejs\`
+- 首先安装Git
+- 创建目录`C:/app/gitea`
+- 创建目录`G:/gitea_repo`、`G:/gitea_lfs`
+- 将`gitea.exe`放在`C:/app/gitea`目录下，启动，访问`localhost:3000`进行初始化配置。
+- 管理员模式执行`sc.exe create gitea start= auto binPath= "\"C:\app\gitea\gitea.exe\" web --config \"C:\app\gitea\custom\conf\app.ini\""`
+
 # 嵌入式系统·开发板
 
 ## ESP32

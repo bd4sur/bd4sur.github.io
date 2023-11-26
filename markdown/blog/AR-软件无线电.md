@@ -15,6 +15,13 @@
 
 ## QPSK数字音频传输
 
+方便命令：
+
+- 杀掉GR进程：`kill $(ps aux | grep -E "[Q]PSK_Rx.py" | awk '{print $2}')`
+- 管道MP3音频输出：`cat xx.mp3/或者某命名管道 | lame --decode --mp3input - - | aplay -`
+
+视频抽帧并裁切：`ffmpeg -i ba.mp4 -f image2 -vf crop=1080:1080 -r 10 -qscale:v 2 ./ba-%05d.jpg`
+
 **发射机**
 
 ![ ](./image/G3/sdr/qpsk-tx.png)
@@ -402,7 +409,9 @@ GNURadio发射电脑播放的声音：1）安装pavucontrol；2）Audio Source �
 
 2022-03-09：玩了三天GNURadio，收获比读一百本书还要大。今天画了个SSB发射机，相移法实现。然而实际发射出去的电波，在接收机的频谱上，存在一个十分扎眼的载波，而理论上是不应该有载波的。经过一番分析，认为可能是IQ路径上存在直流所致。于是在发射前暂且对一路分量进行补偿，发射期间拖动滑块改变补偿量，可以在接收机的频谱上观察到载波强度的显著变化，说明补偿是有效的。载波泄露可能还跟本振馈通等因素有关，这些都有待研究。存在的问题还有另一侧边带仍有残余，以及发射机自身的频偏问题，等等。
 
-## 安装 GNU Radio 3.8
+## 搭建 GNU Radio 3.8 研发环境
+
+**从源码编译安装 GNU Radio 3.8 基本环境**
 
 首先安装依赖（[参考](https://wiki.gnuradio.org/index.php?title=UbuntuInstall#Focal_Fossa_.2820.04.29_through_Impish_Indri_.2821.10.29)）：
 
@@ -431,7 +440,7 @@ sudo make install
 sudo ldconfig
 ```
 
-Setting the env variables（[参考](https://wiki.gnuradio.org/index.php?title=ModuleNotFoundError)）  :
+设置环境变量（[参考](https://wiki.gnuradio.org/index.php?title=ModuleNotFoundError)）  :
 
 ```
 # Use the following command to locate Python path (for Ref.):
@@ -445,21 +454,22 @@ export PYTHONPATH=/usr/local/lib/python3/dist-packages:/usr/local/lib/python3.8/
 export LD_LIBRARY_PATH=/usr/local/lib:$LD_LIBRARY_PATH
 ```
 
-Execute `source /etc/profile` and reboot.
+执行`source /etc/profile`并重启`sudo reboot`。
 
-## KC908接口库安装
+**安装KC908接口库和OOT模块**
 
-- https://www.kechuang.org/t/86100
-- 先安装接口库
-- 安装GR的OOT模块
+首先[下载](https://www.kechuang.org/t/86100)，路径中不能出现汉字。先安装接口库，再安装GR的OOT模块。
 
-## RTL-SDR
+**安装RTL-SDR和HackRF的接口库和OOT模块**
 
 必须**按顺序**安装以下组件：
 
 安装RTL-SDR：`sudo apt install librtlsdr-dev`
 
 安装HackRF：`sudo apt install hackrf libhackrf-dev`
+
+<details>
+<summary>安装libosmocore（不需要，仅供参考）</summary>
 
 安装[libosmocore](https://osmocom.org/projects/libosmocore/wiki/Libosmocore)
 
@@ -481,6 +491,8 @@ make
 sudo make install
 sudo ldconfig -i
 ```
+
+</details>
 
 安装[gr-osmosdr](https://github.com/osmocom/gr-osmosdr)：
 
@@ -505,6 +517,26 @@ rtl_test
 rtl_adsb
 rtl_fm -f 97500000 -M wbfm -s 200000 -r 48000 - | aplay -r 48000 -f S16_LE
 ```
+
+**安装GQRX**
+
+首先安装依赖：`sudo apt install qt5-default libqt5svg5-dev`
+
+从源码编译安装：
+
+```
+cd ~
+git clone https://github.com/gqrx-sdr/gqrx.git
+cd gqrx
+mkdir build
+cd build
+cmake ..
+make -j4
+sudo make install
+sudo ldconfig
+```
+
+
 
 ## gr-gsm
 
