@@ -82,6 +82,113 @@
 
 # 自然语言处理
 
+## 在普通CPU机器上部署大语言模型
+
+2023-11-28
+
+以下完全基于[chatglm.cpp](https://github.com/li-plus/chatglm.cpp)（V0.3.0）部署。在松下SV8洋垃圾笔记本（Core i5-8365U，16GB内存，512GB的NVMe固态硬盘，Ubuntu 20.04 LTS）上测试，体验良好，运行速度尚在能够容忍的范围内，作为人工智障小玩具是堪用的。以下是部署过程备忘，连同环境在内的所有文件已备份到物理硬盘上。
+
+首先，需要将全精度模型转换为低精度的GGML格式的模型。模型转换和量化过程对算力要求不大，但是对于内存需求巨大。6-7B模型需要至少16GB内存，13B模型需要至少64GB内存。由于SV8物理内存只有16GB，因此需要临时扩充交换空间，至少需要50GB的交换空间。临时交换空间的设置方式如下：
+
+```
+sudo fallocate -l 50G /swap
+sudo sudo chmod 600 /swap
+sudo mkswap /swap
+sudo swapon /swap
+# 查看交换空间
+sudo swapon --show
+# 查看所有内存
+free -h
+```
+
+安装各种依赖。
+
+```
+python3 -m pip install -U pip
+python3 -m pip install torch tabulate tqdm transformers==4.33.0 accelerate sentencepiece
+```
+
+拉取chatglm.cpp代码仓库和子模块：
+
+```
+cd ~/ai
+git clone --recursive https://github.com/li-plus/chatglm.cpp.git && cd chatglm.cpp
+git submodule update --init --recursive
+```
+
+去HuggingFace或者ModelScope下载模型权重文件。由于涉及巨大模型文件，需要先安装git-lfs：`sudo apt install git-lfs`。然后拉取模型仓库：
+
+- `git clone https://www.modelscope.cn/ZhipuAI/chatglm3-6b.git`
+- `git clone https://www.modelscope.cn/ZhipuAI/chatglm3-6b-32k.git`
+- `git clone https://www.modelscope.cn/ZhipuAI/codegeex2-6b.git`
+- `git clone https://www.modelscope.cn/baichuan-inc/Baichuan2-7B-Chat.git`
+- `git clone https://www.modelscope.cn/baichuan-inc/Baichuan2-13B-Chat.git`
+
+将模型转换为GGML格式并量化。其中`ModelRepoDir`是模型仓库的目录，量化类型建议取`q4_0`节约内存或者`q8_0`效果和速度折中。
+
+```
+cd ~/ai
+python3 chatglm.cpp/chatglm_cpp/convert.py -i ModelRepoDir -t q8_0 -o ggml/xxx-ggml.bin
+```
+
+编译并安装chatglm.cpp。编译选项可以开启OpenBLAS：`-DGGML_OPENBLAS=ON`，但是实测发现性能似乎并未有提升，因此暂且不开启。
+
+```
+cmake -B build
+cmake --build build -j4 --config Release
+```
+
+此时可以用编译好的可执行文件测试LLM推理：
+
+```
+chatglm.cpp/build/bin/main -m ggml/xxx-ggml.bin -p "执行JavaScript代码：Math.sqrt(2)"
+# 交互式
+chatglm.cpp/build/bin/main -m ggml/xxx-ggml.bin -i
+```
+
+还可以安装Python的接口库`pip install -U chatglm-cpp`，使用以下的简单代码进行测试：
+
+```
+#encoding=utf-8
+import chatglm_cpp
+
+CONTENT = """在深度学习中，为什么需要做层归一化（LayerNorm）？
+"""
+
+MODE = "chat" # "chat" or "generate" for code generation
+MODEL_INDEX = 2
+
+MODEL = [
+    "ggml/chatglm3-6b-32k-chat-i8-ggml.bin",
+    "ggml/chatglm3-6b-chat-i8-ggml.bin",
+    "ggml/baichuan2-13b-chat-i8-ggml.bin",
+    "ggml/codegeex2-6b-i8-ggml.bin",
+]
+
+generation_kwargs = dict(
+    #max_length = 32000,
+    #max_context_length = 32000,
+    do_sample = True, # args.temp > 0,
+    top_k = 0,
+    top_p = 0.7,
+    temperature = 0.5, # 代码生成场景宜设置为0
+    repetition_penalty = 1.0,
+    stream = True,
+    #num_threads = 4,
+)
+
+pipeline = chatglm_cpp.Pipeline(MODEL[MODEL_INDEX])
+
+if MODE == "chat":
+    for chunk in pipeline.chat([chatglm_cpp.ChatMessage(role="user", content=CONTENT)], **generation_kwargs):
+        print(chunk.content, sep="", end="", flush=True)
+elif MODE == "generate":
+    for chunk in pipeline.generate(CONTENT, **generation_kwargs):
+        print(chunk, sep="", end="", flush=True)
+
+print()
+```
+
 ## Transformer
 
 ![[来源](https://www.youtube.com/watch?v=-9vVhYEXeyQ)](./image/G4/bert-3d.png)
