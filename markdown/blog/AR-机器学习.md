@@ -150,14 +150,13 @@ chatglm.cpp/build/bin/main -m ggml/xxx-ggml.bin -i
 
 ```
 #encoding=utf-8
+from typing import List
 import chatglm_cpp
 
-CONTENT = """在深度学习中，为什么需要做层归一化（LayerNorm）？
-"""
+SYSTEM_PROMPT = ""
 
 MODE = "chat" # "chat" or "generate" for code generation
-MODEL_INDEX = 2
-
+MODEL_INDEX = 1
 MODEL = [
     "ggml/chatglm3-6b-32k-chat-i8-ggml.bin",
     "ggml/chatglm3-6b-chat-i8-ggml.bin",
@@ -165,28 +164,72 @@ MODEL = [
     "ggml/codegeex2-6b-i8-ggml.bin",
 ]
 
-generation_kwargs = dict(
-    #max_length = 32000,
-    #max_context_length = 32000,
-    do_sample = True, # args.temp > 0,
-    top_k = 0,
-    top_p = 0.7,
-    temperature = 0.5, # 代码生成场景宜设置为0
-    repetition_penalty = 1.0,
-    stream = True,
-    #num_threads = 4,
-)
+MAX_LENGTH         = 32000 # max total length including prompt and output
+MAX_NEW_TOKENS     = -1 # max number of tokens to generate, ignoring the number of prompt tokens
+TEMPERATURE        = 0.9
+TOP_K              = 0
+TOP_P              = 0.7
+REPETITION_PENALTY = 1.0 # penalize repeat sequence of tokens
+THREADS            = 8 # number of threads for inference
 
-pipeline = chatglm_cpp.Pipeline(MODEL[MODEL_INDEX])
+def main() -> None:
 
-if MODE == "chat":
-    for chunk in pipeline.chat([chatglm_cpp.ChatMessage(role="user", content=CONTENT)], **generation_kwargs):
-        print(chunk.content, sep="", end="", flush=True)
-elif MODE == "generate":
-    for chunk in pipeline.generate(CONTENT, **generation_kwargs):
-        print(chunk, sep="", end="", flush=True)
+    print("""Input "restart" to restart conversation
+      "stop" to quit\n""")
 
-print()
+    generation_kwargs = dict(
+        max_length = MAX_LENGTH,
+        # max_new_tokens = MAX_NEW_TOKENS,
+        # max_context_length = 512,
+        do_sample = (TEMPERATURE > 0),
+        top_k = TOP_K,
+        top_p = TOP_P,
+        temperature = TEMPERATURE,
+        repetition_penalty = REPETITION_PENALTY,
+        stream = True,
+        num_threads = THREADS,
+    )
+
+    pipeline = chatglm_cpp.Pipeline(MODEL[MODEL_INDEX])
+
+    system_messages: List[chatglm_cpp.ChatMessage] = []
+    system_messages.append(chatglm_cpp.ChatMessage(role="system", content=SYSTEM_PROMPT))
+
+    messages = system_messages.copy()
+
+    while True:
+        try:
+            prompt = input("User:\n")
+        except EOFError:
+            break
+
+        if not prompt:
+            continue
+        if prompt == "stop":
+            break
+        if prompt == "restart":
+            messages = system_messages.copy()
+            continue
+
+        if MODE == "generate":
+            for chunk in pipeline.generate(prompt, **generation_kwargs):
+                print(chunk, sep="", end="", flush=True)
+        elif MODE == "chat":
+            messages.append(chatglm_cpp.ChatMessage(role="user", content=prompt))
+            print(f"{pipeline.model.config.model_type_name}:", sep="", end="")
+            chunks = []
+            for chunk in pipeline.chat(messages, **generation_kwargs):
+                print(chunk.content, sep="", end="", flush=True)
+                chunks.append(chunk)
+            print()
+            messages.append(pipeline.merge_streaming_messages(chunks))
+
+    print("Bye~")
+
+
+if __name__ == "__main__":
+    main()
+
 ```
 
 ## Transformer
