@@ -80,7 +80,9 @@
 - [矩阵求导术（上）](https://zhuanlan.zhihu.com/p/24709748)、[矩阵求导术（下）](https://zhuanlan.zhihu.com/p/24863977)
 - [Matrix Calculus](https://www.matrixcalculus.org/)
 
-# 自然语言处理
+# 人类知觉智能(NLP/CV/多模态)
+
+2023-12-03：前几年，在人工智能领域，有一种学科划分方式，将NLP、知识工程划分为“认知智能”，将计算机视觉、语音、触觉等涉及视听和感觉的，划分为“感知智能”。然而，近几年的研究表明，“认知”和“感知”不应分家，多模态融合才是正确的发展路线。因此本章的标题是“人类智能”，将自然语言处理、机器视觉、语音等学科，统统纳入“人类智能”的范畴，或者称为“知觉智能”。此处再次强调我关于所谓人工智能的观点：**人工智能的使命是理解世界，而不是理解人类。**
 
 ## 在普通CPU机器上部署大语言模型
 
@@ -192,7 +194,7 @@ def main() -> None:
 
     pipeline = chatglm_cpp.Pipeline(MODEL[MODEL_INDEX])
 
-    system_messages: List[chatglm_cpp.ChatMessage] = []
+    system_messages: List[chatglm_cpp.ChatMessage] = [] # 注意：百川2-13B不要加入这两行
     system_messages.append(chatglm_cpp.ChatMessage(role="system", content=SYSTEM_PROMPT))
 
     messages = system_messages.copy()
@@ -230,6 +232,61 @@ def main() -> None:
 if __name__ == "__main__":
     main()
 
+```
+
+## 在低性能CPU机器上部署FunASR
+
+2023年，阿里巴巴达摩院开源了[FunASR](https://github.com/alibaba-damo-academy/FunASR)语音识别工具包，可以在低资源CPU计算机上运行。以下参照实时语音转写的[官方安装指导](https://github.com/alibaba-damo-academy/FunASR/blob/main/runtime/docs/SDK_advanced_guide_online_zh.md)，整理出一份安装部署检查单。
+
+**首先安装docker**
+
+```
+curl -O https://isv-data.oss-cn-hangzhou.aliyuncs.com/ics/MaaS/ASR/shell/install_docker.sh
+sudo bash install_docker.sh
+```
+
+**拉取镜像并保存为本地tar包**
+
+```
+sudo docker pull registry.cn-hangzhou.aliyuncs.com/funasr_repo/funasr:funasr-runtime-sdk-online-cpu-0.1.5
+sudo docker image save -o ~/ai/funsar/funsar.tar registry.cn-hangzhou.aliyuncs.com/funasr_repo/funasr:funasr-runtime-sdk-online-cpu-0.1.5
+```
+
+**启动容器和实时语音转写服务**
+
+```
+sudo docker run -p 10096:10095 -it \
+  --rm \
+  --privileged=true \
+  --name funasr \
+  --volume ~/ai/funasr/models:/workspace/models \
+  --workdir /workspace/FunASR/runtime \
+  registry.cn-hangzhou.aliyuncs.com/funasr_repo/funasr:funasr-runtime-sdk-online-cpu-0.1.5 \
+    bash run_server_2pass.sh \
+      --download-model-dir /workspace/models \
+      --vad-dir damo/speech_fsmn_vad_zh-cn-16k-common-onnx \
+      --model-dir damo/speech_paraformer-large_asr_nat-zh-cn-16k-common-vocab8404-onnx  \
+      --online-model-dir damo/speech_paraformer-large_asr_nat-zh-cn-16k-common-vocab8404-online-onnx  \
+      --punc-dir damo/punc_ct-transformer_zh-cn-common-vad_realtime-vocab272727-onnx \
+      --itn-dir thuduj12/fst_itn_zh \
+      --hotword /workspace/models/hotwords.txt
+```
+
+以上命令中的镜像ID也可以替换为`docker image load -i ~/ai/funasr/funasr.tar`之后得到的镜像ID。
+
+**启动客户端**
+
+首先下载[客户端](https://isv-data.oss-cn-hangzhou.aliyuncs.com/ics/MaaS/ASR/sample/funasr_samples.tar.gz)。在启动Python客户端之前，需要针对音频做一些设置。首先安装工具和库：
+
+```
+sudo apt install pavucontrol portaudio19-dev
+pip install websockets pyaudio
+```
+
+然后启动Python客户端：
+
+```
+python3 ~/ai/funasr/client/python/funasr_wss_client.py --host "127.0.0.1" --port 10096 --mode 2pass
 ```
 
 ## Transformer
