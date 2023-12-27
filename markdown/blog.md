@@ -131,7 +131,7 @@
     }
     .block_container {
         display: flex;
-        width: 150px;
+        width: 120px;
         margin: 0 5px 15px 0;
         flex-wrap: wrap;
         flex-direction: column;
@@ -222,6 +222,20 @@
         </div>
 
         <div class="block_container">
+            <div class="CategoryTitle">问 题 · 观 点</div>
+            <div class="item_container">
+                <div class="FixedArticleTitle"><a class="TopLink SPA_TRIGGER" data-target="blog/PL-Animac设计备忘录">Scheme实现</a></div>
+                <div class="FixedArticleTitle"><a class="TopLink SPA_TRIGGER" data-target="blog/Cyber-计算原理">计算原理</a></div>
+                <div class="FixedArticleTitle"><a class="TopLink SPA_TRIGGER" data-target="blog/Cyber-信息安全">信息安全</a></div>
+                <div class="FixedArticleTitle"><a class="TopLink SPA_TRIGGER" data-target="blog/Cyber-系统思维">系统思维</a></div>
+                <div class="FixedArticleTitle"><a class="TopLink SPA_TRIGGER" data-target="blog/Cyber-知识管理">知识管理</a></div>
+                <div class="FixedArticleTitle"><a class="TopLink SPA_TRIGGER" data-target="blog/Cyber-心智进化">心智进化</a></div>
+                <div class="FixedArticleTitle"><a class="TopLink SPA_TRIGGER" data-target="blog/Cyber-新陈代谢">新陈代谢</a></div>
+                <div class="FixedArticleTitle"><a class="TopLink SPA_TRIGGER" data-target="blog/Meta-博客建设记录">博客建设</a></div>
+            </div>
+        </div>
+
+        <div class="block_container">
             <div class="CategoryTitle">设 备 · 工 具</div>
             <div class="item_container">
                 <div class="FixedArticleTitle"><a class="TopLink SPA_TRIGGER" data-target="blog/AR-RIGS-IC-705备忘录">IC-705</a></div>
@@ -240,8 +254,8 @@
         <div class="block_container">
             <div class="CategoryTitle">业 务 实 践</div>
             <div class="item_container">
-                <div class="FixedArticleTitle"><a class="TopLink SPA_TRIGGER" data-target="blog/AR-法规协议标准">法规·协议·标准</a></div>
-                <div class="FixedArticleTitle"><a class="TopLink SPA_TRIGGER" data-target="blog/AR-架台通联对抗">架台·通联·对抗</a></div>
+                <div class="FixedArticleTitle"><a class="TopLink SPA_TRIGGER" data-target="blog/AR-法规标准">法规·标准</a></div>
+                <div class="FixedArticleTitle"><a class="TopLink SPA_TRIGGER" data-target="blog/AR-架台通联">架台·通联</a></div>
                 <div class="FixedArticleTitle"><a class="TopLink SPA_TRIGGER" data-target="blog/AR-软件无线电">软件无线电</a></div>
                 <div class="FixedArticleTitle"><a class="TopLink SPA_TRIGGER" data-target="blog/AR-广播电视">广播电视</a></div>
                 <div class="FixedArticleTitle"><a class="TopLink SPA_TRIGGER" data-target="blog/AR-业余卫星">业余卫星</a></div>
@@ -264,21 +278,6 @@
                 <!-- <div class="FixedArticleTitle"><a class="TopLink" href="./html/sa-sim.html">频谱仪面板<sup>α</sup></a></div> -->
                 <div class="FixedArticleTitle"><a class="TopLink" href="./html/mechwatch-analyser.html">机械表校表仪<sup>α</sup></a></div>
             </div>
-        </div>
-    </div>
-
-    <!-- <div class="Horizon" onclick="$(`#plt`).fadeToggle(200);"><span class="HorizonContent">系 统 与 控 制</span></div> -->
-
-    <div class="hrline"></div>
-
-    <div id="plt">
-        <div class="TopArticleFlex" style="margin: 10px 0 15px 0;">
-            <div class="FixedArticleTitle2"><a class="TopLink" href="./html/scheme-interpreter.html">Scheme解释器原型</a> / <a class="TopLink" href="./html/auroravm.html">VM原型</a> / <a class="TopLink SPA_TRIGGER" data-target="blog/PL-Animac设计备忘录">设计备忘录</a></div>
-            <div class="FixedArticleTitle2"><a class="TopLink SPA_TRIGGER" data-target="blog/Cyber-计算原理">计算原理</a></div>
-            <div class="FixedArticleTitle2"><a class="TopLink SPA_TRIGGER" data-target="blog/Cyber-信息安全">信息安全</a></div>
-            <div class="FixedArticleTitle2"><a class="TopLink SPA_TRIGGER" data-target="blog/Cyber-系统思维">系统思维</a></div>
-            <div class="FixedArticleTitle2"><a class="TopLink SPA_TRIGGER" data-target="blog/Cyber-心智进化">心智进化</a></div>
-            <div class="FixedArticleTitle2"><a class="TopLink SPA_TRIGGER" data-target="blog/Cyber-新陈代谢">新陈代谢</a></div>
         </div>
     </div>
 
