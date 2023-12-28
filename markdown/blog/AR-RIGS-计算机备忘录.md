@@ -2,6 +2,12 @@
 
 #!content
 
+# HomeLab
+
+## 组网方案
+
+![ ](./image/G2/homelab/homenet.png)
+
 # 计算机基线设置和必备软件
 
 ## Ubuntu 20.04LTS
