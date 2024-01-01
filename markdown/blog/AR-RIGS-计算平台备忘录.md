@@ -1,126 +1,178 @@
-#!title:    计算机备忘录
+#!title:    计算平台备忘录
 
 #!content
 
-# HomeLab
+HomeLab
 
-## 组网方案
+# 机柜布局
 
-![ ](./image/G2/homelab/homenet.png)
+![ ](./image/G2/homelab/homelab_rack.jpg)
 
-# 计算机基线设置和必备软件
+# 设备
 
-## Ubuntu 20.04LTS
+|型号|年代|跑分*|C/T|TDP|主频|工艺|能耗比|
+|------------------------------------|
+|Ryzen 7 5800H|21Q1|21624|8/16|45W|3.2GHz|7nm|480|
+|[Xeon E5-2686 v4](https://www.intel.cn/content/www/cn/zh/support/articles/000090280/processors/intel-xeon-processors.html)|16Q4|20956|18/36|145W|2.3GHz|14nm|144|
+|i5-8500|18Q2|9543|6/6|65W|3.0GHz|14nm|147|
+|i5-8259U|18Q2|8300|4/8|28W|2.3GHz|14nm|296|
+|i5-8365U|19Q2|6300|4/8|15W|1.6GHz|14nm|420|
+|i5-7300U|17Q1|3700|2/4|15W|2.6GHz|14nm|246|
+|Celeron J4125|19Q4|3061|4/4|10W|2.0GHz|14nm|306|
+|A10-5700|12|2733|4/4|65W|3.4GHz|32nm|42|
+|i5-3320M|12Q2|2650|2/4|35W|2.6GHz|22nm|76|
+|i5-3210M|12Q2|2426|2/4|35W|2.5GHz|22nm|69|
+|Pentium N3700|15Q1|1313|4/4|6W|1.6GHz|14nm|219|
+|Core2 Duo E8500|08Q1|1233|2/2|65W|3.16GHz|45nm|19|
+|Pentium M LV|08Q4|199|1/1|12W|1.2GHz|130nm|17|
+|Atom N270|08Q2|175|1/2|2.5W|1.6GHz|45nm|70|
 
-硬盘分区设置：
+注：跑分数据来自[这里](http://cdn.malu.me/cpu/)。鉴于CPU性能度量是个很复杂的问题，这个数据仅供半定量参考。
 
-- UEFI分区（`/boot`分区）1GB，主分区，设为启动分区
-- 交换空间是内存的2倍，逻辑分区
-- 剩余所有空间挂载根目录，主分区
+## 主服务器：戴尔 PowerEdge R730
 
-设置代理、熄屏时间。
-
-设置声卡采样率到48kHz：`arecord --list-devices`查看声卡设备，`/etc/pulse/daemon.conf`编辑采样率。
-
-在应用商店中安装Chromium、VSCode。然后安装其他必备软件：
-
-```
-sudo apt install lame mpg123
-sudo apt install git
-sudo apt install npm
-sudo npm install -g n
-sudo n stable
-```
-
-设置git的网络代理：
-
-```
-git config --global http.proxy "socks5://192.168.10.5:1080"
-git config --global https.proxy "socks5://192.168.10.5:1080"
-```
-
-GUI优化：
-
-- `sudo nautilus`打开文件管理器。
-- 将微软雅黑字体放置在`/usr/share/fonts/msyh`目录下。
-- 添加权限：`sudo chmod 755 /usr/share/fonts/msyh/*`
-- 在此目录下执行`sudo mkfontscale && sudo mkfontdir && sudo fc-cache -fv`添加缓存。
-- 安装GUI美化工具：`sudo apt install gnome-tweak-tool`
-- 在应用-工具菜单中找到“优化”，除设置字体外，还可以设置其他。
-
-解决丢失GRUB启动项的问题（参考：https://io-oi.me/tech/how-to-reinstall-grub/）
-
-- 插入Linux安装盘，开机按F12进入U盘的Linux系统。
-- `fdisk -l`查看电脑原有的Linux分区，例如`/dev/nvmxx`
-- `sudo mount /dev/nvmxx /mnt`
-- 执行：
+![ ](./image/G2/homelab/dell-poweredge-r730.jpg)
 
 ```
-mount --bind /dev /mnt/dev
-mount --bind /dev/pts /mnt/dev/pts
-mount --bind /proc /mnt/proc
-mount --bind /sys /mnt/sys
+OS: Ubuntu 20.04.6 LTS x86_64
+Host: PowerEdge R730
+Kernel: 5.4.0-169-generic
+CPU: Intel Xeon E5-2686 v4 (72) @ 3.000GHz 
+GPU: NVIDIA Tesla P100 PCIe 16GB
+GPU: NVIDIA Tesla P40
+Memory: 128806MiB
 ```
 
-- `sudo chroot /mnt`
-- `mount /dev/<通过fdisk查询到的EFI_System分区> /boot/efi/`
-- `grub-install /dev/nvmxx`
-- `grub-install --recheck /dev/nvmxx`
-- `update-grub`
+## NAS服务器：i5-8500 PC
 
-## Windows 10
+<details>
 
-初始配置：
+<summary>2019年8月装机笔记（2019-07-10起草）</summary>
 
-- 运行`gpedit.msc`，计算机配置→管理模板→Windows组件→Windows更新，【配置自动更新】改为【已禁用】
-- 检查更新并安装
-- 电源设置：待机和熄屏时间、电源键和合盖动作等
-- 文件夹选项：打开文件资源管理器时打开此电脑、取消隐藏扩展名
-- **仅限内网**：开启远程桌面；允许空密码：运行gpedit.msc，在计算机配置/Windows设置/安全设置/本地策略/安全选项中，找到“账户：使用空密码的本地账户……”，将其设置为“禁用”
-- 卸载一切没用的预置软件
-- 安装必要软件
-- 在设置中清理掉传递优化等无用文件
+**装机需求**
 
-安装必备软件
+- 预算5000上下。
+- 以上网和视频、音乐为主，偶尔做一些小规模的开发。
+- 对虚拟化的性能有一定要求。
+- 几乎不玩游戏。
+- 存储统一个人数据库（UPDB）的完整副本。
+- 作为主力机，安全稳定第一，不折腾，不玩超频（毕竟还有一大堆垃圾等着我折腾呢233
 
-- VSCode、git、TortoiseGit
-- FSViewer(并替换exe)、PotPlayer、千千静听或者Foobar2000(安装插件)
-- SumatraPDF(绿色)
-- node、npm
+**选型说明**
 
-安装nssm：下载nssm，将其复制到`C:/Windows`。
+CPU选择英特尔8代i5-8500。8500据说是性价比较高的一款U，适合绝大多数用户。6核6线程，带集成显卡，LGA1151插座，芯片组支持B360等。
 
-安装OpenHardwareMonitor
+主板选择技嘉的B360M D3H。这款主板接口比较丰富，内存频率最高支持到2666，只有一个M.2/NVMe接口。
 
-- 将可执行文件放到`C:/app/monitor`
-- 管理员模式执行`nssm install openhwmonitor C:/app/monitor/OpenHardwareMonitor.exe`。
-- 打开OpenHardwareMonitor：选项→远程Web服务器→开启（默认端口8085）
-- 打开高级防火墙设置，增加**入站规则**：程序、允许连接、域/专用/公用、TCP、UDP
+内存选择金士顿的高端子品牌HyperX的Fury 8G×2内存条套装，组成双通道。由于主板最高支持2666，所以这里选择的是2666频率的。金士顿有让多条内存的灯光同步的技术<sup>[\[参考资料\]](http://www.pceva.com.cn/article/3759-3.html)</sup>。
 
-安装filebrowser
+SSD经过调研，中端SSD以英特尔760p、三星970evo和浦科特M9PeG最为流行。其中三星和英特尔分别采用自家颗粒，浦科特好像是采用东芝的颗粒。SSD的闪存颗粒有SLC、MLC、TLC和QLC等技术，简单来说就是指一个浮栅晶体管可以存储1、2、3、4个bit。三款SSD均采用TLC颗粒，存储密度比前代的SLC和MLC要高很多，但是寿命上（体现为P/E循环次数）就打了折扣。目前消费者产品中基本上没有SLC了，TLC已经成为主流，QLC也已经开始铺开。英特尔660p即采用QLC颗粒，容量512GB起步，价格仅450左右，单位容量价格已经不足1元/GB。QLC可以大幅提高单颗粒存储容量，但寿命大大降低，据说单元P/E循环仅有100次左右，不过现在通过多层堆叠（即3D NAND）等技术已经可以提高到1000次以上了，并不是很差。现在网上普遍不看好QLC。起初考虑入浦科特M9PeG，但后来决定选择英特尔760p 512G版本。这三款均支持NVMe协议。NVMe协议是英特尔提出的新传输协议，理论速度可以达到32Gbps。M.2接口是一种接口物理规格，支持PCIe和SATA两类协议。它们之间的关系可以这样理解：M.2对应RJ45，PCIe/SATA对应以太网（802.3），NVMe可以理解成是TCP/IP那一层。当然这个对应并不准确（例如SATA还包括物理接口标准），只是为了方便说明协议层次而已。
 
-- 下载exe，放在`C:/app/filebrowser`，此为FB自身的工作目录，包含配置db和自定义样式等文件。
-- 修改`config.json`，将`root`字段改成文件服务器目标目录路径。
-- 在工作目录中执行`./filebrowser.exe config import ./config.json`。
-- 启动管理员命令行，输入`nssm install filebrowser C:/app/filebrowser/filebrowser.exe --disable-type-detection-by-header --disable-preview-resize`。
-- 打开高级防火墙设置，增加**入站规则**：程序、允许连接、域/专用/公用、TCP、UDP
-- 最后通过Web前端关掉一切修改类的权限，只保留只读权限，防止远端修改UPDB。
+前段时间曾经针对HDD做了不少的功课，由于旧机器上已经有两块容量分别是1TB和2TB的硬盘，所以就直接利旧了。1TB的那块是希捷酷鱼系列，7200rpm，64MB缓存，从这个参数看，很有可能是PMR技术的盘。而2TB的那块是西数蓝盘，5400rpm，缓存高达256MB，采用SMR技术。SMR存在写放大效应，需要像SSD一样准备较大的缓存，甚至还有垃圾回收机制在里面，因而性能相对差一点。HDD只要运用得当，总体上是比SSD要靠谱的，毕竟SSD数据丢失是完全无法恢复。至于两块盘的分工，PMR那块盘用作工作区，用来暂存日常使用中下载和产生的文件，包括虚拟机的虚拟磁盘也在上面。SMR那块盘作为仓库盘，保存UPDB的全部内容，平时只读不写。
 
-安装gitea
+电源对于整机的安全稳定运行非常重要。调研时，看到有人推荐酷冷至尊的MASTERWATT LITE 500电源，这款电源采用全模组设计，也就是电源线与电源本体分离，以插座连接的设计，非常有利于走线。转换效率为80%，通过80plus白盘认证。作为一款中端电源，该有的保护机制都有，风扇声音不大，功率500W可以满足轻度游戏需要。
 
-- 系统环境变量`Path`添加
--- `C:\Program Files\Git\cmd`
--- `C:\Program Files\TortoiseGit\bin`
--- `C:\Program Files\nodejs\`
-- 首先安装Git
-- 创建目录`C:/app/gitea`
-- 创建目录`G:/gitea_repo`、`G:/gitea_lfs`
-- 将`gitea.exe`放在`C:/app/gitea`目录下，启动，访问`localhost:3000`进行初始化配置。
-- 管理员模式执行`sc.exe create gitea start= auto binPath= "\"C:\app\gitea\gitea.exe\" web --config \"C:\app\gitea\custom\conf\app.ini\""`
+**装机操作**
 
-# 嵌入式系统·开发板
+按顺序操作：
 
-## ESP32
+- 操作之前先洗手，释放静电，避免ESD损坏硬件，最好是戴手套或者防静电手环。
+- 确认主板是否遮挡机箱的背部走线孔，如果不遮挡的话，那么可以将电源线、SATA线等线材从机箱的背板后面绕过去，作背部走线。
+- 如果散热器有支架的话，先将支架安装到主板上。
+- 将电源安装到机箱上，梳理好走线，然后放倒机箱，开始安装主板。先安装主板螺丝孔上对应的铜柱，然后将主板接口挡板装在机箱背部。注意，接口挡板很锋利，不要划破手。随后，将主板接口对准挡板的对应孔位，将主板放入机箱，并使螺丝孔和铜柱对齐，安装螺丝。要注意接口挡板上的弹性触片与接口部件的金属屏蔽良好接触，并且安装时不要太用力，避免主板弯曲。
+- 主板安装好之后，开始安装CPU。注意，装好CPU之后才可以去掉CPU插座上的挡板，避免安装过程中碰坏弹片。CPU装好之后，在CPU顶盖上均匀涂抹少量硅脂，然后安装散热器。
+- 安装内存和SSD，需要注意的是，两条内存组成双通道，应该按照主板的说明去接，例如这款主板是接在1、2或3、4槽位上才可以组成双通道，其他组合无法组成双通道。
+- 随后在机箱上安装HDD等大件设备，安装的原则是尽可能留有较大空隙，以便于散热。
+- 下一步是接线。ATX电源和CPU电源都是防呆的，插进去就可以了，注意不要太用力压主板。SATA接线尽可能从编号小的开始接。前面板的USB和音频接线也是防呆的，直接安装就好。电源按钮、指示灯和蜂鸣器（如果有）按照主板上的标记接，注意分清正负极。NC是没有连接的意思。
+- 机箱风扇的气流方向，我觉得应该是向外吹，也就是冷空气从四面八方流入机箱，热空气被风扇排出。
+
+</details>
+
+## 主力桌面：NUC8i5BEH
+
+- 出品时间：2018Q3
+- 处理器：Core i5-8259U
+- 显卡：Intel Iris Plus 655 核显
+- 内存：SO-DIMM DDR4 2400 8GB×2=16GB 双通道
+- 硬盘：Intel SSD 760P 512GB；WD HDD 1TB
+- 电源：90W 19V 外置电源
+- 有线网：Intel i219-v 千兆以太网 RJ45
+- 无线网：Intel Wireless AC 9500 板载
+- USB/雷电：USB3.1第二代×4；USB2.0板载×2；雷电3×1
+- 视频接口：HDMI 2.0a；雷电3（DP1.2）
+- 音频接口：3.5mm；内置话筒阵列
+- 内部扩展：SATA；M.2 PCIe
+- 其他接口：前置红外接收；MicroSD插槽
+- 外形尺寸：11.7×11.2×5.1
+- 机械接口：VESA支架接口
+
+## 便携电脑：松下中古笔记本
+
+2023年5月，本台购置两台松下笔记本，分别是CF-SZ6和CF-SX2。这两款笔记本的详细配置参数如下表。
+
+|参数|CF-SZ6|CF-SX2|
+|------------------|
+|CPU|Core i5-7300U|Core i5-3320M|
+|GPU|核显|核显|
+|RAM|DDR3L 8GB不可更换|DDR3L×2可更换|
+|硬盘|M.2 SATA|SATA2|
+|屏幕|1920×1200|1920×1080 TN|
+|电源|16V输入|16V输入|
+|USB|USB3.0×3|USB3.0×2 USB2.0×1|
+|有线网络|RJ45以太网|RJ45以太网|
+|无线网络|WiFi|WiFi|
+|视频接口|VGA HDMI|VGA HDMI|
+|音频接口|3.5mm耳麦合一|3.5mm耳麦分开|
+|光驱|DVD|DVD|
+|照相机|有|有|
+|其他|||
+
+- 轻盈。不到一公斤的重量，“轻若无物”，在任何场景下都不会带来很多负担。
+- 小巧。虽然厚，但是12英寸的尺寸很好地兼顾了节约空间和操作上的舒适性，在户外架设电台等场景下，不会占用过多的桌面空间。
+- 坚固。机器主体结构采用铝镁合金打造，宣称可以抵抗一般的跌落和挤压，这对于通勤携行、户外操作来说无疑是相当重要的。因此，很多汽修、机械、建筑工程等行业用户选择松下的笔记本。除了Let's Note系列之外，还有一个主打坚固耐操的系列“TOUGHBOOK”。
+- 性能和续航的平衡。
+- 设计理念。
+
+- 文件服务器。选用FileBrowser，实现内网多台机器间文件的共享。
+- Git服务器。选用gitea，这是一款开源的Git代码托管平台软件。设置私有代码托管平台，主要是出于两点考虑。一是SDR开发过程中，需要在多台机器之间管理和同步代码，同时还要保持版本控制的一致性，这种情况下就很有必要建立一个私有云内代码托管平台，集中式管理内网中所有的代码仓库。二是不信任公有云上的代码托管服务，如GitHub等等。众所周知，GitHub通过正常途径访问可谓困难重重，并且其自身的业务连续性也是不可控的，必须将自己代码托管在自有的环境中。
+- 家居自动化控制台。虽然自己搭建家具自动化解决方案并非不可能，但是这显然不经济。在这种情况下，所谓的家居自动化控制台，更像是那种智能镜子，起到信息呈现和简单交互的功能，例如日历、天气预报、便利贴、闹钟、网管面板之类的。在家中设置这样一个不间断运行的控制台，带来的更多是操纵感和交互感，让人感觉到整个环境是充盈着信息的、是可以控制和互动的。至于真正的“智能家居”的部分，还是交给成熟的专用产品比较好。
+- 半固定的电台计算机：可以连接SDR接收机，当作简单的频谱显示器；还可以连接到电台，进行FT8等数字模式操作。由于机器很轻，可以挂在墙上，也可以、
+
+2023-05-25
+
+继续调研松下的笔记本。松下笔记本的定位是生产资料，而不是生活资料。生产资料，顾名思义，是用来生产的。生产是与消费相对的。您有生产能力吗？如果有，那么松下的笔记本实在是再合适不过了。一般来说，高生产力人士的消费能力也不低，因此这个定价是非常合理的。尤其是法人向产品，与其可能创造的潜在价值相比，上万元人民币的售价实在不值一提。
+
+那么什么是“生产”呢？文字工作固然是一种生产，音视频也是一种生产。松下笔记本由于性能相对孱弱，并不适合音视频类生产。而我们所说的生产，更广泛的含义是物质世界的生产，例如矿山、工厂、车间、机房、耕地、工地。在这些场景下维持生产力，普通的消费级产品，也就是那些定位为生活资料的电脑，是难以胜任的。
+
+最近在小地瓜上看到不少西域沙漠单车骑行的视频，那些up主在路上也要剪视频。那么这种应用场景下，Let's Note 系列甚至TOUGHBOOK系列无疑是非常合适的，甚至可能是唯一合适的选择（轻且耐操），而这两个系列也确实有内置WWAN（如4G LTE）模块的机型。我一开始买的就是带LTE模块的机型。
+
+另外，故乡家里有一台松下的微波炉，跟我年龄差不多，至今正常服役，功能性胜于如今市面上任何微波炉。印象最深的就是它的说明书，全彩印刷，十分用心，附有不少带彩色照片的食谱，是我的识字读物之一，我从小看到大。
+
+为什么我一定要笔记本电脑带光驱呢，因为我从小就对光驱这种光机电一体化的东西十分感兴趣……我算不上什么发烧友，只是喜欢收集音乐CD盘而已，有廉价的中古盘，也有正版计销量的专辑。
+
+大学时代曾经把家里退役的90年代的VCD机拆成模块，带到学校，装进纸盒里，作为台式CD机。由于原机有机械式换碟机构，去掉换碟机构后机器无法正常工作，当时还用74芯片搭建了简单的逻辑电路，模拟机械换碟机构的工作时序。
+
+松下的笔记本，无论多小多紧凑，都能塞进一个光驱进去。机电一体化的东西，在我看来简直是艺术品，这种XP在他人看来可能很难理解。
+
+又回到那个我吐槽了无数遍的事情了：中国没有发展出成熟的唱片产业，在我看来是十分遗憾的一件事情。现在发售的数字专辑似乎有U盘介质的了，我的评价是：好，但不如CD好。无论如何，实体介质对于我们维护精神生活的安全和自主而言，我认为是极其重要的。CD是一种把技术美学和艺术美学完美融合在一起的奇妙玩意儿，我希望它一直存在下去。
+
+------
+
+2023-05-26：说到日式小笔记本，学生时代曾经买到一个富士通的10寸小笔记本，FMV-P8215T，不到200块钱，无风扇被动散热，Pentium.M处理器，性能非常孱弱却发热巨大。搭载了一块电阻触屏，用处并不是很大。当年在这个笔记本上完成了一些课程设计作业，很奇妙的工作体验。怎么讲呢，这款笔记本也是典型的社畜本，小巧是真小巧，性能也是真乐色。在续航上下了功夫的，虽然小，但是有光驱位的。光驱可以拔下来，换成备用电池，这个设计还是很值得赞赏的。总而言之，日式社畜本的设计风格很对我电波，不过仅限于捡洋垃圾。我是不会花冤枉钱的233
+
+------
+
+2023-05-26
+
+我们似乎很喜欢用“不思进取”去指责别人。调研松下笔记本的时候就看到很多“不思进取”的评价。然而我之前曾经发表过我的“废物”观，大意我承认并甘于当“废物”。诚然日本人在笔记本这个细分领域内患了所谓的加拉帕戈斯综合征，但是说他们“不思进取”，恐怕并不公允。我是比较理解日本人的这种“不思进取”的。
+
+归根结底，在于“进取”的标准和方向有分歧。消费级产品百花齐放，努力内卷儿，竭尽所能讨好用户，这是进取。二十年固守同一个模具，但是坚守核心特色，新瓶装旧酒，本色不改，小步慢跑推陈出新，也不能说不是进取。毕竟，在我看来，在一个不努力就会被无情淘汰的世界里，能保持安稳镇定已经是非常了不起的成就了。正如在跑步机上锻炼，尽管没有前进一步，但脂肪的确是被燃烧了。
+
+最近讲得比较多的“高质量增长”，也就是所谓的“量的合理增长，质的稳步提升”，我觉得每个人都应该好好思考下，这两句话的深层含义。这涉及价值观、业绩观、发展观的底层变革，是非常重要的方向性问题，值得深思。
+
+## 开发板
+
+### ESP32
 
 开发板：ESP32-DevKitC V4
 
@@ -132,7 +184,7 @@ ESP32-WROVER-IE
 
 [官方指南](https://docs.espressif.com/projects/esp-idf/zh_CN/v3.3.1/get-started/index.html)
 
-## NodeMCU/ESP8266
+### NodeMCU/ESP8266
 
 2017-02-11
 
@@ -164,7 +216,7 @@ begin(SDA=0, SCL=2)
 
 即，默认D3接器件的SDA，D4接器件的SCL。
 
-## 树莓派
+### 树莓派
 
 ![ ](./image/G3/mcu/Raspberry-Pi-4.jpg)
 
@@ -195,7 +247,7 @@ sudo apt-get install minicom
 /etc/motd
 ```
 
-## Edison开发板
+### Edison开发板
 
 2017-03-11
 
@@ -320,7 +372,7 @@ while(cntr > 0) {
 
 </details>
 
-# Galileo开发板
+### Galileo开发板
 
 本文最后建立基线的日期是2017-10-18。
 
@@ -452,26 +504,6 @@ opkg install python-opencv
 **(7) 配置关机按键（2017-10-22）**
 
 前段时间，由于频繁的强行断电关机，造成Galileo的文件系统损坏，具体表现是部分shell命令会报IO错误，sqlite数据库损坏，等等。但是，如果每次都通过SSH执行`poweroff`命令来关机，又非常麻烦。因此，这里将板子上的reset按钮改造成一个关机按钮：短按仍然是重启sketch，而长按则执行`poweroff`关机。下文描述的Galileo一代的解决方案。二代原理类似。
-
-> 关于SQLite3“database disk image is malformed”错误（2018.2.22整理）：由于经常强行断电，文件系统和数据库非常容易损坏。为了从损坏的db中恢复文件，执行以下步骤（[参考资料](http://www.sunnyu.com/?p=201)）：
-
-> 首先导出数据
-
-> ```
-$ sqlite3 my.db
-sqlite>.output tmp.sql
-sqlite>.dump
-sqlite>.quit
-```
-
-> 再倒入到一个新库中
-
-> ```
-$ sqlite3 my_new.db
-sqlite>.read tmp.sql
-sqlite>.quit
-```
-
 
 首先要知道，Reset键对应的Linux GPIO编号是53（可查看Arduino交叉编译工具链目录`./variants/galileo_fab_d/variant.cpp`得知），可通过以下方式读取其值：
 
@@ -652,7 +684,7 @@ MRAA库的[在线文档](http://iotdk.intel.com/docs/master/mraa/index.html)。
 
 </details>
 
-# 计算器
+## 计算器
 
 ![ ](./image/G2/calculator/hp_calculators.jpg)
 
@@ -673,147 +705,268 @@ HP 39gII
 
 HP 39gs
 
+# 组网方案
 
-# PC处理器和整机
+![ ](./image/G2/homelab/homenet.png)
 
-|型号|年代|跑分*|C/T|TDP|主频|工艺|能耗比|
-|------------------------------------|
-|Ryzen 7 5800H|21Q1|21624|8/16|45W|3.2GHz|7nm|480|
-|i5-8500|18Q2|9543|6/6|65W|3.0GHz|14nm|147|
-|i5-8259U|18Q2|8300|4/8|28W|2.3GHz|14nm|296|
-|i5-8365U|19Q2|6300|4/8|15W|1.6GHz|14nm|420|
-|i5-7300U|17Q1|3700|2/4|15W|2.6GHz|14nm|246|
-|Celeron J4125|19Q4|3061|4/4|10W|2.0GHz|14nm|306|
-|A10-5700|12|2733|4/4|65W|3.4GHz|32nm|42|
-|i5-3320M|12Q2|2650|2/4|35W|2.6GHz|22nm|76|
-|i5-3210M|12Q2|2426|2/4|35W|2.5GHz|22nm|69|
-|Pentium N3700|15Q1|1313|4/4|6W|1.6GHz|14nm|219|
-|Core2 Duo E8500|08Q1|1233|2/2|65W|3.16GHz|45nm|19|
-|Pentium M LV|08Q4|199|1/1|12W|1.2GHz|130nm|17|
-|Atom N270|08Q2|175|1/2|2.5W|1.6GHz|45nm|70|
+关于10G光网的几个要点：
 
-注：跑分数据来自[这里](http://cdn.malu.me/cpu/)。鉴于CPU性能度量是个很复杂的问题，这个数据仅供半定量参考。
+- 光纤：分为单模和多模，多模光纤又分成[OM1~OM4若干等级](http://www.fangyuhe.com/news/gsxg/20211001/55.html)，数字越大越好。这里选用OM3，外皮是言和绿色的。
+- 光纤接口：常用的是LC接口。这里选用LC，双工。
+- 光模块接口：区分单模多模（波长不同）、接口标准（SFP、SFP+）、传输距离（300m、10km等）。这里选用SFP+。
+- 网卡：选用基于英特尔82599芯片的网卡CN21ITGA，PCIe 3.0 x8 接口（理论带宽63Gbps[[参考]](https://zh.wikipedia.org/wiki/PCI_Express)），两个SFP+光模块接口。
+- iperf3测速时应开多线程，否则不能充分利用带宽。
+- 似乎可以打开巨帧选项，提升信道利用率。
 
-## 松下中古笔记本
+参考资料：[家用万兆网络指南：不如先来个最简单的100G网络](https://zhuanlan.zhihu.com/p/74082377)
 
-2023年5月，本台购置两台松下笔记本，分别是CF-SZ6和CF-SX2。这两款笔记本的详细配置参数如下表。
+# 操作备忘
 
-|参数|CF-SZ6|CF-SX2|
-|------------------|
-|CPU|Core i5-7300U|Core i5-3320M|
-|GPU|核显|核显|
-|RAM|DDR3L 8GB不可更换|DDR3L×2可更换|
-|硬盘|M.2 SATA|SATA2|
-|屏幕|1920×1200|1920×1080 TN|
-|电源|16V输入|16V输入|
-|USB|USB3.0×3|USB3.0×2 USB2.0×1|
-|有线网络|RJ45以太网|RJ45以太网|
-|无线网络|WiFi|WiFi|
-|视频接口|VGA HDMI|VGA HDMI|
-|音频接口|3.5mm耳麦合一|3.5mm耳麦分开|
-|光驱|DVD|DVD|
-|照相机|有|有|
-|其他|||
+## Ubuntu系统设置
 
-- 轻盈。不到一公斤的重量，“轻若无物”，在任何场景下都不会带来很多负担。
-- 小巧。虽然厚，但是12英寸的尺寸很好地兼顾了节约空间和操作上的舒适性，在户外架设电台等场景下，不会占用过多的桌面空间。
-- 坚固。机器主体结构采用铝镁合金打造，宣称可以抵抗一般的跌落和挤压，这对于通勤携行、户外操作来说无疑是相当重要的。因此，很多汽修、机械、建筑工程等行业用户选择松下的笔记本。除了Let's Note系列之外，还有一个主打坚固耐操的系列“TOUGHBOOK”。
-- 性能和续航的平衡。
-- 设计理念。
+```
+# Ubuntu禁止自动休眠
+1. 查看休眠设置
+systemctl status sleep.target
+2. 关闭自动休眠
+sudo systemctl mask sleep.target suspend.target hibernate.target hybrid-sleep.target
+3. 进入GUI桌面，关闭待机
 
-- 文件服务器。选用FileBrowser，实现内网多台机器间文件的共享。
-- Git服务器。选用gitea，这是一款开源的Git代码托管平台软件。设置私有代码托管平台，主要是出于两点考虑。一是SDR开发过程中，需要在多台机器之间管理和同步代码，同时还要保持版本控制的一致性，这种情况下就很有必要建立一个私有云内代码托管平台，集中式管理内网中所有的代码仓库。二是不信任公有云上的代码托管服务，如GitHub等等。众所周知，GitHub通过正常途径访问可谓困难重重，并且其自身的业务连续性也是不可控的，必须将自己代码托管在自有的环境中。
-- 家居自动化控制台。虽然自己搭建家具自动化解决方案并非不可能，但是这显然不经济。在这种情况下，所谓的家居自动化控制台，更像是那种智能镜子，起到信息呈现和简单交互的功能，例如日历、天气预报、便利贴、闹钟、网管面板之类的。在家中设置这样一个不间断运行的控制台，带来的更多是操纵感和交互感，让人感觉到整个环境是充盈着信息的、是可以控制和互动的。至于真正的“智能家居”的部分，还是交给成熟的专用产品比较好。
-- 半固定的电台计算机：可以连接SDR接收机，当作简单的频谱显示器；还可以连接到电台，进行FT8等数字模式操作。由于机器很轻，可以挂在墙上，也可以、
+# 系统信息
+sudo apt install neofetch
+```
 
-2023-05-25
+## 硬盘相关
 
-继续调研松下的笔记本。松下笔记本的定位是生产资料，而不是生活资料。生产资料，顾名思义，是用来生产的。生产是与消费相对的。您有生产能力吗？如果有，那么松下的笔记本实在是再合适不过了。一般来说，高生产力人士的消费能力也不低，因此这个定价是非常合理的。尤其是法人向产品，与其可能创造的潜在价值相比，上万元人民币的售价实在不值一提。
+```
+# 查看磁盘分区表
+fdisk -l
 
-那么什么是“生产”呢？文字工作固然是一种生产，音视频也是一种生产。松下笔记本由于性能相对孱弱，并不适合音视频类生产。而我们所说的生产，更广泛的含义是物质世界的生产，例如矿山、工厂、车间、机房、耕地、工地。在这些场景下维持生产力，普通的消费级产品，也就是那些定位为生活资料的电脑，是难以胜任的。
+# 查看文件系统情况（文件系统容量、挂载点等）
+df -Th
 
-最近在小地瓜上看到不少西域沙漠单车骑行的视频，那些up主在路上也要剪视频。那么这种应用场景下，Let's Note 系列甚至TOUGHBOOK系列无疑是非常合适的，甚至可能是唯一合适的选择（轻且耐操），而这两个系列也确实有内置WWAN（如4G LTE）模块的机型。我一开始买的就是带LTE模块的机型。
+# 硬盘格式化并挂载
+sudo mkfs.ext4 /dev/sdx
+sudo mount /dev/sdx /path/to/hdd
 
-另外，故乡家里有一台松下的微波炉，跟我年龄差不多，至今正常服役，功能性胜于如今市面上任何微波炉。印象最深的就是它的说明书，全彩印刷，十分用心，附有不少带彩色照片的食谱，是我的识字读物之一，我从小看到大。
+# 永久挂载
+1. 查询硬盘的UUID：blkid
+2. 将UUID写入配置文件 /etc/fstab，格式如下：
+   /dev/disk/by-uuid/硬盘UUID 挂载点路径 ext4 defaults 0 0
+4. 执行：sudo mount -a
 
-为什么我一定要笔记本电脑带光驱呢，因为我从小就对光驱这种光机电一体化的东西十分感兴趣……我算不上什么发烧友，只是喜欢收集音乐CD盘而已，有廉价的中古盘，也有正版计销量的专辑。
+# 硬盘测速
+sudo apt install hdparm
+hdparm -Tt /dev/sdx
+```
 
-大学时代曾经把家里退役的90年代的VCD机拆成模块，带到学校，装进纸盒里，作为台式CD机。由于原机有机械式换碟机构，去掉换碟机构后机器无法正常工作，当时还用74芯片搭建了简单的逻辑电路，模拟机械换碟机构的工作时序。
+## 网络和代理相关
 
-松下的笔记本，无论多小多紧凑，都能塞进一个光驱进去。机电一体化的东西，在我看来简直是艺术品，这种XP在他人看来可能很难理解。
+```
+# 查看各个网卡的IP
+sudo ip addr
 
-又回到那个我吐槽了无数遍的事情了：中国没有发展出成熟的唱片产业，在我看来是十分遗憾的一件事情。现在发售的数字专辑似乎有U盘介质的了，我的评价是：好，但不如CD好。无论如何，实体介质对于我们维护精神生活的安全和自主而言，我认为是极其重要的。CD是一种把技术美学和艺术美学完美融合在一起的奇妙玩意儿，我希望它一直存在下去。
+# 启动|关闭某个网卡
+sudo ip link set dev DEVICE up|down
 
-------
+# 查看端口占用
+sudo apt install net-tools
+sudo netstat -ap | grep 端口号
 
-2023-05-26：说到日式小笔记本，学生时代曾经买到一个富士通的10寸小笔记本，FMV-P8215T，不到200块钱，无风扇被动散热，Pentium.M处理器，性能非常孱弱却发热巨大。搭载了一块电阻触屏，用处并不是很大。当年在这个笔记本上完成了一些课程设计作业，很奇妙的工作体验。怎么讲呢，这款笔记本也是典型的社畜本，小巧是真小巧，性能也是真乐色。在续航上下了功夫的，虽然小，但是有光驱位的。光驱可以拔下来，换成备用电池，这个设计还是很值得赞赏的。总而言之，日式社畜本的设计风格很对我电波，不过仅限于捡洋垃圾。我是不会花冤枉钱的233
+# 查看网络实时流量
+sudo apt install ethstatus
+sudo ethstatus -i eno1
 
-------
+# 测速
+sudo apt install iperf3
+Windows 从 https://iperf.fr/iperf-download.php 下载可执行文件。
+- 首先启动服务端：iperf3 -s
+- 然后启动客户端：iperf3 -c 服务端IP -P 线程数 -t 秒数
+```
 
-2023-05-26
+设置全局代理：在`/etc/profile`末尾增加以下内容：
 
-我们似乎很喜欢用“不思进取”去指责别人。调研松下笔记本的时候就看到很多“不思进取”的评价。然而我之前曾经发表过我的“废物”观，大意我承认并甘于当“废物”。诚然日本人在笔记本这个细分领域内患了所谓的加拉帕戈斯综合征，但是说他们“不思进取”，恐怕并不公允。我是比较理解日本人的这种“不思进取”的。
+```
+export proxy="socks5://192.168.10.90:1080"
+export http_proxy=$proxy
+export https_proxy=$proxy
+export ftp_proxy=$proxy
+export no_proxy="192.168.*.*, localhost, 127.0.0.1, ::1"
+```
 
-归根结底，在于“进取”的标准和方向有分歧。消费级产品百花齐放，努力内卷儿，竭尽所能讨好用户，这是进取。二十年固守同一个模具，但是坚守核心特色，新瓶装旧酒，本色不改，小步慢跑推陈出新，也不能说不是进取。毕竟，在我看来，在一个不努力就会被无情淘汰的世界里，能保持安稳镇定已经是非常了不起的成就了。正如在跑步机上锻炼，尽管没有前进一步，但脂肪的确是被燃烧了。
+在conda虚拟环境中如何使用socks代理：
 
-最近讲得比较多的“高质量增长”，也就是所谓的“量的合理增长，质的稳步提升”，我觉得每个人都应该好好思考下，这两句话的深层含义。这涉及价值观、业绩观、发展观的底层变革，是非常重要的方向性问题，值得深思。
+- 首先`unset http_proxy ; unset https_proxy`，然后`pip install pysocks`，然后`source /etc/profile`，然后再重新进入虚拟环境。
+- 或者`conda install pysocks`，然后再`pip install xxx`。
 
-## NUC8i5BEH（主力机）
+## apt相关
 
-- 出品时间：2018Q3
-- 处理器：Core i5-8259U
-- 显卡：Intel Iris Plus 655 核显
-- 内存：SO-DIMM DDR4 2400 8GB×2=16GB 双通道
-- 硬盘：Intel SSD 760P 512GB；WD HDD 1TB
-- 电源：90W 19V 外置电源
-- 有线网：Intel i219-v 千兆以太网 RJ45
-- 无线网：Intel Wireless AC 9500 板载
-- USB/雷电：USB3.1第二代×4；USB2.0板载×2；雷电3×1
-- 视频接口：HDMI 2.0a；雷电3（DP1.2）
-- 音频接口：3.5mm；内置话筒阵列
-- 内部扩展：SATA；M.2 PCIe
-- 其他接口：前置红外接收；MicroSD插槽
-- 外形尺寸：11.7×11.2×5.1
-- 机械接口：VESA支架接口
+```
+# 查看已安装软件包
+sudo apt list --installed
 
-## 2019年台式机装机记录
+# 卸载并清理某个软件包（可使用通配符）
+sudo apt purge xxx
+```
 
-本文创建于2019-07-10，装机时间大概在2019年8月前后。
+## Python和Conda环境相关
 
-**装机需求**
+```
+# 安装Python-is-python3
+sudo apt install python-is-python3
+```
 
-- 预算5000上下。
-- 以上网和视频、音乐为主，偶尔做一些小规模的开发。
-- 对虚拟化的性能有一定要求。
-- 几乎不玩游戏。
-- 存储统一个人数据库（UPDB）的完整副本。
-- 作为主力机，安全稳定第一，不折腾，不玩超频（毕竟还有一大堆垃圾等着我折腾呢233
+**安装conda**
 
-**选型说明**
+参考[conda官方文档](https://docs.anaconda.com/free/anaconda/install/linux/)
 
-CPU选择英特尔8代i5-8500。8500据说是性价比较高的一款U，适合绝大多数用户。6核6线程，带集成显卡，LGA1151插座，芯片组支持B360等。
+```
+sudo apt install curl
+curl -O https://repo.anaconda.com/archive/Anaconda3-2023.09-0-Linux-x86_64.sh
+bash Anaconda3-2023.09-0-Linux-x86_64.sh
+```
 
-主板选择技嘉的B360M D3H。这款主板接口比较丰富，内存频率最高支持到2666，只有一个M.2/NVMe接口。
+注意最后最好选yes，这样默认进入base环境。如果没有选yes，则first run `source <path to conda>/bin/activate` and then run `conda init`.
 
-内存选择金士顿的高端子品牌HyperX的Fury 8G×2内存条套装，组成双通道。由于主板最高支持2666，所以这里选择的是2666频率的。金士顿有让多条内存的灯光同步的技术<sup>[\[参考资料\]](http://www.pceva.com.cn/article/3759-3.html)</sup>。
+```
+conda config --set proxy_servers.http "socks5://192.168.10.90:1080"
+conda config --set proxy_servers.https "socks5://192.168.10.90:1080"
+conda config --add channels conda-forge
+https://mirrors.tuna.tsinghua.edu.cn/help/anaconda/
+```
 
-SSD经过调研，中端SSD以英特尔760p、三星970evo和浦科特M9PeG最为流行。其中三星和英特尔分别采用自家颗粒，浦科特好像是采用东芝的颗粒。SSD的闪存颗粒有SLC、MLC、TLC和QLC等技术，简单来说就是指一个浮栅晶体管可以存储1、2、3、4个bit。三款SSD均采用TLC颗粒，存储密度比前代的SLC和MLC要高很多，但是寿命上（体现为P/E循环次数）就打了折扣。目前消费者产品中基本上没有SLC了，TLC已经成为主流，QLC也已经开始铺开。英特尔660p即采用QLC颗粒，容量512GB起步，价格仅450左右，单位容量价格已经不足1元/GB。QLC可以大幅提高单颗粒存储容量，但寿命大大降低，据说单元P/E循环仅有100次左右，不过现在通过多层堆叠（即3D NAND）等技术已经可以提高到1000次以上了，并不是很差。现在网上普遍不看好QLC。起初考虑入浦科特M9PeG，但后来决定选择英特尔760p 512G版本。这三款均支持NVMe协议。NVMe协议是英特尔提出的新传输协议，理论速度可以达到32Gbps。M.2接口是一种接口物理规格，支持PCIe和SATA两类协议。它们之间的关系可以这样理解：M.2对应RJ45，PCIe/SATA对应以太网（802.3），NVMe可以理解成是TCP/IP那一层。当然这个对应并不准确（例如SATA还包括物理接口标准），只是为了方便说明协议层次而已。
+**conda常用操作**
 
-前段时间曾经针对HDD做了不少的功课，由于旧机器上已经有两块容量分别是1TB和2TB的硬盘，所以就直接利旧了。1TB的那块是希捷酷鱼系列，7200rpm，64MB缓存，从这个参数看，很有可能是PMR技术的盘。而2TB的那块是西数蓝盘，5400rpm，缓存高达256MB，采用SMR技术。SMR存在写放大效应，需要像SSD一样准备较大的缓存，甚至还有垃圾回收机制在里面，因而性能相对差一点。HDD只要运用得当，总体上是比SSD要靠谱的，毕竟SSD数据丢失是完全无法恢复。至于两块盘的分工，PMR那块盘用作工作区，用来暂存日常使用中下载和产生的文件，包括虚拟机的虚拟磁盘也在上面。SMR那块盘作为仓库盘，保存UPDB的全部内容，平时只读不写。
+- 建立虚拟环境：`conda create -n xxx python==3.11 xxxpackage ... 建议加上pysocks`
+- 进入虚拟环境：`conda activate xxx`
+- 退出虚拟环境：`conda deactivate`
+- 删除虚拟环境：`conda env remove -n xxx`
+- 在虚拟环境中安装软件包：`conda install xxxpackage`或者`conda install --file requirements.txt`
+- 查看已经建立的虚拟环境：`conda env list`
 
-电源对于整机的安全稳定运行非常重要。调研时，看到有人推荐酷冷至尊的MASTERWATT LITE 500电源，这款电源采用全模组设计，也就是电源线与电源本体分离，以插座连接的设计，非常有利于走线。转换效率为80%，通过80plus白盘认证。作为一款中端电源，该有的保护机制都有，风扇声音不大，功率500W可以满足轻度游戏需要。
 
-**装机操作**
+## 安装CUDA
 
-按顺序操作：
+- 到[英伟达官网](https://developer.download.nvidia.com/compute/cuda/12.3.1/local_installers/cuda_12.3.1_545.23.08_linux.run)下载安装包。
+- [禁用nouveau](https://askubuntu.com/questions/841876/how-to-disable-nouveau-kernel-driver)。
+- 清理掉所有通过apt安装的CUDA驱动和CUDA-Toolkit：`sudo apt purge *nvidia*`，`sudo apt purge *cuda*`，`sudo apt autoremove`。
+- 然后执行安装程序（一个巨大的自解压脚本）。
+- 默认安装位置是：`/usr/local/cuda-12.3/`.
+- 环境变量`PATH`包含`/usr/local/cuda-12.3/bin`.
+- 环境变量`LD_LIBRARY_PATH`包含`/usr/local/cuda-12.3/lib64`，或者将`/usr/local/cuda-12.3/lib64`添加到`/etc/ld.so.conf`，然后运行`sudo ldconfig`.
+- To uninstall the CUDA Toolkit, run `cuda-uninstaller` in `/usr/local/cuda-12.3/bin`.
+- To uninstall the NVIDIA Driver, run `nvidia-uninstall`.
 
-- 操作之前先洗手，释放静电，避免ESD损坏硬件，最好是戴手套或者防静电手环。
-- 确认主板是否遮挡机箱的背部走线孔，如果不遮挡的话，那么可以将电源线、SATA线等线材从机箱的背板后面绕过去，作背部走线。
-- 如果散热器有支架的话，先将支架安装到主板上。
-- 将电源安装到机箱上，梳理好走线，然后放倒机箱，开始安装主板。先安装主板螺丝孔上对应的铜柱，然后将主板接口挡板装在机箱背部。注意，接口挡板很锋利，不要划破手。随后，将主板接口对准挡板的对应孔位，将主板放入机箱，并使螺丝孔和铜柱对齐，安装螺丝。要注意接口挡板上的弹性触片与接口部件的金属屏蔽良好接触，并且安装时不要太用力，避免主板弯曲。
-- 主板安装好之后，开始安装CPU。注意，装好CPU之后才可以去掉CPU插座上的挡板，避免安装过程中碰坏弹片。CPU装好之后，在CPU顶盖上均匀涂抹少量硅脂，然后安装散热器。
-- 安装内存和SSD，需要注意的是，两条内存组成双通道，应该按照主板的说明去接，例如这款主板是接在1、2或3、4槽位上才可以组成双通道，其他组合无法组成双通道。
-- 随后在机箱上安装HDD等大件设备，安装的原则是尽可能留有较大空隙，以便于散热。
-- 下一步是接线。ATX电源和CPU电源都是防呆的，插进去就可以了，注意不要太用力压主板。SATA接线尽可能从编号小的开始接。前面板的USB和音频接线也是防呆的，直接安装就好。电源按钮、指示灯和蜂鸣器（如果有）按照主板上的标记接，注意分清正负极。NC是没有连接的意思。
-- 机箱风扇的气流方向，我觉得应该是向外吹，也就是冷空气从四面八方流入机箱，热空气被风扇排出。
+安装完成后，执行`nvidia-smi`查看能否识别显卡。建议安装`pip install nvitop`。
 
+执行`sudo nvidia-smi -pm 1`开启持久模式。
+
+# 计算机基线设置和必备软件
+
+## Ubuntu 20.04LTS
+
+硬盘分区设置：
+
+- UEFI分区（`/boot`分区）1GB，主分区，设为启动分区
+- 交换空间是内存的2倍，逻辑分区
+- 剩余所有空间挂载根目录，主分区
+
+设置代理、熄屏时间。
+
+设置声卡采样率到48kHz：`arecord --list-devices`查看声卡设备，`/etc/pulse/daemon.conf`编辑采样率。
+
+在应用商店中安装Chromium、VSCode。然后安装其他必备软件：
+
+```
+sudo apt install lame mpg123
+sudo apt install git
+sudo apt install npm
+sudo npm install -g n
+sudo n stable
+```
+
+设置git的网络代理：
+
+```
+git config --global http.proxy "socks5://192.168.10.5:1080"
+git config --global https.proxy "socks5://192.168.10.5:1080"
+```
+
+GUI优化：
+
+- `sudo nautilus`打开文件管理器。
+- 将微软雅黑字体放置在`/usr/share/fonts/msyh`目录下。
+- 添加权限：`sudo chmod 755 /usr/share/fonts/msyh/*`
+- 在此目录下执行`sudo mkfontscale && sudo mkfontdir && sudo fc-cache -fv`添加缓存。
+- 安装GUI美化工具：`sudo apt install gnome-tweak-tool`
+- 在应用-工具菜单中找到“优化”，除设置字体外，还可以设置其他。
+
+解决丢失GRUB启动项的问题（参考：https://io-oi.me/tech/how-to-reinstall-grub/）
+
+- 插入Linux安装盘，开机按F12进入U盘的Linux系统。
+- `fdisk -l`查看电脑原有的Linux分区，例如`/dev/nvmxx`
+- `sudo mount /dev/nvmxx /mnt`
+- 执行：
+
+```
+mount --bind /dev /mnt/dev
+mount --bind /dev/pts /mnt/dev/pts
+mount --bind /proc /mnt/proc
+mount --bind /sys /mnt/sys
+```
+
+- `sudo chroot /mnt`
+- `mount /dev/<通过fdisk查询到的EFI_System分区> /boot/efi/`
+- `grub-install /dev/nvmxx`
+- `grub-install --recheck /dev/nvmxx`
+- `update-grub`
+
+## Windows 10
+
+初始配置：
+
+- 运行`gpedit.msc`，计算机配置→管理模板→Windows组件→Windows更新，【配置自动更新】改为【已禁用】
+- 检查更新并安装
+- 电源设置：待机和熄屏时间、电源键和合盖动作等
+- 文件夹选项：打开文件资源管理器时打开此电脑、取消隐藏扩展名
+- **仅限内网**：开启远程桌面；允许空密码：运行gpedit.msc，在计算机配置/Windows设置/安全设置/本地策略/安全选项中，找到“账户：使用空密码的本地账户……”，将其设置为“禁用”
+- 卸载一切没用的预置软件
+- 安装必要软件
+- 在设置中清理掉传递优化等无用文件
+
+安装必备软件
+
+- VSCode、git、TortoiseGit
+- FSViewer(并替换exe)、PotPlayer、千千静听或者Foobar2000(安装插件)
+- SumatraPDF(绿色)
+- node、npm
+
+安装nssm：下载nssm，将其复制到`C:/Windows`。
+
+安装OpenHardwareMonitor
+
+- 将可执行文件放到`C:/app/monitor`
+- 管理员模式执行`nssm install openhwmonitor C:/app/monitor/OpenHardwareMonitor.exe`。
+- 打开OpenHardwareMonitor：选项→远程Web服务器→开启（默认端口8085）
+- 打开高级防火墙设置，增加**入站规则**：程序、允许连接、域/专用/公用、TCP、UDP
+
+安装filebrowser
+
+- 下载exe，放在`C:/app/filebrowser`，此为FB自身的工作目录，包含配置db和自定义样式等文件。
+- 修改`config.json`，将`root`字段改成文件服务器目标目录路径。
+- 在工作目录中执行`./filebrowser.exe config import ./config.json`。
+- 启动管理员命令行，输入`nssm install filebrowser C:/app/filebrowser/filebrowser.exe --disable-type-detection-by-header --disable-preview-resize`。
+- 打开高级防火墙设置，增加**入站规则**：程序、允许连接、域/专用/公用、TCP、UDP
+- 最后通过Web前端关掉一切修改类的权限，只保留只读权限，防止远端修改UPDB。
+
+安装gitea
+
+- 系统环境变量`Path`添加
+-- `C:\Program Files\Git\cmd`
+-- `C:\Program Files\TortoiseGit\bin`
+-- `C:\Program Files\nodejs\`
+- 首先安装Git
+- 创建目录`C:/app/gitea`
+- 创建目录`G:/gitea_repo`、`G:/gitea_lfs`
+- 将`gitea.exe`放在`C:/app/gitea`目录下，启动，访问`localhost:3000`进行初始化配置。
+- 管理员模式执行`sc.exe create gitea start= auto binPath= "\"C:\app\gitea\gitea.exe\" web --config \"C:\app\gitea\custom\conf\app.ini\""`

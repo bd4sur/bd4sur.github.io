@@ -241,7 +241,7 @@
                 <div class="FixedArticleTitle"><a class="TopLink SPA_TRIGGER" data-target="blog/AR-RIGS-IC-705备忘录">IC-705</a></div>
                 <div class="FixedArticleTitle"><a class="TopLink SPA_TRIGGER" data-target="blog/AR-RIGS-KC908U备忘录">KC908U</a></div>
                 <div class="FixedArticleTitle"><a class="TopLink SPA_TRIGGER" data-target="blog/AR-RIGS-EB200备忘录">EB200</a></div>
-                <div class="FixedArticleTitle"><a class="TopLink SPA_TRIGGER" data-target="blog/AR-RIGS-计算机备忘录">计算机</a></div>
+                <div class="FixedArticleTitle"><a class="TopLink SPA_TRIGGER" data-target="blog/AR-RIGS-计算平台备忘录">计算平台</a></div>
                 <div class="FixedArticleTitle"><a class="TopLink SPA_TRIGGER" data-target="blog/AR-RIGS-仪器仪表备忘录">仪器仪表</a></div>
                 <div class="FixedArticleTitle"><a class="TopLink SPA_TRIGGER" data-target="blog/AR-RIGS-收发信机备忘录">收发信机</a></div>
                 <div class="FixedArticleTitle"><a class="TopLink SPA_TRIGGER" data-target="blog/AR-RIGS-天馈射频器件备忘录">天馈射频器件</a></div>
