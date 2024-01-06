@@ -191,6 +191,15 @@ function LoadCollections() {
             "info": ""
         },
         {
+            "title": "God knows...",
+            "link": "https://music.163.com/#/song?id=22826401",
+            "tags": ["实体CD收藏"],
+            "date": "2015",
+            "artist": "平野綾|ja",
+            "album": "Imaginary ENOZ featuring HARUHI|ja",
+            "info": ""
+        },
+        {
             "title": "冒険でしょでしょ？|ja",
             "link": "",
             "tags": ["实体CD收藏"],

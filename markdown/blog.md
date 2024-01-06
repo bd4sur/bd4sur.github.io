@@ -195,7 +195,7 @@
 }
 
 .hrline {
-    background: linear-gradient(90deg, #fff, #e7e9ee, #fff); height: 2px; width: 100%; margin: 20px auto;
+    background: linear-gradient(90deg, #fff, #e7e9ee, #fff); height: 2px; width: 100%; margin: 10px auto 20px auto;
 }
 
 </style>
