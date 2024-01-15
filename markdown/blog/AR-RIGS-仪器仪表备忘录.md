@@ -11,6 +11,8 @@
 
 ![数字中频模块](./image/G3/instruments/n9020a-digital-if.jpg)
 
+![参数](./image/G3/instruments/n9020a-info.jpg)
+
 - [TSP #166](https://www.youtube.com/watch?v=0a6bpZZS23g)
 
 ## NanoVNA-F网络分析仪
