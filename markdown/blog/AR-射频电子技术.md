@@ -160,7 +160,7 @@ $$ \mathrm{SWR} = \frac{1 + \left| \Gamma \right| }{1 - \left| \Gamma \right| } 
 
 # 非线性电路和噪声分析
 
-## 动态范围和交调失真
+## 动态范围
 
 ![几个表征“非线性”的参数。图片来自ADI《模拟对话》Vol.55(1)](./image/G3/rf-nonlinear.png)
 
@@ -222,7 +222,11 @@ legend("no dither added", "dither added");
 
 ![斜坡信号的量化噪声对比](./image/G3/dither-adc-slope.png)
 
-## 噪声和干扰
+## 干扰
+
+<iframe class="MikumarkIframe" src="./html/interferences.html" height="500px"></iframe>
+
+## 噪声
 
 一些干扰类型：
 

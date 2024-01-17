@@ -1,0 +1,237 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0">
+<script src="../script/framework/jquery/jquery.min.js"></script>
+<title>干扰频率计算</title>
+
+<!--页面自定义样式开始-->
+<style>
+* {
+    margin: 0;
+    padding: 0;
+    outline: none;
+}
+body {
+    margin: 10px;
+}
+.title {
+    font-size: 14px;
+    font-weight: bold;
+    margin: 5px 0;
+}
+.prompt {
+    font-size: 12px;
+    margin: 3px 0;
+}
+.math_symbol {
+    font-family: 'Times New Roman', Times, serif;
+}
+.math_variable {
+    font-style: italic;
+}
+.if_type_radiobutton {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    justify-content: flex-start;
+    margin: 5px 0px;
+    font-size: 12px;
+}
+table {
+    margin: 5px 0px;
+    border-collapse: collapse;
+}
+td {
+    font-size: 12px;
+    padding: 2px 3px;
+    border: 1px solid #aaa;
+    text-align: center;
+}
+.inputbox {
+    font-size: 13px;
+    padding: 2px 3px;
+    border: none;
+    background-color: #eaf0ff;
+    width: 70px;
+    text-align: center;
+}
+</style>
+<!--页面自定义样式结束-->
+
+</head>
+<body>
+
+<!--页面内容开始-->
+
+<div class="title">超外差接收机副波道干扰频率计算器 / BD4SUR / 2024-01-28</div>
+
+<div class="prompt">频率单位：MHz</div>
+
+<div class="if_type_radiobutton">
+    <div>
+        <input type="radio" id="low_if" name="if_type" value="low_if" checked />
+        <label for="low_if">低中频（下变频）</label>
+    </div>
+    <div>
+        <input type="radio" id="high_if" name="if_type" value="high_if" />
+        <label for="high_if">高中频（上变频）</label>
+    </div>
+</div>
+
+<table>
+    <tr>
+        <td>中频频率</td>
+        <td>接收频率</td>
+        <td>本振频率</td>
+        <td>干扰频率</td>
+        <td colspan="5">二阶响应</td>
+        <td colspan="8">三阶响应</td>
+    </tr>
+    <tr>
+        <td><span class="math_symbol"><span class="math_variable">f<sub>i</sub></span></span></td>
+        <td><span class="math_symbol"><span class="math_variable">f<sub>s</sub></span></span></td>
+        <td><span class="math_symbol"><span class="math_variable">f<sub>o</sub></span></span></td>
+        <td><span class="math_symbol"><span class="math_variable">f<sub>n</sub></span></span></td>
+
+        <td><span class="math_symbol">(2<span class="math_variable">f<sub>n</sub></span>)</span></td>
+        <td><span class="math_symbol">(2<span class="math_variable">f<sub>o</sub></span>)</span></td>
+        <td><span class="math_symbol">(<span class="math_variable">f<sub>n</sub></span> + <span class="math_variable">f<sub>o</sub></span>)</span></td>
+        <td><span class="math_symbol">(<span class="math_variable">f<sub>n</sub></span> - <span class="math_variable">f<sub>o</sub></span>)</span></td>
+        <td><span class="math_symbol">(<span class="math_variable">f<sub>o</sub></span> - <span class="math_variable">f<sub>n</sub></span>)</span></td>
+
+        <td><span class="math_symbol">(3<span class="math_variable">f<sub>n</sub></span>)</span></td>
+        <td><span class="math_symbol">(3<span class="math_variable">f<sub>o</sub></span>)</span></td>
+        <td><span class="math_symbol">(2<span class="math_variable">f<sub>n</sub></span> + <span class="math_variable">f<sub>o</sub></span>)</span></td>
+        <td><span class="math_symbol">(2<span class="math_variable">f<sub>n</sub></span> - <span class="math_variable">f<sub>o</sub></span>)</span></td>
+        <td><span class="math_symbol">(<span class="math_variable">f<sub>o</sub></span> - 2<span class="math_variable">f<sub>n</sub></span>)</span></td>
+        <td><span class="math_symbol">(2<span class="math_variable">f<sub>o</sub></span> + <span class="math_variable">f<sub>n</sub></span>)</span></td>
+        <td><span class="math_symbol">(2<span class="math_variable">f<sub>o</sub></span> - <span class="math_variable">f<sub>n</sub></span>)</span></td>
+        <td><span class="math_symbol">(<span class="math_variable">f<sub>n</sub></span> - 2<span class="math_variable">f<sub>o</sub></span>)</span></td>
+    </tr>
+    <tr>
+        <td rowspan="14"><input class="inputbox" type="text" id="fi" value="38.85"></td>
+        <td rowspan="14"><input class="inputbox" type="text" id="fs" value="195"></td>
+        <td rowspan="14"><span id="fo">-</span></td>
+    </tr>
+    <tr>
+        <td><span class="ivalue" id="fn1"></td>
+        <td><span id="r1">-</span></td>
+        <td colspan="12"></td>
+    </tr>
+    <tr>
+        <td><span class="ivalue" id="fn2"></td>
+        <td colspan="1"></td>
+        <td><span id="r2">-</span></td>
+        <td colspan="11"></td>
+    </tr>
+    <tr>
+        <td><span class="ivalue" id="fn3"></td>
+        <td colspan="2"></td>
+        <td><span id="r3">-</span></td>
+        <td colspan="10"></td>
+    </tr>
+    <tr>
+        <td><span class="ivalue" id="fn4"></td>
+        <td colspan="3"></td>
+        <td><span id="r4">-</span></td>
+        <td colspan="9"></td>
+    </tr>
+    <tr>
+        <td><span class="ivalue" id="fn5"></td>
+        <td colspan="4"></td>
+        <td><span id="r5">-</span></td>
+        <td colspan="8"></td>
+    </tr>
+    <tr>
+        <td><span class="ivalue" id="fn6"></td>
+        <td colspan="5"></td>
+        <td><span id="r6">-</span></td>
+        <td colspan="7"></td>
+    </tr>
+    <tr>
+        <td><span class="ivalue" id="fn7"></td>
+        <td colspan="6"></td>
+        <td><span id="r7">-</span></td>
+        <td colspan="6"></td>
+    </tr>
+    <tr>
+        <td><span class="ivalue" id="fn8"></td>
+        <td colspan="7"></td>
+        <td><span id="r8">-</span></td>
+        <td colspan="5"></td>
+    </tr>
+    <tr>
+        <td><span class="ivalue" id="fn9"></td>
+        <td colspan="8"></td>
+        <td><span id="r9">-</span></td>
+        <td colspan="4"></td>
+    </tr>
+    <tr>
+        <td><span class="ivalue" id="fn10"></td>
+        <td colspan="9"></td>
+        <td><span id="r10">-</span></td>
+        <td colspan="3"></td>
+    </tr>
+    <tr>
+        <td><span class="ivalue" id="fn11"></td>
+        <td colspan="10"></td>
+        <td><span id="r11">-</span></td>
+        <td colspan="2"></td>
+    </tr>
+    <tr>
+        <td><span class="ivalue" id="fn12"></td>
+        <td colspan="11"></td>
+        <td><span id="r12">-</span></td>
+        <td colspan="1"></td>
+    </tr>
+    <tr>
+        <td><span class="ivalue" id="fn13"></td>
+        <td colspan="12"></td>
+        <td><span id="r13">-</span></td>
+    </tr>
+</table>
+
+<div class="prompt">验证方法：将接收机调谐到接收频率，注入某个干扰频率，观察能否接收到干扰信号。</div>
+<div class="prompt">例如，IC-705在24MHz以上频段使用一次变频超外差方案，固定中频38.85MHz。将机器设置为195MHz接收模式，可以听到97.5MHz上的本地FM电台。</div>
+
+<!--页面内容结束-->
+
+<!--脚本开始-->
+<script>
+
+setInterval(() => {
+    let is_low_if = $("input[name='if_type']:checked").val() === "low_if";
+
+    let fi = Number($("#fi").val());
+    let fs = Number($("#fs").val());
+    let fo = is_low_if ? Math.abs(fs - fi) : (fs + fi);
+    $("#fo").html(fo.toFixed(3));
+
+    $("#r1").html(fi.toFixed(3)); $("#r2").html((fo*2).toFixed(3)); $("#r3").html(fi.toFixed(3)); $("#r4").html(fi.toFixed(3)); $("#r5").html(fi.toFixed(3)); $("#r6").html(fi.toFixed(3)); $("#r7").html((fo*3).toFixed(3));
+    $("#r8").html(fi.toFixed(3)); $("#r9").html(fi.toFixed(3)); $("#r10").html(fi.toFixed(3)); $("#r11").html(fi.toFixed(3)); $("#r12").html(fi.toFixed(3)); $("#r13").html(fi.toFixed(3));
+
+    let fn1 = fi / 2;
+    let fn2 = fo;
+    let fn3 = fi - fo;
+    let fn4 = fi + fo;
+    let fn5 = fo - fi;
+    let fn6 = fi / 3;
+    let fn7 = fo;
+    let fn8 = (fi - fo) / 2;
+    let fn9 = (fi + fo) / 2;
+    let fn10 = (fo - fi) / 2;
+    let fn11 = fi - 2 * fo;
+    let fn12 = 2 * fo - fi;
+    let fn13 = fi + 2 * fo;
+
+    $("#fn1").html(fn1.toFixed(3)); $("#fn2").html(fn2.toFixed(3)); $("#fn3").html(fn3.toFixed(3)); $("#fn4").html(fn4.toFixed(3)); $("#fn5").html(fn5.toFixed(3)); $("#fn6").html(fn6.toFixed(3)); $("#fn7").html(fn7.toFixed(3));
+    $("#fn8").html(fn8.toFixed(3)); $("#fn9").html(fn9.toFixed(3)); $("#fn10").html(fn10.toFixed(3)); $("#fn11").html(fn11.toFixed(3)); $("#fn12").html(fn12.toFixed(3)); $("#fn13").html(fn13.toFixed(3));
+}, 50);
+
+</script>
+<!--脚本结束-->
+
+</body>
+</html>
