@@ -469,38 +469,39 @@ Ubuntu版本固定为20.04LTS。
 
 1、硬盘分区设置
 
-- UEFI分区（`/boot`分区）1GB，主分区，设为启动分区
-- 交换空间是内存的2倍（如果内存很大则灵活设置），逻辑分区
-- 剩余空间挂载根目录、`/home`目录等，主分区
+- UEFI分区（如果是LegacyBIOS则为`/boot`分区）：500MB，主分区，设为启动分区
+- 交换空间：内存的1-2倍（如果内存很大则灵活设置），主分区
+- 根目录，主分区
+- `/home`目录等，主分区
 
-2、禁止自动休眠
+2、安装后重启，如果黑屏怎么办？按`Ctrl+Alt+F2`进入字符终端，安装`sudo apt install openssh-server`，即可通过ssh远程进系统。
+
+3、禁止自动休眠
 
 ```
 1. 查看休眠设置
 systemctl status sleep.target
 1. 关闭自动休眠
 sudo systemctl mask sleep.target suspend.target hibernate.target hybrid-sleep.target
-1. 进入GUI桌面，禁止熄屏、关闭待机
+
+然后，最好进入GUI桌面，禁止熄屏、关闭待机
 ```
 
-3、设置声卡采样率到48kHz
+4、设置声卡采样率到48kHz（如果有声卡的话）：`arecord --list-devices`查看声卡设备，`/etc/pulse/daemon.conf`编辑采样率。
 
-`arecord --list-devices`查看声卡设备，`/etc/pulse/daemon.conf`编辑采样率。
-
-4、安装必备软件
+5、安装必备软件
 
 桌面系统，在应用商店中通过snap安装Chromium、VSCode。然后安装其他必备软件：
 
 ```
-sudo apt install lame mpg123
-sudo apt install git
-sudo apt install npm
+sudo apt install gcc cmake lame mpg123 git npm neofetch rsync python-is-python3 python3-pip
 sudo npm install -g n
 sudo n stable
-sudo apt install neofetch
 ```
 
-5、设置代理
+6、设置代理
+
+在设置代理前，先安装pysocks：`pip install pysocks httpx[socks]`
 
 设置全局代理：在`/etc/profile`最后加上以下语句
 
@@ -515,11 +516,13 @@ export no_proxy="192.168.*.*, localhost, 127.0.0.1, ::1"
 设置git的网络代理：
 
 ```
-git config --global http.proxy "socks5://192.168.10.5:1080"
-git config --global https.proxy "socks5://192.168.10.5:1080"
+git config --global http.proxy "socks5://192.168.10.90:1080"
+git config --global https.proxy "socks5://192.168.10.90:1080"
 ```
 
-6、桌面OS的GUI优化
+7、安装CUDA（详见后文）。
+
+8、桌面OS的GUI优化
 
 - `sudo nautilus`打开文件管理器。
 - 将微软雅黑字体放置在`/usr/share/fonts/msyh`目录下。
@@ -528,7 +531,7 @@ git config --global https.proxy "socks5://192.168.10.5:1080"
 - 安装GUI美化工具：`sudo apt install gnome-tweak-tool`
 - 在应用-工具菜单中找到“优化”，除设置字体外，还可以设置其他。
 
-7、解决丢失GRUB启动项的问题（[参考](https://io-oi.me/tech/how-to-reinstall-grub/)）
+9、解决丢失GRUB启动项的问题（[参考](https://io-oi.me/tech/how-to-reinstall-grub/)）
 
 ```
 # 插入Linux安装盘，开机按F12进入U盘的Linux系统。
@@ -603,6 +606,11 @@ sudo apt install iperf3
 Windows 从 https://iperf.fr/iperf-download.php 下载可执行文件。
 - 首先启动服务端：iperf3 -s
 - 然后启动客户端：iperf3 -c 服务端IP -P 线程数 -t 秒数
+
+# 基于rsync的远程文件传输
+# 参考：https://www.ruanyifeng.com/blog/2020/08/rsync.html
+rsync -av <user>@<host>:<source> <user>@<host>:<dest>
+
 ```
 
 设置全局代理：在`/etc/profile`末尾增加以下内容：
@@ -679,10 +687,23 @@ https://mirrors.tuna.tsinghua.edu.cn/help/anaconda/
 
 ## 安装CUDA
 
-- 到[英伟达官网](https://developer.download.nvidia.com/compute/cuda/12.3.1/local_installers/cuda_12.3.1_545.23.08_linux.run)下载安装包。
-- [禁用nouveau](https://askubuntu.com/questions/841876/how-to-disable-nouveau-kernel-driver)。
+到[英伟达官网](https://developer.download.nvidia.com/compute/cuda/12.3.1/local_installers/cuda_12.3.1_545.23.08_linux.run)下载安装包。
+
+首先[禁用nouveau](https://askubuntu.com/questions/841876/how-to-disable-nouveau-kernel-driver)：
+
+Create a file: `sudo nano /etc/modprobe.d/blacklist-nouveau.conf`
+
+With the following contents:
+
+```
+blacklist nouveau
+options nouveau modeset=0
+```
+
+Regenerate the kernel initramfs: `sudo update-initramfs -u`, and reboot.
+
 - 清理掉所有通过apt安装的CUDA驱动和CUDA-Toolkit：`sudo apt purge *nvidia*`，`sudo apt purge *cuda*`，`sudo apt autoremove`。
-- 然后执行安装程序（一个巨大的自解压脚本）。
+- 然后执行安装程序（一个巨大的自解压脚本）：`sudo sh xxx.run`.
 - 默认安装位置是：`/usr/local/cuda-12.3/`.
 - 环境变量`PATH`包含`/usr/local/cuda-12.3/bin`.
 - 环境变量`LD_LIBRARY_PATH`包含`/usr/local/cuda-12.3/lib64`，或者将`/usr/local/cuda-12.3/lib64`添加到`/etc/ld.so.conf`，然后运行`sudo ldconfig`.
