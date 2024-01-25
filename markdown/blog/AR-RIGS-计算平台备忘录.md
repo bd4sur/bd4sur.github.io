@@ -494,7 +494,7 @@ sudo systemctl mask sleep.target suspend.target hibernate.target hybrid-sleep.ta
 桌面系统，在应用商店中通过snap安装Chromium、VSCode。然后安装其他必备软件：
 
 ```
-sudo apt install gcc cmake lame mpg123 git npm neofetch rsync python-is-python3 python3-pip
+sudo apt install gcc cmake lame mpg123 git npm neofetch rsync docker python-is-python3 python3-pip
 sudo npm install -g n
 sudo n stable
 ```
@@ -587,6 +587,14 @@ hdparm -Tt /dev/sdx
 ## 网络和代理相关
 
 ```
+# 设置网卡自动启动
+首先 ip link 查看网卡名称，然后
+编辑 /etc/netplan/00-installer-config.yaml，在ethernets字段下加入以下配置：
+    enp132s0f0:
+      dhcp4: true
+    enp132s0f0:
+      dhcp4: true
+
 # 查看各个网卡的IP
 sudo ip addr
 
