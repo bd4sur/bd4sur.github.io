@@ -8,7 +8,7 @@
 
 # 系统总体
 
-![机柜布置](./image/G2/homelab/homelab_rack.jpg)
+![机柜布置](./image/G2/homelab/homelab_rack.png)
 
 ![组网方案](./image/G2/homelab/homenet.png)
 
