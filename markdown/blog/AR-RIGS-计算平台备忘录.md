@@ -47,6 +47,7 @@
 - iDRAC8带外控制
 - OS：Ubuntu 20.04.6 LTS (5.4.0-169-generic)
 
+注意显卡电源线插拔次数不要超过30次，否则容易因接触不良而增加起火风险。
 
 ## NAS服务器：i5-8500 PC
 
@@ -487,9 +488,11 @@ sudo systemctl mask sleep.target suspend.target hibernate.target hybrid-sleep.ta
 然后，最好进入GUI桌面，禁止熄屏、关闭待机
 ```
 
-4、设置声卡采样率到48kHz（如果有声卡的话）：`arecord --list-devices`查看声卡设备，`/etc/pulse/daemon.conf`编辑采样率。
+4、禁止内核自动更新：`sudo apt-mark hold linux-image-generic linux-headers-generic`
 
-5、安装必备软件
+5、设置声卡采样率到48kHz（如果有声卡的话）：`arecord --list-devices`查看声卡设备，`/etc/pulse/daemon.conf`编辑采样率。
+
+6、安装必备软件
 
 桌面系统，在应用商店中通过snap安装Chromium、VSCode。然后安装其他必备软件：
 
@@ -499,7 +502,7 @@ sudo npm install -g n
 sudo n stable
 ```
 
-6、设置代理
+7、设置代理
 
 在设置代理前，先安装pysocks：`pip install pysocks httpx[socks]`
 
@@ -520,9 +523,9 @@ git config --global http.proxy "socks5://192.168.10.90:1080"
 git config --global https.proxy "socks5://192.168.10.90:1080"
 ```
 
-7、安装CUDA（详见后文）。
+8、安装CUDA（详见后文）。
 
-8、桌面OS的GUI优化
+9、桌面OS的GUI优化
 
 - `sudo nautilus`打开文件管理器。
 - 将微软雅黑字体放置在`/usr/share/fonts/msyh`目录下。
@@ -531,7 +534,53 @@ git config --global https.proxy "socks5://192.168.10.90:1080"
 - 安装GUI美化工具：`sudo apt install gnome-tweak-tool`
 - 在应用-工具菜单中找到“优化”，除设置字体外，还可以设置其他。
 
-9、解决丢失GRUB启动项的问题（[参考](https://io-oi.me/tech/how-to-reinstall-grub/)）
+10、安装filebrowser
+
+- `curl -fsSL https://raw.githubusercontent.com/filebrowser/get/master/get.sh | bash`
+- `cd /nas`
+- 将`config.json`、`custom.css`复制到`/nas`
+- `filebrowser config import config.json`
+- `filebrowser users add <username> <password> [flags]`
+
+创建一个服务：`sudo nano /lib/systemd/system/filebrowser.service`，内容如下
+
+```
+[Unit]
+Description=Filebrowser Clipboard
+
+[Service]
+Type=simple
+ExecStart=filebrowser --disable-type-detection-by-header --disable-preview-resize -d /nas/filebrowser.db
+
+[Install]
+WantedBy=multi-user.target
+```
+
+然后`systemctl enable filebrowser.service`启动服务。
+
+## 内核和引导相关
+
+1、更改启动内核（用于解决内核更新后显卡驱动无法连接问题）
+
+问题背景：Ubuntu静默自动更新内核后，由于显卡驱动与内核绑定，新内核找不到显卡，导致报错：`NVIDIA-SMI has failed because it couldn't communicate with the NVIDIA driver.`
+
+```
+# 查看当前内核
+uname -a
+# 查看系统中有哪些内核
+dpkg -l | grep linux-image
+# 查看grub启动项列表
+cat /boot/grub/grub.cfg | grep menuentry
+# 修改默认启动的内核
+sudo nano /etc/default/grub
+将GRUB_DEFAULT的值改为需要默认启动的启动项名称，如"Ubuntu，Linux 5.4.0-169-generic"等等。
+# 更新grub设置
+sudo update-grub
+如果出现提示，则按照提示重新修改GRUB_DEFAULT的值即可。
+# 最后reboot
+```
+
+2、解决丢失GRUB启动项的问题（[参考](https://io-oi.me/tech/how-to-reinstall-grub/)）
 
 ```
 # 插入Linux安装盘，开机按F12进入U盘的Linux系统。
