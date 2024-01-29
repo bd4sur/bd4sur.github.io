@@ -6,6 +6,10 @@
 
 而HomeLab在我看来是个更广义的概念。个人计算平台是HomeLab的一部分，而业余电台实际上也属于HomeLab的一部分。至于业余电台包括哪些子系统，这个问题在其他文章中描述。
 
+![ ](./image/G2/homelab/rack-front.jpg)
+
+![ ](./image/G2/homelab/rack-back.jpg)
+
 # 系统总体
 
 ![机柜布置](./image/G2/homelab/homelab_rack.png)
@@ -32,6 +36,29 @@
 |Atom N270|08Q2|175|1/2|2.5W|1.6GHz|45nm|70|
 
 注：跑分数据来自[这里](http://cdn.malu.me/cpu/)。鉴于CPU性能度量是个很复杂的问题，这个数据仅供半定量参考。
+
+|型号|P40|P100|V100|A100|H100|
+|----------------------------|
+|芯片|GP102|GP100|GV100|GA100|GH100|
+|架构|Pascal|Pascal|Volta|Ampere|Hopper|
+|年代|2016.9|2016.6|2017.6|2020.6|2023.3|
+|TDP|250W|250W|300W|300W|350W|
+|显存|24GB|16GB|16GB|80GB|80GB|
+|显存类型|GDDR5|HBM2|HBM2|HBM2e|HBM2e|
+|显存位宽(bits)|GDDR5|4096|4096|5120|5120|
+|显存带宽(GB/s)|347|732|897|1935|2039|
+|接口|PCIe Gen3|PCIe Gen3|PCIe Gen3|PCIe Gen4|PCIe Gen5|
+|  CUDA Cores|3840|3584|5120|?|?|
+|Tensor Cores|N/A|N/A|640|432|456|
+|       BF16(TFLOPS)| N/A | N/A |  ?  |312  |1513 |
+|       TF32(TFLOPS)| N/A | N/A |  ?  |156  |756  |
+|       FP16(TFLOPS)|0.2  |18.7 |28   |  -  |  -  |
+|       FP32(TFLOPS)|11.8 |9.3  |14   |19.5 |51   |
+|       FP64(TFLOPS)|0.4  |4.7  |7    |9.7  |26   |
+|FP64 Tensor(TFLOPS)| N/A | N/A |  ?  |19.5 |51   |
+|FP16 Tensor(TFLOPS)| N/A | N/A | 112 |312  |1513 |
+|Int8 Tensor(TOPS)  | N/A | N/A |  ?  |624  |3026 |
+|[Compute Capability](https://developer.nvidia.com/cuda-gpus)|6.1|6.0|7.0|8.0|9.0|
 
 ## 主服务器：戴尔 PowerEdge R730
 
@@ -446,6 +473,12 @@ echo 1 > /sys/class/gpio/gpio3/value
 - [被遗忘的非CAS神器：HP-39GII介绍与评测](https://www.cncalc.org/thread-8253-1-1.html)
 
 # 网络设备
+
+## 交换机：Cisco Catalyst 4948E
+
+![Cisco Catalyst 4948E](./image/G2/homelab/cisco-4948e.jpg)
+
+![Cisco Catalyst 4948E 内部](./image/G2/homelab/cisco-4948e-inside.jpg)
 
 关于10G光网的几个要点：
 
