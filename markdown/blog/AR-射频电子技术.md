@@ -226,6 +226,8 @@ legend("no dither added", "dither added");
 
 <iframe class="MikumarkIframe" src="./html/interferences.html" height="500px"></iframe>
 
+![在IC-705上验证三阶干扰现象](./image/G3/ic-705/ic705-interference.jpg)
+
 ## 噪声
 
 一些干扰类型：

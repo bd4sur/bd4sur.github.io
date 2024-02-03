@@ -480,6 +480,8 @@ echo 1 > /sys/class/gpio/gpio3/value
 
 ![Cisco Catalyst 4948E 内部](./image/G2/homelab/cisco-4948e-inside.jpg)
 
+## 英特尔82599网卡
+
 关于10G光网的几个要点：
 
 - 光纤：分为单模和多模，多模光纤又分成[OM1~OM4若干等级](http://www.fangyuhe.com/news/gsxg/20211001/55.html)，数字越大越好。这里选用OM3，外皮是言和绿色的。
@@ -490,6 +492,15 @@ echo 1 > /sys/class/gpio/gpio3/value
 - 似乎可以打开巨帧选项，提升信道利用率。
 
 参考资料：[家用万兆网络指南：不如先来个最简单的100G网络](https://zhuanlan.zhihu.com/p/74082377)
+
+解决82599网卡不识别不支持的SFP+光模块的问题（[参考](https://help.cesbo.com/misc/articles/hardware/unsupported-sfp-module)）：
+
+- 首先`dmesg | grep ixgbe`可以看到不支持SFP+光模块的警告。
+- `modprobe -r ixgbe`卸载网卡驱动模块。
+- `modprobe ixgbe allow_unsupported_sfp=1`重新加载网卡驱动模块，允许不支持的SFP+模块。等待片刻。
+- 为了在开机加载驱动时增加这个选项，编辑`sudo nano /etc/default/grub`
+- 将这一行改成`GRUB_CMDLINE_LINUX_DEFAULT="quiet splash ixgbe.allow_unsupported_sfp=1"`
+- 保存文件后执行`sudo update-grub`。
 
 # 机柜和环境
 

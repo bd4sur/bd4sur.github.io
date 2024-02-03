@@ -40,6 +40,8 @@
 
 - [Wiki: Doppler radio direction finding](https://en.wikipedia.org/wiki/Doppler_radio_direction_finding)
 
+![2023-10-20，伪多普勒方法实现FM调制的试验。用Arduino控制射频开关，以约7ms的等效旋转周期快速切换4个天线，用正弦连续波信号测试，可以看到频谱上出现了约142Hz的调频边带，这就证实了伪多普勒方法确实可以获得调频信号。](./image/G3/radar/pseudo-doppler-test.jpg)
+
 ## 单通道相关干涉仪测向
 
 ![ ](./image/G3/sigint/correlative-interferometer.png)
@@ -67,6 +69,8 @@ Ant4 *---|  /               ^               UART|
 - 天线阵元排列在正五边形顶点。
 - 每隔一定时间获取一次特征矩阵，将其以热力图形式绘制出来。
 - 基于开场测试数据，运用XGBoost作回归分析。
+
+关于测向的另一条技术路线——单通道相关干涉仪——最大的问题在于移相器。移相器是非常昂贵的器件，现在能够轻易买到的数字移相器芯片——PE44820——所支持的频段位于1.7GHz~2.2GHz之间，跟业余频段和大多数感兴趣的频段并无交集，它在业余段上的特性是未知的。因此，只能将整个干涉仪系统看作黑盒，但又不是完全的黑盒。具体来说，仍然采用单通道相关干涉仪的方法，以分时方式采集一组射频电平，作为输入特征。然后，通过多层感知机模型，预测出一个离散的到达方位（视为多分类问题）或者连续的到达角（视为回归问题）。神经网络是相对简单的，而困难在于训练数据。采集数据必须要到外面的开放场地去，同时也要收集一些在家里阳台这样的环境下测向的数据。
 
 - 石荣. 干涉仪侧向原理、方法与应用[M]. 电子工业出版社, 2023.
 - R&S. [New digital direction finder for 0.5 MHz to 3000 MHz](https://www.rohde-schwarz.com/file/n174_ddf195.pdf)[J]. News from Rohde&Schwarz, Number 174 (2002/II)

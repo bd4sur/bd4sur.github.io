@@ -163,6 +163,7 @@ $$ \mathrm{Cl_2 + 2HBr = 2HCl + Br_2} $$
 - Yao P, Wu H, Gao B, et al. **Fully Hardware-Implemented Memristor Convolutional Neural Network**[J]. Nature, 2020, 577(7792): 641-646.
 - Zuo Y, Li B, Zhao Y, et al. **All-Optical Neural Network with Nonlinear Activation Functions**[J]. Optica, 2019, 6(9): 1132-1137.
 - Wang T, Ma S Y, Wright L G, et al. **An Optical Neural Network Using Less than 1 Photon per Multiplication**[J]. Nature Communications, 2022, 13(1): 123. (doi:10.1038/s41467-021-27774-8)
+- D Marpaung, Yao J, J Capmany. [**Integrated Microwave Photonics**](http://www.eiti.uottawa.ca/~jpyao/mprg/reprints/NP-IMWP-Feb2019.pdf)[J]. Nature Photonics, 2019, 13(2): 80-90. (10.1038/s41566-018-0310-5)
 - Sanchez S G, Muns G R, Bocanegra C, et al. **AirNN: Neural Networks with Over-the-air Convolution via Reconfigurable Intelligent Surfaces**\[J\]. arXiv preprint [arXiv:2202.03399](https://arxiv.org/pdf/2202.03399.pdf), 2022.
 - Goldenbaum M, Boche H, Stańczak S. [**Harnessing interference for analog function computation in wireless sensor networks**](https://mediatum.ub.tum.de/doc/1173310/document.pdf)[J]. IEEE Transactions on Signal Processing, 2013, 61(20): 4893-4906.
 - Yang K, Jiang T, Shi Y, et al. [**Federated learning via over-the-air computation**](https://ieeexplore.ieee.org/ielaam/7693/9031617/8952884-aam.pdf)[J]. IEEE Transactions on Wireless Communications, 2020, 19(3): 2022-2035.
@@ -188,8 +189,6 @@ $$ \mathrm{Cl_2 + 2HBr = 2HCl + Br_2} $$
 
 让AI来迁就人类的审美…真是耽误了AI。AI应该自由探索自己的艺术，不必拘泥于人类审美。放手让情报统合思念体去干吧！然后取homo而代之。我的观点依然是：AI的使命是理解世界，而非理解人类。人类是世界的一部分，人类没什么特殊的。
 
-![ ](./image/G4/jinitaimei-ai.jpg)
-
 ------
 
 2023-04-06
@@ -206,7 +205,7 @@ AI的使命是理解世界、服务人类。不是让AI理解人类。如果AI�
 
 人类的科学文明，实际上就是这个世界自发涌现出来的一个具有内省现象的“不动点”，这个子系统试图理解它的整个上位系统。什么是“理解”？从算法信息论的角度来看，就是持有对于某个对象系统全部性质的完整描述。**因而若一个系统持有对于自身的完整描述，我们说这个系统“理解了它自己”。**递归函数就是这样一类系统。在λ演算中，所谓的Y组合子就是体现这种自省性质的一个小巧而美妙的模型。
 
-![单纯自省并不能解决问题。世界的“意义”在世界之外。](./image/G4/自省.jpg)
+![单纯自省并不能解决问题。世界的“意义”在世界之外。](./image/A/maze-inside.jpg)
 
 ------
 

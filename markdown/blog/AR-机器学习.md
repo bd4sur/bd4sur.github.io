@@ -298,5 +298,6 @@ python3 ~/ai/funasr/client/python/funasr_wss_client.py --host "127.0.0.1" --port
 - https://arxiv.org/abs/1706.03762
 - https://jalammar.github.io/illustrated-transformer/
 - https://nlp.seas.harvard.edu/2018/04/03/attention.html
+- https://erdem.pl/2021/05/introduction-to-attention-mechanism
 
 # 机器视觉

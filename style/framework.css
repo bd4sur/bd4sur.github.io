@@ -17,8 +17,8 @@ body { font-family: Microsoft YaHei, "宋体", "Helvetica Neue", Helvetica, Aria
         --HeaderHeight: 200px;
         --MainBorderRadius: 20px;
         --MainVerticalMargin: 20px;
-        --MainMaxWidth_PC: 800px;
-        --MainWidthPercent_PC: 65%;
+        --MainMaxWidth_PC: 860px;
+        --MainWidthPercent_PC: 75%;
         --NavbarHeight: 40px;
         --MikumarkHorizontalPadding: 50px;
         --MikumarkBottomPadding: 30px;
