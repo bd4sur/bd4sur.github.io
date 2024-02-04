@@ -2,9 +2,7 @@
 
 #!content
 
-本文记录个人计算平台（所谓HomeLab）的搭建、运维知识。个人计算平台包括计算设备、网络设备、存储设备和辅助设备。计算设备有服务器、桌面计算机、便携电脑、嵌入式计算机、开发板、微控制器、甚至计算器等。网络设备有交换机、路由器、调制解调器、光纤收发器、无线AP、网卡、光模块等。存储设备有硬盘、光盘、硬盘盒/柜、硬盘复制器、阵列卡、光驱、U盘、存储卡等。辅助设备有机柜和结构件（导轨、托盘、线卡等）、IO设备（显示器、键盘、鼠标等）、电源设备（UPS、PDU、电源时序器、电瓶、功率计、遥控插座等）、线缆（铜网线、光纤、USB线、SATA线、电源线、插排等）、散热设备（空调、风机、温控器、散热片等）、安全防护设备（防雷器等）、其他辅助设备等。将这些组件及其软硬件按照一定的方式组成系统，提供某些服务，即为个人计算平台。
-
-而HomeLab在我看来是个更广义的概念。个人计算平台是HomeLab的一部分，而业余电台实际上也属于HomeLab的一部分。至于业余电台包括哪些子系统，这个问题在其他文章中描述。
+本文记录个人计算平台（PCCP）的搭建、运维知识。所谓个人计算平台（可以按需翻译成个人P私有P云C计算C平台P），指的是产权私有的、物理可及的、受到本人完全管控的计算机系统。在我看来，个人计算平台不等于HomeLab，HomeLab是个更广义的概念。个人计算平台是HomeLab的一部分，而业余电台实际上也属于HomeLab的一部分。至于HomeLab包括哪些子系统，这个问题有待进一步思考。
 
 ![ ](./image/G2/homelab/rack-front.jpg)
 
@@ -16,12 +14,27 @@
 
 ![组网方案](./image/G2/homelab/homenet.png)
 
+个人计算平台包括以下子系统：
+
+- 计算设备：服务器、桌面计算机、便携电脑、嵌入式计算机、开发板、微控制器、甚至计算器等
+- 网络设备：交换机、路由器、调制解调器、光纤收发器、无线AP、网卡、光模块等
+- 存储设备：硬盘、光盘、硬盘盒/柜、硬盘复制器、阵列卡、光驱、U盘、存储卡等
+- 控制台：KVM、显示器、键盘、鼠标等
+- 结构件：机柜、机架、导轨、托盘、线卡等
+- 动力设备：UPS、PDU、电源时序器、电瓶、功率计、遥控插座等
+- 线缆：铜线、光纤、AOC线、DAC线、USB线、电源线等
+- 散热设备：空调、风机、导流板、温控器、散热片等
+- 动环监控设备
+- 安全防护设备：防雷器等
+- 其他辅助设备
+
 # 计算设备
 
 |型号|年代|跑分*|C/T|TDP|主频|工艺|能耗比|
 |------------------------------------|
 |Ryzen 7 5800H|21Q1|21624|8/16|45W|3.2GHz|7nm|480|
-|[Xeon E5-2686 v4](https://www.intel.cn/content/www/cn/zh/support/articles/000090280/processors/intel-xeon-processors.html)|16Q4|20956|18/36|145W|2.3GHz|14nm|144|
+|[Xeon E5-2686 v4](https://www.intel.cn/content/www/cn/zh/support/articles/000090280/processors/intel-xeon-processors.html)|16Q4|21000|18/36|145W|2.3GHz|14nm|144|
+|[Xeon E5-2680 v4](https://www.intel.cn/content/www/cn/zh/products/sku/91754/intel-xeon-processor-e52680-v4-35m-cache-2-40-ghz/specifications.html)|16Q1|18000|14/28|120W|2.4GHz|14nm|150|
 |i5-8500|18Q2|9543|6/6|65W|3.0GHz|14nm|147|
 |i5-8259U|18Q2|8300|4/8|28W|2.3GHz|14nm|296|
 |i5-8365U|19Q2|6300|4/8|15W|1.6GHz|14nm|420|
@@ -61,6 +74,18 @@
 |[Compute Capability](https://developer.nvidia.com/cuda-gpus)|6.1|6.0|7.0|8.0|9.0|
 
 ## 主服务器：戴尔 PowerEdge R730
+
+||0号机|1号机|
+|------------|
+|集群内IP|192.168.10.52|192.168.10.61|
+|机器型号|PowerEdge R730|PowerEdge R730|
+|OS|Ubuntu 20.04.6 LTS|Ubuntu 20.04.6 LTS|
+|内核|5.4.0-169|5.15.0-91|
+|CPU|双路 Xeon E5-2686 v4|双路 Xeon E5-2680 v4|
+|内存|128GB|32GB|
+|GPU 0|Tesla P100 PCIe 16GB|Tesla P100 PCIe 16GB|
+|GPU 1|Tesla P100 PCIe 16GB|Tesla P40|
+
 
 ![ ](./image/G2/homelab/dell-poweredge-r730.jpg)
 
