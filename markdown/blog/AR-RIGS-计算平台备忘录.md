@@ -537,14 +537,14 @@ Ubuntu版本固定为20.04LTS。
 
 ## 系统安装与设置
 
-1、硬盘分区设置
+1、硬盘分区设置（如果分区有问题可以`sudo gparted`）
 
 - UEFI分区（如果是LegacyBIOS则为`/boot`分区）：500MB，主分区，设为启动分区
 - 交换空间：内存的1-2倍（如果内存很大则灵活设置），主分区
 - 根目录，主分区
 - `/home`目录等，主分区
 
-2、安装后重启，如果黑屏怎么办？按`Ctrl+Alt+F2`进入字符终端，安装`sudo apt install openssh-server`，即可通过ssh远程进系统。
+2、安装后重启，黑屏怎么办？按`Ctrl+Alt+F2`进入字符终端，安装`sudo apt install openssh-server`，即可通过ssh远程进系统。
 
 3、禁止自动休眠
 
@@ -566,7 +566,7 @@ sudo systemctl mask sleep.target suspend.target hibernate.target hybrid-sleep.ta
 桌面系统，在应用商店中通过snap安装Chromium、VSCode。然后安装其他必备软件：
 
 ```
-sudo apt install gcc cmake lame mpg123 git npm neofetch rsync docker python-is-python3 python3-pip
+sudo apt install gcc cmake lame mpg123 git npm screen neofetch rsync docker python-is-python3 python3-pip
 sudo npm install -g n
 sudo n stable
 ```
@@ -670,12 +670,20 @@ update-grub
 ## 进程管理相关
 
 ```
+# 查看当前用户下的进程树
+ps xuf
+
 # NUMA控制
 sudo apt install numactl
 
 # 远程ssh情况下使用nohup实现后台运行
 # 注意，这个方法有坑。建议使用 GNU Screen 等工具
 nohup xxx 1>xxx.log 2>&1 &
+
+# GNU Screen 使用方法
+screen -r <session>
+^a c 创建
+^a <num> 切换到
 ```
 
 ## 硬盘相关
@@ -831,8 +839,8 @@ Regenerate the kernel initramfs: `sudo update-initramfs -u`, and reboot.
 - 清理掉所有通过apt安装的CUDA驱动和CUDA-Toolkit：`sudo apt purge *nvidia*`，`sudo apt purge *cuda*`，`sudo apt autoremove`。
 - 然后执行安装程序（一个巨大的自解压脚本）：`sudo sh xxx.run`.
 - 默认安装位置是：`/usr/local/cuda-12.3/`.
-- 环境变量`PATH`包含`/usr/local/cuda-12.3/bin`.
-- 环境变量`LD_LIBRARY_PATH`包含`/usr/local/cuda-12.3/lib64`，或者将`/usr/local/cuda-12.3/lib64`添加到`/etc/ld.so.conf`，然后运行`sudo ldconfig`.
+- 设置环境变量：`export PATH=/usr/local/cuda-12.3/bin:$PATH`.
+- 设置环境变量`export LD_LIBRARY_PATH=/usr/local/cuda-12.3/lib64:$LD_LIBRARY_PATH`，或者将`/usr/local/cuda-12.3/lib64`添加到`/etc/ld.so.conf`，然后运行`sudo ldconfig`.
 - To uninstall the CUDA Toolkit, run `cuda-uninstaller` in `/usr/local/cuda-12.3/bin`.
 - To uninstall the NVIDIA Driver, run `nvidia-uninstall`.
 
