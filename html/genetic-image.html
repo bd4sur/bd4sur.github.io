@@ -1,0 +1,261 @@
+<!-- Project Aurora - Blog Framework V4.0 -->
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<title>Genetic Image Fitting</title>
+<script src="../script/framework/jquery/jquery.min.js"></script>
+
+
+<!--页面自定义样式开始-->
+<style>
+
+</style>
+<!--页面自定义样式结束-->
+
+</head>
+<body>
+
+<!--页面内容开始-->
+
+<div>2024-02-21</div>
+
+<div><span id="generation_count">-</span></div>
+<table>
+    <tr><button id="start">开始</button></tr>
+    <tr>
+        <td><img id="refimg" src="../image/avatar.jpg" width="64" height="64"/></td>
+        <td><canvas id="tsp" style="width:64px;height:64px;" width="64" height="64"></canvas></td>
+    </tr>
+</table>
+<canvas id="ref" style="width:64px;height:64px;display: none;" width="64" height="64"></canvas>
+
+<!--页面内容结束-->
+
+<!--脚本开始-->
+<script src="../script/canvas.js"></script>
+<script>
+
+// 2024-02-21
+
+const MutationProb = 0.1;
+const CrossoverProb = 0.5;
+const WIDTH = 64;
+const HEIGHT = 64;
+const GENE_LENGTH = WIDTH * HEIGHT;
+
+function RandomSeries(n) {
+    let rs = [];
+    for(let i = 0; i < n; i++) {
+        rs.push(Math.floor(Math.random() * 255));
+    }
+    return rs;
+}
+
+function draw(cv, gene_r, gene_g, gene_b) {
+    for(let y = 0; y < HEIGHT; y++) {
+        for(let x = 0; x < WIDTH; x++) {
+            let r = gene_r[y * WIDTH + x];
+            let g = gene_g[y * WIDTH + x];
+            let b = gene_b[y * WIDTH + x];
+            cv.Plot([x, HEIGHT - y], `rgb(${r}, ${g}, ${b})`);
+        }
+    }
+}
+
+function MSE(gene, matref) {
+    let mse = 0;
+    let mat1 = gene;
+    let mat2 = matref;
+    for(let y = 0; y < HEIGHT; y++) {
+        for(let x = 0; x < WIDTH; x++) {
+            let index = y * WIDTH + x;
+            let ref_value = mat2[index];
+            let ga_value  = mat1[index];
+            mse += ((ref_value - ga_value) * (ref_value - ga_value));
+        }
+    }
+    return mse;
+}
+
+function Individual() {
+    this.Gene = [];
+}
+
+Individual.prototype = {
+    Init: function() {
+        this.Gene = RandomSeries(GENE_LENGTH);
+    },
+    // 基因的表达：根据基因计算适应度
+    Decode: function(matref) {
+        return (1 / MSE(this.Gene, matref));
+    },
+    // 变异：某一位碱基随机变化
+    Mutate: function() {
+        let pos = Math.floor(Math.random() * GENE_LENGTH);
+        this.Gene[pos] = Math.random();
+    },
+    // 交叉操作
+    Crossover: function(that) {
+        // 随机选择区段
+        let p1 = Math.floor(Math.random() * GENE_LENGTH);
+        let p2 = Math.floor(Math.random() * GENE_LENGTH);
+        let p3 = Math.floor(Math.random() * GENE_LENGTH);
+        let p4 = Math.floor(Math.random() * GENE_LENGTH);
+
+        let pos = [p1, p2, p3, p4].sort();
+
+        let newGene = [];
+
+        for(let i = 0; i < GENE_LENGTH; i++) {
+            if((i >= pos[0] && i <= pos[1]) || (i >= pos[2] && i <= pos[3])) {
+                newGene[i] = this.Gene[i];
+            }
+            else {
+                newGene[i] = that.Gene[i];
+            }
+        }
+        let child = new Individual();
+        child.Gene = newGene;
+        return child;
+    },
+};
+
+// 快乐的伊甸园
+function Eden(popSize, ref) {
+    this.ref = ref;
+    this.popSize = popSize;
+    this.Population = new Array();
+    this.Fitness = new Array();
+    this.TotalFitness = 0;
+    this.BestID = 0;
+    this.BestFitness = 0;
+    // 初始化个体和适应度
+    for(let i = 0; i < popSize; i++) {
+        let ind = new Individual();
+        ind.Init();
+        this.Population[i] = ind;
+    }
+    this.Evaluate();
+}
+Eden.prototype = {
+    // 适应度评估
+    Evaluate: function() {
+        let maxValue = Number.MIN_VALUE;
+        let maxIndex = 0;
+        let totalFitness = 0;
+        for(let i = 0; i < this.Population.length; i++) {
+            let fit = this.Population[i].Decode(this.ref);
+            this.Fitness[i] = fit;
+            totalFitness += fit;
+            if(fit >= maxValue) {
+                maxValue = fit;  // 优化目标值
+                maxIndex = i;    // 局部最优个体
+            }
+        }
+        this.TotalFitness = totalFitness;
+        this.BestID = maxIndex;
+        this.BestFitness = maxValue;
+    },
+    // 轮盘赌抽选
+    RouletteWheel: function() {
+        let totalFitness = this.TotalFitness;
+        let pointer = Math.random();
+        let position = 0;
+        for(let i = 0; i < this.Population.length; i++) {
+            position += (this.Fitness[i] / totalFitness);
+            if(pointer <= position) {
+                return i;
+            }
+        }
+    },
+    // 产生下一代
+    NextGeneration: function() {
+        let newPopulation = new Array();
+        // 保留顶级精英
+        newPopulation.push(this.Population[this.BestID]);
+        // 产生子代
+        while(newPopulation.length < this.Population.length) {
+            // 挑选人生赢家进行交配
+            let p1 = this.RouletteWheel();
+            let child = null;
+            if(Math.random() <= CrossoverProb) {
+                let p2 = this.RouletteWheel();
+                child = this.Population[p1].Crossover(this.Population[p2]);
+            }
+            else {
+                child = this.Population[p1];
+            }
+            // 突变
+            if(Math.random() <= MutationProb) {
+                child.Mutate();
+            }
+            newPopulation.push(child);
+        }
+        this.Population = newPopulation;
+    },
+    //一轮进化
+    Evolve: function() {
+        this.Evaluate();
+        this.NextGeneration();
+    }
+};
+
+
+let timer = 0;
+let generation_count = 0;
+
+let cv = new Canvas('tsp', [0, 0], [WIDTH-1, HEIGHT-1]);
+let refcv = new Canvas('ref', [0, 0], [WIDTH-1, HEIGHT-1]);
+
+let refimg = document.getElementById("refimg");
+refcv.context.drawImage(refimg, 0, 0, WIDTH, HEIGHT);
+
+let imgref = refcv.context.getImageData(0, 0, WIDTH, HEIGHT);
+let matref_r = [];
+let matref_g = [];
+let matref_b = [];
+
+for(let y = 0; y < HEIGHT; y++) {
+    for(let x = 0; x < WIDTH; x++) {
+        let index = y * WIDTH + x;
+        let r = imgref.data[index * 4];
+        let g = imgref.data[index * 4 + 1];
+        let b = imgref.data[index * 4 + 2];
+        let a = imgref.data[index * 4 + 3];
+        matref_r.push(r);
+        matref_g.push(g);
+        matref_b.push(b);
+    }
+}
+
+$("#start").click(()=> {
+    cv.Clear();
+    clearInterval(timer);
+
+    let eden_r = new Eden(200, matref_r); eden_r.Evolve();
+    let eden_g = new Eden(200, matref_g); eden_g.Evolve();
+    let eden_b = new Eden(200, matref_b); eden_b.Evolve();
+
+    timer = setInterval(()=>{
+        eden_r.Evolve();
+        eden_g.Evolve();
+        eden_b.Evolve();
+
+        let gene_r = eden_r.Population[eden_r.BestID].Gene;
+        let gene_g = eden_g.Population[eden_g.BestID].Gene;
+        let gene_b = eden_b.Population[eden_b.BestID].Gene;
+
+        draw(cv, gene_r, gene_g, gene_b);
+
+        $("#generation_count").html(generation_count);
+        generation_count++;
+    }, 0);
+});
+
+
+</script>
+<!--脚本结束-->
+
+</body>
+</html>
