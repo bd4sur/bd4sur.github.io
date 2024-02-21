@@ -710,6 +710,83 @@ sudo apt install hdparm
 hdparm -Tt /dev/sdx
 ```
 
+<details>
+
+<summary>Windows下控制线程的CPU亲和性</summary>
+
+```
+#include <iostream>
+#include <windows.h>
+#include <process.h>
+#include <cmath>
+
+#define NUM_OF_CORES 72
+#define NUM_OF_THREADS 30
+
+HANDLE gDoneEvent1;
+HANDLE gDoneEvent2;
+
+void infloop(int core) {
+    HANDLE currentThread = GetCurrentThread();
+    DWORD_PTR threadAffinityMask = (DWORD_PTR)(1 << (core % NUM_OF_CORES));
+    SetThreadAffinityMask(currentThread, threadAffinityMask);
+    while(1) {
+        log(100); //占用cPU
+    }
+}
+
+VOID CALLBACK suspend(PVOID hThread) {
+    printf("Suspend\n");
+    SuspendThread((HANDLE)hThread);
+    SetEvent(gDoneEvent1);
+}
+VOID CALLBACK resume(PVOID hThread) {
+    printf("Resume\n");
+    ResumeThread((HANDLE)hThread);
+    SetEvent(gDoneEvent2);
+}
+
+int main() {
+
+    HANDLE* threads = (HANDLE*)malloc(NUM_OF_THREADS);
+
+    for(unsigned long i = 0; i < NUM_OF_THREADS; i++) {
+        threads[i] = (HANDLE)_beginthreadex(NULL, 0, (unsigned int (*)(void *))infloop, (void *)i, 0, NULL);
+    }
+
+    HANDLE hTimerQueue = NULL;
+
+    gDoneEvent1 = CreateEvent(NULL, TRUE, FALSE, NULL);
+    gDoneEvent2 = CreateEvent(NULL, TRUE, FALSE, NULL);
+    hTimerQueue = CreateTimerQueue();
+
+    for(int t = 0; t < NUM_OF_THREADS * 50; t++) {
+        HANDLE hTimer1 = NULL;
+        HANDLE hTimer2 = NULL;
+        CreateTimerQueueTimer(&hTimer1, hTimerQueue, (WAITORTIMERCALLBACK)suspend, threads[t % NUM_OF_THREADS], 200 * (t), 0, 0);
+        CreateTimerQueueTimer(&hTimer2, hTimerQueue, (WAITORTIMERCALLBACK)resume,  threads[t % NUM_OF_THREADS], 200 * (t+1), 0, 0);
+    }
+
+    for(int i = 0; i < NUM_OF_THREADS; i++) {
+        WaitForSingleObject(threads[i], INFINITE);
+    }
+    WaitForSingleObject(gDoneEvent1, INFINITE);
+    WaitForSingleObject(gDoneEvent2, INFINITE);
+
+    CloseHandle(gDoneEvent1);
+    CloseHandle(gDoneEvent2);
+    for(int i = 0; i < NUM_OF_THREADS; i++) {
+        CloseHandle(threads[i]);
+    }
+
+    DeleteTimerQueue(hTimerQueue);
+
+    return 0;
+}
+```
+
+</details>
+
 ## 网络和代理相关
 
 ```
