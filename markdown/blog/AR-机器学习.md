@@ -5,11 +5,29 @@
 
 > 2023-03-28：增加《机器学习》专题。为什么不叫《人工智能》：首先这个专题并不关注“人工”的部分，只关注“机器”的部分；其次我不知道什么是“智能”，很难讨论一个没有良好定义的东西，而“学习”是个相对明确的东西，是一种数据驱动的方法、途径。这个专题不太关注目标ML能干什么，也不关注ML能否到达“智能”（这在其他专题中讨论），主要关注的是方法和技术的中微观细节。
 
-![ ](./image/G2/sd.jpg)
+![ ](./image/G4/sd.jpg)
 
-# 优化算法
+# 机器学习理论
 
-## 梯度下降
+![机器学习模型训练的一般框架](./image/G4/ml-model-training.png)
+
+## 最优化
+
+> 2024-02-21
+
+> 现在遵循控制论思想原则的人工智能实现方法，如机器学习、强化学习等等，都可以归结为两个字：寻优。
+
+> “优”反映出人类对于问题域的理解，为解决方案注入人类的主观和先验，是问题的最终目标。机器学习我们叫损失函数、距离度量等等，概率统计我们叫似然函数、交叉熵一类的东西，理论物理我们把它称为“作用量”、哈密顿量等等。甚至我们常说的奥卡姆剃刀、正则化等等，它们反映了人类对于问题性质的某种信念，因而也属于“优”的范畴。
+
+> 而“寻”，则是达到“优”的途径和方法。最优化理论就是“寻”优的理论。而落实到实践上，除了少数定义明确、性质良好的问题类，例如凸优化，有相当优雅高效的理性算法，大多数寻优方法都是所谓启发式的、出于人类对于物理世界的模仿的直觉。例如梯度下降，现在深度学习大模型的训练“寻”优手段，实质上就是梯度下降，其核心思想十分朴素，却相当有效。这种有效性可能反映出问题域的某种内在的结构。再例如遗传算法模仿生物进化、模拟退火模仿晶体退火过程中粒子各归其位等等。每种寻优算法在某些问题上相当有效，却不见得在任何问题上都有效，因而寻优方法和具体问题之间如何良好匹配，就构成了元寻优问题，因而相应出现了元启发式寻优算法。
+
+> 进一步地，很多、甚至绝大多数情况下，我们甚至很难定义或者验证这个所谓的“优”，具体来说，就是找不到能够良好定义的目标函数，或者目标函数计算成本太高。既然“优”难以定义，那怎么寻呢？黑盒优化试图解决这类问题。极其粗糙地讲，黑盒优化的诸多手段，可以概括为“有根据地猜”。这也符合我们一般人在决策和判断时的行为策略。
+
+> 在我个人看来，从可计算性理论的视角来看，所有的“计算”问题，都可以分为“判定”和“寻优”两大类。布尔可满足性（SAT）问题就是一个沟通了判定和寻优两大类问题的经典问题。经典问题之所以经典，是因为它具体而微。但是小不意味着简单喔。考虑到问题可以依复杂度归约，研究个别经典问题，有助于推广到一大类问题。而这个画头像的小demo，虽然简单而无用，但是我觉得它的内部深不可测。这种感觉完全出于我的无知。因此我时常提起这句话：
+
+> “实现了一个东西，不等于你理解了它。”
+
+### 梯度下降演示（2018-05-24）
 
 <iframe class="MikumarkIframe" src="./html/sgd.html" height="450px"></iframe>
 
@@ -19,13 +37,7 @@
 - 再点一次**选择起点**按钮，退出起点选择
 - 点击**切换为极大/小值**，可切换极大/小值
 
-更新日志：
-
-- 2018.05.24 初始版本
-
-参考：[梯度下降](https://en.wikipedia.org/wiki/Stochastic_gradient_descent)
-
-## 模拟退火
+### 模拟退火演示（2020-07-16）
 
 <iframe class="MikumarkIframe" src="./html/simulated-annealing.html" height="450px"></iframe>
 
@@ -35,26 +47,32 @@
 - 再点一次**选择起点**按钮，退出起点选择
 - 点击**切换为极大/小值**，可切换极大/小值
 
-更新日志：
+- 参考：[模拟退火](https://zh.wikipedia.org/wiki/%E6%A8%A1%E6%8B%9F%E9%80%80%E7%81%AB)
+- 参考：[HSV色彩空间](https://zh.wikipedia.org/wiki/HSL%E5%92%8CHSV%E8%89%B2%E5%BD%A9%E7%A9%BA%E9%97%B4)
 
-- 2020-07-16 初始版本
-
-参考：[模拟退火](https://zh.wikipedia.org/wiki/%E6%A8%A1%E6%8B%9F%E9%80%80%E7%81%AB)
-参考：[HSV色彩空间](https://zh.wikipedia.org/wiki/HSL%E5%92%8CHSV%E8%89%B2%E5%BD%A9%E7%A9%BA%E9%97%B4)
-
-## 遗传算法
-
-2019.4.29
-
-利用遗传算法求解旅行商问题（TSP）。
+### 遗传算法求解旅行商问题（2019-04-29）
 
 <iframe class="MikumarkIframe" src="./html/genetic-tsp.html" height="460px"></iframe>
 
-# 基础机器学习算法
+### 遗传算法拟合任意图像（2024-02-21）
 
-## 分类算法：支持向量机SVM
+受到fwjmath的博客文章《[遗传算法：内存中的进化](https://fwjmath.wordpress.com/2009/03/02/genetic-algorithm-evolution-in-memory/)》启发而制作。
 
-2018-06-02
+<iframe class="MikumarkIframe" src="./html/genetic-image.html" height="200px"></iframe>
+
+### 迷宫生成与A*寻路算法
+
+## 分类、回归
+
+### 多层感知机演示（2018-05-26）
+
+<iframe class="MikumarkIframe" src="./html/perceptron.html" height="450px"></iframe>
+
+若数据集线性不可分，则会陷入无穷迭代。此例二维空间上线性可分的判定，可采用凸包+扫描线算法解决。
+左下角(-160,-160)，右上角坐标(160,160)
+感知机是简单的线性二分类模型，是神经网络和SVM的基础。这里使用随机梯度下降方法对其进行训练。
+
+### 支持向量机演示（2018-06-02）
 
 <iframe class="MikumarkIframe" src="./html/svm.html" height="500px"></iframe>
 
@@ -63,32 +81,41 @@
 + SVM核心使用第三方实现：[SVMJS](https://cs.stanford.edu/people/karpathy/svmjs/demo/)（[GitHub](https://github.com/karpathy/svmjs/)）
 + 参考资料：[支持向量机：理论、算法与拓展](https://book.douban.com/subject/3927560/)
 
-## 分类算法：多层感知机MLP
+## 聚类、变换、压缩
 
-2018-05-26
+## 集成学习
 
-<iframe class="MikumarkIframe" src="./html/perceptron.html" height="450px"></iframe>
+## 概率图模型
 
-若数据集线性不可分，则会陷入无穷迭代。此例二维空间上线性可分的判定，可采用凸包+扫描线算法解决。
-左下角(-160,-160)，右上角坐标(160,160)
-感知机是简单的线性二分类模型，是神经网络和SVM的基础。这里使用随机梯度下降方法对其进行训练。
-
-## 聚类算法
-
-# 概率图模型
-
-# 神经网络
+## 神经网络和深度学习
 
 - [矩阵求导术（上）](https://zhuanlan.zhihu.com/p/24709748)、[矩阵求导术（下）](https://zhuanlan.zhihu.com/p/24863977)
 - [Matrix Calculus](https://www.matrixcalculus.org/)
 
-# 人类知觉智能(NLP/CV/多模态)
+### Transformer
+
+![[来源](https://www.youtube.com/watch?v=-9vVhYEXeyQ)](./image/G4/bert-3d.png)
+
+- https://arxiv.org/abs/1706.03762
+- https://jalammar.github.io/illustrated-transformer/
+- https://nlp.seas.harvard.edu/2018/04/03/attention.html
+- https://erdem.pl/2021/05/introduction-to-attention-mechanism
+
+# 应用：人类知觉智能(NLP/CV/多模态)
 
 2023-12-03：前几年，在人工智能领域，有一种学科划分方式，将NLP、知识工程划分为“认知智能”，将计算机视觉、语音、触觉等涉及视听和感觉的，划分为“感知智能”。然而，近几年的研究表明，“认知”和“感知”不应分家，多模态融合才是正确的发展路线。因此本章的标题是“人类智能”，将自然语言处理、机器视觉、语音等学科，统统纳入“人类智能”的范畴，或者称为“知觉智能”。此处再次强调我关于所谓人工智能的观点：**人工智能的使命是理解世界，而不是理解人类。**
 
-## 在普通CPU机器上部署大语言模型
+## 大规模语言模型
 
-2023-11-28
+### 在安捷伦N9020A频谱仪上部署Qwen
+
+视频：[在2007年的频谱仪上部署AI大模型](https://www.bilibili.com/video/BV1du4m1P7iU)
+
+### 在松下SV8便携电脑上部署ChatGLM
+
+<details>
+
+<summary>2023-11-28 chatglm.cpp</summary>
 
 以下完全基于[chatglm.cpp](https://github.com/li-plus/chatglm.cpp)（V0.3.0）部署。在松下SV8洋垃圾笔记本（Core i5-8365U，16GB内存，512GB的NVMe固态硬盘，Ubuntu 20.04 LTS）上测试，体验良好，运行速度尚在能够容忍的范围内，作为人工智障小玩具是堪用的。以下是部署过程备忘，连同环境在内的所有文件已备份到物理硬盘上。
 
@@ -236,7 +263,29 @@ if __name__ == "__main__":
 
 ```
 
-## 在低性能CPU机器上部署FunASR
+</details>
+
+## 视觉和图文跨模态理解
+
+### Qwen-VL
+
+### 应用案例：表情包搜索引擎
+
+视频演示：[自制表情包搜索引擎演示](https://www.bilibili.com/video/BV1vJ4m1e7MN)
+
+## 图像和视频合成（文生图等）
+
+### Stable Diffusion
+
+## 语音识别和理解
+
+### Qwen-Audio
+
+### FunASR
+
+<details>
+
+<summary>在低性能CPU机器上部署FunASR</summary>
 
 2023年，阿里巴巴达摩院开源了[FunASR](https://github.com/alibaba-damo-academy/FunASR)语音识别工具包，可以在低资源CPU计算机上运行。以下参照实时语音转写的[官方安装指导](https://github.com/alibaba-damo-academy/FunASR/blob/main/runtime/docs/SDK_advanced_guide_online_zh.md)，整理出一份安装部署检查单。
 
@@ -291,13 +340,8 @@ pip install websockets pyaudio
 python3 ~/ai/funasr/client/python/funasr_wss_client.py --host "127.0.0.1" --port 10096 --mode 2pass
 ```
 
-## Transformer
+</details>
 
-![[来源](https://www.youtube.com/watch?v=-9vVhYEXeyQ)](./image/G4/bert-3d.png)
+## 语音/音乐合成和音色转换
 
-- https://arxiv.org/abs/1706.03762
-- https://jalammar.github.io/illustrated-transformer/
-- https://nlp.seas.harvard.edu/2018/04/03/attention.html
-- https://erdem.pl/2021/05/introduction-to-attention-mechanism
-
-# 机器视觉
+### RVC

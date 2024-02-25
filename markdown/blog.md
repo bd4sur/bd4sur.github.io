@@ -238,14 +238,14 @@
         <div class="block_container">
             <div class="CategoryTitle">设 备 · 工 具</div>
             <div class="item_container">
-                <div class="FixedArticleTitle"><a class="TopLink SPA_TRIGGER" data-target="blog/AR-RIGS-IC-705备忘录">IC-705</a></div>
-                <div class="FixedArticleTitle"><a class="TopLink SPA_TRIGGER" data-target="blog/AR-RIGS-KC908U备忘录">KC908U</a></div>
-                <div class="FixedArticleTitle"><a class="TopLink SPA_TRIGGER" data-target="blog/AR-RIGS-EB200备忘录">EB200</a></div>
-                <div class="FixedArticleTitle"><a class="TopLink SPA_TRIGGER" data-target="blog/AR-RIGS-计算平台备忘录">计算平台</a></div>
-                <div class="FixedArticleTitle"><a class="TopLink SPA_TRIGGER" data-target="blog/AR-RIGS-仪器仪表备忘录">仪器仪表</a></div>
-                <div class="FixedArticleTitle"><a class="TopLink SPA_TRIGGER" data-target="blog/AR-RIGS-收发信机备忘录">收发信机</a></div>
-                <div class="FixedArticleTitle"><a class="TopLink SPA_TRIGGER" data-target="blog/AR-RIGS-天馈射频器件备忘录">天馈射频器件</a></div>
-                <div class="FixedArticleTitle"><a class="TopLink SPA_TRIGGER" data-target="blog/AR-RIGS-传感执行器件备忘录">传感执行器件</a></div>
+                <div class="FixedArticleTitle"><a class="TopLink SPA_TRIGGER" data-target="blog/AR-IC-705备忘录">IC-705</a></div>
+                <div class="FixedArticleTitle"><a class="TopLink SPA_TRIGGER" data-target="blog/AR-KC908U备忘录">KC908U</a></div>
+                <div class="FixedArticleTitle"><a class="TopLink SPA_TRIGGER" data-target="blog/AR-EB200备忘录">EB200</a></div>
+                <div class="FixedArticleTitle"><a class="TopLink SPA_TRIGGER" data-target="blog/AR-计算平台备忘录">计算平台</a></div>
+                <div class="FixedArticleTitle"><a class="TopLink SPA_TRIGGER" data-target="blog/AR-仪器仪表备忘录">仪器仪表</a></div>
+                <div class="FixedArticleTitle"><a class="TopLink SPA_TRIGGER" data-target="blog/AR-收发信机备忘录">收发信机</a></div>
+                <div class="FixedArticleTitle"><a class="TopLink SPA_TRIGGER" data-target="blog/AR-天馈射频器件备忘录">天馈射频器件</a></div>
+                <div class="FixedArticleTitle"><a class="TopLink SPA_TRIGGER" data-target="blog/AR-传感执行器件备忘录">传感执行器件</a></div>
             </div>
         </div>
 

@@ -86,7 +86,7 @@ button:hover {
 
 <hr>
 
-<div>打开图像：<input type="file" id="input_file_selector" name="files" multiple class="Input"></div>
+<div><a href="https://www.bilibili.com/video/BV14y421b7hF" target="_blank">效果展示（B站视频）</a> | 打开图像：<input type="file" id="input_file_selector" name="files" multiple class="Input"></div>
 <canvas id="input_cv" style="width:256px;height:256px;" width="256px" height="256px"></canvas>
 
 <hr>
@@ -120,6 +120,21 @@ button:hover {
 </div>
 
 <div style="margin: 10px 0;">欢迎使用此模式与我取得通联，成功通联后可交换QSL卡片。</div>
+
+<div style="margin: 10px 0;">
+    <p>频谱绘图原理简要说明（2024-02-25撰写）</p>
+    <ul>
+        <li>将RGB图像转为YUV图像，取Y分量，做伽马变换，以获得接收端的最佳视觉效果。</li>
+        <li>Y图像每一行对应瀑布图上每个频点（严格来说是分辨率带宽）上的功率（严格来说是功率谱密度）。需要设法将功率谱转换回时域信号，发射出去。而频谱转换回时域信号需要用到IDFT。</li>
+        <li>DFT具有厄尔米特对称性，因此DFT处理的信号应当是复数。然而，功率只提供了复数一个维度的信息，还有另一个维度是不知道的。因此，必须找一个适当的方法，将实值功率谱转化为复值的频谱。</li>
+        <li>一个简单的转换方法就是以Y值为复频谱的实部、虚部固定为0。然而这样会导致所有频率分量的相位都等于0，叠加在一起就会产生一个巨大的峰值，导致时域信号超限，接收端频谱产生失真。这就是OFDM系统最让人头疼的PAPR（峰均比）问题。</li>
+        <li>因此，为了降低时域信号的PAPR，可以固定复信号的模为图像各点的Y值，随机化其相位。这样，由于各个分量的相位大概率各不相同，也就不容易叠加出较大的峰值。假设归一化频率f对应的图像Y分量为y，则这一点的频谱就是(y*cos(θ), y*sin(θ))，其中θ是随机相位。</li>
+        <li>对转换得到的复频谱做IDFT，转换成一定带宽的时域信号发射出去。注意时域信号要加窗，防止干扰。</li>
+        <li>归一化带宽、采样率、DFT点数和每行持续时间有确定的数量关系，其中采样率和DFT点数决定了信号最大物理带宽和行频率。</li>
+        <li>实践上，需要一个带宽足够宽的单边带发射机，才能有比较好的效果。一般单边带发射机带宽仅有3kHz左右，在如此窄的带宽下，接收端很难在行刷新率和频域分辨率上同时达到良好的效果。因此我这里选用12kHz的带宽，通过SDR发射机发射出去，这样诸如705这样的电台自带的瀑布图也能得到比较好的接收效果。</li>
+    </ul>
+</div>
+
 
 <div style="margin: 20px 0 0 0;">发射系统框图：</div>
 

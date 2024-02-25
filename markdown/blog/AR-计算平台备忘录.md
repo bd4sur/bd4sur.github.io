@@ -80,11 +80,11 @@
 |集群内IP|192.168.10.52|192.168.10.61|
 |机器型号|PowerEdge R730|PowerEdge R730|
 |OS|Ubuntu 20.04.6 LTS|Ubuntu 20.04.6 LTS|
-|内核|5.4.0-169|5.15.0-91|
 |CPU|双路 Xeon E5-2686 v4|双路 Xeon E5-2680 v4|
-|内存|128GB|32GB|
-|GPU 0|Tesla P100 PCIe 16GB|Tesla P100 PCIe 16GB|
-|GPU 1|Tesla P100 PCIe 16GB|Tesla P40|
+|内存|128GB (2×64GB LRDIMM 2133)|64GB (4×16GB RDIMM 2133)|
+|存储|H730 Mini 8盘位2.5寸|H730 Mini 8盘位3.5寸|
+|GPU 0|Tesla P100 PCIe 16GB|Tesla P40 24GB (公版)|
+|GPU 1|Tesla P100 PCIe 16GB|Tesla P40 22.5GB (PNY)|
 
 
 ![ ](./image/G2/homelab/dell-poweredge-r730.jpg)
