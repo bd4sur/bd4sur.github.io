@@ -60,7 +60,9 @@
 
 <iframe class="MikumarkIframe" src="./html/genetic-image.html" height="200px"></iframe>
 
-### 迷宫生成与A*寻路算法
+### 迷宫生成与A*寻路算法（2024-02-26）
+
+<iframe class="MikumarkIframe" src="./html/maze.html" height="400px"></iframe>
 
 ## 分类、回归
 
@@ -88,6 +90,8 @@
 ## 概率图模型
 
 ## 神经网络和深度学习
+
+### 可微分计算
 
 - [矩阵求导术（上）](https://zhuanlan.zhihu.com/p/24709748)、[矩阵求导术（下）](https://zhuanlan.zhihu.com/p/24863977)
 - [Matrix Calculus](https://www.matrixcalculus.org/)

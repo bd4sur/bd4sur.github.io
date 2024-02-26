@@ -73,6 +73,14 @@
 |Int8 Tensor(TOPS)  | N/A | N/A |  ?  |624  |3026 |
 |[Compute Capability](https://developer.nvidia.com/cuda-gpus)|6.1|6.0|7.0|8.0|9.0|
 
+GPU性能实测（基于[gpu-burn](https://github.com/wilicc/gpu-burn)）
+
+`./gpu_burn 60` FP32性能
+
+- P40 24GB 公版：约 9010 Gflop/s，稳定温度78℃
+- P40 22.5GB PNY：约 8650 Gflop/s，稳定温度81℃
+
+
 ## 主服务器：戴尔 PowerEdge R730
 
 ||0号机|1号机|
