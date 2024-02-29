@@ -91,6 +91,29 @@ Tensor.prototype = {
         else throw "In-homo list not allowed.";
     },
 
+    build_tree: function() {
+        let arr_count = 0;
+        function _build_tree_(shape, arr) {
+            if(shape.length === 1) {
+                let leaf = [];
+                for(let i = 0; i < shape[0]; i++) {
+                    leaf.push(arr[arr_count]);
+                    arr_count++;
+                }
+                return leaf;
+            }
+            else {
+                let tree = [];
+                for(let i = 0; i < shape[0]; i++) {
+                    tree.push(_build_tree_(shape.slice(1), arr));
+                }
+                return tree;
+            }
+        }
+        let tree = _build_tree_(this.shape, this.array);
+        return tree;
+    },
+
     get_cell_index: function(pos) {
         assert(pos.length === this.ndim);
         let s = this.shape;
@@ -115,6 +138,29 @@ Tensor.prototype = {
         assert(pos.length === this.ndim);
         let index = this.get_cell_index(pos);
         this.array[index] = value;
+    },
+
+    // 举例：假设张量a.shape=(2,3,4)，则a.get_slice(1, 1)等同于numpy的a[:,1,:]，得到一个矩阵
+    get_slice: function(axis, index) {
+        assert(axis >= 0 && axis < this.ndim);
+        let pos = [];
+        let slice_shape = [];
+        for(let d = 0; d < this.ndim; d++) {
+            pos[d] = 0;
+            if(d !== axis) slice_shape.push(this.shape[d]);
+        }
+        let sliced = new Tensor(slice_shape);
+        pos[axis] = index;
+        for(let d = 0; d < this.ndim; d++) {
+            if(d === axis) continue;
+            for(let i = 0; i < this.shape[d]; i++) {
+                pos[d] = i;
+                let slice_pos = pos.toSpliced(axis, 1); // NOTE 兼容性：toSpliced仅ChromeV110+完整支持
+                let v = this.get_cell(pos);
+                sliced.set_cell(slice_pos, v);
+            }
+        }
+        return sliced;
     },
 
     dot: function(b) {
@@ -182,30 +228,38 @@ Tensor.prototype = {
         return res;
     },
 
+    softmax: function() {
+        assert(this.ndim === 1, "softmax只支持向量");
+        let res = new Tensor(this.shape);
+        let buf = [];
+        let sum = 0;
+        for(let i = 0; i < this.shape[0]; i++) {
+            let v = Math.exp(this.get_cell([i]));
+            buf[i] = v;
+            sum += v;
+        }
+        for(let i = 0; i < this.shape[0]; i++) {
+            res.set_cell([i], buf[i] / sum);
+        }
+        return res;
+    },
+
+    vector_sum: function() {
+        assert(this.ndim === 1, "vector_sum只支持向量");
+        let sum = 0;
+        for(let i = 0; i < this.shape[0]; i++) {
+            sum += this.get_cell([i]);
+        }
+        return sum;
+    },
+
+
 
 
 
 
     show: function() {
-        let arr_count = 0;
-        function build_tree(shape, arr) {
-            if(shape.length === 1) {
-                let leaf = [];
-                for(let i = 0; i < shape[0]; i++) {
-                    leaf.push(arr[arr_count]);
-                    arr_count++;
-                }
-                return leaf;
-            }
-            else {
-                let tree = [];
-                for(let i = 0; i < shape[0]; i++) {
-                    tree.push(build_tree(shape.slice(1), arr));
-                }
-                return tree;
-            }
-        }
-        let tree = build_tree(this.shape, this.array);
+        let tree = this.build_tree();
         console.log(JSON.stringify(tree, null, 0));
     }
 
@@ -216,38 +270,43 @@ Tensor.prototype = {
 const ReLU = (x) => ((x >= 0) ? x : 0);
 const tanh = (x) => Math.tanh(x);
 
-let x = new Tensor(); // (n=3, bs=2) bs=2个列向量，每个列向量n=3维，构成一个batch
-let W = new Tensor(); // (m=5, n=3)  输入层n=3维，隐藏层m=5维
-let b = new Tensor(); // (bs=2, m=5) 偏置，是bs=2个m=5维的行向量，转置成2个列向量
+let x = new Tensor(); // (bs=2, n=3) bs=2个向量，每个向量n=3维，构成一个batch
+let W = new Tensor(); // (n=3, m=6) 输入层n=3维，隐藏层m=6维
+let b = new Tensor(); // (bs=2, m=6) 偏置，是bs=2个m=6维的行向量，转置成2个列向量
 
-x.init([[1, 2],
-        [2, 3],
-        [3, 4]]); console.log("x = "); x.show();
+x.init([[1, 2, 3],
+        [4, 5, 6]]); console.log("x = "); x.show();
 
-W.init([[1, 1, 4],
-        [5, 1, 4],
-        [1, 1, 4],
-        [5, 1, 4],
-        [8, 1, 0]]); console.log("W = "); W.show();
+W.init([[1, 1, 4, 5, 1, 4],
+        [5, 1, 4, 1, 1, 4],
+        [1, 9, 1, 8, 1, 0]]); console.log("W = "); W.show();
 
-b.init([[1, 1, 4, 5, 1],
-        [1, 1, 4, 5, 1]]); console.log("b = "); b.show();
+b.init([[1, 1, 4, 5, 1, 4],
+        [1, 1, 4, 5, 1, 4]]); console.log("b = "); b.show();
 
-let z = W.dot(x).binary_pointwise(b.T(), (x,y)=>(x+y));
+let z = x.dot(W).binary_pointwise(b, (x,y)=>(x+y));
 console.log("z = "); z.show();
 
 let y = z.unary_pointwise(ReLU);
 console.log("y = ");   y.show();
 console.log("y.T = "); y.T().show();
 
+console.log("W[:,3] = "); W.get_slice(1, 3).show();
+console.log("W[1,:] = "); W.get_slice(0, 1).show();
+
+console.log("y[0,:] = "); y.get_slice(0, 0).show();
+console.log("y[0,:].softmax() = "); y.get_slice(0, 0).softmax().show();
+console.log(`y[0,:].vector_sum() = ${y.get_slice(0, 0).vector_sum()}`);
+
+
 
 /*
 # Python 测试代码
 import numpy as np
-x = np.array([ [1, 2], [2, 3], [3, 4] ])
-W = np.array([ [1, 1, 4], [5, 1, 4], [1, 1, 4], [5, 1, 4], [8, 1, 0] ])
-b = np.array([ [1, 1, 4, 5, 1], [1, 1, 4, 5, 1] ])
-z = W @ x + b.T
+x = np.array([ [1, 2, 3], [4, 5, 6] ])
+W = np.array([ [1, 1, 4, 5, 1, 4], [5, 1, 4, 1, 1, 4], [1, 9, 1, 8, 1, 0] ])
+b = np.array([ [1, 1, 4, 5, 1, 4], [1, 1, 4, 5, 1, 4] ])
+z = x @ W + b
 y = np.maximum(z, 0) # ReLU
 print(y)
 */
