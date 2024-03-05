@@ -66,7 +66,7 @@
 
 ## 分类、回归
 
-### 多层感知机演示（2018-05-26）
+### 单层感知机演示（2018-05-26）
 
 <iframe class="MikumarkIframe" src="./html/perceptron.html" height="450px"></iframe>
 
@@ -90,6 +90,10 @@
 ## 概率图模型
 
 ## 神经网络和深度学习
+
+### 多层感知机可视化（2024-03-06）
+
+<iframe class="MikumarkIframe" src="./html/mlp.html" height="600px"></iframe>
 
 ### 可微分计算
 
