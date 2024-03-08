@@ -80,20 +80,40 @@ GPU性能实测（基于[gpu-burn](https://github.com/wilicc/gpu-burn)）
 - P40 24GB 公版：约 9010 Gflop/s，稳定温度78℃
 - P40 22.5GB PNY：约 8650 Gflop/s，稳定温度81℃
 
+## 通算/智算服务器
 
-## 主服务器：戴尔 PowerEdge R730
-
-||0号机|1号机|
+||0号机(通用计算)|1号机(通用计算)|2号机(智能计算)|
 |------------|
-|集群内IP|192.168.10.52|192.168.10.61|
-|机器型号|PowerEdge R730|PowerEdge R730|
-|OS|Ubuntu 20.04.6 LTS|Ubuntu 20.04.6 LTS|
-|CPU|双路 Xeon E5-2686 v4|双路 Xeon E5-2680 v4|
-|内存|128GB (2×64GB LRDIMM 2133)|64GB (4×16GB RDIMM 2133)|
-|存储|H730 Mini 8盘位2.5寸|H730 Mini 8盘位3.5寸|
-|GPU 0|Tesla P100 PCIe 16GB|Tesla P40 24GB (公版)|
-|GPU 1|Tesla P100 PCIe 16GB|Tesla P40 22.5GB (PNY)|
+|机器型号|戴尔 PowerEdge R730|戴尔 PowerEdge R730|超微 7048GR-TR / 浪潮 NF5568M4|
+|集群内IP|192.168.10.52|192.168.10.61|192.168.10.81|
+|OS|Ubuntu 20.04.6 LTS|Ubuntu 20.04.6 LTS|Ubuntu 20.04.6 LTS|
+|CPU|双路 Xeon E5-2686 v4|双路 Xeon E5-2680 v4|双路 Xeon E5-2680 v4|
+|内存|128GB (2×64GB LRDIMM 2133)|64GB (4×16GB RDIMM 2133)|32GB (2×16GB RDIMM 2133)|
+|存储|H730 Mini 8盘位2.5寸|H730 Mini 8盘位3.5寸|NVMe SSD|
+|GPU 0|Tesla P100 PCIe 16GB|Tesla P100 PCIe 16GB|Tesla P40 24GB|
+|GPU 1|Tesla P100 PCIe 16GB|Tesla P100 PCIe 16GB|Tesla P40 24GB|
+|GPU 2|-|-|Tesla P40 24GB|
+|GPU 3|-|-|Tesla P40 24GB|
 
+2号机各GPU的连接拓扑：
+
+```
+        GPU0    GPU1    GPU2    GPU3    CPU Affinity    NUMA Affinity   GPU NUMA ID
+GPU0     X      PHB     SYS     SYS     0-13,28-41      0               N/A
+GPU1    PHB      X      SYS     SYS     0-13,28-41      0               N/A
+GPU2    SYS     SYS      X      PHB     14-27,42-55     1               N/A
+GPU3    SYS     SYS     PHB      X      14-27,42-55     1               N/A
+
+Legend:
+
+  X    = Self
+  SYS  = Connection traversing PCIe as well as the SMP interconnect between NUMA nodes (e.g., QPI/UPI)
+  NODE = Connection traversing PCIe as well as the interconnect between PCIe Host Bridges within a NUMA node
+  PHB  = Connection traversing PCIe as well as a PCIe Host Bridge (typically the CPU)
+  PXB  = Connection traversing multiple PCIe bridges (without traversing the PCIe Host Bridge)
+  PIX  = Connection traversing at most a single PCIe bridge
+  NV#  = Connection traversing a bonded set of # NVLinks
+```
 
 ![ ](./image/G2/homelab/dell-poweredge-r730.jpg)
 
@@ -924,12 +944,16 @@ Regenerate the kernel initramfs: `sudo update-initramfs -u`, and reboot.
 - 清理掉所有通过apt安装的CUDA驱动和CUDA-Toolkit：`sudo apt purge *nvidia*`，`sudo apt purge *cuda*`，`sudo apt autoremove`。
 - 然后执行安装程序（一个巨大的自解压脚本）：`sudo sh xxx.run`.
 - 默认安装位置是：`/usr/local/cuda-12.3/`.
-- 设置环境变量：`export PATH=/usr/local/cuda-12.3/bin:$PATH`.
-- 设置环境变量`export LD_LIBRARY_PATH=/usr/local/cuda-12.3/lib64:$LD_LIBRARY_PATH`，或者将`/usr/local/cuda-12.3/lib64`添加到`/etc/ld.so.conf`，然后运行`sudo ldconfig`.
+- 在`/etc/profile`最后加上以下语句：
+-- 设置环境变量：`export PATH=/usr/local/cuda-12.3/bin:$PATH`.
+-- 设置环境变量`export LD_LIBRARY_PATH=/usr/local/cuda-12.3/lib64:$LD_LIBRARY_PATH`.
+- 将`/usr/local/cuda-12.3/lib64`添加到`/etc/ld.so.conf`，然后运行`sudo ldconfig`.
 - To uninstall the CUDA Toolkit, run `cuda-uninstaller` in `/usr/local/cuda-12.3/bin`.
 - To uninstall the NVIDIA Driver, run `nvidia-uninstall`.
 
 安装完成后，执行`nvidia-smi`查看能否识别显卡。建议安装`pip install nvitop`。
+
+执行`sudo nvidia-smi -e 0`关闭ECC，否则会浪费一部分内存在ECC上，计算性能也有一定损失。
 
 执行`sudo nvidia-smi -pm 1`开启持久模式。
 
