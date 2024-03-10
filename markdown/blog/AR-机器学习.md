@@ -115,6 +115,27 @@
 
 ## 大规模语言模型
 
+### LLM性能测试备忘录
+
+机器配置如下：
+
+```
+OS: Ubuntu 20.04.6 LTS x86_64
+Host: NF5568M4
+Kernel: 5.15.0-100-generic
+CPU: Intel Xeon E5-2686 v4 (72) @ 3.000GHz
+GPU: NVIDIA Tesla P40
+GPU: NVIDIA Tesla P40
+GPU: NVIDIA Tesla P40
+GPU: NVIDIA Tesla P40
+Memory: 128767MiB
+```
+
+Llama.cpp测试，测试输入“频谱仪的分辨率带宽和扫描速度之间是什么关系？”，无系统提示。
+
+- `./llama.cpp/main -m Qwen15-72B-Chat-q2_k.gguf   -n 512 --color -i --chatml --numa distribute -t 36 --mlock -ngl 81`：5.55 tokens/s
+- `./llama.cpp/main -m Qwen15-72B-Chat-q4_k_m.gguf -n 512 --color -i --chatml --numa distribute -t 36 --mlock -ngl 81`：4.79 tokens/s
+
 ### 在安捷伦N9020A频谱仪上部署Qwen
 
 视频：[在2007年的频谱仪上部署AI大模型](https://www.bilibili.com/video/BV1du4m1P7iU)
