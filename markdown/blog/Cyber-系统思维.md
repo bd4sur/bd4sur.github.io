@@ -96,6 +96,178 @@ $$ \mathrm{Cl_2 + 2HBr = 2HCl + Br_2} $$
 
 # 大语言模型和通用人工智能
 
+2024-03-17
+
+上回说到，有这样一道连丘成桐先生都不会做的题（[来源](https://www.zhihu.com/question/341026031/answer/841578656)），很多人认为这是对严肃学术的一种侮辱。我倒是觉得这类问题很有意思，因为它隐约在挑战着我们头脑中固有的”能行可计算“的概念。于是，在做进一步讨论之前，我至少用两种方法，试图让电脑理解这个问题。考虑到这个问题竟然难倒了丘成桐先生，下文称之为”Q问题“。
+
+**方法1：前馈神经网络（多层感知机）。**2016年，有人写了一篇有趣的[博客](https://joelgrus.com/2016/05/23/fizz-buzz-in-tensorflow)，使用多层感知机解决FizzBuzz问题。参考这篇博客，我也做了一个类似的小东西，通过6层前馈网络学习99999以内的Q问题。训练集是0~99999之间随机选取20000个整数，而验证集是剩余的80000个整数。经过5000个epoch，模型收敛得很好，在验证集上的准确率达到0.92，这是否可以认为神经网络已经发现了Q问题的规律呢？
+
+**方法2：大语言模型。**通过零样本学习、思维链等提示工程手段，让部署在自家机柜里的Qwen1.5-72B在上下文中寻找Q问题的规律。在没有提示的情况下，大模型完全无法正确回答。在添加了提示之后，本地大模型偶尔能够回答正确，答对的概率大约是五成，而Copilot基本上每次都能答对。
+
+**讨论1：建设性思维。**打算嘲讽一件事情之前，最好多想一想，能否从中发现某些思维的机会。能够引发嘲讽欲望的东西，往往是在智识或者伦理上不平凡的东西。人最好是养成一种建设性思维的习惯，从这些不平凡之处挖掘出有意思的东西。另外，所谓的 critical thinking，翻译成“批判性思维”，令人误解，不如直接翻译成“思辨”，或者“慎思明辨”。批判不等于攻击，我宁愿称其为“建设性思维”。
+
+**讨论2：问题的自省性质。**解决Q问题，关键在于发现那个从字形到圈圈个数的映射。这个看似荒诞的映射，颇有些戏剧中”打破第四面墙“的味道。
+
+**讨论3：反演问题。**从已知数据推测其背后的框架规律，这被称为“反演问题”，例如信道估计、图像去雾等等。像Q问题这样的找规律问题，也是一种反演问题。反演问题往往极具挑战，而机器学习和深度学习是解决反演问题的一个利器。有趣的是，我在写这段文字的时候，一时想不起这个词，问了部署在自家机柜里的Qwen1.5-72B模型才想起来。
+
+**讨论4：反演问题的正则化条件。**对于Q问题和已知的若干个示例，”数圈圈“仅仅是可能的规律之一，不能排除还有其他的规律。而从字形出发的“数圈圈”思路，则是引导我们采纳这一规律的一个剪枝条件。这样的条件，体现出我们对于问题本身的信念和价值观，是系统之外的信息，是真正的尤里卡之所在。
+
+**讨论5：第一性原理和数据驱动。**神经网络之所以是解决反演问题的利器，是因为它具有强大的拟合能力。所谓拟合，就是表达，就是编码，它在率失真准则的意义下，持有关于某个信源的几乎全部信息。而最重要的是，这个编码是学习得到的，是在最大似然原则下，通过不断优化自身而持续得到的。它不是一个完成了的编码，而是一个持续新陈代谢的有机体。贝叶斯定理的奥义在于将信息在时间维度上划分成“先验”和“后验”两部分，前者是“第一性原理”，而后者是“数据驱动”。它是拥抱变化的，这体现出运动的世界观。我觉得作为耳聪目明的现代人，也应当积极接受这种运动的世界观，将自己打造成一个持续学习的大模型，永远日新月异，永远与世界同频锁相。
+
+![左侧是本地部署的Qwen1.5-72B，右侧是Edge自带的免费版Copilot](./image/G4/q-problem-llm.jpg)
+
+<details>
+
+<summary>代码</summary>
+
+```
+import os
+import random
+import torch
+import torch.nn as nn
+import numpy as np
+from torch.utils.data import DataLoader, TensorDataset
+from torch.utils.tensorboard import SummaryWriter
+from sklearn import metrics
+from tqdm import tqdm
+
+device = torch.device("cuda:1") if torch.cuda.is_available() else torch.device("cpu")
+
+BATCH_SIZE = 2000
+LEARNING_RATE = 1e-3
+TRAIN_RATIO = 0.2
+NUM_DIGITS = 5
+NUM_CATEGORIES = NUM_DIGITS * 2 + 1
+HIDDEN_DIMS = [32, 128, 1024, 1024, 128, 32]
+
+# Q函数：一串数字中有多少个圈儿
+def q_function(number: int) -> int:
+    """
+    Q函数：一串数字中有多少个圈儿。
+        例如：q(2024)=1，q(888)=6
+        出典：https://www.zhihu.com/question/338618946/answer/831919337、https://www.zhihu.com/question/341026031/answer/841578656
+    """
+    #         0  1  2  3  4  5  6  7  8  9  10
+    qv_map = [1, 0, 0, 0, 0, 0, 1, 0, 2, 1, 0]
+    istr = f"---------------------------{str(number)}"[-NUM_DIGITS:]
+    qv = 0
+    for i in range(NUM_DIGITS):
+        d = 10 if istr[i] == "-" else int(istr[i])
+        qv = qv + qv_map[d]
+    return qv
+
+def encode_number(n):
+    """
+    将一个整数变换成对应的矢量，作为神经网络的输入矢量。
+    例如：114514变换为numpy.ndarray([1,1,4,5,1,4])
+    """
+    # return np.array([n >> d & 1 for d in range(NUM_DIGITS)], dtype=np.float32)
+    istr = f"---------------------------{str(n)}"[-NUM_DIGITS:]
+    return np.array([(10 if istr[i] == "-" else int(istr[i])) for i in range(NUM_DIGITS)], dtype=np.float32)
+
+def create_dataset(train_ratio):
+    """
+    构造训练集和验证集
+    """
+    indexes = list(range(10 ** NUM_DIGITS))
+    random.shuffle(indexes)
+    train_x = torch.tensor(np.array([encode_number(v) for v in indexes[:int(10 ** NUM_DIGITS * train_ratio)]]), device=device, requires_grad=False)
+    train_y = torch.tensor(np.array([q_function(v) for v in indexes[:int(10 ** NUM_DIGITS * train_ratio)]]), device=device, requires_grad=False)
+    val_set = [(v, q_function(v)) for v in indexes[int(10 ** NUM_DIGITS * train_ratio):]]
+    return TensorDataset(train_x, train_y), val_set
+
+class QNet(nn.Module):
+    """
+    QNet：简单的多层感知机，用于解决Q问题。其层数和隐层维度在HIDDEN_DIMS中定义。
+    """
+    def __init__(self):
+        super().__init__()
+        self.layer_num = len(HIDDEN_DIMS)
+        self.layers = nn.ModuleList()
+        self.afs = nn.ModuleList()
+        self.layers.append(nn.Linear(NUM_DIGITS, HIDDEN_DIMS[0]))
+        self.afs.append(nn.ReLU())
+        for i in range(self.layer_num-2):
+            self.layers.append(nn.Linear(HIDDEN_DIMS[i], HIDDEN_DIMS[i+1]))
+            self.afs.append(nn.ReLU())
+        self.output = nn.Linear(HIDDEN_DIMS[self.layer_num-2], NUM_CATEGORIES)
+
+    def forward(self, x):
+        y = x
+        for i in range(self.layer_num-1):
+            y = (self.layers[i])(y)
+            y = (self.afs[i])(y)
+        return self.output(y)
+
+    def predict(self, input_number):
+        input_tensor = torch.tensor(encode_number(input_number), device=device)
+        output = self.forward(input_tensor)
+        return output.argmax()
+
+def train():
+    tb_writer = SummaryWriter(log_dir="log", comment='train')
+
+    train_set, val_set = create_dataset(TRAIN_RATIO)
+    data_loader = DataLoader(train_set, batch_size=BATCH_SIZE, pin_memory=False)
+    model = QNet().to(device)
+
+    # optimizer = optim.SGD(model.parameters(), lr=0.05, momentum=0.9)
+    optimizer = torch.optim.Adam(model.parameters(), lr=LEARNING_RATE)
+    scheduler = torch.optim.lr_scheduler.ExponentialLR(optimizer, gamma=0.999)
+
+    for epoch in range(100000):
+        epoch_loss = 0
+        for batch_index, batch in enumerate(data_loader):
+            x, y = batch
+            y_hat = model(x)
+            loss = nn.CrossEntropyLoss()(y_hat, y)
+            optimizer.zero_grad()
+            loss.backward()
+            optimizer.step()
+            loss_value = loss.item()
+            epoch_loss += loss_value
+        scheduler.step()
+
+        # 计算训练集损失和精度
+        x_train, y_train_gold = data_loader.dataset.tensors
+        y_train_pred = model(x_train).argmax(-1).detach()
+        accuracy = metrics.accuracy_score(y_train_gold.cpu(), y_train_pred.cpu())
+        print(f"Epoch={epoch}, lr={optimizer.param_groups[0]['lr']:.5e}, loss={epoch_loss:4.4f}, acc@train={accuracy}")
+        tb_writer.add_scalar('loss@trainset', epoch_loss, epoch)
+
+        # 计算验证集精度
+        if epoch > 0 and epoch % 200 == 0:
+            equal_count = 0
+            val_results = []
+            for x, y_gold in tqdm(val_set):
+                y_hat = model.predict(x)
+                if y_hat == y_gold:
+                    flag = "√"
+                    equal_count += 1
+                else:
+                    flag = "×"
+                val_results.append(f"[{flag}] [{x}] 实际有 {y_gold} 个圈儿，预测有 {y_hat} 个圈儿")
+            with open(os.path.join(os.path.dirname(__file__), 'val_results.txt'), 'w', encoding="utf-8") as f:
+                f.write("\n".join(val_results))
+            print(f"Acc@val = {equal_count / len(val_set)}")
+
+if __name__ == "__main__":
+    train()
+
+```
+
+</details>
+
+------
+
+2024-03-14
+
+72B量级的LLM所拥有的强大的指令跟随能力让她在某个十分逆天的提示语的激励下获得了极其逆天的瑟琴能力，这在2022年以前是绝对无法想象的。出于公序良俗的考虑，我不能提供进一步的情报了，请兄弟们自由探索吧，桀桀桀~
+
+![ ](./image/B/jixuanyou-xiongdi.jpg)
+
+------
+
 2024-03-12
 
 现在大模型的研究前沿已经为理论计算机科学和复杂性科学找到了有用、有趣、有挑战性、有启发性的一个场景：深度神经网络描述的大型语言模型，它的压缩的极限究竟在哪里？如何达成这个极限？这或许是复杂性科学与双碳议题的结合点——信息压缩真的可以拯救人类。

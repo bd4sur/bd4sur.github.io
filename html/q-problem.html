@@ -1,0 +1,571 @@
+<!-- Framework Iroha -->
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<link rel="stylesheet" type="text/css" href="../style/framework.css" charset="utf-8"/>
+<link rel="stylesheet" type="text/css" href="../style/markdown.css" charset="utf-8"/>
+<title>多层感知机（前馈神经网络）训练和推理</title>
+<script src="../script/framework/jquery/jquery.min.js"></script>
+<style>
+canvas {
+    display: block;
+    border: none;
+    box-shadow: 0 2px 5px 0 rgba(0,0,0,0.2);
+    margin: 10px auto 10px auto;
+}
+.prompt {
+    font-size: 14px;
+    margin: 10px 0;
+    text-align: center;
+}
+</style>
+</head>
+<body>
+
+<div class="prompt"><b>多层感知机（前馈神经网络）可视化</b></div>
+<div class="prompt">BD4SUR.com / 2024.3</div>
+<div class="prompt"><button id="start">开始训练</button></div>
+<div>
+    <canvas id="cv_loss" style="width: 300px; height: 100px;" width="300px" height="100px"></canvas>
+</div>
+<div>
+    <canvas id="cv_contour" style="width: 300px; height: 300px;" width="300px" height="300px"></canvas>
+</div>
+
+
+<script src="../script/canvas.js"></script>
+<script>
+
+function assert(test, msg) {
+    if(!test) throw msg;
+}
+
+function Tensor(shape) {
+    this.shape = shape || [];
+    this.ndim = this.shape.length;
+    this.array =[];
+    let arr_len = this.shape.reduce((pv, cv) => (pv * cv) , 1);
+    for(let i = 0; i < arr_len; i++) {
+        this.array.push(Math.random());
+    }
+}
+
+Tensor.prototype = {
+    init: function(nested_list) {
+        let arr = [];
+        let nesting_stack = [];
+        let shape_count = [];
+
+        //递归检查输入列表的同质性，即输入列表必须构成绝对平衡树
+        function check_type(lst) {
+            if(typeof(lst) === "number") {
+                nesting_stack.push(true);
+                let prev_length = shape_count[nesting_stack.length-1];
+                if(prev_length !== undefined && prev_length !== -1)
+                    return ["inhomo", NaN];
+                else {
+                    shape_count[nesting_stack.length-1] = -1;
+                    nesting_stack.pop();
+                    arr.push(lst); // 将列表元素（叶节点）以深度优先遍历顺序塞进线性表
+                    return ["scalar", -1]; // 标量的长度设为-1表示比列表还短
+                }
+            }
+            else if(lst instanceof Array) {
+                nesting_stack.push(true);
+                if(lst.length > 0) {
+                    let prev_type = check_type(lst[0]);
+                    if(prev_type[0] === "inhomo")
+                        return ["inhomo", NaN];
+                    for(let i = 1; i < lst.length; i++) { //从1开始
+                        let ctype = check_type(lst[i]);
+                        if(ctype[0] === "inhomo")
+                            return ["inhomo", NaN];
+                        else if(ctype[0] !== prev_type[0] || ctype[1] !== prev_type[1])
+                            return ["inhomo", NaN];
+                        else
+                            prev_type = ctype;
+                    }
+                }
+                let prev_length = shape_count[nesting_stack.length-1];
+                if(prev_length !== undefined && prev_length !== lst.length)
+                    return ["inhomo", NaN];
+                else {
+                    shape_count[nesting_stack.length-1] = lst.length;
+                    nesting_stack.pop();
+                    return ["tensor", lst.length];
+                }
+            }
+            else return ["inhomo", NaN];
+        }
+
+        let t = check_type(nested_list);
+        if(t[0] === "tensor" || t[0] === "scalar") {
+            if(shape_count[shape_count.length-1] < 0)
+                shape_count.pop(); //去掉叶子节点的shape（-1）
+            this.shape = shape_count;
+            this.ndim = this.shape.length;
+            this.array = arr;
+        }
+        else throw "In-homo list not allowed.";
+    },
+
+    build_tree: function() {
+        let arr_count = 0;
+        function _build_tree_(shape, arr) {
+            if(shape.length === 1) {
+                let leaf = [];
+                for(let i = 0; i < shape[0]; i++) {
+                    leaf.push(arr[arr_count]);
+                    arr_count++;
+                }
+                return leaf;
+            }
+            else {
+                let tree = [];
+                for(let i = 0; i < shape[0]; i++) {
+                    tree.push(_build_tree_(shape.slice(1), arr));
+                }
+                return tree;
+            }
+        }
+        let tree = _build_tree_(this.shape, this.array);
+        return tree;
+    },
+
+    get_cell_index: function(pos) {
+        assert(pos.length === this.ndim);
+        let s = this.shape;
+        let index = 0;
+        for(let d = 0; d < this.ndim; d++) {
+            pi = pos[d];
+            for(let i = d + 1; i < this.ndim; i++) {
+                pi = pi * s[i];
+            }
+            index += pi;
+        }
+        return index;
+    },
+
+    get_cell: function(pos) {
+        assert(pos.length === this.ndim);
+        let index = this.get_cell_index(pos);
+        return this.array[index];
+    },
+
+    set_cell: function(pos, value) {
+        assert(pos.length === this.ndim);
+        let index = this.get_cell_index(pos);
+        this.array[index] = value;
+    },
+
+    // 举例：假设张量a.shape=(2,3,4)，则a.get_slice(1, 1)等同于numpy的a[:,1,:]，得到一个矩阵
+    get_slice: function(axis, index) {
+        assert(axis >= 0 && axis < this.ndim);
+        let pos = [];
+        let slice_shape = [];
+        for(let d = 0; d < this.ndim; d++) {
+            pos[d] = 0;
+            if(d !== axis) slice_shape.push(this.shape[d]);
+        }
+        let sliced = new Tensor(slice_shape);
+        pos[axis] = index;
+        for(let d = 0; d < this.ndim; d++) {
+            if(d === axis) continue;
+            for(let i = 0; i < this.shape[d]; i++) {
+                pos[d] = i;
+                let slice_pos = pos.toSpliced(axis, 1); // NOTE 兼容性：toSpliced仅ChromeV110+完整支持
+                let v = this.get_cell(pos);
+                sliced.set_cell(slice_pos, v);
+            }
+        }
+        return sliced;
+    },
+
+    dot: function(b) {
+        let a = this;
+        // 内积
+        if(a.ndim === 1 && b.ndim === 1) {
+            assert(a.shape[0] === b.shape[0], "点乘的两个向量长度不同");
+            let len = a.shape[0];
+            let s = 0;
+            for(let i= 0; i < len; i++) {
+                s += a.get_cell([i]) * b.get_cell([i]);
+            }
+            return s;
+        }
+        // 矩阵乘
+        else if(a.ndim === 2 && b.ndim === 2) {
+            assert(a.shape[1] === b.shape[0], "相乘的两个矩阵尺寸不匹配 (n,k) @ (k,m) → (n,m)");
+            let res = new Tensor([a.shape[0], b.shape[1]]);
+            for(let n = 0; n < a.shape[0]; n++) {
+                for(let m = 0; m < b.shape[1]; m++) {
+                    let value_nm = 0;
+                    for(let k = 0; k < a.shape[1]; k++) {
+                        value_nm += a.get_cell([n, k]) * b.get_cell([k, m]);
+                    }
+                    res.set_cell([n, m], value_nm);
+                }
+            }
+            return res;
+        }
+        else {
+            throw "Not implemented.";
+        }
+    },
+
+    unary_pointwise: function(unary_op) {
+        let res = new Tensor(this.shape);
+        for(let i = 0; i < res.array.length; i++) {
+            res.array[i] = unary_op(this.array[i]);
+        }
+        return res;
+    },
+
+    binary_pointwise: function(b, binary_op) {
+        let a = this;
+        assert(a.ndim === b.ndim, "逐点运算两个tensor的形状不匹配");
+        assert(a.shape.reduce(
+            (pv, cv, ci) => (pv && (cv === b.shape[ci])), true),
+            "逐点运算两个tensor的形状不匹配");
+        let res = new Tensor(a.shape);
+        for(let i = 0; i < res.array.length; i++) {
+            res.array[i] = binary_op(a.array[i], b.array[i]);
+        }
+        return res;
+    },
+
+    T: function() { //转置
+        assert(this.ndim === 2, "只支持矩阵（2维张量）的转置");
+        let res = new Tensor([this.shape[1], this.shape[0]]);
+        for(let m = 0; m < this.shape[0]; m++) {
+            for(let n = 0; n < this.shape[1]; n++) {
+                let v = this.get_cell([m, n]);
+                res.set_cell([n, m], v);
+            }
+        }
+        return res;
+    },
+
+    softmax: function() {
+        assert(this.ndim === 1, "softmax只支持向量");
+        let res = new Tensor(this.shape);
+        let buf = [];
+        let sum = 0;
+        for(let i = 0; i < this.shape[0]; i++) {
+            let v = Math.exp(this.get_cell([i]));
+            buf[i] = v;
+            sum += v;
+        }
+        for(let i = 0; i < this.shape[0]; i++) {
+            res.set_cell([i], buf[i] / sum);
+        }
+        return res;
+    },
+
+    vector_sum: function() {
+        assert(this.ndim === 1, "vector_sum只支持向量");
+        let sum = 0;
+        for(let i = 0; i < this.shape[0]; i++) {
+            sum += this.get_cell([i]);
+        }
+        return sum;
+    },
+
+    sum_axis: function(axis, keepdim) {
+        assert(this.ndim === 2, "只支持矩阵");
+        assert(axis < this.ndim, "轴序号超限");
+        let res = null;
+        if(axis === 0)
+            res = (keepdim === true) ? new Tensor([1, this.shape[1]]) : new Tensor([this.shape[1]]);
+        else
+            res = (keepdim === true) ? new Tensor([this.shape[0], 1]) : new Tensor([this.shape[0]]);
+        for(j = 0; j < this.shape[1-axis]; j++) {
+            let sum = 0;
+            for(let i = 0; i < this.shape[axis]; i++) {
+                let v = (axis === 0) ? this.get_cell([i, j]) : this.get_cell([j, i]);
+                sum += v;
+            }
+            let pos = (keepdim === true) ? ((axis === 0) ? [0, j] : [j, 0]) : [j];
+            res.set_cell(pos, sum);
+        }
+        return res;
+    },
+
+    sum_all: function() { //把矩阵的所有元素加起来，返回一个数值
+        assert(this.ndim === 2, "只支持矩阵");
+        return this.sum_axis(0, true).sum_axis(1, true).get_cell([0, 0]);
+    },
+
+    add_vector: function(vec, axis) { //将向量加到矩阵的每一行或者列上，广播的
+        assert(this.ndim === 2 && vec.ndim === 1 && axis < this.ndim);
+        assert((axis === 0 && vec.shape[0] === this.shape[1]) || (axis === 1 && vec.shape[0] === this.shape[0]));
+        let res = new Tensor(this.shape);
+        for(let i = 0; i < this.shape[0]; i++) {
+            for(let j = 0; j < this.shape[1]; j++) {
+                let v1 = this.get_cell([i, j]);
+                let v2 = (axis === 0) ? vec.get_cell([j]) : vec.get_cell([i]);
+                res.set_cell([i, j], v1 + v2);
+            }
+        }
+        return res;
+    },
+
+
+    show: function() {
+        let tree = this.build_tree();
+        console.log(JSON.stringify(tree, null, 0));
+    }
+
+};
+
+// MLP
+
+const ReLU = (x) => ((x >= 0) ? x : 0);
+const tanh = (x) => Math.tanh(x);
+
+function forward(x, W, b) {
+    let num_hidden_layers = W.length;
+    let a = [];
+    let z = [];
+    a[0] = x;
+    for(let i = 0; i < num_hidden_layers; i++) {
+        let Wi = W[i];
+        let bi = b[i];
+        z[i+1] = a[i].dot(Wi).add_vector(bi, 0);
+        // Softmax
+        if(i === num_hidden_layers - 1) {
+            let zz = z[i+1]; // shape=[BS, dim]
+            let aa = new Tensor(zz.shape);
+            let smvec =[];
+            for(let n = 0; n < zz.shape[0]; n++) {
+                smvec[n] = zz.get_slice(0, n).softmax();
+            }
+            for(let n = 0; n < zz.shape[0]; n++) {
+                for(let m = 0; m < zz.shape[1]; m++) {
+                    let v = smvec[n].get_cell([m]);
+                    aa.set_cell([n, m], v);
+                }
+            }
+            a[i+1] = aa;
+            return a;
+        }
+        // 激活函数
+        else {
+            a[i+1] = z[i+1].unary_pointwise(tanh);
+            // a[i+1] = z[i+1].unary_pointwise(ReLU);
+        }
+    }
+}
+
+
+function backward(a, y, W, b) {
+    let num_hidden_layers = W.length;
+    let y_hat = a[a.length-1];
+    // 交叉熵
+    let dl_dz = y_hat.binary_pointwise(y, (x,y)=>(x-y));
+    let grad_W = [];
+    let grad_b = [];
+    for(let i = num_hidden_layers - 1; i >= 0; i--) {
+        //线性层
+        grad_W[i] = a[i].T().dot(dl_dz);
+        grad_b[i] = dl_dz.sum_axis(0, false);
+        let dl_da = dl_dz.dot(W[i].T());
+        // tanh激活函数
+        let buf = a[i].unary_pointwise((x) => (1 - x * x));
+        // ReLU
+        // let buf = a[i].unary_pointwise((x) => ((x > 0) ? 1 : 0));
+        dl_dz = dl_da.binary_pointwise(buf, (x,y)=>(x*y));
+    }
+    return [grad_W, grad_b];
+}
+
+function cross_entropy_loss(x, y, W, b) {
+    let a = forward(x, W, b);
+    let y_hat = a[a.length-1];
+    //交叉损失
+    let loss_sum = 0;
+    for(let i = 0; i < y_hat.shape[0]; i++) {
+        for(let j = 0; j < y_hat.shape[1]; j++) {
+            loss_sum += -(Math.log(y_hat.get_cell([i, j])) * y.get_cell([i, j]));
+        }
+    }
+    return loss_sum / y_hat.shape[0];
+}
+
+function predict(x, W, b) {
+    let a = forward(x, W, b);
+    let y_hat = a[a.length-1];
+    let labels = [];
+    for(let i = 0; i < y_hat.shape[0]; i++) {
+        let max_value = Number.NEGATIVE_INFINITY;
+        let max_index = 0;
+        for(let j = 0; j < y_hat.shape[1]; j++) {
+            let v = y_hat.get_cell([i, j]);
+            if(v > max_value) {
+                max_value = v;
+                max_index = j;
+            }
+        }
+        labels[i] = max_index;
+    }
+    return labels;
+}
+
+// 生成n个点的随机排列
+function shuffle(n) {
+    let dict = new Object();
+    let seq = new Array();
+    let index = Math.floor(Math.random() * n);
+    while(seq.length < n) {
+        if(!(index in dict)) {
+            dict[index] = true;
+            seq.push(index);
+        }
+        index = Math.floor(Math.random() * n);
+    }
+    return seq;
+}
+
+function make_batch(dataset, indexes) {
+    let batch = new Tensor([indexes.length, dataset.shape[1]]);
+    for(let i = 0; i < indexes.length; i++) {
+        let r = indexes[i];
+        for(let c = 0; c < dataset.shape[1]; c++) {
+            let v = dataset.get_cell([r, c]);
+            batch.set_cell([i, c], v);
+        }
+    }
+    return batch;
+}
+
+const BATCH_SIZE = 128;
+const LEARNING_RATE = 1e-4;
+
+const DIGITS = 3;
+const MAX_QV = 2 * DIGITS + 1; // 所有的数位都是8，qv最大
+//              0  1  2  3  4  5  6  7  8  9 10(prefix)
+const QV_MAP = [1, 0, 0, 0, 0, 0, 1, 0, 2, 1, 0];
+
+function get_xy(inum) {
+    function fill_zero(num) { return `--------${num.toString()}`.slice(-DIGITS); }
+    let istr = fill_zero(inum);
+    let qv = 0;
+    let x = []; let y = [];
+    for(let i = 0; i < DIGITS; i++) {
+        let d = istr[i];
+        d = (d === "-") ? 10 : Number(d);
+        x[i] = d;
+        qv += QV_MAP[d];
+    }
+    for(let i = 0; i < MAX_QV; i++) {
+        if(qv === i) y[i] = 1;
+        else y[i] = 0;
+    }
+    return [x, y];
+}
+
+let train_set_array_x = [];
+let train_set_array_y = [];
+let val_set_array_x = [];
+let val_set_array_y = [];
+
+let shuffled_index = shuffle(Math.pow(10, DIGITS));
+
+for(let i = 0; i < shuffled_index.length; i++) {
+    let num = shuffled_index[i];
+    qxy = get_xy(num);
+    if(i < Math.pow(10, DIGITS) * 0.95) {
+        train_set_array_x.push(qxy[0]);
+        train_set_array_y.push(qxy[1]);
+    }
+    else {
+        val_set_array_x.push(qxy[0]);
+        val_set_array_y.push(qxy[1]);
+    }
+}
+
+let train_set_x = new Tensor(); train_set_x.init(train_set_array_x);
+let train_set_y = new Tensor(); train_set_y.init(train_set_array_y);
+let val_set_x = new Tensor(); val_set_x.init(val_set_array_x);
+let val_set_y = new Tensor(); val_set_y.init(val_set_array_y);
+
+let W = [
+    new Tensor([DIGITS, 16]),
+    new Tensor([16, 32]),
+    new Tensor([32, 128]),
+    new Tensor([128, 128]),
+    new Tensor([128, 16]),
+    new Tensor([16, MAX_QV])
+];
+
+let b = [
+    new Tensor([16]),
+    new Tensor([32]),
+    new Tensor([128]),
+    new Tensor([128]),
+    new Tensor([16]),
+    new Tensor([MAX_QV])
+];
+
+document.getElementById("start").addEventListener("click", () => {
+
+    let epoch_count = 0;
+    setInterval(() => {
+        console.log(`Epoch ${epoch_count}`);
+        let shuffled_index = shuffle(train_set_x.shape[0]);
+        let iter_num = Math.ceil(train_set_x.shape[0] / BATCH_SIZE);
+
+        for(let i = 0; i < iter_num; i++) {
+            let batch_index = shuffled_index.slice(i * BATCH_SIZE, (i+1) * BATCH_SIZE);
+            let x_batch = make_batch(train_set_x, batch_index);
+            let y_batch = make_batch(train_set_y, batch_index);
+
+            let a = forward(x_batch, W, b);
+            let grad = backward(a, y_batch, W, b);
+            grad_W = grad[0];
+            grad_b = grad[1];
+
+            W[0] = W[0].binary_pointwise(grad_W[0], (x,y)=>(x - LEARNING_RATE * y));
+            W[1] = W[1].binary_pointwise(grad_W[1], (x,y)=>(x - LEARNING_RATE * y));
+            W[2] = W[2].binary_pointwise(grad_W[2], (x,y)=>(x - LEARNING_RATE * y));
+            W[3] = W[3].binary_pointwise(grad_W[3], (x,y)=>(x - LEARNING_RATE * y));
+            W[4] = W[4].binary_pointwise(grad_W[4], (x,y)=>(x - LEARNING_RATE * y));
+            W[5] = W[5].binary_pointwise(grad_W[5], (x,y)=>(x - LEARNING_RATE * y));
+            // W[6] = W[6].binary_pointwise(grad_W[6], (x,y)=>(x - LEARNING_RATE * y));
+
+            b[0] = b[0].binary_pointwise(grad_b[0], (x,y)=>(x - LEARNING_RATE * y));
+            b[1] = b[1].binary_pointwise(grad_b[1], (x,y)=>(x - LEARNING_RATE * y));
+            b[2] = b[2].binary_pointwise(grad_b[2], (x,y)=>(x - LEARNING_RATE * y));
+            b[3] = b[3].binary_pointwise(grad_b[3], (x,y)=>(x - LEARNING_RATE * y));
+            b[4] = b[4].binary_pointwise(grad_b[4], (x,y)=>(x - LEARNING_RATE * y));
+            b[5] = b[5].binary_pointwise(grad_b[5], (x,y)=>(x - LEARNING_RATE * y));
+            // b[6] = b[6].binary_pointwise(grad_b[6], (x,y)=>(x - LEARNING_RATE * y));
+
+
+            if(i === iter_num - 1) {
+                let loss = cross_entropy_loss(val_set_x, val_set_y, W, b);
+                console.log(loss);
+
+                for(let inum = 0; inum < 20; inum++) {
+                    qxy = get_xy(inum);
+                    let x = new Tensor();
+                    x.init([qxy[0]]);
+                    let label = predict(x, W, b)[0];
+                    console.log(`${inum} - ${label}`);
+                }
+            }
+
+        }
+        epoch_count++;
+    }, 0);
+
+});
+
+
+
+
+
+</script>
+</body>
+</html>
