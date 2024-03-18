@@ -202,7 +202,7 @@ let yuv420 = jcodec.decode(stream_Y, stream_U, stream_V, quality);
 
 依赖：
 
-- `matrix.js`
+- `math.js`
 
 ## Otsu二值化
 
@@ -214,7 +214,7 @@ let yuv420 = jcodec.decode(stream_Y, stream_U, stream_V, quality);
 
 依赖：
 
-- `matrix.js`
+- `math.js`
 
 
 ## Harris特征点
@@ -227,7 +227,7 @@ let yuv420 = jcodec.decode(stream_Y, stream_U, stream_V, quality);
 
 依赖：
 
-- `matrix.js`
+- `math.js`
 
 # 视频编码（2019-08-04）
 
