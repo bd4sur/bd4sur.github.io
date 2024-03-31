@@ -757,6 +757,9 @@ sudo mount /dev/sdx /path/to/hdd
    /dev/disk/by-uuid/硬盘UUID 挂载点路径 ext4 defaults 0 0
 3. 执行：sudo mount -a
 
+# 用随机内容填充硬盘
+dd if=/dev/urandom of=被填充硬盘上的某个文件
+
 # 硬盘测速
 sudo apt install hdparm
 hdparm -Tt /dev/sdx
