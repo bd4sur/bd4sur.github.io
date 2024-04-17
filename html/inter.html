@@ -68,12 +68,6 @@ function loadImage(src, callback) {
     };
 }
 
-setTimeout(()=>{
-    loadImage("./resource/Hibike/Hibike-65.jpg", (img)=>{
-        input_cv.context.drawImage(img, 0, 0);
-    });
-}, 0);
-
 const BLOCK_SIZE = 16;
 
 let ORIGINAL_FRAME = new Array();

@@ -8,7 +8,7 @@ function Canvas(cvElementId, bottomLeft, topRight) {
     this.Ymax = topRight[1];
     this.Yrange = this.Ymax - this.Ymin;
     this.RATIO = 1;
-    this.Init();
+    // this.Init();
 }
 
 Canvas.prototype = {
