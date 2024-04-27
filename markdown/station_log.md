@@ -1578,5 +1578,24 @@
         "qth_self": "OM91 Base",
 
         "note":     "石城73俱乐部中继点名，上差+9，亚音88.5"
+    },
+    {
+        "time":     "2024-04-27 15:35",
+        "callsign": "BA4QCF",
+        "freq":     "430.610R",
+        "mode":     "FM",
+        "rst":      "T59/R59",
+
+        "rig":      "Icom ID-52",
+        "ant":      "钻石775",
+        "pwr":      "5W",
+        "qth":      "黄山路",
+
+        "rig_self": "森海克斯8800",
+        "ant_self": "原装",
+        "pwr_self": "5W",
+        "qth_self": "牛首山河河岸公园",
+
+        "note":     ""
     }
 ]
