@@ -468,6 +468,10 @@
 
 ![ ](./image/B/science.jpg)
 
+## 实践论（毛泽东）
+
+[原文](https://www.marxists.org/chinese/maozedong/marxist.org-chinese-mao-193707.htm)
+
 ## 德先生和赛先生
 
 2020-05-04：青年人的精神依旧应当是“民主”和“科学”。（2022-06 + “人道”？）
