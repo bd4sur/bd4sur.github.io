@@ -245,6 +245,15 @@ a.ContactLink:hover { text-decoration: none; border: none; }
                 <p>利用<a href="https://bd4sur.com/Aqua/" target="_blank">自制MP3编码器“Aqua”</a>、GNURadio平台和KC908U设备，首次实现点对点的、单工单向的、准实时的<a href="https://www.bilibili.com/video/BV1BW4y1U7ZD" target="_blank">无线音频传输</a>。</p>
             </div>
         </li>
+
+        <li class="bd4sur-timeline-item">
+            <div class="bd4sur-timeline-item-tail"></div>
+            <div class="bd4sur-timeline-item-head bd4sur-timeline-item-head-green"></div>
+            <div class="bd4sur-timeline-item-content">
+                <i>2024.05.02 ~ 05.03</i>
+                <p>参加2024年<a href="http://www.crac.org.cn/News/Detail?ID=5df06649a98e4a818eb129fb704fe811" target="_blank">成都五五节活动</a>，发表技术演讲。</p>
+            </div>
+        </li>
     </ul>
 </div>
 

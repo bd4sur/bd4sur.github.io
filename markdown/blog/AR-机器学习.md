@@ -64,6 +64,7 @@ $$ 解方程 \textbf{W}_1 \textbf{x} = \textbf{b} \quad , \quad 得 \textbf{x} =
 - 点击**选择起点**，可选择迭代起始点
 - 再点一次**选择起点**按钮，退出起点选择
 - 点击**切换为极大/小值**，可切换极大/小值
+- 参考：[Test functions for optimization](https://en.wikipedia.org/wiki/Test_functions_for_optimization)
 
 ### 模拟退火演示（2020-07-16）
 
