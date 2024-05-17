@@ -49,6 +49,49 @@ triumph、lymph、shrimp、dwell、prompt
 
 You don't know nothing abt English! American speaks on avg of 0.8 languages. They can't even speak English no good! （[参考](https://www.zhihu.com/question/580648906/answer/3001340552)）
 
+# 欧洲议会简化英语（本地备份）
+
+The European Commission has just announced an agreement whereby English will be the official language of the European Union rather than German, which was the other possibility.
+
+As part of the negotiations, the British Government conceded that English spelling had some room for improvement and has accepted a 5-year phase-in plan that would become known as "Euro-English".
+
+In the first year, "s" will replace the soft "c". Sertainly, this will make the sivil servants jump with joy. The hard "c" will be dropped in favour of "k". This should klear up konfusion, and keyboards kan have one less letter.
+
+There will be growing publik enthusiasm in the sekond year when the troublesome "ph" will be replaced with "f". This will make words like fotograf 20% shorter.
+
+In the 3rd year, publik akseptanse of the new spelling kan be expekted to reach the stage where more komplikated changes are possible. Governments will enkourage the removal of double letters which have always ben a deterent to akurate speling. Also, al wil agre that the horibl mes of the silent "e" in the languag is disgrasful and it should go away.
+
+By the 4th yer people wil be reseptiv to steps such as replasing "th" with "z" and "w" with "v".
+
+During ze fifz yer, ze unesesary "o" kan be dropd from vords kontaining "ou" and after ziz fifz yer, ve vil hav a reil sensi bl riten styl.
+
+Zer vil be no mor trubl or difikultis and evrivun vil find it ezi tu understand ech oza. Ze drem of a united urop vil finali kum tru! Und efter ze fifz yer, ve vil al be speking German like zey vunted in ze forst plas. If zis mad you smil, pleas pas on to oza pepl.
+
+2024-05-17：欧盟简化英语这个meme可以用来讲解语言模型训练所使用的交叉熵损失函数。例如，在英文中，字母c出现的概率很高，但是在德语中出现的概率相当低。因此，字母c在英文语料中的编码长度可以比较短，但是在德文语料中就需要加长。加长的这部分长度，反映出英文和德文之间的相对熵。c在德文中的编码长度，反映出德文相对于英文的交叉熵。交叉熵越小，意味着语言模型学习到的概率分布越接近于训练语料的概率分布。至于为什么不去度量词向量之间的MSE，大概是因为每个词向量本身并没有所谓的 ground truth，只能从整体的概率分布视角去度量。
+
+# 英语演化史
+
+[出处](https://www.zhihu.com/question/580648906/answer/3001340552)
+
+- 老罗马正红旗开发设计的语言：虚拟式、主被动、人称、单复数、时态、完成态统统曲折，各个模块精密耦合，类型检查一丝不苟，输入输出可靠可预测。嘿！那叫一个地道严谨！
+- 欧罗巴各个子公司拿拉丁语做二次开发：狗日的这文档怎么这么长，一个变格规则能写三页？！你说这个谁懂啊。底层构词法全部封装下，介词助动词语法糖搞起来。
+- 盎格鲁萨克逊外包人员使用的本地版本：什么离格？什么方位格？什么呼格？俺寻思分个单复数阴阳性不就行了，别调用底层代码了再动一下就会爆炸。
+- 丹麦黑客入侵服务器：来点小小的日耳曼震撼，看我鼻音消失，看我辅音腭化，诺斯语脚本狂暴鸿儒。
+- 看着已初具规模屎山的诺曼人：你们这方言跟1.0版本都快生殖隔离了，干脆阴阳性也不要了，我们这有个进行式package不错你引入下，还有这些DSL文档你也看下方便对接。
+- 已经习惯了密密麻麻include的文艺复兴时期英国人：这是什么？意大利时髦词，引入一下。这是什么？波西米亚时髦词，引入一下。这是什么？意第绪时髦词，引入一下。
+- 气死萧伯纳的日不落帝国公民：我有个很好的点子，全部对象统统搞反射类，在运行时直接查属性方法，岂不是一次性对接所有帝国领方言。这是只属于帝国的工程奇迹！粤佬喝着ketchup：你说的很有道理。
+- 放弃治疗的费拉现代英国人：啊，语法？啊，意译？啊，构词？不会吧不会吧不会真的有人想要重构这坨屎山吧。现代英语只有一个接口叫做eval()，输入什么原样输出，我管你合不合法，用啥编译，怎么运行，累了，随便吧，能跑就行。sugoi~
+
+# 圣经和合本语言风格
+
+同意-阿门，收获-得着，讲话-话语，特赦-恩典，天赋-恩赐，清洁-洁净，保佑&保护-保守&看顾，吃饱饭-得饱足，食物-饭食，实际上-实实在在，同情-怜悯，权力-权柄，能力-大能，纯洁·圣洁，快乐-喜乐，肮脏-污移，想法-心思意念，坏想法-邪情私欲，赢了-得胜，使…失败-败坏，答应-应许，号召-呼召，坏人-撒旦，骚扰-搅扰，帮忙-服事，国王-君王，欺压-逼迫，秘密-奥秘，奖励-赏赐，一直都在-昔在今在永在，原谅-赦免，陷害-试探，依赖-交托，相信-信靠，接受-悦纳，心甘情愿-甘心乐意，意志不坚定-软弱，失败-跌倒，团结互助-彼此相爱，惭愧-羞愧，热心-火热，基督徒-肢体，非基督徒-外邦人，公平-公义，奇迹-神迹，惊讶-希奇，干活-做工，世俗-属世，语言-言语，效果-果效，兄弟-弟兄，战争-争战，灵魂-魂灵，善良-良善，粮食-食粮，蔬菜-菜蔬，爱莫能助-主与你同在、我为你祷告
+
+# 阿尔泰官话
+
+出处不详。
+
+官话阿尔泰语系是也么道，道理好生有！这鞑靼言语影响呵，官话里头有的！为这上头，汉人每苦头吃了也。蛮子每跟前，祖宗辱没了也，教他每笑话者。自家没体例勾当干了也，怨他怎地？汉儿田地里根底，鞑靼每，契丹每，女直每，回回每，也里可温每，都教住了也。汉儿每时常相与的，为这上头，些少鞑靼言语都省的。便鞑靼皇帝蒙古田地里行了，蛮子皇帝汉儿田地里住了，这言语根底，鞑靼体例里依旧行了，休改了也。朱重八皇帝，朱高炽皇帝，朱瞻基皇帝，玄烨皇帝，弘历皇帝圣旨里宣谕的有来，如今依着在先的体例里，不拣谁鞑靼言语依旧行者，休改者，么道圣旨了也。汉儿言语根底，鞑靼体例行者，为这上头，阿尔泰语系是也么道，题主见识有的。
+
 # 修辞与圆锥曲线
 
 2022-05-14 录入
