@@ -45,6 +45,10 @@ triumph、lymph、shrimp、dwell、prompt
 - **#(耶和华)#**或**#(雅威)#**：希伯来古神名“יהוה”，拉丁化为“YHVH”。由于犹太人为避讳而不直呼其名，改为称呼Adonai“神”之类的代称，再加上文字体系并不强调元音，导致其元音失传，无法考证。中文一般翻译为“耶和华”或者“雅威”。意义可能是“自有永有者”。（见维基百科“四字神名”等词条）
 - 日语的“蝴蝶”，只有音读，没有训读。据[资料](https://zhuanlan.zhihu.com/p/34343116)，日语“蝴蝶”的固有词，即“蝶”的训读（可能是かわひらこ）已经丢失，原因大概是因为大和人认为蝴蝶是亡灵的化身，因而在和歌等文献中避讳“蝴蝶”这个词的固有说法，导致训读消失，仅剩汉语音读。其他参考资料：[1](https://superokan.hatenablog.com/entry/2016/12/08/063645)、[2](https://detail.chiebukuro.yahoo.co.jp/qa/question_detail/q118837526)
 
+# 瞳孔和小孩
+
+pupil和「小狗」puppy、「傀儡」puppet也是同源词，它们的本义不是小男孩就是小女孩。表示小男孩的pupus最终衍生出了pupil，而它的阴性即表示小女孩的pupa，则衍生出了玩偶的意思。除了汉语和英语，日语「瞳」训读也可以写成「人見」，和汉字「瞳」有着异曲同工之妙。据说古巴比伦也有过「住在眼中的守护神」这样的说法，守护神很可能指的就是瞳孔中的小人。
+
 # 美国人人均说0.8门语言，以及双重否定表否定
 
 You don't know nothing abt English! American speaks on avg of 0.8 languages. They can't even speak English no good! （[参考](https://www.zhihu.com/question/580648906/answer/3001340552)）
