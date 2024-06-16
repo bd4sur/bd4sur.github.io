@@ -171,6 +171,8 @@ https://www.freebuf.com/articles/es/205984.html
 - [Wiki: Trusted timestamping](https://en.wikipedia.org/wiki/Trusted_timestamping)
 - [截图如何证明当前时间？](https://www.zhihu.com/question/22298502/answer/20990818)
 
+零知识证明：为什么量化团队都在强调自己团队的学历水平？在不泄露任何知识的情况下向外界证明自己有知识。
+
 # 安全模型
 
 # 弱点·威胁·对策
