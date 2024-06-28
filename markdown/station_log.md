@@ -1597,5 +1597,24 @@
         "qth_self": "牛首山河河岸公园",
 
         "note":     ""
+    },
+    {
+        "time":     "2024-06-28 21:13",
+        "callsign": "BA4QCF",
+        "freq":     "430.610R",
+        "mode":     "FM",
+        "rst":      "T59/R59",
+
+        "rig":      "？",
+        "ant":      "？",
+        "pwr":      "？",
+        "qth":      "？",
+
+        "rig_self": "UV-5R",
+        "ant_self": "原装",
+        "pwr_self": "5W",
+        "qth_self": "OM91 Base",
+
+        "note":     "石城73俱乐部周五晚间点名"
     }
 ]
