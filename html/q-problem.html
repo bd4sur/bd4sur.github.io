@@ -71,8 +71,8 @@ function forward(x, W, b) {
         }
         // 激活函数
         else {
-            // a[i+1] = z[i+1].unary_pointwise(tanh);
-            a[i+1] = z[i+1].unary_pointwise(ReLU);
+            a[i+1] = z[i+1].unary_pointwise(tanh);
+            // a[i+1] = z[i+1].unary_pointwise(ReLU);
         }
     }
 }
@@ -91,9 +91,9 @@ function backward(a, y, W, b) {
         grad_b[i] = dl_dz.sum_axis(0, false);
         let dl_da = dl_dz.dot(W[i].T());
         // tanh激活函数
-        // let buf = a[i].unary_pointwise((x) => (1 - x * x));
+        let buf = a[i].unary_pointwise((x) => (1 - x * x));
         // ReLU
-        let buf = a[i].unary_pointwise((x) => ((x > 0) ? 1 : 0));
+        // let buf = a[i].unary_pointwise((x) => ((x > 0) ? 1 : 0));
         dl_dz = dl_da.binary_pointwise(buf, (x,y)=>(x*y));
     }
     return [grad_W, grad_b];
@@ -161,7 +161,7 @@ function make_batch(dataset, indexes) {
 const BATCH_SIZE = 128;
 const LEARNING_RATE = 1e-4;
 
-const DIGITS = 3;
+const DIGITS = 4;
 const MAX_QV = 2 * DIGITS + 1; // 所有的数位都是8，qv最大
 //              0  1  2  3  4  5  6  7  8  9 10(prefix)
 const QV_MAP = [1, 0, 0, 0, 0, 0, 1, 0, 2, 1, 0];
@@ -194,7 +194,7 @@ let shuffled_index = shuffle(Math.pow(10, DIGITS));
 for(let i = 0; i < shuffled_index.length; i++) {
     let num = shuffled_index[i];
     qxy = get_xy(num);
-    if(i < Math.pow(10, DIGITS) * 0.95) {
+    if(i < Math.pow(10, DIGITS) * 0.8) {
         train_set_array_x.push(qxy[0]);
         train_set_array_y.push(qxy[1]);
     }
@@ -261,12 +261,11 @@ document.getElementById("start").addEventListener("click", () => {
             b[5] = b[5].binary_pointwise(grad_b[5], (x,y)=>(x - LEARNING_RATE * y));
             // b[6] = b[6].binary_pointwise(grad_b[6], (x,y)=>(x - LEARNING_RATE * y));
 
+            let loss = cross_entropy_loss(val_set_x, val_set_y, W, b);
+            console.log(`Epoch ${epoch_count} | Step ${i} | Loss = ${loss}`);
 
             if(i === iter_num - 1) {
-                let loss = cross_entropy_loss(val_set_x, val_set_y, W, b);
-                console.log(loss);
-
-                for(let inum = 0; inum < 20; inum++) {
+                for(let inum = 0; inum < 200; inum++) {
                     qxy = get_xy(inum);
                     let x = new Tensor();
                     x.init([qxy[0]]);

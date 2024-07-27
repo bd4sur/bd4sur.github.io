@@ -19,7 +19,7 @@ function Tensor(shape) {
     this.array =[];
     let arr_len = this.shape.reduce((pv, cv) => (pv * cv) , 1);
     for(let i = 0; i < arr_len; i++) {
-        this.array.push(Math.random());
+        this.array.push(Math.random() - 0.5);
     }
 }
 
