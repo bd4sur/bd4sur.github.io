@@ -91,18 +91,18 @@ P40支持ECC，如果开启ECC，则可用显存为22.5GiB，并且运算性能�
 
 ## 通算/智算服务器
 
-||0号机(通用计算)|1号机(通用计算)|2号机(智能计算)|
+||1号机(通用计算)|2号机(智能计算)|
 |------------|
-|机器型号|戴尔 PowerEdge R730|戴尔 PowerEdge R730|超微 7048GR-TR / 浪潮 NF5568M4|
-|集群内IP|192.168.10.52|192.168.10.61|192.168.10.81|
-|OS|Ubuntu 20.04.6 LTS|Ubuntu 20.04.6 LTS|Ubuntu 20.04.6 LTS|
-|CPU|双路 Xeon E5-2686 v4|双路 Xeon E5-2680 v4|双路 Xeon E5-2680 v4|
-|内存|128GB (2×64GB LRDIMM 2133)|64GB (4×16GB RDIMM 2133)|32GB (2×16GB RDIMM 2133)|
-|存储|H730 Mini 8盘位2.5寸|H730 Mini 8盘位3.5寸|NVMe SSD|
-|GPU 0|Tesla P100 PCIe 16GB|Tesla P100 PCIe 16GB|Tesla P40 24GB|
-|GPU 1|Tesla P100 PCIe 16GB|Tesla P100 PCIe 16GB|Tesla P40 24GB|
-|GPU 2|-|-|Tesla P40 24GB|
-|GPU 3|-|-|Tesla P40 24GB|
+|机器型号|戴尔 PowerEdge R730|超微 7048GR-TR / 浪潮 NF5568M4|
+|集群内IP|192.168.10.61|192.168.10.81|
+|OS|Ubuntu 20.04.6 LTS|Ubuntu 20.04.6 LTS|
+|CPU|双路 Xeon E5-2680 v4|双路 Xeon E5-2686 v4|
+|内存|64GB (4×16GB RDIMM 2133)|128GB (2×64GB LRDIMM 2133)|
+|存储|H730 Mini 8盘位3.5寸|NVMe SSD|
+|GPU 0|Tesla P100 PCIe 16GB|Tesla P40 24GB|
+|GPU 1|Tesla P100 PCIe 16GB|Tesla P40 24GB|
+|GPU 2|-|Tesla P40 24GB|
+|GPU 3|-|Tesla P40 24GB|
 
 2号机各GPU的连接拓扑：
 
@@ -125,16 +125,6 @@ Legend:
 ```
 
 ![ ](./image/G2/homelab/dell-poweredge-r730.jpg)
-
-- CPU：双路 Intel Xeon E5-2686v4 (18C36T) @ 3.000GHz
-- 内存：共128GB，由2条 64GB 4DRx4 DDR4 LRDIMM 2400MT/s ECC内存条构成
-- 存储：PERC H730 Mini 阵列卡，16个2.5寸硬盘位，SAS接口
-- GPU-0：NVIDIA Tesla P100 PCIe 16GB
-- GPU-1：NVIDIA Tesla P40 (PCIe 24GB)
-- 网卡-0：BRCM GbE 4P 5720-t rNDC 4个千兆网口
-- 网卡-1：华为CN21ITGA，基于英特尔82599ES芯片，2个SFP+10GbE光模块接口
-- iDRAC8带外控制
-- OS：Ubuntu 20.04.6 LTS (5.4.0-169-generic)
 
 注意显卡电源线插拔次数不要超过30次，否则容易因接触不良而增加起火风险。
 
@@ -163,6 +153,27 @@ Stable Diffusion Web-UI 至今不支持多卡，因此在孱弱的P40卡上画�
 另外刚才发现，P40从过年时的800出头涨到850，现在（2024年3月中旬）又涨到950块左右了…真就理财产品了是吧…
 
 最后要说的是，不能对大模型有过高的期待，不能指望一个封闭的大模型能端到端地解决问题，还是要把它当成一个agent用，借助它去撬动（leverage）更大规模的信源。不论如何，这个不到1立方米的机柜内部，浓缩了极为致密的信息，其复杂度远远超过它旁边那个装了200本书的书架。而代价就是满载情况下可能要消耗高达2千瓦以上的功率。如果我找一个大学生，把他塞进机柜，不考虑人道主义的话，能耗比应该是远远超过电子计算机的。堪用的本地私有LLM系统的门槛大约是七千元，也就是现在的四卡P40工作站的价格。但是这里面有更昂贵的隐形成本，例如摆放这六千元设备的空间，以及学习折腾所消耗的大量时间，以及系统运行时耗费的电力，等等。这些成本是不可消除的，并且硬件成本越高，这些隐形成本反而越高。不要低估“智能”的代价。
+
+## Nvidia Jetson Orin NX 16GB (2024-8)
+
+[亚博智能的介绍](https://www.yahboom.com/tbdetails?id=550)
+
+[亚博智能的技术资料](https://www.yahboom.com/study/Jetson-Orin-NX)
+
+[微雪的说明](https://www.waveshare.net/wiki/JETSON-ORIN-NX-16G-DEV-KIT)
+
+[GA10B](https://www.techpowerup.com/gpu-specs/jetson-orin-nx-16-gb.c4086)
+
+[参数](https://www.nvidia.com/en-us/autonomous-machines/embedded-systems/jetson-orin/)
+
+|                      |AGX Orin 32GB                    |**Orin NX 16GB**                 |Orin NX 8GB                      |Orin Nano 8GB                    |
+|--------------------------------------------------------------------------------------------------------------------------------------------------------------|
+|Architecture          |1792-core Ampere 56 Tensor Cores |1024-core Ampere 32 Tensor Cores |1024-core Ampere 32 Tensor Cores |1024-core Ampere 32 Tensor Cores |
+|GPU Max Frequency     |930MHz                           |918MHz                           |765MHz                           |625MHz                           |
+|Overall (Sparse INT8) |200TOPS                          |100TOPS                          |70TOPS                           |40TOPS                           |
+|GPU Tensor Core INT8  |Sparse 108TOPS<br>Dense 54TOPS   |Sparse 60TOPS<br>Dense 30TOPS    |Sparse 50TOPS<br>Dense 25TOPS    |Sparse 40TOPS<br>Dense 20TOPS    |
+|GPU Tensor Core FP16  |Sparse 54TFLOPS<br>Dense 27TFLOPS|Sparse 30TFLOPS<br>Dense 15TFLOPS|Sparse 25TFLOPS<br>Dense 13TFLOPS|Sparse 20TFLOPS<br>Dense 10TFLOPS|
+|GPU CUDA Core FP16/32 |FP32 3.8TFLOPS<br>FP16 7.6TFLOPS |FP32 1.9TFLOPS<br>FP16 3.8TFLOPS |FP32 1.6TFLOPS<br>FP16 3.1TFLOPS |FP32 1.3TFLOPS<br>FP16 2.6TFLOPS |
 
 ## NAS服务器：i5-8500 PC
 
