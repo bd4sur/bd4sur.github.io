@@ -158,7 +158,7 @@ Stable Diffusion Web-UI 至今不支持多卡，因此在孱弱的P40卡上画�
 
 [亚博智能的介绍](https://www.yahboom.com/tbdetails?id=550)
 
-[亚博智能的技术资料](https://www.yahboom.com/study/Jetson-Orin-NX)
+[亚博智能的技术资料](https://www.yahboom.com/study/Jetson-Orin-NX)（仅限客户）
 
 [微雪的说明](https://www.waveshare.net/wiki/JETSON-ORIN-NX-16G-DEV-KIT)
 
@@ -174,6 +174,33 @@ Stable Diffusion Web-UI 至今不支持多卡，因此在孱弱的P40卡上画�
 |GPU Tensor Core INT8  |Sparse 108TOPS<br>Dense 54TOPS   |Sparse 60TOPS<br>Dense 30TOPS    |Sparse 50TOPS<br>Dense 25TOPS    |Sparse 40TOPS<br>Dense 20TOPS    |
 |GPU Tensor Core FP16  |Sparse 54TFLOPS<br>Dense 27TFLOPS|Sparse 30TFLOPS<br>Dense 15TFLOPS|Sparse 25TFLOPS<br>Dense 13TFLOPS|Sparse 20TFLOPS<br>Dense 10TFLOPS|
 |GPU CUDA Core FP16/32 |FP32 3.8TFLOPS<br>FP16 7.6TFLOPS |FP32 1.9TFLOPS<br>FP16 3.8TFLOPS |FP32 1.6TFLOPS<br>FP16 3.1TFLOPS |FP32 1.3TFLOPS<br>FP16 2.6TFLOPS |
+
+**刷JetPack6并安装PyTorch**
+
+按照[官方文档](https://developer.nvidia.com/embedded/jetpack)指示操作。
+
+按照[官方文档](https://docs.nvidia.com/deeplearning/frameworks/install-pytorch-jetson-platform/index.html)安装PyTorch。注意，实测验证，仅可安装[`torch-2.4.0a0+07cecf4168.nv24.05.14710581-cp310-cp310-linux_aarch64.whl`](https://developer.download.nvidia.com/compute/redist/jp/v60/pytorch/torch-2.4.0a0+07cecf4168.nv24.05.14710581-cp310-cp310-linux_aarch64.whl)
+
+**编译安装llama.cpp和llama-cpp-python**
+
+[单独编译llama.cpp，然后复用已有的`libllama.so`安装llama-cpp-python](https://github.com/abetlen/llama-cpp-python/issues/1070)：
+
+```
+cd /home/bd4sur
+# Build llama.cpp standalone
+git clone https://github.com/ggerganov/llama.cpp
+mkdir llama.cpp
+mkdir build
+cd build
+cmake .. -DBUILD_SHARED_LIBS=ON -DGGML_CUDA=ON
+cmake --build . --config Release
+
+# Export path
+export LLAMA_CPP_LIB=/home/bd4sur/llama.cpp/build/src/libllama.so
+
+# Install llama-cpp-python with LLAMA_BUILD_OFF
+CMAKE_ARGS="-DLLAMA_BUILD=OFF" python -m pip install llama-cpp-python
+```
 
 ## NAS服务器：i5-8500 PC
 
