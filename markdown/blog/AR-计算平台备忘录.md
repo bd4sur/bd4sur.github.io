@@ -89,6 +89,89 @@ P40支持ECC，如果开启ECC，则可用显存为22.5GiB，并且运算性能�
 - P40 24GB 关ECC：约 9010 Gflop/s，稳定温度78℃
 - P40 22.5GB 开ECC：约 8650 Gflop/s，稳定温度81℃
 
+
+## Nvidia Jetson
+
+![在 Orin NX 16GB 上运行 Stable Diffusion WebUI](./image/G2/homelab/jetson-orin-nx-sd.jpg)
+
+**通用情报**
+
+- [NV官网主站-Jetson介绍页](https://www.nvidia.com/en-us/autonomous-machines/embedded-systems/jetson-orin/)
+- [NV开发者-Jetson支持资源汇总](https://developer.nvidia.com/embedded/community/support-resources)
+- [NV开发者-Jetson入门](https://developer.nvidia.com/embedded/learn/getting-started-jetson)
+- [NV开发者-Jetson模块信息汇总](https://developer.nvidia.com/embedded/jetson-modules)
+- [NV开发者-Jetson路线图](https://developer.nvidia.com/embedded/develop/roadmap)
+- [GA10B芯片规格](https://www.techpowerup.com/gpu-specs/jetson-orin-nx-16-gb.c4086)
+
+|                      |AGX Orin 64GB                    |Orin NX 16GB                 |Orin NX 8GB                      |Orin Nano 8GB                    |
+|--------------------------------------------------------------------------------------------------------------------------------------------------------------|
+|Architecture          |2048-core Ampere 64 Tensor Cores |1024-core Ampere 32 Tensor Cores |1024-core Ampere 32 Tensor Cores |1024-core Ampere 32 Tensor Cores |
+|GPU Max Frequency     |1300MHz                          |918MHz                           |765MHz                           |625MHz                           |
+|Overall (Sparse INT8) |275TOPS                          |100TOPS                          |70TOPS                           |40TOPS                           |
+|GPU Tensor Core INT8  |Sparse 170TOPS<br>Dense 85TOPS   |Sparse 60TOPS<br>Dense 30TOPS    |Sparse 50TOPS<br>Dense 25TOPS    |Sparse 40TOPS<br>Dense 20TOPS    |
+|GPU Tensor Core FP16  |Sparse 85TFLOPS<br>Dense 43TFLOPS|Sparse 30TFLOPS<br>Dense 15TFLOPS|Sparse 25TFLOPS<br>Dense 13TFLOPS|Sparse 20TFLOPS<br>Dense 10TFLOPS|
+|GPU CUDA Core FP16/32 |FP32 5.3TFLOPS<br>FP16 10.6TFLOPS|FP32 1.9TFLOPS<br>FP16 3.8TFLOPS |FP32 1.6TFLOPS<br>FP16 3.1TFLOPS |FP32 1.3TFLOPS<br>FP16 2.6TFLOPS |
+|CPU                   |12c Cortex-A78AE / L2=3MB/L3=6MB |8c Cortex-A78AE /L2=2MB/L3=4MB   |6c Cortex-A78AE /L2=1.5MB/L3=4MB |6c Cortex-A78AE /L2=1.5MB/L3=4MB |
+
+![AGX Orin 64GB vs Orin NX 16GB ([Source](https://www.youtube.com/watch?v=VWdJ4BCtam))](./image/G2/homelab/jetson-agx-vs-nx.jpg)
+
+**Orin NX 16GB**
+
+- [亚博智能的介绍](https://www.yahboom.com/tbdetails?id=550)
+- [亚博智能的技术资料](https://www.yahboom.com/study/Jetson-Orin-NX)（仅限客户）
+- [微雪的说明](https://www.waveshare.net/wiki/JETSON-ORIN-NX-16G-DEV-KIT)
+
+**AGX Orin 64GB**
+
+
+**镜像方式部署StableDiffusion**
+
+[Tutorial - Stable Diffusion](https://www.jetson-ai-lab.com/tutorial_stable-diffusion.html)
+
+```
+# 条件：JetPack 6 (L4T r36.x)
+
+# 安装镜像启动工具，该工具实质上是一系列启动脚本，以及各种镜像的Dockerfiles和启动参数
+git clone https://github.com/dusty-nv/jetson-containers
+bash jetson-containers/install.sh
+
+# Use jetson-containers run and autotag tools to automatically pull or build a compatible container image:
+jetson-containers run $(autotag stable-diffusion-webui)
+
+# 增加代理相关的启动参数（不然无法下载模型）
+# 注意，在`run.sh`中有挂载关系 --volume $ROOT/data:/data ，其中ROOT="$(dirname "$(readlink -f "$0")")"
+# 因此SD模型可以放在 /home/bd4sur/ai/jetson-containers/data/models/stable-diffusion/models/Stable-diffusion
+jetson-containers run -e "HTTP_PROXY=http://192.168.10.90:1080/" -e "HTTPS_PROXY=http://192.168.10.90:1080/" -e "NO_PROXY=192.168.*.*, localhost, 127.0.0.1, ::1" $(autotag stable-diffusion-webui)
+```
+
+**刷JetPack6并安装PyTorch**
+
+刷JetPack：按照[官方文档](https://developer.nvidia.com/embedded/jetpack)指示操作。
+
+安装PyTorch：按照[官方文档](https://docs.nvidia.com/deeplearning/frameworks/install-pytorch-jetson-platform/index.html)安装PyTorch。注意，实测验证，Orin NX 16GB 仅可安装[`torch-2.4.0a0+07cecf4168.nv24.05.14710581-cp310-cp310-linux_aarch64.whl`](https://developer.download.nvidia.com/compute/redist/jp/v60/pytorch/torch-2.4.0a0+07cecf4168.nv24.05.14710581-cp310-cp310-linux_aarch64.whl)
+
+**编译安装llama.cpp和llama-cpp-python**
+
+[单独编译llama.cpp，然后复用已有的`libllama.so`安装llama-cpp-python](https://github.com/abetlen/llama-cpp-python/issues/1070)：
+
+```
+cd /home/bd4sur
+# Build llama.cpp standalone
+git clone https://github.com/ggerganov/llama.cpp
+mkdir llama.cpp
+mkdir build
+cd build
+cmake .. -DBUILD_SHARED_LIBS=ON -DGGML_CUDA=ON
+cmake --build . --config Release
+
+# Export path
+export LLAMA_CPP_LIB=/home/bd4sur/llama.cpp/build/src/libllama.so
+
+# Install llama-cpp-python with LLAMA_BUILD_OFF
+CMAKE_ARGS="-DLLAMA_BUILD=OFF" python -m pip install llama-cpp-python
+```
+
+
 ## 通算/智算服务器
 
 ||1号机(通用计算)|2号机(智能计算)|
@@ -153,54 +236,6 @@ Stable Diffusion Web-UI 至今不支持多卡，因此在孱弱的P40卡上画�
 另外刚才发现，P40从过年时的800出头涨到850，现在（2024年3月中旬）又涨到950块左右了…真就理财产品了是吧…
 
 最后要说的是，不能对大模型有过高的期待，不能指望一个封闭的大模型能端到端地解决问题，还是要把它当成一个agent用，借助它去撬动（leverage）更大规模的信源。不论如何，这个不到1立方米的机柜内部，浓缩了极为致密的信息，其复杂度远远超过它旁边那个装了200本书的书架。而代价就是满载情况下可能要消耗高达2千瓦以上的功率。如果我找一个大学生，把他塞进机柜，不考虑人道主义的话，能耗比应该是远远超过电子计算机的。堪用的本地私有LLM系统的门槛大约是七千元，也就是现在的四卡P40工作站的价格。但是这里面有更昂贵的隐形成本，例如摆放这六千元设备的空间，以及学习折腾所消耗的大量时间，以及系统运行时耗费的电力，等等。这些成本是不可消除的，并且硬件成本越高，这些隐形成本反而越高。不要低估“智能”的代价。
-
-## Nvidia Jetson Orin NX 16GB (2024-8)
-
-[亚博智能的介绍](https://www.yahboom.com/tbdetails?id=550)
-
-[亚博智能的技术资料](https://www.yahboom.com/study/Jetson-Orin-NX)（仅限客户）
-
-[微雪的说明](https://www.waveshare.net/wiki/JETSON-ORIN-NX-16G-DEV-KIT)
-
-[GA10B](https://www.techpowerup.com/gpu-specs/jetson-orin-nx-16-gb.c4086)
-
-[参数](https://www.nvidia.com/en-us/autonomous-machines/embedded-systems/jetson-orin/)
-
-|                      |AGX Orin 32GB                    |**Orin NX 16GB**                 |Orin NX 8GB                      |Orin Nano 8GB                    |
-|--------------------------------------------------------------------------------------------------------------------------------------------------------------|
-|Architecture          |1792-core Ampere 56 Tensor Cores |1024-core Ampere 32 Tensor Cores |1024-core Ampere 32 Tensor Cores |1024-core Ampere 32 Tensor Cores |
-|GPU Max Frequency     |930MHz                           |918MHz                           |765MHz                           |625MHz                           |
-|Overall (Sparse INT8) |200TOPS                          |100TOPS                          |70TOPS                           |40TOPS                           |
-|GPU Tensor Core INT8  |Sparse 108TOPS<br>Dense 54TOPS   |Sparse 60TOPS<br>Dense 30TOPS    |Sparse 50TOPS<br>Dense 25TOPS    |Sparse 40TOPS<br>Dense 20TOPS    |
-|GPU Tensor Core FP16  |Sparse 54TFLOPS<br>Dense 27TFLOPS|Sparse 30TFLOPS<br>Dense 15TFLOPS|Sparse 25TFLOPS<br>Dense 13TFLOPS|Sparse 20TFLOPS<br>Dense 10TFLOPS|
-|GPU CUDA Core FP16/32 |FP32 3.8TFLOPS<br>FP16 7.6TFLOPS |FP32 1.9TFLOPS<br>FP16 3.8TFLOPS |FP32 1.6TFLOPS<br>FP16 3.1TFLOPS |FP32 1.3TFLOPS<br>FP16 2.6TFLOPS |
-
-**刷JetPack6并安装PyTorch**
-
-按照[官方文档](https://developer.nvidia.com/embedded/jetpack)指示操作。
-
-按照[官方文档](https://docs.nvidia.com/deeplearning/frameworks/install-pytorch-jetson-platform/index.html)安装PyTorch。注意，实测验证，仅可安装[`torch-2.4.0a0+07cecf4168.nv24.05.14710581-cp310-cp310-linux_aarch64.whl`](https://developer.download.nvidia.com/compute/redist/jp/v60/pytorch/torch-2.4.0a0+07cecf4168.nv24.05.14710581-cp310-cp310-linux_aarch64.whl)
-
-**编译安装llama.cpp和llama-cpp-python**
-
-[单独编译llama.cpp，然后复用已有的`libllama.so`安装llama-cpp-python](https://github.com/abetlen/llama-cpp-python/issues/1070)：
-
-```
-cd /home/bd4sur
-# Build llama.cpp standalone
-git clone https://github.com/ggerganov/llama.cpp
-mkdir llama.cpp
-mkdir build
-cd build
-cmake .. -DBUILD_SHARED_LIBS=ON -DGGML_CUDA=ON
-cmake --build . --config Release
-
-# Export path
-export LLAMA_CPP_LIB=/home/bd4sur/llama.cpp/build/src/libllama.so
-
-# Install llama-cpp-python with LLAMA_BUILD_OFF
-CMAKE_ARGS="-DLLAMA_BUILD=OFF" python -m pip install llama-cpp-python
-```
 
 ## NAS服务器：i5-8500 PC
 
@@ -942,6 +977,26 @@ export no_proxy="192.168.*.*, localhost, 127.0.0.1, ::1"
 
 - 首先`unset http_proxy ; unset https_proxy`，然后`pip install pysocks`，然后`source /etc/profile`，然后再重新进入虚拟环境。
 - 或者`conda install pysocks`，然后再`pip install xxx`。
+
+docker pull 设置代理：
+
+```
+sudo mkdir -p /etc/systemd/system/docker.service.d
+sudo nano /etc/systemd/system/docker.service.d/http-proxy.conf
+
+添加以下内容后保存：
+[Service]
+Environment="HTTP_PROXY=http://192.168.10.90:1080/"
+Environment="HTTPS_PROXY=http://192.168.10.90:1080/"
+Environment="NO_PROXY=192.168.*.*, localhost, 127.0.0.1, ::1"
+
+然后重启docker服务
+sudo systemctl daemon-reload
+sudo systemctl restart docker
+查看环境变量：
+sudo systemctl show --property=Environment docker
+sudo docker info
+```
 
 ## apt相关
 
