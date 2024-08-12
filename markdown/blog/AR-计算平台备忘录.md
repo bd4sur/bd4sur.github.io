@@ -123,6 +123,12 @@ P40支持ECC，如果开启ECC，则可用显存为22.5GiB，并且运算性能�
 
 **AGX Orin 64GB**
 
+**工具**
+
+```
+# 设置电源模式，执行后reboot
+sudo nvpmodel -m 0
+```
 
 **镜像方式部署StableDiffusion**
 
@@ -155,19 +161,17 @@ jetson-containers run -e "HTTP_PROXY=http://192.168.10.90:1080/" -e "HTTPS_PROXY
 [单独编译llama.cpp，然后复用已有的`libllama.so`安装llama-cpp-python](https://github.com/abetlen/llama-cpp-python/issues/1070)：
 
 ```
-cd /home/bd4sur
-# Build llama.cpp standalone
+cd /home/bd4sur/ai
 git clone https://github.com/ggerganov/llama.cpp
-mkdir llama.cpp
+cd llama.cpp
+
 mkdir build
 cd build
 cmake .. -DBUILD_SHARED_LIBS=ON -DGGML_CUDA=ON
 cmake --build . --config Release
 
-# Export path
-export LLAMA_CPP_LIB=/home/bd4sur/llama.cpp/build/src/libllama.so
-
-# Install llama-cpp-python with LLAMA_BUILD_OFF
+export LLAMA_CPP_LIB=/home/bd4sur/ai/llama.cpp/build/src/libllama.so
+cp /home/bd4sur/ai/llama.cpp/build/src/libllama.so /home/bd4sur/miniconda3/envs/mio/lib/python3.10/site-packages/llama_cpp/lib
 CMAKE_ARGS="-DLLAMA_BUILD=OFF" python -m pip install llama-cpp-python
 ```
 
@@ -726,6 +730,14 @@ export no_proxy="192.168.*.*, localhost, 127.0.0.1, ::1"
 ```
 git config --global http.proxy "socks5://192.168.10.90:1080"
 git config --global https.proxy "socks5://192.168.10.90:1080"
+```
+
+设置root用户下也可使用代理设置：
+
+```
+sudo su - root
+visudo
+增加一行：Defaults env_keep += "http_proxy https_proxy no_proxy"
 ```
 
 8、安装CUDA（详见后文）。
