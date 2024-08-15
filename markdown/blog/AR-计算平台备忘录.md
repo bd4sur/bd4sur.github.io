@@ -123,11 +123,22 @@ P40支持ECC，如果开启ECC，则可用显存为22.5GiB，并且运算性能�
 
 **AGX Orin 64GB**
 
-**工具**
+**系统备份和恢复**
+
+按照[官方文档](https://docs.nvidia.com/jetson/archives/r35.3.1/DeveloperGuide/text/SD/FlashingSupport.html#to-back-up-and-restore-a-jetson-device)操作，困难重重。无奈之下，只好动用钞能力，购买NVMe硬盘复制机，直接复制装好系统的NVMe硬盘。但是需要注意的是，仅复制硬盘，并不等于完全克隆开发板，因QSPI的内容仍然需要通过官方的烧录工具备份和恢复。
+
+拷贝出来的NVMe硬盘，需要修复GPT表，并对其扩容。方法如下：
 
 ```
-# 设置电源模式，执行后reboot
-sudo nvpmodel -m 0
+sudo parted /dev/nvme0n1
+# 输入 print，可能会提示修复分区表，输入“Fix”修复。
+# 修复完成后，机器可能会重新引导，所需时间略长。
+# 重启后，再次进入parted
+sudo parted /dev/nvme0n1
+# 然后输入 print，查看硬盘总容量（以GB为单位）
+# 然后输入 resizepart <APP分区的编号>，结束位置填写xxxGB，也就是硬盘的总容量
+# 扩容后，执行以下命令，为文件系统扩容
+sudo resize2fs /dev/nvme0n1p1
 ```
 
 **镜像方式部署StableDiffusion**
@@ -141,13 +152,32 @@ sudo nvpmodel -m 0
 git clone https://github.com/dusty-nv/jetson-containers
 bash jetson-containers/install.sh
 
-# Use jetson-containers run and autotag tools to automatically pull or build a compatible container image:
-jetson-containers run $(autotag stable-diffusion-webui)
+# 执行启动命令
+docker run --runtime nvidia -it --rm --network host\
+  --volume /tmp/argus_socket:/tmp/argus_socket\
+  --volume /etc/enctune.conf:/etc/enctune.conf\
+  --volume /etc/nv_tegra_release:/etc/nv_tegra_release\
+  --volume /tmp/nv_jetson_model:/tmp/nv_jetson_model\
+  --volume /var/run/dbus:/var/run/dbus\
+  --volume /var/run/avahi-daemon/socket:/var/run/avahi-daemon/socket\
+  --volume /var/run/docker.sock:/var/run/docker.sock\
+  --volume /home/bd4sur/ai/jetson-containers/data:/data\
+  --device /dev/snd\
+  --device /dev/bus/usb\
+  -e DISPLAY=:0\
+  -v /tmp/.X11-unix/:/tmp/.X11-unix\
+  -v /tmp/.docker.xauth:/tmp/.docker.xauth\
+  -e XAUTHORITY=/tmp/.docker.xauth\
+  --device /dev/i2c-0 --device /dev/i2c-1 --device /dev/i2c-2 --device /dev/i2c-4 --device /dev/i2c-5 --device /dev/i2c-7 --device /dev/i2c-9\
+  -v /run/jtop.sock:/run/jtop.sock\
+  -e HTTP_PROXY=http://192.168.10.90:1080/ -e HTTPS_PROXY=http://192.168.10.90:1080/ -e 'NO_PROXY=192.168.*.*, localhost, 127.0.0.1, ::1'\
+  dustynv/stable-diffusion-webui:r36.2.0
 
-# 增加代理相关的启动参数（不然无法下载模型）
+# 这个启动命令实际上就是：
+jetson-containers run -e "HTTP_PROXY=http://192.168.10.90:1080/" -e "HTTPS_PROXY=http://192.168.10.90:1080/" -e "NO_PROXY=192.168.*.*, localhost, 127.0.0.1, ::1" $(autotag stable-diffusion-webui)
+
 # 注意，在`run.sh`中有挂载关系 --volume $ROOT/data:/data ，其中ROOT="$(dirname "$(readlink -f "$0")")"
 # 因此SD模型可以放在 /home/bd4sur/ai/jetson-containers/data/models/stable-diffusion/models/Stable-diffusion
-jetson-containers run -e "HTTP_PROXY=http://192.168.10.90:1080/" -e "HTTPS_PROXY=http://192.168.10.90:1080/" -e "NO_PROXY=192.168.*.*, localhost, 127.0.0.1, ::1" $(autotag stable-diffusion-webui)
 ```
 
 **刷JetPack6并安装PyTorch**
@@ -673,11 +703,13 @@ echo 1 > /sys/class/gpio/gpio3/value
 
 # Ubuntu运维操作备忘
 
-Ubuntu版本固定为20.04LTS。
+适用20.04LTS和22.04LTS。
 
-## 系统安装与设置
+## 系统部署检查单
 
-1、硬盘分区设置（如果分区有问题可以`sudo gparted`）
+说明：以下检查单适用于x86服务器、Jetson开发板、树莓派等等。可按照实际情况裁剪。
+
+1、硬盘分区设置（如果分区有问题可以`sudo gparted`可视化设置，或者`sudo parted`命令行设置）
 
 - UEFI分区（如果是LegacyBIOS则为`/boot`分区）：500MB，主分区，设为启动分区
 - 交换空间：内存的1-2倍（如果内存很大则灵活设置），主分区
@@ -689,35 +721,36 @@ Ubuntu版本固定为20.04LTS。
 3、禁止自动休眠
 
 ```
-1. 查看休眠设置
+# 查看休眠设置
 systemctl status sleep.target
-1. 关闭自动休眠
+# 关闭自动休眠
 sudo systemctl mask sleep.target suspend.target hibernate.target hybrid-sleep.target
-
-然后，最好进入GUI桌面，禁止熄屏、关闭待机
+# 然后，最好进入GUI桌面，禁止熄屏、关闭待机
 ```
 
 4、禁止内核自动更新：`sudo apt-mark hold linux-image-generic linux-headers-generic`
 
-5、设置声卡采样率到48kHz（如果有声卡的话）：`arecord --list-devices`查看声卡设备，`/etc/pulse/daemon.conf`编辑采样率。
+5、设置声卡采样率到48kHz：`arecord --list-devices`查看声卡设备，`/etc/pulse/daemon.conf`编辑采样率。
 
-6、安装必备软件
+6、设置代理
 
-桌面系统，在应用商店中通过snap安装Chromium、VSCode。然后安装其他必备软件：
+在设置代理前，先安装pysocks：`pip install pysocks httpx[socks]`。这一步可能会比较艰难，多试几次，或者直接找wheel安装。
 
-```
-sudo apt install gcc cmake lame mpg123 git npm screen neofetch rsync docker python-is-python3 python3-pip
-sudo npm install -g n
-sudo n stable
-```
+在GUI界面上设置代理：`192.168.*.*, localhost, 127.0.0.1, ::1`。
 
-7、设置代理
-
-在设置代理前，先安装pysocks：`pip install pysocks httpx[socks]`
-
-设置全局代理：在`/etc/profile`最后加上以下语句
+设置`apt`代理（[参考](https://askubuntu.com/questions/257290/configure-proxy-for-apt)）：
 
 ```
+sudo nano /etc/apt/apt.conf
+# 添加以下一行，存退
+Acquire::http::Proxy "http://192.168.10.90:1080";
+```
+
+设置当前用户的shell全局代理：
+
+```
+sudo nano /etc/profile
+# 最后加上以下语句，存退
 export proxy="socks5://192.168.10.90:1080"
 export http_proxy=$proxy
 export https_proxy=$proxy
@@ -725,24 +758,80 @@ export all_proxy=$proxy
 export no_proxy="192.168.*.*, localhost, 127.0.0.1, ::1"
 ```
 
-设置git的网络代理：
+设置root用户的shell全局代理：
+
+```
+sudo su - root
+visudo
+# 在编辑器中增加一行：
+Defaults env_keep += "http_proxy https_proxy no_proxy"
+```
+
+7、安装必备软件
+
+桌面系统，在应用商店中通过snap安装Chromium、VSCode。然后安装其他必备软件：
+
+```
+sudo apt install gcc cmake lame mpg123 git npm screen neofetch rsync python-is-python3 python3-pip
+
+# 通过npm安装node
+sudo npm install -g n
+sudo n stable
+```
+
+安装miniconda：下载[安装脚本](https://docs.anaconda.com/miniconda/#miniconda-latest-installer-links)，运行。
+
+docker的安装比较复杂，参考[文档](https://docs.docker.com/engine/install/ubuntu/)。Jetson的JetPack已经安装了docker。
+
+8、设置各类软件的代理
+
+设置git代理：
 
 ```
 git config --global http.proxy "socks5://192.168.10.90:1080"
 git config --global https.proxy "socks5://192.168.10.90:1080"
 ```
 
-设置root用户下也可使用代理设置：
+设置conda虚拟环境中如何使用socks代理：
+
+- 首先`unset http_proxy ; unset https_proxy`，然后`pip install pysocks`，然后`source /etc/profile`，然后再重新进入虚拟环境。
+- 或者`conda install pysocks`，然后再`pip install xxx`。
+
+设置 docker 仓库代理：
 
 ```
-sudo su - root
-visudo
-增加一行：Defaults env_keep += "http_proxy https_proxy no_proxy"
+sudo mkdir -p /etc/systemd/system/docker.service.d
+sudo nano /etc/systemd/system/docker.service.d/http-proxy.conf
+
+# 添加以下内容后保存：
+[Service]
+Environment="HTTP_PROXY=http://192.168.10.90:1080/"
+Environment="HTTPS_PROXY=http://192.168.10.90:1080/"
+Environment="NO_PROXY=192.168.*.*, localhost, 127.0.0.1, ::1"
+
+# 然后重启docker服务
+sudo systemctl daemon-reload
+sudo systemctl restart docker
+
+# 查看环境变量：
+sudo systemctl show --property=Environment docker
+sudo docker info
 ```
 
-8、安装CUDA（详见后文）。
+9、安装CUDA（详见后文；Jetson只要安装好了JetPack，就无需手动安装CUDA等）。
 
-9、桌面OS的GUI优化
+10、Jetson特有的初始设置
+
+具体内容详见上文，以下仅为事项检查单：
+
+- 设置电源模式为MAXN（无限制），执行后reboot：`sudo nvpmodel -m 0`
+- 设置VNC-server：[官方文档](https://developer.nvidia.com/embedded/learn/tutorials/vnc-setup)
+- 安装PyTorch。
+- 编译部署llama.cpp、Mio等（拉取funasr等镜像）。
+- 拉取sdgui等镜像。
+- 在图形桌面中，将语言设置成中文，并安装中文输入法。
+
+11、桌面OS的GUI优化
 
 - `sudo nautilus`打开文件管理器。
 - 将微软雅黑字体放置在`/usr/share/fonts/msyh`目录下。
@@ -751,7 +840,7 @@ visudo
 - 安装GUI美化工具：`sudo apt install gnome-tweak-tool`
 - 在应用-工具菜单中找到“优化”，除设置字体外，还可以设置其他。
 
-10、安装filebrowser
+12、安装filebrowser
 
 - `curl -fsSL https://raw.githubusercontent.com/filebrowser/get/master/get.sh | bash`
 - `cd /nas`
@@ -856,6 +945,9 @@ sudo mount /dev/sdx /path/to/hdd
 # 用随机内容填充硬盘
 dd if=/dev/urandom of=被填充硬盘上的某个文件
 
+# 全盘镜像
+sudo dd status=progress if=/dev/sdx of=xxx.img
+
 # 硬盘测速
 sudo apt install hdparm
 hdparm -Tt /dev/sdx
@@ -938,7 +1030,9 @@ int main() {
 
 </details>
 
-## 网络和代理相关
+## 网络相关
+
+**注意**：所有与代理相关的内容，见系统部署检查单。
 
 ```
 # 设置网卡自动启动
@@ -973,41 +1067,6 @@ Windows 从 https://iperf.fr/iperf-download.php 下载可执行文件。
 # 参考：https://www.ruanyifeng.com/blog/2020/08/rsync.html
 rsync -av <user>@<host>:<source> <user>@<host>:<dest>
 
-```
-
-设置全局代理：在`/etc/profile`末尾增加以下内容：
-
-```
-export proxy="socks5://192.168.10.90:1080"
-export http_proxy=$proxy
-export https_proxy=$proxy
-export ftp_proxy=$proxy
-export no_proxy="192.168.*.*, localhost, 127.0.0.1, ::1"
-```
-
-在conda虚拟环境中如何使用socks代理：
-
-- 首先`unset http_proxy ; unset https_proxy`，然后`pip install pysocks`，然后`source /etc/profile`，然后再重新进入虚拟环境。
-- 或者`conda install pysocks`，然后再`pip install xxx`。
-
-docker pull 设置代理：
-
-```
-sudo mkdir -p /etc/systemd/system/docker.service.d
-sudo nano /etc/systemd/system/docker.service.d/http-proxy.conf
-
-添加以下内容后保存：
-[Service]
-Environment="HTTP_PROXY=http://192.168.10.90:1080/"
-Environment="HTTPS_PROXY=http://192.168.10.90:1080/"
-Environment="NO_PROXY=192.168.*.*, localhost, 127.0.0.1, ::1"
-
-然后重启docker服务
-sudo systemctl daemon-reload
-sudo systemctl restart docker
-查看环境变量：
-sudo systemctl show --property=Environment docker
-sudo docker info
 ```
 
 ## apt相关
