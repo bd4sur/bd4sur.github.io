@@ -2,17 +2,11 @@
 
 #!content
 
-本文记录个人计算平台（PCCP）的搭建、运维知识。所谓个人计算平台（可以按需翻译成个人P私有P云C计算C平台P），指的是产权私有的、物理可及的、受到本人完全管控的计算机系统。在我看来，个人计算平台不等于HomeLab，HomeLab是个更广义的概念。个人计算平台是HomeLab的一部分，而业余电台实际上也属于HomeLab的一部分。至于HomeLab包括哪些子系统，这个问题有待进一步思考。
+本文记录个人计算平台（PCCP）的搭建、运维知识。所谓个人计算平台（可以按需翻译成个人P私有P云C计算C平台P），指的是**产权私有的、物理可及的、受到本人完全管控的计算机系统**。在我看来，个人计算平台不等于HomeLab，HomeLab是个更广义的概念。个人计算平台是HomeLab的一部分，而业余电台实际上也属于HomeLab的一部分。
 
-![ ](./image/G2/homelab/rack-front.jpg)
+<details>
 
-![ ](./image/G2/homelab/rack-back.jpg)
-
-# 系统总体
-
-![机柜布置](./image/G2/homelab/homelab_rack.png)
-
-![组网方案](./image/G2/homelab/homenet.png)
+<summary>HomeLab包括哪些子系统？</summary>
 
 HomeLab有哪些子系统？
 
@@ -37,7 +31,19 @@ HomeLab有哪些子系统？
 - 安全防护设备：防雷器等
 - 其他辅助设备
 
+</details>
+
+# 系统总体
+
+![组网方案](./image/G2/homelab/homenet.png)
+
+
+
 # 计算设备
+
+<details>
+
+<summary>CPU天梯图</summary>
 
 |型号|年代|跑分*|C/T|TDP|主频|工艺|能耗比|
 |------------------------------------|
@@ -58,6 +64,12 @@ HomeLab有哪些子系统？
 |Atom N270|08Q2|175|1/2|2.5W|1.6GHz|45nm|70|
 
 注：跑分数据来自[这里](http://cdn.malu.me/cpu/)。鉴于CPU性能度量是个很复杂的问题，这个数据仅供半定量参考。
+
+</details>
+
+<details>
+
+<summary>GPU对比</summary>
 
 |型号|P40|P100|V100|A100|H100|
 |----------------------------|
@@ -81,6 +93,8 @@ HomeLab有哪些子系统？
 |FP16 Tensor(TFLOPS)| N/A | N/A | 112 |312  |1513 |
 |Int8 Tensor(TOPS)  | N/A | N/A |  ?  |624  |3026 |
 |[Compute Capability](https://developer.nvidia.com/cuda-gpus)|6.1|6.0|7.0|8.0|9.0|
+
+</details>
 
 P40支持ECC，如果开启ECC，则可用显存为22.5GiB，并且运算性能会有6%左右的下降（基于[gpu-burn](https://github.com/wilicc/gpu-burn)）
 
@@ -114,6 +128,10 @@ P40支持ECC，如果开启ECC，则可用显存为22.5GiB，并且运算性能�
 |CPU                   |12c Cortex-A78AE / L2=3MB/L3=6MB |8c Cortex-A78AE /L2=2MB/L3=4MB   |6c Cortex-A78AE /L2=1.5MB/L3=4MB |6c Cortex-A78AE /L2=1.5MB/L3=4MB |
 
 ![AGX Orin 64GB vs Orin NX 16GB ([Source](https://www.youtube.com/watch?v=VWdJ4BCtam))](./image/G2/homelab/jetson-agx-vs-nx.jpg)
+
+![Jetson AGX Orin HW diagram ([Source:gtc24-se62675](https://www.nvidia.com/en-us/on-demand/session/gtc24-se62675/))](./image/G2/homelab/jetson-agx-orin-hw-diagram.jpg)
+
+![JetPack SW Arch ([Source:gtc24-se62940](https://www.nvidia.com/en-us/on-demand/session/gtc24-se62940/))](./image/G2/homelab/jetpack-sw-arch.png)
 
 **Orin NX 16GB**
 
@@ -162,6 +180,7 @@ docker run --runtime nvidia -it --rm --network host\
   --volume /var/run/avahi-daemon/socket:/var/run/avahi-daemon/socket\
   --volume /var/run/docker.sock:/var/run/docker.sock\
   --volume /home/bd4sur/ai/jetson-containers/data:/data\
+  --volume /home/bd4sur/ai/_model/stable-diffusion:/data/models/stable-diffusion\
   --device /dev/snd\
   --device /dev/bus/usb\
   -e DISPLAY=:0\
@@ -178,13 +197,17 @@ jetson-containers run -e "HTTP_PROXY=http://192.168.10.90:1080/" -e "HTTPS_PROXY
 
 # 注意，在`run.sh`中有挂载关系 --volume $ROOT/data:/data ，其中ROOT="$(dirname "$(readlink -f "$0")")"
 # 因此SD模型可以放在 /home/bd4sur/ai/jetson-containers/data/models/stable-diffusion/models/Stable-diffusion
+# 但是出于方便迁移考虑，所有模型统一放置在/home/bd4sur/ai/_model/下，所以需要另外挂载
 ```
 
 **刷JetPack6并安装PyTorch**
 
 刷JetPack：按照[官方文档](https://developer.nvidia.com/embedded/jetpack)指示操作。
 
-安装PyTorch：按照[官方文档](https://docs.nvidia.com/deeplearning/frameworks/install-pytorch-jetson-platform/index.html)安装PyTorch。注意，实测验证，Orin NX 16GB 仅可安装[`torch-2.4.0a0+07cecf4168.nv24.05.14710581-cp310-cp310-linux_aarch64.whl`](https://developer.download.nvidia.com/compute/redist/jp/v60/pytorch/torch-2.4.0a0+07cecf4168.nv24.05.14710581-cp310-cp310-linux_aarch64.whl)
+安装PyTorch：两个选项
+
+- 2.3.0：使用[官方论坛](https://forums.developer.nvidia.com/t/pytorch-for-jetson/72048)提供的wheel。同时提供了torchvision和torchaudio。这一版本使用nanogpt实测更快。
+- 2.4.0：按照[官方文档](https://docs.nvidia.com/deeplearning/frameworks/install-pytorch-jetson-platform/index.html)安装PyTorch。注意，实测验证，Orin NX 16GB 仅可安装[`torch-2.4.0a0+07cecf4168.nv24.05.14710581-cp310-cp310-linux_aarch64.whl`](https://developer.download.nvidia.com/compute/redist/jp/v60/pytorch/torch-2.4.0a0+07cecf4168.nv24.05.14710581-cp310-cp310-linux_aarch64.whl)
 
 **编译安装llama.cpp和llama-cpp-python**
 
@@ -699,7 +722,11 @@ echo 1 > /sys/class/gpio/gpio3/value
 
 # 机柜和环境
 
-静音机柜、散热的考虑
+![ ](./image/G2/homelab/rack-front.jpg)
+
+![ ](./image/G2/homelab/rack-back.jpg)
+
+![机柜布置](./image/G2/homelab/homelab_rack.png)
 
 # Ubuntu运维操作备忘
 
