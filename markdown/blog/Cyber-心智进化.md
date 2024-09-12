@@ -28,6 +28,9 @@
 - 视觉素养
 - [斯特鲁普\(Stroop\)效应](https://zh.wikipedia.org/wiki/%E6%96%AF%E7%89%B9%E9%B2%81%E6%99%AE%E6%95%88%E5%BA%94)
 - [法国国旗](https://zh.wikipedia.org/wiki/%E6%B3%95%E5%9B%BD%E5%9B%BD%E6%97%97)：长期以来，旗子中的三条色彩条纹不是严格相等的，蓝/白/红三色的宽度比是30：33：37，和早期法国革命时的巴黎市市旗的比例一致。这样来划分比例是有道理的。最初的法国国旗是按蓝、白、红三色同样宽窄的尺寸做成的。后来发现，由于中间的白色较两旁颜色明亮，使人眼产生一种错觉，看上去总觉得两旁的红色带没有蓝色带宽。后来，为了克服这种错觉，才把蓝色条带缩窄，把红色条带加宽，直到人眼看上去非常自然、匀称，从而成为今天的比例。可是法国革命后于1853年5月17日左右，这面旗又被拿破仑三世下令改为相等宽度，但海军军旗没有改动，继续使用 30:33:37 比例的三色旗至今。
+- [Chromostereopsis](https://en.wikipedia.org/wiki/Chromostereopsis)
+
+![[图片出处](https://www.psy.ritsumei.ac.jp/akitaoka/scolor3e.html)](./image/A/chromostereopsis.png)
 
 ## 认知偏差
 
