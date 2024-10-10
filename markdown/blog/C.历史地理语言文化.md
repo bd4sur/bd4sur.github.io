@@ -26,6 +26,10 @@
 - 壹隻憂鬱臺灣烏龜尋釁幾羣骯髒變態囓齒鱷龞，幾羣骯髒變態囓齒鱷龞圍毆壹隻憂鬱臺灣烏龜
 - 湖北当阳方言存在大舌颤音：[分析](https://www.zhihu.com/question/402710922/answer/1406607075)、[视频](https://www.bilibili.com/video/BV1DW41137xP)、[音频](https://mp.weixin.qq.com/s/XIvqQmeLbJAOgE1TxWOWRQ)
 
+# 2024年10月泉州游记
+
+![ ](./image/C/zayton-2024/zayton-trip.jpg)
+
 # 烫嘴单词
 
 triumph、lymph、shrimp、dwell、prompt
