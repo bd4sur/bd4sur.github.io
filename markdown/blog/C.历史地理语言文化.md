@@ -30,6 +30,16 @@
 
 ![ ](./image/C/zayton-2024/zayton-trip.jpg)
 
+10月2日：海交馆
+
+10月3日：金沙湾、祥芝民宿
+
+10月4日：青山湾、崇武民宿
+
+10月5日：小岞镇、泉州古城
+
+10月6日：五店市
+
 # 烫嘴单词
 
 triumph、lymph、shrimp、dwell、prompt
