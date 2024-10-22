@@ -135,6 +135,8 @@ $$ 解方程 \textbf{W}_1 \textbf{x} = \textbf{b} \quad , \quad 得 \textbf{x} =
 
 ### Transformer
 
+![Transformer语言模型](https://raw.githubusercontent.com/bd4sur/Nano/refs/heads/master/doc/nano-llm.png)
+
 ![多头注意力](./image/G4/multi-head-attention.svg)
 
 ![[来源](https://www.youtube.com/watch?v=-9vVhYEXeyQ)](./image/G4/bert-3d.png)

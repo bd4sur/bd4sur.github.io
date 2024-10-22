@@ -924,6 +924,10 @@ AGI全面渗透进入千行百业，最重要的表现就是工作范式的转�
 
 ------
 
+2023-10-23：递归适合描述问题，“非递归”适合描述方案。两者尽管在能力上是等价的，但是所谓的“把递归转为非递归”就是在解决问题，就是把基础设施的工作包揽给自己。理论是灰色的，唯有工程长青。
+
+------
+
 > [Robert Scoble 的 Twitter](https://twitter.com/Scobleizer/status/1641535040629645346)：
 Yesterday I met the fourth employee at SpaceX. Hans Koenigsmann. I asked him how they did the code that lands rockets back on earth so they can be reused. “Oh, one person wrote that.”
 What?
