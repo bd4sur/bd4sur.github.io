@@ -228,6 +228,12 @@ cp /home/bd4sur/ai/llama.cpp/build/src/libllama.so /home/bd4sur/miniconda3/envs/
 CMAKE_ARGS="-DLLAMA_BUILD=OFF" python -m pip install llama-cpp-python
 ```
 
+## RK3588开发板
+
+- Radxa ROCK 5B+ (32GB)
+- 友善Nanopc-T6 (16GB)
+
+[Radxa ROCK 5B+](https://radxa.com/products/rock5/5bp/)
 
 ## 通算/智算服务器
 
@@ -778,7 +784,7 @@ Acquire::http::Proxy "http://192.168.10.90:1080";
 ```
 sudo nano /etc/profile
 # 最后加上以下语句，存退
-export proxy="socks5://192.168.10.90:1080"
+export proxy="http://192.168.10.90:1080"
 export http_proxy=$proxy
 export https_proxy=$proxy
 export all_proxy=$proxy
@@ -815,8 +821,8 @@ docker的安装比较复杂，参考[文档](https://docs.docker.com/engine/inst
 设置git代理：
 
 ```
-git config --global http.proxy "socks5://192.168.10.90:1080"
-git config --global https.proxy "socks5://192.168.10.90:1080"
+git config --global http.proxy "http://192.168.10.90:1080"
+git config --global https.proxy "http://192.168.10.90:1080"
 ```
 
 设置conda虚拟环境中如何使用socks代理：
