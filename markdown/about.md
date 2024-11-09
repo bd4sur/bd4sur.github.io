@@ -157,14 +157,12 @@ a.ContactLink:hover { text-decoration: none; border: none; }
         <div class="BlogrollLink"><a target="_blank" href="https://256kb.cn/">野生喵喵</a></div>
         <div class="BlogrollLink"><a target="_blank" href="https://blog.ddlee.cc/">萧爽楼</a></div>
         <div class="BlogrollLink"><a target="_blank" href="https://ice1000.org/">Tesla Ice Zhang</a></div>
-        <div class="BlogrollLink"><a target="_blank" href="https://meow3.family.blog/">惡魔菌</a></div> <!---->
-        <div class="BlogrollLink"><a target="_blank" href="https://chanshiyu.com/">蝉時雨</a></div>
+        <!-- <div class="BlogrollLink"><a target="_blank" href="https://chanshiyu.com/">蝉時雨</a></div> -->
         <div class="BlogrollLink"><a target="_blank" href="https://ssshooter.com/">Usubeni Fantasy</a></div>
         <div class="BlogrollLink"><a target="_blank" href="https://typ.moe/">Brethland</a></div><!-- http://yuki.systems/ -->
         <div class="BlogrollLink"><a target="_blank" href="https://ntzyz.io">ntzyz</a></div>
-        <div class="BlogrollLink"><a target="_blank" href="https://wenzhao-xiang.github.io/Blog/">Winzzzzard</a></div>
+        <div class="BlogrollLink"><a target="_blank" href="https://wenzhao-xiang.top/">Winzzzzard</a></div>
         <div class="BlogrollLink"><a target="_blank" href="https://blog.kaciras.com/">Kaciras</a></div>
-        <div class="BlogrollLink"><a target="_blank" href="https://ibcl.us/">I BCL.</a></div>
         <div class="BlogrollLink"><a target="_blank" href="https://www.bg5abl.com/">YuYan<span style="font-size: smaller;">(BG5ABL)</span></a></div>
         <div class="BlogrollLink"><a target="_blank" href="https://zwiss.fun/">BD4UNW</a></div>
         <div class="BlogrollLink"><a target="_blank" href="https://noodlefighter.com/">Noodlefighter</a></div> <!-- 2023-08-27 -->

@@ -233,7 +233,8 @@ CMAKE_ARGS="-DLLAMA_BUILD=OFF" python -m pip install llama-cpp-python
 - Radxa ROCK 5B+ (32GB)
 - 友善Nanopc-T6 (16GB)
 
-[Radxa ROCK 5B+](https://radxa.com/products/rock5/5bp/)
+[Radxa ROCK 5B+](https://radxa.com/products/rock5/5bp/)：注意官方镜像装好后，将GCC/G++替换为11。
+[Nanopc-T6](https://wiki.friendlyelec.com/wiki/index.php/NanoPC-T6/zh)
 
 ## 通算/智算服务器
 
