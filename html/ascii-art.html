@@ -1,0 +1,143 @@
+<!-- Framework Iroha -->
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<link rel="stylesheet" type="text/css" href="../style/framework.css" charset="utf-8"/>
+<link rel="stylesheet" type="text/css" href="../style/markdown.css" charset="utf-8"/>
+<title>Frame Iroha - Demo page</title>
+<script src="../script/framework/jquery/jquery.min.js"></script>
+
+
+<!--页面自定义样式开始-->
+<style>
+
+
+</style>
+<!--页面自定义样式结束-->
+
+</head>
+<body>
+
+<!--页面内容开始-->
+
+<div style="margin-top: 40px; display: flex; align-content: center; flex-direction: column; align-items: center;">
+    <h3>所以我们专门写了一个软件…</h3>
+    <div style="margin-bottom: 10px;">BD4SUR.com / 2024-11-22</div>
+    <div style="margin-bottom: 10px;"><input id="video_file" type="file"></div>
+    <div><video id="input_video" style="display: none;"></video></div>
+</div>
+
+<div style="display: flex; flex-direction: row; justify-content: center;">
+    <canvas id="input_cv" style="width:256px;height:256px;border: 1px solid #0000ff;" width="256px" height="256px"></canvas>
+</div>
+
+<div style="display: flex; flex-direction: row; justify-content: center;">
+    <pre style="font-size: 10px; line-height: 1.2; border: 1px solid #0000ff; scale: 0.7; width: fit-content;"><code id="output_ascii"></code></pre>
+</div>
+
+<!--页面内容结束-->
+
+<!--脚本开始-->
+<script src="../script/image.js"></script>
+<script src="../script/canvas-legacy.js"></script>
+<script src="../script/framework/jquery/jquery.min.js"></script>
+<script>
+
+let WIDTH = 256;
+let HEIGHT = 256;
+
+let input_cv = new Canvas('input_cv', [0,0], [WIDTH-1,HEIGHT-1]);
+
+let input_video = document.getElementById("input_video");
+input_video.setAttribute("preload", "auto");
+input_video.setAttribute("width", WIDTH);
+input_video.setAttribute("height", HEIGHT);
+
+document.getElementById("video_file").addEventListener("change", function() {
+    input_video.src = window.URL.createObjectURL(this.files[0]);
+});
+
+input_video.addEventListener("loadeddata", function() {
+    input_cv.canvas.width = WIDTH;
+    input_cv.canvas.height = HEIGHT;
+    play_and_encode(input_video);
+});
+
+function Y_to_ascii(Y, width, height, downscale_x, downscale_y) {
+    function y_to_char(y) {
+        const grayscale_map = "@$B%8&WM#*oahkbdpqwmZO0QLCJUYXzcvunxrjft/\\|()1{}[]?-_+~<>i!lI;:,\"^`'. ";
+        const dr = grayscale_map.length;
+        let index = Math.floor(y * dr / 256);
+        return grayscale_map[index];
+    }
+    let output = [];
+    for(let y = 0; y < height; y+=downscale_y) {
+        for(let x = 0; x < width; x+=downscale_x) {
+            output.push(y_to_char(Y[y][x]));
+        }
+        output.push("\n");
+    }
+    output = output.join("");
+    output = output.replace(/</gi, "&lt;").replace(/>/gi, "&gt;");
+    return output;
+}
+
+const FRAME_NUMBER = 2000; // 3258;  // 2192
+let replayCount = 0;
+let replayTimer = 0;
+
+// 逐帧绘制到input_cv上，并编码，编码后同时解码并绘制到output_cv上，即时观察编码效果以及PSNR情况
+function play_and_encode(video) {
+    let time = 0;
+    let bytes = [];
+    replayTimer = setInterval(()=> {
+        input_cv.Resize([0, HEIGHT], [WIDTH, 0]);
+
+        input_video.currentTime = time;
+        input_cv.context.drawImage(input_video, 0, 0, WIDTH, HEIGHT);
+
+        input_cv.context.font = "30px Arial";
+        input_cv.context.strokeStyle = "#00f";
+        input_cv.context.lineWidth = 5;
+        input_cv.context.fillStyle = "#fff";
+        input_cv.context.textAlign = "left";
+        input_cv.context.strokeText("BD4SUR", 10, 240);
+        input_cv.context.fillText("BD4SUR", 10, 240);
+
+        input_cv.context.strokeStyle = "#f00";
+        input_cv.context.textAlign = "right";
+        input_cv.context.strokeText(`${replayCount}`, 245, 240);
+        input_cv.context.fillText(`${replayCount}`, 245, 240);
+
+        input_cv.context.fillStyle = "#fff"; input_cv.context.fillRect(0, 0, 32, 16);
+        input_cv.context.fillStyle = "#ff0"; input_cv.context.fillRect(32, 0, 32, 16);
+        input_cv.context.fillStyle = "#0ff"; input_cv.context.fillRect(64, 0, 32, 16);
+        input_cv.context.fillStyle = "#0f0"; input_cv.context.fillRect(96, 0, 32, 16);
+        input_cv.context.fillStyle = "#f0f"; input_cv.context.fillRect(128, 0, 32, 16);
+        input_cv.context.fillStyle = "#f00"; input_cv.context.fillRect(160, 0, 32, 16);
+        input_cv.context.fillStyle = "#00f"; input_cv.context.fillRect(192, 0, 32, 16);
+        input_cv.context.fillStyle = "#000"; input_cv.context.fillRect(224, 0, 32, 16);
+
+        let RGB = input_cv.ReadRGB();
+        let YUV = RGB_to_YUV420(RGB, WIDTH, HEIGHT);
+
+        let ascii = Y_to_ascii(YUV[0], WIDTH, HEIGHT, 4, 8);
+        $("#output_ascii").html(ascii);
+
+        time += 0.1;
+        replayCount++;
+        // 播放完毕后的动作
+        if(replayCount >= FRAME_NUMBER) {
+            replayCount = 0;
+            clearInterval(replayTimer);
+        }
+    }, 100);
+}
+
+
+</script>
+<!--脚本结束-->
+
+</body>
+</html>
