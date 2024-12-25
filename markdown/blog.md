@@ -269,12 +269,13 @@
             <div class="CategoryTitle">创 造 实 践</div>
             <div class="item_container">
                 <div class="FixedArticleTitle"><a class="TopLink" href="./Aqua">MP3编码器<sup>RC</sup></a></div>
+                <div class="FixedArticleTitle"><a class="TopLink" href="./Nano/infer">电子鹦鹉<sup>α</sup></a></div>
                 <div class="FixedArticleTitle"><a class="TopLink" href="./html/bpm.html">BPM分析<sup>β</sup></a></div>
                 <div class="FixedArticleTitle"><a class="TopLink" href="./html/cw-morse-encoder.html">CW练习器<sup>β</sup></a></div>
                 <div class="FixedArticleTitle"><a class="TopLink" href="./html/cw-morse-decoder.html">CW解码器<sup>α</sup></a></div>
                 <div class="FixedArticleTitle"><a class="TopLink" href="./html/ar-exam.html">操作证刷题<sup>RC</sup></a></div>
                 <div class="FixedArticleTitle"><a class="TopLink" href="./html/am32.html">频谱绘图<sup>RC</sup></a></div>
-                <div class="FixedArticleTitle"><a class="TopLink" href="./html/ofdm.html">OFDM<sup>α</sup></a></div>
+                <!-- <div class="FixedArticleTitle"><a class="TopLink" href="./html/ofdm.html">OFDM<sup>α</sup></a></div> -->
                 <!-- <div class="FixedArticleTitle"><a class="TopLink" href="./html/sa-sim.html">频谱仪面板<sup>α</sup></a></div> -->
                 <div class="FixedArticleTitle"><a class="TopLink" href="./html/mechwatch-analyser.html">机械表校表仪<sup>α</sup></a></div>
             </div>

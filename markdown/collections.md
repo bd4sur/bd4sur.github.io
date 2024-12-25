@@ -180,9 +180,7 @@ a:hover {
     <div class="CatTitle">无 线 电 通 信</div>
     <div class="BlogrollContainer">
         <div class="BlogrollLink"><a target="_blank" href="http://www.cncalc.org/">cnCalc计算器论坛</a></div>
-        <div class="BlogrollLink"><a target="_blank" href="https://www.by4wng.com/">BY4WNG</a></div>
         <div class="BlogrollLink"><a target="_blank" href="http://7400.me/">EE ARCHEOLOGY</a></div>
-        <div class="BlogrollLink"><a target="_blank" href="https://www.cnvintage.org/">cnVintage</a></div>
         <div class="BlogrollLink"><a target="_blank" href="http://www.datamath.org/">Datamath Calculator Museum</a></div>
         <div class="BlogrollLink"><a target="_blank" href="https://www.analog.com/cn/analog-dialogue.html">ADI《模拟对话》期刊</a></div>
         <div class="BlogrollLink"><a target="_blank" href="https://www.cryptomuseum.com/">CryptoMuseum</a></div>
@@ -222,7 +220,7 @@ a:hover {
         <div class="BlogrollLink"><a target="_blank" href="http://www.satcomengr.com/">卫星通信吴波洋</a></div>
         <div class="BlogrollLink"><a target="_blank" href="http://www.staroceans.org/">staroceans</a></div>
         <div class="BlogrollLink"><a target="_blank" href="http://wiki.jackslab.org/">Jack's Lab(BH1RBH)</a></div>
-        <div class="BlogrollLink"><a target="_blank" href="https://kcores.com/reading">氪金核心</a></div>
+        <div class="BlogrollLink"><a target="_blank" href="https://cyberbus.net/">cyberbus</a></div>
         <div class="BlogrollLink"><a target="_blank" href="https://retronn.de/">Hardware Gallery</a></div>
         <div class="BlogrollLink"><a target="_blank" href="https://bideyuanli.com/">比的原理</a></div>
 
