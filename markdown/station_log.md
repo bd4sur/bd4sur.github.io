@@ -1616,5 +1616,24 @@
         "qth_self": "OM91 Base",
 
         "note":     "石城73俱乐部周五晚间点名"
+    },
+    {
+        "time":     "2025-01-03 21:51",
+        "callsign": "BA4RPE",
+        "freq":     "430.610R",
+        "mode":     "FM",
+        "rst":      "T59/R59",
+
+        "rig":      "？",
+        "ant":      "？",
+        "pwr":      "？",
+        "qth":      "主控位于东大四牌楼校区",
+
+        "rig_self": "UV-5R",
+        "ant_self": "原装",
+        "pwr_self": "5W",
+        "qth_self": "OM91 Base",
+
+        "note":     "省协会中继周五晚间点名"
     }
 ]
