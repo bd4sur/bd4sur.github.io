@@ -166,6 +166,7 @@ a.ContactLink:hover { text-decoration: none; border: none; }
         <div class="BlogrollLink"><a target="_blank" href="https://www.bg5abl.com/">YuYan<span style="font-size: smaller;">(BG5ABL)</span></a></div>
         <div class="BlogrollLink"><a target="_blank" href="https://zwiss.fun/">BD4UNW</a></div>
         <div class="BlogrollLink"><a target="_blank" href="https://noodlefighter.com/">Noodlefighter</a></div> <!-- 2023-08-27 -->
+        <div class="BlogrollLink"><a target="_blank" href="https://www.yuanshen.dev/">YuanRetro<span style="font-size: smaller;">(BI4LPZ)</span></a></div> <!-- 2025-01-20 -->
     </div>
 </div>
 
