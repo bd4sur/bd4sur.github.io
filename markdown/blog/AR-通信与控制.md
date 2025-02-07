@@ -1,4 +1,4 @@
-#!title:    信息通信理论
+#!title:    通信与控制
 
 #!content
 

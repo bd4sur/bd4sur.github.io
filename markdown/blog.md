@@ -47,7 +47,7 @@
 }
 
 .CategoryArticleTitle {
-    color: #567;
+    color: #b2bbc3;
     font-size: 10px;
     line-height: 13px;
     cursor: pointer;
@@ -72,15 +72,15 @@
 }
 .CategoryIcon {
     display: inline-block;
-    width: 26px; height:26px;
-    line-height: 26px;
+    width: 30px; height:30px;
+    line-height: 30px;
     background: linear-gradient(0deg, #aab6c7, #e6edf5);
     color: #fff;
     text-align: center;
     font-size: 14px;
     font-weight: bold;
     text-shadow: 1px 1px 2px #929aac;
-    border-radius: 3px;
+    border-radius: 12px;
     cursor: pointer;
 }
 
@@ -210,10 +210,9 @@
         <div class="block_container">
             <div class="CategoryTitle">理 论 · 技 术</div>
             <div class="item_container">
-                <div class="FixedArticleTitle"><a class="TopLink SPA_TRIGGER" data-target="blog/AR-数理基础">数理基础</a></div>
-                <div class="FixedArticleTitle"><a class="TopLink SPA_TRIGGER" data-target="blog/AR-视听技术">视听技术</a></div>
-                <div class="FixedArticleTitle"><a class="TopLink SPA_TRIGGER" data-target="blog/AR-机器学习">机器学习</a></div>
-                <div class="FixedArticleTitle"><a class="TopLink SPA_TRIGGER" data-target="blog/AR-信息通信理论">信息通信</a></div>
+                <div class="FixedArticleTitle"><a class="TopLink SPA_TRIGGER" data-target="blog/Cyber-计算与证明">计算与证明</a></div>
+                <div class="FixedArticleTitle"><a class="TopLink SPA_TRIGGER" data-target="blog/AR-认知与寻优">认知与寻优</a></div>
+                <div class="FixedArticleTitle"><a class="TopLink SPA_TRIGGER" data-target="blog/AR-通信与控制">通信与控制</a></div>
                 <div class="FixedArticleTitle"><a class="TopLink SPA_TRIGGER" data-target="blog/AR-射频电子技术">射频电子</a></div>
                 <div class="FixedArticleTitle"><a class="TopLink SPA_TRIGGER" data-target="blog/AR-电波传播规律">电波传播</a></div>
                 <div class="FixedArticleTitle"><a class="TopLink SPA_TRIGGER" data-target="blog/AR-能源动力技术">能源动力</a></div>
@@ -225,12 +224,10 @@
             <div class="CategoryTitle">问 题 · 观 点</div>
             <div class="item_container">
                 <div class="FixedArticleTitle"><a class="TopLink SPA_TRIGGER" data-target="blog/PL-Animac设计备忘录">Scheme实现</a></div>
-                <div class="FixedArticleTitle"><a class="TopLink SPA_TRIGGER" data-target="blog/Cyber-计算原理">计算原理</a></div>
                 <div class="FixedArticleTitle"><a class="TopLink SPA_TRIGGER" data-target="blog/Cyber-信息安全">信息安全</a></div>
                 <div class="FixedArticleTitle"><a class="TopLink SPA_TRIGGER" data-target="blog/Cyber-系统思维">系统思维</a></div>
                 <div class="FixedArticleTitle"><a class="TopLink SPA_TRIGGER" data-target="blog/Cyber-知识管理">知识管理</a></div>
                 <div class="FixedArticleTitle"><a class="TopLink SPA_TRIGGER" data-target="blog/Cyber-心智进化">心智进化</a></div>
-                <div class="FixedArticleTitle"><a class="TopLink SPA_TRIGGER" data-target="blog/Cyber-新陈代谢">新陈代谢</a></div>
                 <div class="FixedArticleTitle"><a class="TopLink SPA_TRIGGER" data-target="blog/Meta-博客建设记录">博客建设</a></div>
             </div>
         </div>
@@ -238,12 +235,11 @@
         <div class="block_container">
             <div class="CategoryTitle">设 备 · 工 具</div>
             <div class="item_container">
-                <div class="FixedArticleTitle"><a class="TopLink SPA_TRIGGER" data-target="blog/AR-IC-705备忘录">IC-705</a></div>
-                <div class="FixedArticleTitle"><a class="TopLink SPA_TRIGGER" data-target="blog/AR-KC908U备忘录">KC908U</a></div>
-                <div class="FixedArticleTitle"><a class="TopLink SPA_TRIGGER" data-target="blog/AR-EB200备忘录">EB200</a></div>
                 <div class="FixedArticleTitle"><a class="TopLink SPA_TRIGGER" data-target="blog/AR-计算平台备忘录">计算平台</a></div>
                 <div class="FixedArticleTitle"><a class="TopLink SPA_TRIGGER" data-target="blog/AR-仪器仪表备忘录">仪器仪表</a></div>
                 <div class="FixedArticleTitle"><a class="TopLink SPA_TRIGGER" data-target="blog/AR-收发信机备忘录">收发信机</a></div>
+                <div class="FixedArticleTitle"><a class="TopLink SPA_TRIGGER" data-target="blog/AR-KC908U备忘录">KC908U</a></div>
+                <div class="FixedArticleTitle"><a class="TopLink SPA_TRIGGER" data-target="blog/AR-EB200备忘录">EB200</a></div>
                 <div class="FixedArticleTitle"><a class="TopLink SPA_TRIGGER" data-target="blog/AR-天馈射频器件备忘录">天馈射频器件</a></div>
                 <div class="FixedArticleTitle"><a class="TopLink SPA_TRIGGER" data-target="blog/AR-传感执行器件备忘录">传感执行器件</a></div>
             </div>
@@ -254,13 +250,11 @@
         <div class="block_container">
             <div class="CategoryTitle">业 务 实 践</div>
             <div class="item_container">
-                <div class="FixedArticleTitle"><a class="TopLink SPA_TRIGGER" data-target="blog/AR-法规标准">法规·标准</a></div>
-                <div class="FixedArticleTitle"><a class="TopLink SPA_TRIGGER" data-target="blog/AR-架台通联">架台·通联</a></div>
+                <div class="FixedArticleTitle"><a class="TopLink SPA_TRIGGER" data-target="blog/AR-法规标准">法规与标准</a></div>
+                <div class="FixedArticleTitle"><a class="TopLink SPA_TRIGGER" data-target="blog/AR-通联与测定">通联与测定</a></div>
                 <div class="FixedArticleTitle"><a class="TopLink SPA_TRIGGER" data-target="blog/AR-软件无线电">软件无线电</a></div>
                 <div class="FixedArticleTitle"><a class="TopLink SPA_TRIGGER" data-target="blog/AR-广播电视">广播电视</a></div>
                 <div class="FixedArticleTitle"><a class="TopLink SPA_TRIGGER" data-target="blog/AR-业余卫星">业余卫星</a></div>
-                <div class="FixedArticleTitle"><a class="TopLink SPA_TRIGGER" data-target="blog/AR-无线电测定">无线电测定</a></div>
-                <div class="FixedArticleTitle"><a class="TopLink SPA_TRIGGER" data-target="blog/AR-射电天文">射电天文</a></div>
                 <div class="FixedArticleTitle"><a class="TopLink" href="./html/ar-flyer.html">宣传海报</a></div>
             </div>
         </div>
