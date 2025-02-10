@@ -210,20 +210,17 @@
         <div class="block_container">
             <div class="CategoryTitle">理 论 · 技 术</div>
             <div class="item_container">
-                <div class="FixedArticleTitle"><a class="TopLink SPA_TRIGGER" data-target="blog/Cyber-计算与证明">计算与证明</a></div>
-                <div class="FixedArticleTitle"><a class="TopLink SPA_TRIGGER" data-target="blog/AR-认知与寻优">认知与寻优</a></div>
-                <div class="FixedArticleTitle"><a class="TopLink SPA_TRIGGER" data-target="blog/AR-通信与控制">通信与控制</a></div>
-                <div class="FixedArticleTitle"><a class="TopLink SPA_TRIGGER" data-target="blog/AR-射频电子技术">射频电子</a></div>
-                <div class="FixedArticleTitle"><a class="TopLink SPA_TRIGGER" data-target="blog/AR-电波传播规律">电波传播</a></div>
-                <div class="FixedArticleTitle"><a class="TopLink SPA_TRIGGER" data-target="blog/AR-能源动力技术">能源动力</a></div>
-                <div class="FixedArticleTitle"><a class="TopLink SPA_TRIGGER" data-target="blog/AR-精密测量计量">测量计量</a></div>
+                <div class="FixedArticleTitle"><a class="TopLink SPA_TRIGGER" data-target="blog/Cyber-计算与证明">计算·证明</a></div>
+                <div class="FixedArticleTitle"><a class="TopLink SPA_TRIGGER" data-target="blog/AR-认知与寻优">认知·寻优</a></div>
+                <div class="FixedArticleTitle"><a class="TopLink SPA_TRIGGER" data-target="blog/AR-通信与控制">通信·控制</a></div>
+                <div class="FixedArticleTitle"><a class="TopLink SPA_TRIGGER" data-target="blog/AR-射频电子技术">电子·射频</a></div>
+                <div class="FixedArticleTitle"><a class="TopLink SPA_TRIGGER" data-target="blog/AR-能源动力技术">能源·动力</a></div>
             </div>
         </div>
 
         <div class="block_container">
             <div class="CategoryTitle">问 题 · 观 点</div>
             <div class="item_container">
-                <div class="FixedArticleTitle"><a class="TopLink SPA_TRIGGER" data-target="blog/PL-Animac设计备忘录">Scheme实现</a></div>
                 <div class="FixedArticleTitle"><a class="TopLink SPA_TRIGGER" data-target="blog/Cyber-信息安全">信息安全</a></div>
                 <div class="FixedArticleTitle"><a class="TopLink SPA_TRIGGER" data-target="blog/Cyber-系统思维">系统思维</a></div>
                 <div class="FixedArticleTitle"><a class="TopLink SPA_TRIGGER" data-target="blog/Cyber-知识管理">知识管理</a></div>
@@ -235,13 +232,12 @@
         <div class="block_container">
             <div class="CategoryTitle">设 备 · 工 具</div>
             <div class="item_container">
-                <div class="FixedArticleTitle"><a class="TopLink SPA_TRIGGER" data-target="blog/AR-计算平台备忘录">计算平台</a></div>
-                <div class="FixedArticleTitle"><a class="TopLink SPA_TRIGGER" data-target="blog/AR-仪器仪表备忘录">仪器仪表</a></div>
-                <div class="FixedArticleTitle"><a class="TopLink SPA_TRIGGER" data-target="blog/AR-收发信机备忘录">收发信机</a></div>
-                <div class="FixedArticleTitle"><a class="TopLink SPA_TRIGGER" data-target="blog/AR-KC908U备忘录">KC908U</a></div>
-                <div class="FixedArticleTitle"><a class="TopLink SPA_TRIGGER" data-target="blog/AR-EB200备忘录">EB200</a></div>
-                <div class="FixedArticleTitle"><a class="TopLink SPA_TRIGGER" data-target="blog/AR-天馈射频器件备忘录">天馈射频器件</a></div>
-                <div class="FixedArticleTitle"><a class="TopLink SPA_TRIGGER" data-target="blog/AR-传感执行器件备忘录">传感执行器件</a></div>
+                <div class="FixedArticleTitle"><a class="TopLink SPA_TRIGGER" data-target="blog/AR-计算平台">计算平台</a></div>
+                <div class="FixedArticleTitle"><a class="TopLink SPA_TRIGGER" data-target="blog/AR-环境平台">环境平台</a></div>
+                <div class="FixedArticleTitle"><a class="TopLink SPA_TRIGGER" data-target="blog/AR-工具平台">工具平台</a></div>
+                <div class="FixedArticleTitle"><a class="TopLink SPA_TRIGGER" data-target="blog/AR-仪器仪表">仪器仪表</a></div>
+                <div class="FixedArticleTitle"><a class="TopLink SPA_TRIGGER" data-target="blog/AR-收发信机">收发信机</a></div>
+                <div class="FixedArticleTitle"><a class="TopLink SPA_TRIGGER" data-target="blog/AR-天馈系统">天馈系统</a></div>
             </div>
         </div>
 
@@ -250,28 +246,24 @@
         <div class="block_container">
             <div class="CategoryTitle">业 务 实 践</div>
             <div class="item_container">
-                <div class="FixedArticleTitle"><a class="TopLink SPA_TRIGGER" data-target="blog/AR-法规标准">法规与标准</a></div>
-                <div class="FixedArticleTitle"><a class="TopLink SPA_TRIGGER" data-target="blog/AR-通联与测定">通联与测定</a></div>
+                <div class="FixedArticleTitle"><a class="TopLink SPA_TRIGGER" data-target="blog/AR-法规与标准">法规·标准</a></div>
+                <div class="FixedArticleTitle"><a class="TopLink SPA_TRIGGER" data-target="blog/AR-架台与通联">架台·通联</a></div>
+                <div class="FixedArticleTitle"><a class="TopLink SPA_TRIGGER" data-target="blog/AR-猎狐与测定">猎狐·测定</a></div>
                 <div class="FixedArticleTitle"><a class="TopLink SPA_TRIGGER" data-target="blog/AR-软件无线电">软件无线电</a></div>
                 <div class="FixedArticleTitle"><a class="TopLink SPA_TRIGGER" data-target="blog/AR-广播电视">广播电视</a></div>
                 <div class="FixedArticleTitle"><a class="TopLink SPA_TRIGGER" data-target="blog/AR-业余卫星">业余卫星</a></div>
-                <div class="FixedArticleTitle"><a class="TopLink" href="./html/ar-flyer.html">宣传海报</a></div>
             </div>
         </div>
 
         <div class="block_container">
             <div class="CategoryTitle">创 造 实 践</div>
             <div class="item_container">
-                <div class="FixedArticleTitle"><a class="TopLink" href="./Aqua">MP3编码器<sup>RC</sup></a></div>
-                <div class="FixedArticleTitle"><a class="TopLink" href="./Nano/infer">电子鹦鹉<sup>α</sup></a></div>
+                <div class="FixedArticleTitle"><a class="TopLink SPA_TRIGGER" data-target="blog/Meta-创造实践汇总">◁ 汇总 ▷</a></div>
                 <div class="FixedArticleTitle"><a class="TopLink" href="./html/bpm.html">BPM分析<sup>β</sup></a></div>
                 <div class="FixedArticleTitle"><a class="TopLink" href="./html/cw-morse-encoder.html">CW练习器<sup>β</sup></a></div>
                 <div class="FixedArticleTitle"><a class="TopLink" href="./html/cw-morse-decoder.html">CW解码器<sup>α</sup></a></div>
                 <div class="FixedArticleTitle"><a class="TopLink" href="./html/ar-exam.html">操作证刷题<sup>RC</sup></a></div>
                 <div class="FixedArticleTitle"><a class="TopLink" href="./html/am32.html">频谱绘图<sup>RC</sup></a></div>
-                <!-- <div class="FixedArticleTitle"><a class="TopLink" href="./html/ofdm.html">OFDM<sup>α</sup></a></div> -->
-                <!-- <div class="FixedArticleTitle"><a class="TopLink" href="./html/sa-sim.html">频谱仪面板<sup>α</sup></a></div> -->
-                <div class="FixedArticleTitle"><a class="TopLink" href="./html/mechwatch-analyser.html">机械表校表仪<sup>α</sup></a></div>
             </div>
         </div>
     </div>

@@ -2,6 +2,12 @@
 
 #!content
 
+# 自制的业余无线电宣传海报
+
+[打开原页面](./html/ar-flyer.html)
+
+<iframe class="MikumarkIframe" src="./html/ar-flyer.html" height="1000px"></iframe>
+
 # RJ45水晶头线序
 
 2018-12-28

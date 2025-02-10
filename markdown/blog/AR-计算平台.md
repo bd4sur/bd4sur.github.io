@@ -1,4 +1,4 @@
-#!title:    计算平台备忘录
+#!title:    计算平台
 
 #!content
 
@@ -229,6 +229,8 @@ CMAKE_ARGS="-DLLAMA_BUILD=OFF" python -m pip install llama-cpp-python
 ```
 
 ## RK3588开发板
+
+![Radxa ROCK 5B+](./image/G3/mcu/rock-5bp.jpg)
 
 - Radxa ROCK 5B+ (32GB)
 - 友善Nanopc-T6 (16GB)
