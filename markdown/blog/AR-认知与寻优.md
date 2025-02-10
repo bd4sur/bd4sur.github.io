@@ -1036,6 +1036,77 @@ Llama.cpp测试，测试输入“频谱仪的分辨率带宽和扫描速度之�
 - `./llama.cpp/main -m Qwen15-72B-Chat-q2_k.gguf   -n 512 --color -i --chatml --numa distribute -t 36 --mlock -ngl 81`：5.55 tokens/s
 - `./llama.cpp/main -m Qwen15-72B-Chat-q4_k_m.gguf -n 512 --color -i --chatml --numa distribute -t 36 --mlock -ngl 81`：4.79 tokens/s
 
+```
+from llama_cpp import Llama
+
+MODEL_PATH = "/home/bd4sur/ai/_model/DeepSeek/DeepSeek-R1-Distill-Qwen-32B-Q4_K_M.gguf"
+
+SYSTEM_PROMPT = ""
+
+llm = Llama(
+    model_path=MODEL_PATH,
+    seed=1337,
+    n_ctx=16384,
+    n_gpu_layers=-1,
+    verbose=False
+)
+
+history = []
+
+def typewriter(delta):
+    print(delta, end="", flush=True)
+
+def predict(message, callback):
+    messages = []
+    messages.append({"role": "system", "content": SYSTEM_PROMPT})
+    for user_message, assistant_message in history:
+        messages.append({"role": "user", "content": user_message})
+        messages.append({"role": "assistant", "content": assistant_message})
+
+    messages.append({"role": "user", "content": message})
+
+    response = llm.create_chat_completion(
+        messages=messages,
+        temperature=0.9,
+        top_p=0.95,
+        top_k=20,
+        repeat_penalty=1.11,
+        stream=True
+    )
+
+    text = ""
+    for chunk in response:
+        choices = chunk["choices"]
+        first_choice = choices[0]
+        delta = first_choice["delta"]
+        if "content" in delta:
+            content = delta["content"]
+            text += content
+            if callback is not None:
+                callback(content)
+    history.append([message, text])
+
+
+if __name__ == "__main__":
+    print(f"使用模型：{MODEL_PATH}")
+    while True:
+        try:
+            prompt = input("User > ")
+        except EOFError:
+            break
+
+        if not prompt:
+            continue
+        if prompt == "stop":
+            break
+        if prompt == "restart":
+            history = []
+            continue
+        print(" Bot > ", end="")
+        predict(prompt, typewriter)
+        print("\n")
+```
+
 ### 在安捷伦N9020A频谱仪上部署Qwen
 
 视频：[在2007年的频谱仪上部署AI大模型](https://www.bilibili.com/video/BV1du4m1P7iU)
