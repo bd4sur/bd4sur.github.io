@@ -394,6 +394,35 @@ body { font-family: Microsoft YaHei, system-ui, sans-serif; margin: 0; padding: 
 .IdeaContent ol { padding-left: 2em; margin: 10px 0; color: #333; font-size: 13px; line-height: 22px; display: block; text-indent: 0; font-weight: inherit;}
 .IdeaContent li { max-width: 100%; line-height: 22px; word-wrap:break-word; }
 
+.IdeaContent code {
+    padding: 2px 4px;
+    background-color: #f6f8fa;
+    font-size: 11px;
+    line-height: 20px;
+    border-radius: 3px;
+    font-family: Menlo,Monaco,Consolas,"Courier New",monospace;
+    -webkit-font-smoothing: antialiased;
+}
+.IdeaContent pre {
+    tab-size: 4;
+    display: block;
+    padding: 10px;
+    margin: 10px 0;
+    overflow-x: auto;
+    background-color: #f6f8fa;
+    border-radius: 5px;
+}
+.IdeaContent pre code { padding: 0; }
+
+.IdeaContent summary {
+    margin: 10px 0;
+    color: #15e;
+    font-size: 12px;
+    font-weight: bold;
+    line-height: 20px;
+    cursor: pointer;
+}
+
 .IdeaContent .MikumarkTag {
     font-size: 11px;
     color: #15e;
