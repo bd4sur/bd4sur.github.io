@@ -178,7 +178,7 @@ a.ContactLink:hover { text-decoration: none; border: none; }
             <div class="bd4sur-timeline-item-head bd4sur-timeline-item-head-blue"></div>
             <div class="bd4sur-timeline-item-content">
                 <i>2020.07.18</i>
-                <p>购买PL-380作为起床闹钟，偶然在长波和短波波段听到一些奇妙的信号，开始接触业余无线电。8月1日，为了打听操作证考试和设台手续的信息，前往新时代大厦楼顶调研。</p>
+                <p>购买PL-380作为起床闹钟，偶然在长波和短波波段听到一些奇妙的信号，开始了解业余无线电。</p>
             </div>
         </li>
 
@@ -187,7 +187,7 @@ a.ContactLink:hover { text-decoration: none; border: none; }
             <div class="bd4sur-timeline-item-head bd4sur-timeline-item-head-blue"></div>
             <div class="bd4sur-timeline-item-content">
                 <i>2020.08.13</i>
-                <p>凌晨，在楼顶用UV-5R收听到长江海事广播“长江之声”。1点左右，看到一颗英仙座流星雨的流星。这段时间在研究RTL-SDR和有源小环天线，开始熟悉HF、VHF和UHF频谱上的情况。</p>
+                <p>凌晨，在楼顶用UV-5R收听电波。1点左右，看到一颗来自英仙座的流星。这段时间研究RTL-SDR和有源小环天线，逐渐熟悉HF、VHF和UHF频谱上的情况。</p>
             </div>
         </li>
 
@@ -247,10 +247,19 @@ a.ContactLink:hover { text-decoration: none; border: none; }
 
         <li class="bd4sur-timeline-item">
             <div class="bd4sur-timeline-item-tail"></div>
+            <div class="bd4sur-timeline-item-head bd4sur-timeline-item-head-blue"></div>
+            <div class="bd4sur-timeline-item-content">
+                <i>2023.07.09</i>
+                <p>实现点对点的、单工单向的、准实时的无线音视频传输（<a href="https://www.bilibili.com/video/BV1wj411Z71x" target="_blank">演示1</a>、<a href="https://www.bilibili.com/video/BV1mF411X7Qf" target="_blank">演示2</a>）。</p>
+            </div>
+        </li>
+
+        <li class="bd4sur-timeline-item">
+            <div class="bd4sur-timeline-item-tail"></div>
             <div class="bd4sur-timeline-item-head bd4sur-timeline-item-head-green"></div>
             <div class="bd4sur-timeline-item-content">
                 <i>2024.05.02 ~ 05.03</i>
-                <p>参加2024年<a href="http://www.crac.org.cn/News/Detail?ID=5df06649a98e4a818eb129fb704fe811" target="_blank">成都五五节活动</a>，发表技术演讲。</p>
+                <p>参加2024年<a href="http://www.crac.org.cn/News/Detail?ID=5df06649a98e4a818eb129fb704fe811" target="_blank">成都五五节活动</a>，发表技术演讲（<a href="./image/G3/2024成都五五节活动-业余无线电数字图传技术.pdf" target="_blank">讲稿</a>）。</p>
             </div>
         </li>
     </ul>
@@ -264,7 +273,7 @@ a.ContactLink:hover { text-decoration: none; border: none; }
 }
 </style>
 
-<div class="SectionHeader" id="changelog">网站版本记录</div>
+<div class="SectionHeader" id="changelog">博客版本记录</div>
 
 <div class="SectionBody">
     <div><a style="font-size: 13px; letter-spacing: 0.5px; cursor: pointer;" class="SPA_TRIGGER" data-target="blog/Meta-博客建设记录">博客建设记录</a></div>
@@ -274,7 +283,7 @@ a.ContactLink:hover { text-decoration: none; border: none; }
             <div class="bd4sur-timeline-item-head bd4sur-timeline-item-head-blue"></div>
             <div class="bd4sur-timeline-item-content">
                 <i>试验版<time>2016.11.24</time></i>
-                <p>试验性的简单个人主页。</p>
+                <p>简单的个人主页。</p>
             </div>
         </li>
 
