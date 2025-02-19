@@ -1,5 +1,5 @@
 // BD4SUR.com
-// Copyright © 2016-2022 BD4SUR
+// Copyright © 2016-2025 BD4SUR
 
 function LoadIdeas() {
 
@@ -31,35 +31,19 @@ function LoadIdeas() {
     function ParsePosters(script) {
         let posters = new Array();
 
-        // 分节
-        let sections = script.split(/\n+={5,}\n+/);
-        for(let i = 0; i < sections.length; i++) {
-            let section = sections[i].trim();
+        const title_pattern = /\n# .+\n/gi;
 
+        // 提取每一节的标题和内容
+        let titles = script.match(title_pattern).map((v)=>v.split(/@/gi).map((v)=>v.trim()));
+        let sections = script.split(title_pattern).slice(1).map((v)=>v.trim());
+
+        for(let i = 0; i < sections.length; i++) {
             let poster = new Poster();
             poster.id = i;
-
-            let contentBuffer = new Array();
-            // 分行
-            let lines = section.split(/[\n\r]/gi);
-            for(let j = 0; j < lines.length; j++) {
-                let line = lines[j].trim();
-                if(/^\@title\:/gi.test(line) === true) {
-                    let title = line.substring(`@title:`.length).trim();
-                    poster.title = title;
-                }
-                else if(/^\@date\:/gi.test(line) === true) {
-                    let date = line.substring(`@date:`.length).trim();
-                    poster.date = date;
-                }
-                else {
-                    contentBuffer.push(line);
-                }
-            }
-            let contentScript = contentBuffer.join('\n');
-            // 将contentScript解析为HTML
-            poster.content = ParseMarkdown(contentScript, false).html;
-            poster.tags = ScanTags(contentScript);
+            poster.title = titles[i][0].replace(/^# /gi, "");
+            poster.date = titles[i][1];
+            poster.content = ParseMarkdown(sections[i], false).html;
+            poster.tags = ScanTags(sections[i]);
             posters.push(poster);
         }
         return posters;
@@ -89,76 +73,6 @@ function LoadIdeas() {
         return HTML;
     }
 
-
-/*
-    function ParseContent(contentScript) {
-        let tags = new Array();
-        let HtmlBuffer = new Array();
-        // 分段
-        contentScript.trim().split(/\n{2,}/).forEach((paragraph, index) => {
-            HtmlBuffer.push(`<p class="PosterParagraph">`);
-            // 分行
-            paragraph.split(/\n{1}/).forEach((line, index, lines) => {
-                // 处理话题标签
-                line.split(/#{1}/).forEach((slice, index, slices) => {
-                    // 偶数段为标签外文本
-                    if(index % 2 == 0 || slices.length-1 == index) {
-                        // 处理超链接
-                        slice.split(/\[/).forEach((link_remain, index, remains) => {
-                            // 取首次（当然不支持嵌套括号）出现的右括号位置下标
-                            let right_bracket = link_remain.search(/\]/);
-                            // 没有左括号，视为没有链接
-                            if(remains.length == 1) {
-                                HtmlBuffer.push(link_remain);
-                            }
-                            // 如果没有发现右括号，说明是链接前的部分，原样输出
-                            else if(right_bracket < 0) {
-                                HtmlBuffer.push(link_remain);
-                            }
-                            else {
-                                let urlstr = '';
-                                let hasurl = false;
-                                // 检查是否有链接字段
-                                if(/\]\(.*\)/.test(link_remain)) {
-                                    hasurl = true;
-                                    urlstr = link_remain.match(/\]\(.*\)/g)[0]; // 最大匹配范围，因而不可嵌套或并列
-                                    urlstr = urlstr.substring(2, urlstr.length-1);
-                                }
-                                
-                                let link = link_remain.substring(0,right_bracket);
-                                if(urlstr != '') {
-                                    HtmlBuffer.push(`<a class="PosterLink" target="_blank" href="${urlstr}">${link}</a>`);
-                                }
-                                else {
-                                    HtmlBuffer.push(`<a class="PosterLink" target="_blank" href="${link}">${link}</a>`);
-                                }
-                                let remnent = link_remain.substring(right_bracket+1);
-                                if(hasurl == true) {
-                                    let r_index = remnent.search(/\)[^\)]*$/);
-                                    remnent = remnent.substring(r_index + 1);
-                                }
-                                HtmlBuffer.push(remnent);
-                            }
-                        });
-                    }
-                    // 标签内文本套上a输出
-                    else {
-                        HtmlBuffer.push(` <span class="PosterTag" data-tag="${slice}">#${slice}#</span> `);
-                        tags.push(slice);
-                    }
-                });
-                if(!(lines.length == 1 || index == lines.length-1)) {
-                    HtmlBuffer.push(`<br/>`);
-                }
-            });
-            HtmlBuffer.push(`</p>`);
-        });
-        return {
-            HTML: HtmlBuffer.join(""),
-            tags: tags
-        };
-    }
-*/
     ////////////////////////////////////////////////////////
     //  以 下 是 目 录 / 事 件 处 理 / 动 效
     ////////////////////////////////////////////////////////
