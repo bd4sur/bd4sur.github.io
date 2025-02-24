@@ -224,7 +224,6 @@
                 <div class="FixedArticleTitle"><a class="TopLink SPA_TRIGGER" data-target="blog/Cyber-信息安全">信息安全</a></div>
                 <div class="FixedArticleTitle"><a class="TopLink SPA_TRIGGER" data-target="blog/Cyber-知识管理">知识管理</a></div>
                 <div class="FixedArticleTitle"><a class="TopLink SPA_TRIGGER" data-target="blog/Cyber-心智进化">心智进化</a></div>
-                <div class="FixedArticleTitle"><a class="TopLink SPA_TRIGGER" data-target="blog/Meta-博客建设记录">博客建设</a></div>
             </div>
         </div>
 
