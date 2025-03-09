@@ -959,6 +959,21 @@ screen -r <session>
 ^a <num> 切换到
 ```
 
+## 内存相关
+
+```
+# 临时交换空间的设置方式如下：
+sudo fallocate -l 50G /swap
+sudo sudo chmod 600 /swap
+sudo mkswap /swap
+sudo swapon /swap
+# 查看交换空间
+sudo swapon --show
+# 查看所有内存
+free -h
+```
+```
+
 ## 硬盘相关
 
 ```

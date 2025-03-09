@@ -1050,7 +1050,11 @@ $$ 解方程 \textbf{W}_1 \textbf{x} = \textbf{b} \quad , \quad 得 \textbf{x} =
 
 **2024-03-14**：72B量级的LLM所拥有的强大的指令跟随能力让她在某个十分逆天的提示语的激励下获得了极其逆天的瑟琴能力，这在2022年以前是绝对无法想象的。出于公序良俗的考虑，我不能提供进一步的情报了，请兄弟们自由探索吧，桀桀桀~
 
+**2024-02-15**：[在N9020A频谱仪上部署AI大模型](https://www.bilibili.com/video/BV1du4m1P7iU)
+
 **2023-12-28**：众所周知，变压器类大模型有3种流派，分别是BERT（编码器解码器）、GPT（仅解码器）和T5（仅编码器）。历史表明，GPT类架构在大模型流派的竞争中暂时胜出，生成任务可以囊括各类语义理解任务。随着GPT的优势逐渐显现，对于OpenAI当初为何决策采用decoder-only架构，业界展开了马后炮式的研究。2021年4月，我发表了一篇长篇暴论，其中提到了变换矩阵的秩与变换的描述能力的问题。此时我还不了解注意力机制的原理。然而，在此一个月前，2021年3月，有人发表了一篇论文，标题大概是 Attention Is Not All U Need ...，其中一个主要观点是注意力矩阵的秩限制了注意力机制的表达能力。而我们在技术路线选择上，也是凭借大就是好的直觉，选择了BERT。在苏剑林的博客文章评论中，有人提到，双向注意力实际上是给注意力矩阵增加了更多的约束，导致注意力的有效自由度反而降低。
+
+**2023-11-28**：基于[chatglm.cpp](https://github.com/li-plus/chatglm.cpp)（V0.3.0），在松下SV8洋垃圾笔记本（Core i5-8365U，16GB内存，512GB的NVMe固态硬盘，Ubuntu 20.04 LTS）上部署ChatGLM-6B。
 
 **2023-04-25**：我理解的机器学习算法有三个要素：模型、失真测度和优化方法。大家都很关心前两个，因为注入了人的价值观；而第三个需要神谕般的智慧。力学的核心原理是最小作用量原理，大自然知道如何最小化，但是人类很难知道。至于SAT是所谓NP完备问题，此问题可帮助人类领悟神谕。
 
@@ -1063,40 +1067,158 @@ $$ 解方程 \textbf{W}_1 \textbf{x} = \textbf{b} \quad , \quad 得 \textbf{x} =
 **2023-03-15**：RNN和注意力之间的区别，很难不让人想到数字逻辑电路里面有关加法器的两种实现方式，一种是行波进位，另一种是超前进位。
 
 
-### LLM性能测试备忘录
 
-机器配置如下：
+### LLM部署&性能测试备忘录
+
+测试用问题：
+
+- 某项目预计完成后经济寿命是10年。该项目的固定资产投资为6000万元，项目终结时，固定资产的残值为500万元，流动资产投资为1000万元。项目完成并投产后，预计每年销售收入增加2500万元，每年总固定成本（不含折旧）增加100万元，每年总变动成本增加900万元。假设企业所得税税率为25%，该项目每年净营业现金流量为多少万元？写出具体的会计表格并说明计算过程。
+- 假设你是大气物理、电波传播、雷达和空间环境领域的专家，请你运用专业知识，对以下现象做出专业的、准确的解释。大雪天气中进行短波无线电信号接收，观察到以下现象：一是短波背景噪声的大幅度波动：下雪时，可观察到短波频段的背景噪声呈现出以几十秒为周期的大幅度波动，波动幅度可以达到几十dB。二是短波非预期信号的突然出现和消失：下雪时，有时可以接收到显然不应该出现在这个短波频段的信号，而过几分钟之后，这个信号又突然消失，其出现与消失是随机的，信号出现的领率也是不确定的。例如，在业余频段能够接收到随机出现的短波AM广播信号（也就是说，接收到的短波广播信号的频率发生了变化，从广播频段变化到了业余频段，这是否意味着接收到的信号并非从广播电台直接发射出的原始信号？)我先提出一些猜想，你需要利用你的专业知识和参考资料，对我的猜想进行评审和补充，并提出你自己的新观点。我的猜想如下：针对短波背景噪声的大幅度波动现象：可能有雪花冰晶相互摩擦产生静电导致背景噪声增加和波动、短波信号被雪花与空气形成的时变非均匀混悬体系随机散射等原因。针对短波非预期信号的突然出现和消失现象：可能与电离层或者空气与雪花的混悬体系对电波施加的非线性效应有关。我确认能够排除的因素如下：1、排除接收机本身的非线性。我所使用的接收机是专业的短波接收机，配备预选滤波器，抗干扰抗阻塞能力强，并不是一般收音机，工作状态良好，不存在强信号导致接收机过载进而出现假信号的可能。所接收的信号均为实际从空中接收到的信号。2、排除天线受到风雨雪影响。我所使用的天线是位于室内的高增益有源小环天线，不会受到雨、雪、风等气候因素影响，也不会受到潮湿、静电等因素影响。请你运用电波传播相关专业知识，对这些现象做出专业的、准确的解释。如有需要，请给出参考文献。
+- 射频功率-40dBm的一半是多少dBm？
+
+编译安装llama.cpp：
 
 ```
-OS: Ubuntu 20.04.6 LTS x86_64
-Host: NF5568M4
-Kernel: 5.15.0-100-generic
-CPU: Intel Xeon E5-2686 v4 (72) @ 3.000GHz
-GPU: NVIDIA Tesla P40
-GPU: NVIDIA Tesla P40
-GPU: NVIDIA Tesla P40
-GPU: NVIDIA Tesla P40
-Memory: 128767MiB
+git clone https://github.com/ggerganov/llama.cpp
+cmake llama.cpp -B llama.cpp/build -DBUILD_SHARED_LIBS=ON -DGGML_CUDA=ON
+cmake --build llama.cpp/build --config Release -j 8
+cp llama.cpp/build/bin/llama-* llama.cpp
 ```
 
-Llama.cpp测试，测试输入“频谱仪的分辨率带宽和扫描速度之间是什么关系？”，无系统提示。
+编译安装llama-cpp-python：
 
-- `./llama.cpp/main -m Qwen15-72B-Chat-q2_k.gguf   -n 512 --color -i --chatml --numa distribute -t 36 --mlock -ngl 81`：5.55 tokens/s
-- `./llama.cpp/main -m Qwen15-72B-Chat-q4_k_m.gguf -n 512 --color -i --chatml --numa distribute -t 36 --mlock -ngl 81`：4.79 tokens/s
+```
+# 首先更新工具链，并保证nvcc可用。否则参考《计算平台》笔记中有关CUDA的章节重新配置。
+sudo apt upgrade gcc
+git clone --recurse-submodules https://github.com/abetlen/llama-cpp-python.git
+CMAKE_ARGS="-DGGML_CUDA=on -DLLAVA_BUILD=off" pip install . --force-reinstall --no-cache-dir
+```
+
+本地运行DeepSeek-R1（Unsloth版，[参考](https://huggingface.co/unsloth/DeepSeek-R1-GGUF)）：
+
+```
+/home/bd4sur/ai/llama.cpp/build/bin/llama-cli \
+  --model /home/bd4sur/ai/_model/DeepSeek-R1/DeepSeek-R1-UD-IQ1_S.gguf \
+  --cache-type-k q4_0 \
+  --threads 36 \
+  --prio 3 \
+  -no-cnv \
+  --temp 0.6 \
+  --ctx-size 8192 \
+  --seed 3407 \
+  --n_gpu_layers 32 \
+  --numa distribute \
+  --no-mmap \
+  --mlock \
+  --prompt "<｜User｜>假设你是大气物理、电波传播、雷达和空间环境领域的专家，请你运用专业知识，对以下现象做出专业的、准确的解释。大雪天气中进行短波无线电信号接收，观察到以下现象：一是短波背景噪声的大幅度波动：下雪时，可观察到短波频段的背景噪声呈现出以几十秒为周期的大幅度波动，波动幅度可以达到几十dB。二是短波非预期信号的突然出现和消失：下雪时，有时可以接收到显然不应该出现在这个短波频段的信号，而过几分钟之后，这个信号又突然消失，其出现与消失是随机的，信号出现的领率也是不确定的。例如，在业余频段能够接收到随机出现的短波AM广播信号（也就是说，接收到的短波广播信号的频率发生了变化，从广播频段变化到了业余频段，这是否意味着接收到的信号并非从广播电台直接发射出的原始信号？)我先提出一些猜想，你需要利用你的专业知识和参考资料，对我的猜想进行评审和补充，并提出你自己的新观点。我的猜想如下：针对短波背景噪声的大幅度波动现象：可能有雪花冰晶相互摩擦产生静电导致背景噪声增加和波动、短波信号被雪花与空气形成的时变非均匀混悬体系随机散射等原因。针对短波非预期信号的突然出现和消失现象：可能与电离层或者空气与雪花的混悬体系对电波施加的非线性效应有关。我确认能够排除的因素如下：1、排除接收机本身的非线性。我所使用的接收机是专业的短波接收机，配备预选滤波器，抗干扰抗阻塞能力强，并不是一般收音机，工作状态良好，不存在强信号导致接收机过载进而出现假信号的可能。所接收的信号均为实际从空中接收到的信号。2、排除天线受到风雨雪影响。我所使用的天线是位于室内的高增益有源小环天线，不会受到雨、雪、风等气候因素影响，也不会受到潮湿、静电等因素影响。请你运用电波传播相关专业知识，对这些现象做出专业的、准确的解释。如有需要，请给出参考文献。<｜Assistant｜>"
+```
+
+基本的对话功能：
 
 ```
 from llama_cpp import Llama
 
-MODEL_PATH = "/home/bd4sur/ai/_model/DeepSeek/DeepSeek-R1-Distill-Qwen-32B-Q4_K_M.gguf"
+# 如果提示 KV-cache OOM，适当减小上下文长度。
+NUM_GPU_LAYERS = 20 # 设为-1以加载全部层到GPU
+CURRENT_LLM_CONFIG_KEY = "DeepSeek-R1-UD-IQ1S-8K"
+
+LLM_CONFIG = {
+    "Qwen2.5-7B-Q4KM-64K": {
+        "model_type": "gguf",
+        "model_path": "/home/bd4sur/ai/_model/Qwen25/qwen2.5-7b-instruct-q4_k_m.gguf",
+        "seed": 3407,
+        "context_length": 65536,
+        "temperature": 1,
+        "top_p": 0.9,
+        "top_k": 40,
+        "min_p": 0.0,
+        "repeat_penalty": 1.0
+    },
+    "Qwen2.5-72B-Q4KM-16K": {
+        "model_type": "gguf",
+        "model_path": "/home/bd4sur/ai/_model/Qwen25/qwen2.5-72b-instruct-q4_k_m.gguf",
+        "seed": 3407,
+        "context_length": 16384,
+        "temperature": 1,
+        "top_p": 0.9,
+        "top_k": 40,
+        "min_p": 0.0,
+        "repeat_penalty": 1.0
+    },
+    "DeepSeek-R1-UD-IQ1S-8K": {
+        "model_type": "gguf",
+        "model_path": "/home/bd4sur/ai/_model/DeepSeek-R1/DeepSeek-R1-UD-IQ1_S.gguf",
+        "seed": 3407,
+        "context_length": 8192,
+        "temperature": 0.6,
+        "top_p": 0.95,
+        "top_k": 40,
+        "min_p": 0.0,
+        "repeat_penalty": 1.0
+    },
+    "QwQ-32B-Q4KM-64K": {
+        "model_type": "gguf",
+        "model_path": "/home/bd4sur/ai/_model/QwQ/qwq-32b-q4_k_m-unsloth.gguf",
+        "seed": 3407,
+        "context_length": 65536,
+        "temperature": 0.6,
+        "top_p": 0.95,
+        "top_k": 40,
+        "min_p": 0.0,
+        "repeat_penalty": 1.0
+    },
+    "QwQ-32B-Q5KM-64K": {
+        "model_type": "gguf",
+        "model_path": "/home/bd4sur/ai/_model/QwQ/qwq-32b-q5_k_m-unsloth.gguf",
+        "seed": 3407,
+        "context_length": 65536,
+        "temperature": 0.6,
+        "top_p": 0.95,
+        "top_k": 40,
+        "min_p": 0.0,
+        "repeat_penalty": 1.0
+    },
+    "QwQ-32B-Q80-64K": {
+        "model_type": "gguf",
+        "model_path": "/home/bd4sur/ai/_model/QwQ/qwq-32b-q8_0-unsloth.gguf",
+        "seed": 3407,
+        "context_length": 65536,
+        "temperature": 0.6,
+        "top_p": 0.95,
+        "top_k": 40,
+        "min_p": 0.0,
+        "repeat_penalty": 1.0
+    },
+}
 
 SYSTEM_PROMPT = ""
 
 llm = Llama(
-    model_path=MODEL_PATH,
-    seed=1337,
-    n_ctx=16384,
-    n_gpu_layers=-1,
-    verbose=False
+    model_path=LLM_CONFIG[CURRENT_LLM_CONFIG_KEY]["model_path"],
+    seed=LLM_CONFIG[CURRENT_LLM_CONFIG_KEY]["seed"],
+    n_ctx=LLM_CONFIG[CURRENT_LLM_CONFIG_KEY]["context_length"],
+    n_gpu_layers=NUM_GPU_LAYERS,
+    use_mmap=False,
+    use_mlock=True,
+    n_threads=36,
+    numa=1,
+        # https://github.com/ggml-org/llama.cpp/blob/master/ggml/include/ggml-cpu.h
+        # GGML_NUMA_STRATEGY_DISABLED   = 0,
+        # GGML_NUMA_STRATEGY_DISTRIBUTE = 1,
+        # GGML_NUMA_STRATEGY_ISOLATE    = 2,
+        # GGML_NUMA_STRATEGY_NUMACTL    = 3,
+        # GGML_NUMA_STRATEGY_MIRROR     = 4
+    type_k=(2 if "DeepSeek" in CURRENT_LLM_CONFIG_KEY else 1),
+        # https://github.com/ggml-org/llama.cpp/blob/master/ggml/include/ggml.h
+        # GGML_TYPE_F32  = 0,
+        # GGML_TYPE_F16  = 1, (default)
+        # GGML_TYPE_Q4_0 = 2,
+        # GGML_TYPE_Q4_1 = 3,
+        # GGML_TYPE_Q5_0 = 6,
+        # GGML_TYPE_Q5_1 = 7,
+        # GGML_TYPE_Q8_0 = 8,
+        # GGML_TYPE_Q8_1 = 9,
+    verbose=True
 )
 
 history = []
@@ -1115,10 +1237,11 @@ def predict(message, callback):
 
     response = llm.create_chat_completion(
         messages=messages,
-        temperature=0.9,
-        top_p=0.95,
-        top_k=20,
-        repeat_penalty=1.11,
+        temperature=LLM_CONFIG[CURRENT_LLM_CONFIG_KEY]["temperature"],
+        top_p=LLM_CONFIG[CURRENT_LLM_CONFIG_KEY]["top_p"],
+        top_k=LLM_CONFIG[CURRENT_LLM_CONFIG_KEY]["top_k"],
+        min_p=LLM_CONFIG[CURRENT_LLM_CONFIG_KEY]["min_p"],
+        repeat_penalty=LLM_CONFIG[CURRENT_LLM_CONFIG_KEY]["repeat_penalty"],
         stream=True
     )
 
@@ -1136,7 +1259,7 @@ def predict(message, callback):
 
 
 if __name__ == "__main__":
-    print(f"使用模型：{MODEL_PATH}")
+    print(f"使用模型：{CURRENT_LLM_CONFIG_KEY}")
     while True:
         try:
             prompt = input("User > ")
@@ -1150,168 +1273,25 @@ if __name__ == "__main__":
         if prompt == "restart":
             history = []
             continue
+        
+        if CURRENT_LLM_CONFIG_KEY == "DeepSeek-R1-UD-IQ1S-8K":
+            prompt = f"<｜User｜>{prompt}<｜Assistant｜>"
         print(" Bot > ", end="")
         predict(prompt, typewriter)
         print("\n")
-```
-
-### 在安捷伦N9020A频谱仪上部署Qwen
-
-视频：[在2007年的频谱仪上部署AI大模型](https://www.bilibili.com/video/BV1du4m1P7iU)
-
-### 在松下SV8便携电脑上部署ChatGLM
-
-<details>
-
-<summary>2023-11-28 chatglm.cpp</summary>
-
-以下完全基于[chatglm.cpp](https://github.com/li-plus/chatglm.cpp)（V0.3.0）部署。在松下SV8洋垃圾笔记本（Core i5-8365U，16GB内存，512GB的NVMe固态硬盘，Ubuntu 20.04 LTS）上测试，体验良好，运行速度尚在能够容忍的范围内，作为人工智障小玩具是堪用的。以下是部署过程备忘，连同环境在内的所有文件已备份到物理硬盘上。
-
-首先，需要将全精度模型转换为低精度的GGML格式的模型。模型转换和量化过程对算力要求不大，但是对于内存需求巨大。6-7B模型需要至少16GB内存，13B模型需要至少64GB内存。由于SV8物理内存只有16GB，因此需要临时扩充交换空间，至少需要50GB的交换空间。临时交换空间的设置方式如下：
-
-```
-sudo fallocate -l 50G /swap
-sudo sudo chmod 600 /swap
-sudo mkswap /swap
-sudo swapon /swap
-# 查看交换空间
-sudo swapon --show
-# 查看所有内存
-free -h
-```
-
-安装各种依赖。
-
-```
-python3 -m pip install -U pip
-python3 -m pip install torch tabulate tqdm transformers==4.33.0 accelerate sentencepiece
-```
-
-拉取chatglm.cpp代码仓库和子模块：
-
-```
-cd ~/ai
-git clone --recursive https://github.com/li-plus/chatglm.cpp.git && cd chatglm.cpp
-git submodule update --init --recursive
-```
-
-去HuggingFace或者ModelScope下载模型权重文件。由于涉及巨大模型文件，需要先安装git-lfs：`sudo apt install git-lfs`。然后拉取模型仓库：
-
-- `git clone https://www.modelscope.cn/ZhipuAI/chatglm3-6b.git`
-- `git clone https://www.modelscope.cn/ZhipuAI/chatglm3-6b-32k.git`
-- `git clone https://www.modelscope.cn/ZhipuAI/codegeex2-6b.git`
-- `git clone https://www.modelscope.cn/baichuan-inc/Baichuan2-7B-Chat.git`
-- `git clone https://www.modelscope.cn/baichuan-inc/Baichuan2-13B-Chat.git`
-
-将模型转换为GGML格式并量化。其中`ModelRepoDir`是模型仓库的目录，量化类型建议取`q4_0`节约内存或者`q8_0`效果和速度折中。
-
-```
-cd ~/ai
-python3 chatglm.cpp/chatglm_cpp/convert.py -i ModelRepoDir -t q8_0 -o ggml/xxx-ggml.bin
-```
-
-编译并安装chatglm.cpp。编译选项可以开启OpenBLAS：`-DGGML_OPENBLAS=ON`，但是实测发现性能似乎并未有提升，因此暂且不开启。
-
-```
-cmake -B build
-cmake --build build -j4 --config Release
-```
-
-此时可以用编译好的可执行文件测试LLM推理：
-
-```
-chatglm.cpp/build/bin/main -m ggml/xxx-ggml.bin -p "执行JavaScript代码：Math.sqrt(2)"
-# 交互式
-chatglm.cpp/build/bin/main -m ggml/xxx-ggml.bin -i
-```
-
-还可以安装Python的接口库`pip install -U chatglm-cpp`，使用以下的简单代码进行测试：
-
-```
-#encoding=utf-8
-from typing import List
-import chatglm_cpp
-
-SYSTEM_PROMPT = ""
-
-MODE = "chat" # "chat" or "generate" for code generation
-MODEL_INDEX = 1
-MODEL = [
-    "ggml/chatglm3-6b-32k-chat-i8-ggml.bin",
-    "ggml/chatglm3-6b-chat-i8-ggml.bin",
-    "ggml/baichuan2-13b-chat-i8-ggml.bin",
-    "ggml/codegeex2-6b-i8-ggml.bin",
-]
-
-MAX_LENGTH         = 32000 # max total length including prompt and output
-MAX_NEW_TOKENS     = -1 # max number of tokens to generate, ignoring the number of prompt tokens
-TEMPERATURE        = 0.9
-TOP_K              = 0
-TOP_P              = 0.7
-REPETITION_PENALTY = 1.0 # penalize repeat sequence of tokens
-THREADS            = 8 # number of threads for inference
-
-def main() -> None:
-
-    print("""Input "restart" to restart conversation
-      "stop" to quit\n""")
-
-    generation_kwargs = dict(
-        max_length = MAX_LENGTH,
-        # max_new_tokens = MAX_NEW_TOKENS,
-        # max_context_length = 512,
-        do_sample = (TEMPERATURE > 0),
-        top_k = TOP_K,
-        top_p = TOP_P,
-        temperature = TEMPERATURE,
-        repetition_penalty = REPETITION_PENALTY,
-        stream = True,
-        num_threads = THREADS,
-    )
-
-    pipeline = chatglm_cpp.Pipeline(MODEL[MODEL_INDEX])
-
-    system_messages: List[chatglm_cpp.ChatMessage] = [] # 注意：百川2-13B不要加入这两行
-    system_messages.append(chatglm_cpp.ChatMessage(role="system", content=SYSTEM_PROMPT))
-
-    messages = system_messages.copy()
-
-    while True:
-        try:
-            prompt = input("User:\n")
-        except EOFError:
-            break
-
-        if not prompt:
-            continue
-        if prompt == "stop":
-            break
-        if prompt == "restart":
-            messages = system_messages.copy()
-            continue
-
-        if MODE == "generate":
-            for chunk in pipeline.generate(prompt, **generation_kwargs):
-                print(chunk, sep="", end="", flush=True)
-        elif MODE == "chat":
-            messages.append(chatglm_cpp.ChatMessage(role="user", content=prompt))
-            print(f"{pipeline.model.config.model_type_name}:", sep="", end="")
-            chunks = []
-            for chunk in pipeline.chat(messages, **generation_kwargs):
-                print(chunk.content, sep="", end="", flush=True)
-                chunks.append(chunk)
-            print()
-            messages.append(pipeline.merge_streaming_messages(chunks))
-
-    print("Bye~")
-
-
-if __name__ == "__main__":
-    main()
 
 ```
 
-</details>
+实测结果汇总：
+
+|机器|模型-量化-上下文长度|其他设置|P速度(输入词元数)|D速度(生成词元数)|
+|----------------------------------|
+|AGX Orin|QwQ-32B-Q80-64K|-|182.3(491)|4.5(2794)|
+|AGX Orin|QwQ-32B-Q4KM-64K|-|175.7(491)|6.2(3061)|
+|7048GR-P40*4|DeepSeek-R1-UD-IQ1S-8K|见上文命令|20.35(431)|1.3(1600)|
+
+使用QwQ-32B-GGUF模型的一些注意事项：[How to Run QwQ-32B effectively](https://docs.unsloth.ai/basics/tutorial-how-to-run-qwq-32b-effectively)
+
 
 ## 视觉和图文跨模态理解
 
