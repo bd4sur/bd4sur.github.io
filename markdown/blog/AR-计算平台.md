@@ -972,7 +972,6 @@ sudo swapon --show
 # 查看所有内存
 free -h
 ```
-```
 
 ## 硬盘相关
 
