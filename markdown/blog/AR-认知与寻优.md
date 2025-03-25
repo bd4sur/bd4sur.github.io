@@ -974,6 +974,49 @@ $$ 解方程 \textbf{W}_1 \textbf{x} = \textbf{b} \quad , \quad 得 \textbf{x} =
 
 ### LLM调查研究笔记
 
+**2025-03-25**：利用两个 AGX Orin 盒子实现分布式推理。
+
+基于llama.cpp，盒子之间通过10G以太网通信，使用Qwen2.5-72B-q4km，推理速度约2.7tk/s(D阶段)。作为对比，单个盒子D阶段推理速度3.1tk/s左右，没有本质差异。这说明，按照llama.cpp这种把模型拦腰截断的拆分方式，盒子间通信并不是瓶颈，瓶颈依然在于每台机器上的显存带宽。
+
+加载模型时，盒子之间传递参数，最大速度700MB/s左右，并没有打满盒子间带宽，瓶颈可能在存储。而自回归解码阶段，两个盒子都在工作，但盒子间通信仅1.5MB/s左右。估计是因为简单把模型按层拆成两半，两半之间只需要传递很少量的中间激活值和同步控制信息（每个盒子保留自己层的KV缓存），盒子间通信并不构成瓶颈。
+
+实验结果还是很令人满意的，验证了多个盒子水平扩展以获得巨大显存的可行性，并且在现有软硬件条件下，至少不会严重劣化推理性能。归根结底，瓶颈还是在于黄老板的振金显存😡
+
+后续验证不同显卡的机器之间分布式推理的可行性，甚至可以尝试100G互联和vLLM+Ray/sglang等方案。如果可行，我将拥有256GB的巨大显存，足以运行满血版DS-R1，但是速度和成本嘛，嘿嘿，别问，问就是迟早挂咸鱼🥺
+
+附操作过程：
+
+```
+# 1、在两台机器上分别设置IP并启用网卡
+
+# 机器1
+sudo ip addr add 192.168.1.1/24 dev enP5p1s0f0
+sudo ip link set enP5p1s0f0 up
+# 机器2
+sudo ip addr add 192.168.1.2/24 dev enP5p1s0f0
+sudo ip link set enP5p1s0f0 up
+
+# 2、在两台机器上安装相同版本的llama.cpp-rpc-cuda
+#    具体参照：https://github.com/ggml-org/llama.cpp/tree/master/examples/rpc
+
+# 3、在机器1上启动server
+cd /home/bd4sur/ai/llama.cpp/build-rpc-cuda/bin
+CUDA_VISIBLE_DEVICES=0 sudo ./rpc-server -p 50052 -H 0.0.0.0
+
+# 4、在机器2上启动server
+cd /home/bd4sur/ai/llama.cpp/build-rpc-cuda/bin
+CUDA_VISIBLE_DEVICES=0 sudo ./rpc-server -p 50052 -H 0.0.0.0
+
+# 5、在机器2上启动推理进程
+sudo ./llama-cli -m /home/bd4sur/ai/_model/Qwen25/qwen2.5-72b-instruct-q4_k_m.gguf -p "人类的本质是什么？" --rpc 192.168.1.1:50052,192.168.1.2:50052 -ngl 99 -no-cnv
+```
+
+![ ](./image/G4/agx-orin-2-distributed.jpg)
+
+![ ](./image/G4/agx-orin-2-distributed-llm-infer.jpg)
+
+**2025-03-12**：[在 AGX Orin 上部署QwQ-32B](https://www.bilibili.com/video/BV1UHQpYmEpG)
+
 **2025-02-17**：在vswd1上基于自己改写的llama2.c运行DeepSeek-R1-Distill-Qwen-1.5B，可以达到4.5tokens/s。
 
 ![ ](./image/G4/deepseek-v9200.jpg)
