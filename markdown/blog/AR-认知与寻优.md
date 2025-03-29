@@ -1113,24 +1113,6 @@ sudo ./llama-cli -m /home/bd4sur/ai/_model/Qwen25/qwen2.5-72b-instruct-q4_k_m.gg
 
 ### LLM部署&性能测试备忘录
 
-编译安装llama.cpp：
-
-```
-git clone https://github.com/ggerganov/llama.cpp
-cmake llama.cpp -B llama.cpp/build -DBUILD_SHARED_LIBS=ON -DGGML_CUDA=ON
-cmake --build llama.cpp/build --config Release -j 8
-cp llama.cpp/build/bin/llama-* llama.cpp
-```
-
-编译安装llama-cpp-python：
-
-```
-# 首先更新工具链，并保证nvcc可用。否则参考《计算平台》笔记中有关CUDA的章节重新配置。
-sudo apt upgrade gcc
-git clone --recurse-submodules https://github.com/abetlen/llama-cpp-python.git
-CMAKE_ARGS="-DGGML_CUDA=on -DLLAVA_BUILD=off" pip install . --force-reinstall --no-cache-dir
-```
-
 本地运行DeepSeek-R1（Unsloth版，[参考](https://huggingface.co/unsloth/DeepSeek-R1-GGUF)）：
 
 ```

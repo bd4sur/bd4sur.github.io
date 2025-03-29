@@ -45,9 +45,10 @@ HomeLab有哪些子系统？
 
 <summary>CPU天梯图</summary>
 
-|型号|年代|跑分*|C/T|TDP|主频|工艺|能耗比|
+|型号|年代|多核跑分*|C/T|TDP|主频|工艺|能耗比|
 |------------------------------------|
-|Ryzen 7 5800H|21Q1|21624|8/16|45W|3.2GHz|7nm|480|
+|Ryzen 9 7945HX|23Q1|55000|16/32|55W|2.5GHz|-nm|1000|
+|Ryzen 7 5800H|21Q1|21000|8/16|45W|3.2GHz|7nm|480|
 |[Xeon E5-2686 v4](https://www.intel.cn/content/www/cn/zh/support/articles/000090280/processors/intel-xeon-processors.html)|16Q4|21000|18/36|145W|2.3GHz|14nm|144|
 |[Xeon E5-2680 v4](https://www.intel.cn/content/www/cn/zh/products/sku/91754/intel-xeon-processor-e52680-v4-35m-cache-2-40-ghz/specifications.html)|16Q1|18000|14/28|120W|2.4GHz|14nm|150|
 |i5-8500|18Q2|9543|6/6|65W|3.0GHz|14nm|147|
@@ -63,7 +64,7 @@ HomeLab有哪些子系统？
 |Pentium M LV|08Q4|199|1/1|12W|1.2GHz|130nm|17|
 |Atom N270|08Q2|175|1/2|2.5W|1.6GHz|45nm|70|
 
-注：跑分数据来自[这里](http://cdn.malu.me/cpu/)。鉴于CPU性能度量是个很复杂的问题，这个数据仅供半定量参考。
+注：跑分数据来自[这里](https://www.cpubenchmark.net/)。鉴于CPU性能度量是个很复杂的问题，这个数据仅供半定量参考。
 
 </details>
 
@@ -104,7 +105,7 @@ P40支持ECC，如果开启ECC，则可用显存为22.5GiB，并且运算性能�
 - P40 22.5GB 开ECC：约 8650 Gflop/s，稳定温度81℃
 
 
-## Nvidia Jetson
+## Nvidia Jetson AGX Orin
 
 ![在 Orin NX 16GB 上运行 Stable Diffusion WebUI](./image/G2/homelab/jetson-orin-nx-sd.jpg)
 
@@ -133,14 +134,6 @@ P40支持ECC，如果开启ECC，则可用显存为22.5GiB，并且运算性能�
 
 ![JetPack SW Arch ([Source:gtc24-se62940](https://www.nvidia.com/en-us/on-demand/session/gtc24-se62940/))](./image/G2/homelab/jetpack-sw-arch.png)
 
-**Orin NX 16GB**
-
-- [亚博智能的介绍](https://www.yahboom.com/tbdetails?id=550)
-- [亚博智能的技术资料](https://www.yahboom.com/study/Jetson-Orin-NX)（仅限客户）
-- [微雪的说明](https://www.waveshare.net/wiki/JETSON-ORIN-NX-16G-DEV-KIT)
-
-**AGX Orin 64GB**
-
 **系统备份和恢复**
 
 按照[官方文档](https://docs.nvidia.com/jetson/archives/r35.3.1/DeveloperGuide/text/SD/FlashingSupport.html#to-back-up-and-restore-a-jetson-device)操作，困难重重。无奈之下，只好动用钞能力，购买NVMe硬盘复制机，直接复制装好系统的NVMe硬盘。但是需要注意的是，仅复制硬盘，并不等于完全克隆开发板，因QSPI的内容仍然需要通过官方的烧录工具备份和恢复。
@@ -159,19 +152,142 @@ sudo parted /dev/nvme0n1
 sudo resize2fs /dev/nvme0n1p1
 ```
 
+**刷JetPack6**
+
+按照[官方文档](https://developer.nvidia.com/embedded/learn/jetson-agx-orin-devkit-user-guide/two_ways_to_set_up_software.html)指示操作。
+
+**迁移home目录**
+
+将已经备份的`~/ai`目录迁移到`~`。其中最主要的内容就是模型权重文件所在的目录`ai/_model`。
+
+将已经备份的`~/software`目录迁移到`~`。主要包括wheel包。
+
+创建`~/app`目录，用于存放各类需要编译安装的软件仓库，例如llama.cpp等。
+
+**性能调节和状态监控**
+
+安装[jetson-stats](https://github.com/rbonghi/jetson_stats)：`sudo pip3 install -U jetson-stats`
+
+时钟频率拉满：`sudo jetson_clocks`
+
+查看当前状态：`sudo tegrastats`
+
+参照[论坛帖子](https://forums.developer.nvidia.com/t/change-emc-frequency-to-maximum-value-on-boot/327181/7)开机时将EMC频率拉满：
+
+```
+sudo nano /etc/systemd/nv.sh
+
+# Add the following lines to the end of it
+echo 1 > /sys/kernel/debug/bpmp/debug/clk/emc/mrq_rate_locked
+echo 1 > /sys/kernel/debug/bpmp/debug/bwmgr/bwmgr_halt
+echo 3199000000 > /sys/kernel/debug/bpmp/debug/clk/emc/rate
+```
+
+<details>
+
+<summary>设置VSCode</summary>
+
+```
+{
+    "files.exclude": {
+        "**/.*": false
+    },
+    "workbench.colorCustomizations" : {
+        "terminal.background":"#242629",
+        "terminal.foreground":"#F8F8F2",
+        "terminalCursor.background":"#F8F8F2",
+        "terminalCursor.foreground":"#F8F8F2",
+        "terminal.ansiBlack":"#272822",
+        "terminal.ansiBlue":"#66D9EF",
+        "terminal.ansiBrightBlack":"#75715E",
+        "terminal.ansiBrightBlue":"#66ccff",
+        "terminal.ansiBrightCyan":"#A1EFE4",
+        "terminal.ansiBrightGreen":"#A6E22E",
+        "terminal.ansiBrightMagenta":"#AE81FF",
+        "terminal.ansiBrightRed":"#F92672",
+        "terminal.ansiBrightWhite":"#F9F8F5",
+        "terminal.ansiBrightYellow":"#F4BF75",
+        "terminal.ansiCyan":"#A1EFE4",
+        "terminal.ansiGreen":"#A6E22E",
+        "terminal.ansiMagenta":"#AE81FF",
+        "terminal.ansiRed":"#F92672",
+        "terminal.ansiWhite":"#F8F8F2",
+        "terminal.ansiYellow":"#F4BF75"
+    },
+    "terminal.integrated.fontSize": 14,
+    "terminal.integrated.lineHeight": 1.2,
+    "terminal.integrated.fontFamily": "\"Cascadia Mono\", \"Microsoft YaHei Mono\"",
+    "terminal.integrated.profiles.linux": {
+        "bash": {
+            "path": "bash",
+            "icon": "terminal-bash"
+        },
+        "zsh": {
+            "path": "zsh"
+        },
+        "fish": {
+            "path": "fish"
+        },
+        "tmux": {
+            "path": "tmux",
+            "icon": "terminal-tmux"
+        },
+        "pwsh": {
+            "path": "pwsh",
+            "icon": "terminal-powershell"
+        }
+    },
+    "search.followSymlinks": false,
+    "editor.fontFamily": "'Microsoft YaHei Mono', Consolas, 'Courier New', monospace",
+    "editor.lineHeight": 1.6,
+    "workbench.colorTheme": "Default Light Modern",
+    "workbench.tree.indent": 26
+}
+```
+
+</details>
+
+**安装miniconda**
+
+参考[conda官方文档](https://www.anaconda.com/docs/getting-started/miniconda/install#macos-linux-installation)，下载[aarch64版本的安装脚本](https://repo.anaconda.com/miniconda/)。
+
+**安装PyTorch**
+
+- 推荐来源：[jetson-ai-lab的pip源](https://pypi.jetson-ai-lab.dev/jp6/cu122)
+- 2.3.0：使用[官方论坛](https://forums.developer.nvidia.com/t/pytorch-for-jetson/72048)提供的wheel。同时提供了torchvision和torchaudio。这一版本使用nanogpt实测更快。
+- 2.4.0：按照[官方文档](https://docs.nvidia.com/deeplearning/frameworks/install-pytorch-jetson-platform/index.html)安装PyTorch。注意，实测验证，Orin NX 16GB 仅可安装[`torch-2.4.0a0+07cecf4168.nv24.05.14710581-cp310-cp310-linux_aarch64.whl`](https://developer.download.nvidia.com/compute/redist/jp/v60/pytorch/torch-2.4.0a0+07cecf4168.nv24.05.14710581-cp310-cp310-linux_aarch64.whl)
+
+**编译安装llama.cpp和llama-cpp-python**
+
+编译安装llama.cpp：
+
+```
+git clone https://github.com/ggerganov/llama.cpp
+cmake llama.cpp -B llama.cpp/build -DBUILD_SHARED_LIBS=ON -DGGML_CUDA=ON
+cmake --build llama.cpp/build --config Release -j $(nproc)
+cp llama.cpp/build/bin/llama-* llama.cpp
+```
+
+编译安装llama-cpp-python：
+
+```
+# 首先更新工具链，并保证nvcc可用。否则参考《计算平台》笔记中有关CUDA的章节重新配置。
+sudo apt upgrade gcc
+# 进入某个conda环境
+conda activate xxx
+git clone --recursive https://github.com/abetlen/llama-cpp-python.git
+CMAKE_ARGS="-DGGML_CUDA=on -DLLAVA_BUILD=off" pip install . --force-reinstall --no-cache-dir --verbose
+```
+
 **镜像方式部署StableDiffusion**
 
 [Tutorial - Stable Diffusion](https://www.jetson-ai-lab.com/tutorial_stable-diffusion.html)
 
 ```
-# 条件：JetPack 6 (L4T r36.x)
+# 条件：JetPack 6.0⁓2 (L4T r36.3⁓36.4.3)
 
-# 安装镜像启动工具，该工具实质上是一系列启动脚本，以及各种镜像的Dockerfiles和启动参数
-git clone https://github.com/dusty-nv/jetson-containers
-bash jetson-containers/install.sh
-
-# 执行启动命令
-docker run --runtime nvidia -it --rm --network host\
+# 直接执行启动命令，同时拉取镜像
+sudo docker run --runtime nvidia -it --rm --network host\
   --volume /tmp/argus_socket:/tmp/argus_socket\
   --volume /etc/enctune.conf:/etc/enctune.conf\
   --volume /etc/nv_tegra_release:/etc/nv_tegra_release\
@@ -192,6 +308,10 @@ docker run --runtime nvidia -it --rm --network host\
   -e HTTP_PROXY=http://192.168.10.90:1080/ -e HTTPS_PROXY=http://192.168.10.90:1080/ -e 'NO_PROXY=192.168.*.*, localhost, 127.0.0.1, ::1'\
   dustynv/stable-diffusion-webui:r36.2.0
 
+# 或者安装镜像启动工具，该工具实质上是一系列启动脚本，以及各种镜像的Dockerfiles和启动参数
+git clone https://github.com/dusty-nv/jetson-containers
+bash jetson-containers/install.sh
+
 # 这个启动命令实际上就是：
 jetson-containers run -e "HTTP_PROXY=http://192.168.10.90:1080/" -e "HTTPS_PROXY=http://192.168.10.90:1080/" -e "NO_PROXY=192.168.*.*, localhost, 127.0.0.1, ::1" $(autotag stable-diffusion-webui)
 
@@ -200,32 +320,36 @@ jetson-containers run -e "HTTP_PROXY=http://192.168.10.90:1080/" -e "HTTPS_PROXY
 # 但是出于方便迁移考虑，所有模型统一放置在/home/bd4sur/ai/_model/下，所以需要另外挂载
 ```
 
-**刷JetPack6并安装PyTorch**
+**编译安装CV模型（基于dusty-nv/jetson-inference）**
 
-刷JetPack：按照[官方文档](https://developer.nvidia.com/embedded/jetpack)指示操作。
-
-安装PyTorch：两个选项
-
-- 2.3.0：使用[官方论坛](https://forums.developer.nvidia.com/t/pytorch-for-jetson/72048)提供的wheel。同时提供了torchvision和torchaudio。这一版本使用nanogpt实测更快。
-- 2.4.0：按照[官方文档](https://docs.nvidia.com/deeplearning/frameworks/install-pytorch-jetson-platform/index.html)安装PyTorch。注意，实测验证，Orin NX 16GB 仅可安装[`torch-2.4.0a0+07cecf4168.nv24.05.14710581-cp310-cp310-linux_aarch64.whl`](https://developer.download.nvidia.com/compute/redist/jp/v60/pytorch/torch-2.4.0a0+07cecf4168.nv24.05.14710581-cp310-cp310-linux_aarch64.whl)
-
-**编译安装llama.cpp和llama-cpp-python**
-
-[单独编译llama.cpp，然后复用已有的`libllama.so`安装llama-cpp-python](https://github.com/abetlen/llama-cpp-python/issues/1070)：
+参照[文档](https://github.com/dusty-nv/jetson-inference/blob/master/docs/building-repo-2.md)，拉取仓库并构建：
 
 ```
-cd /home/bd4sur/ai
-git clone https://github.com/ggerganov/llama.cpp
-cd llama.cpp
-
+sudo apt-get update
+sudo apt-get install git cmake libpython3-dev python3-numpy
+git clone --recursive --depth=1 https://github.com/dusty-nv/jetson-inference
+cd jetson-inference
 mkdir build
 cd build
-cmake .. -DBUILD_SHARED_LIBS=ON -DGGML_CUDA=ON
-cmake --build . --config Release
+cmake ../
+make -j$(nproc)
+sudo make install
+sudo ldconfig
+```
 
-export LLAMA_CPP_LIB=/home/bd4sur/ai/llama.cpp/build/src/libllama.so
-cp /home/bd4sur/ai/llama.cpp/build/src/libllama.so /home/bd4sur/miniconda3/envs/mio/lib/python3.10/site-packages/llama_cpp/lib
-CMAKE_ARGS="-DLLAMA_BUILD=OFF" python -m pip install llama-cpp-python
+验证效果，以及一些推理命令：
+
+```
+cd build/aarch64/bin
+video-viewer webrtc://@:1234/input --headless
+detectnet --network=ssd-inception-v2 /dev/video0 webrtc://@:1234/stream --confidence=0.7 --headless
+backgroundnet /dev/video0 webrtc://@:1234/stream --headless
+actionnet /dev/video0 webrtc://@:1234/stream --headless
+depthnet /dev/video0 webrtc://@:1234/stream --headless
+segnet /dev/video0 webrtc://@:1234/stream --headless
+segnet --network=fcn-resnet18-cityscapes-2048x1024 /dev/video0 webrtc://@:1234/stream --headless
+posenet --network=resnet18-hand /dev/video0 webrtc://@:1234/stream --headless
+detectnet /dev/video0 webrtc://@:1234/stream --headless
 ```
 
 ## RK3588开发板
