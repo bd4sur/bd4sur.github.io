@@ -295,7 +295,7 @@ sudo docker run --runtime nvidia -it --rm --network host\
   --volume /var/run/dbus:/var/run/dbus\
   --volume /var/run/avahi-daemon/socket:/var/run/avahi-daemon/socket\
   --volume /var/run/docker.sock:/var/run/docker.sock\
-  --volume /home/bd4sur/ai/jetson-containers/data:/data\
+  --volume /home/bd4sur/app/jetson-containers/data:/data\
   --volume /home/bd4sur/ai/_model/stable-diffusion:/data/models/stable-diffusion\
   --device /dev/snd\
   --device /dev/bus/usb\
@@ -350,6 +350,55 @@ segnet /dev/video0 webrtc://@:1234/stream --headless
 segnet --network=fcn-resnet18-cityscapes-2048x1024 /dev/video0 webrtc://@:1234/stream --headless
 posenet --network=resnet18-hand /dev/video0 webrtc://@:1234/stream --headless
 detectnet /dev/video0 webrtc://@:1234/stream --headless
+```
+
+**镜像方式部署FunASR**
+
+首先确保`/home/bd4sur/ai/_model/FunASR`目录存在，并且里面有SSL证书和密钥文件。然后启动（如果没有则拉取）镜像：
+
+```
+sudo docker run -p 10096:10095 -it --rm --privileged=true --name funasr \
+  --volume /home/bd4sur/ai/_model/FunASR:/workspace/models \
+  --workdir /workspace/FunASR/runtime \
+  registry.cn-hangzhou.aliyuncs.com/funasr_repo/funasr:funasr-runtime-sdk-online-cpu-0.1.12
+```
+
+如果提示`docker: Error response from daemon: failed to set up container networking: ... Perhaps iptables or your kernel needs to be upgraded. (exit status 3))`，则对docker执行降级（参考[官方论坛](https://forums.developer.nvidia.com/t/problems-with-docker-version-28-0-1-on-jetson-orin-nx/325541/24?u=bd4sur)）：
+
+```
+sudo apt install docker-ce-cli=5:27.3.0-1~ubuntu.22.04~jammy
+sudo apt install docker-ce=5:27.3.0-1~ubuntu.22.04~jammy
+```
+
+然后在容器中执行：
+
+```
+/bin/bash run_server_2pass.sh \
+  --download-model-dir /workspace/models \
+  --vad-dir damo/speech_fsmn_vad_zh-cn-16k-common-onnx \
+  --model-dir damo/speech_paraformer-large_asr_nat-zh-cn-16k-common-vocab8404-onnx \
+  --online-model-dir damo/speech_paraformer-large_asr_nat-zh-cn-16k-common-vocab8404-online-onnx  \
+  --punc-dir damo/punc_ct-transformer_zh-cn-common-vad_realtime-vocab272727-onnx \
+  --itn-dir thuduj12/fst_itn_zh \
+  --hotword /workspace/models/hotwords.txt \
+  --certfile /workspace/models/bd4sur.crt \
+  --keyfile /workspace/models/key_unencrypted.pem
+```
+
+**编译安装 Flash-Attention-2**
+
+```
+# 进入某个conda环境
+conda activate xxx
+cd ~/app
+git clone https://github.com/Dao-AILab/flash-attention.git
+cd flash-attention
+# 接下来查找`setup.py`中涉及`sm_xx`的部分，改成`sm_87`（因为Orin的 Ampere GPU 的 Compute Capability == 8.7）
+# 然后执行安装命令（并行任务数不能高于6，否则会耗尽内存。可能会编译很长时间。）
+MAX_JOBS=4 python -m pip install . --no-build-isolation --verbose
+# 如果提示g++工具链有问题，则执行：
+conda install -c conda-forge gxx_linux-64
+  # 参考：https://stackoverflow.com/questions/60503514/how-can-i-make-conda-find-cc1plus/66880336#66880336
 ```
 
 ## RK3588开发板
@@ -824,6 +873,74 @@ echo 1 > /sys/class/gpio/gpio3/value
 - [被遗忘的非CAS神器：HP-39GII介绍与评测](https://www.cncalc.org/thread-8253-1-1.html)
 
 # 网络设备
+
+## 路由器：红米AX5
+
+红米AX5相关内容整理于2025-03-31。
+
+**官方固件开启SSH方法**
+
+参考[恩山上的帖子](https://www.right.com.cn/forum/thread-4032490-1-1.html)：
+
++ 首先将官方固件降级到：[miwifi_ra67_all_f3fac_1.0.26.bin](http://cdn.cnbj1.fds.api.mi-img.com/xiaoqiang/rom/ra67/miwifi_ra67_all_f3fac_1.0.26.bin)或者[miwifi_ra67_firmware_63805_1.0.16.bin](https://cdn.cnbj1.fds.api.mi-img.com/xiaoqiang/rom/ra67/miwifi_ra67_firmware_63805_1.0.16.bin)。
++ 开启SSH：在浏览器地址栏中输入`http://192.168.31.1/cgi-bin/luci/;stok=<STOK>/api/misystem/set_config_iotdev?bssid=Xiaomi&user_id=longdike&ssid=-h%3B%20nvram%20set%20ssh_en%3D1%3B%20nvram%20commit%3B%20sed%20-i%20's%2Fchannel%3D.*%2Fchannel%3D%5C%22debug%5C%22%2Fg'%20%2Fetc%2Finit.d%2Fdropbear%3B%20%2Fetc%2Finit.d%2Fdropbear%20start%3B`，其中`<STOK>`是当前session的token。
++ 修改root账户密码为admin：在浏览器地址栏中输入`http://192.168.31.1/cgi-bin/luci/;stok=<STOK>/api/misystem/set_config_iotdev?bssid=Xiaomi&user_id=longdike&ssid=-h%3B%20echo%20-e%20'admin%5Cnadmin'%20%7C%20passwd%20root%3B`。
++ 执行`ssh -o HostKeyAlgorithms=+ssh-rsa -o PubkeyAcceptedKeyTypes=+ssh-rsa root@192.168.1.1`即可登录。
+
+```
+BusyBox v1.25.1 (2020-07-13 12:23:03 UTC) built-in shell (ash)
+
+ -----------------------------------------------------
+       Welcome to XiaoQiang!
+ -----------------------------------------------------
+  $$$$$$\  $$$$$$$\  $$$$$$$$\      $$\      $$\        $$$$$$\  $$\   $$\
+ $$  __$$\ $$  __$$\ $$  _____|     $$ |     $$ |      $$  __$$\ $$ | $$  |
+ $$ /  $$ |$$ |  $$ |$$ |           $$ |     $$ |      $$ /  $$ |$$ |$$  /
+ $$$$$$$$ |$$$$$$$  |$$$$$\         $$ |     $$ |      $$ |  $$ |$$$$$  /
+ $$  __$$ |$$  __$$< $$  __|        $$ |     $$ |      $$ |  $$ |$$  $$<
+ $$ |  $$ |$$ |  $$ |$$ |           $$ |     $$ |      $$ |  $$ |$$ |\$$\
+ $$ |  $$ |$$ |  $$ |$$$$$$$$\       $$$$$$$$$  |       $$$$$$  |$$ | \$$\
+ \__|  \__|\__|  \__|\________|      \_________/        \______/ \__|  \__|
+```
+
+开启SSH后，执行以下命令，或许有用（[参考](https://www.right.com.cn/forum/thread-5774296-1-1.html)）：
+
+```
+nvram set flag_last_success=0
+nvram set flag_boot_rootfs=0
+nvram set flag_boot_success=1
+nvram set flag_try_sys1_failed=0
+nvram set flag_try_sys2_failed=0
+nvram set boot_wait=on
+nvram set uart_en=1
+nvram set telnet_en=1
+nvram set ssh_en=1
+nvram commit
+```
+
+**刷入OpenWRT固件（非扩容）**
+
+以下步骤主要参考[恩山上的帖子](https://www.right.com.cn/forum/thread-8278695-1-1.html)、[恩山上的帖子](https://www.right.com.cn/forum/thread-5774296-1-1.html)和[参考资料](https://alphapenng.github.io/zh-cn/2022/10/06/%E7%BA%A2%E7%B1%B3-ax6-%E8%A7%A3%E9%94%81-ssh-%E5%88%B7%E6%9C%BA-openwrt-%E6%95%99%E7%A8%8B/)。
+
+第1步：执行`cat /proc/mtd`查看`rootfs`分区号。我的机器是mtd18。NAND闪存空间被分为多个分区，其中mtd18和mtd19这两个分区存储路由器的固件，对应分区名为“root_fs”和“rootfs_1”。不管是小米官方固件还是OP固件都只能刷入这两个分区。为什么会有两个分区存放固件呢？这应该是一种安全备份机制，类似于主板双BIOS。比如原固件在mtd18分区，当我们更新固件时，会更新到mtd19分区，更新完毕路由器重启后会读取mtd19分区的系统文件，以此类推每次更新都会刷入到另一个分区里。极大提高了更新固件的安全性。凡事都有两面性，双分区可以提高了安全性，但每个分区的容量就变小了。
+
+第2步：备份分区。执行`dd if=/dev/mtd1 of=/tmp/mtd1_0MIBIB.bin`（原厂分区表）和`dd if=/dev/mtd7 of=/tmp/mtd7_0APPSBL.bin`（原厂UBoot），通过scp工具将其备份到本地。如果不刷UBoot和扩容固件，应该是不需要备份。
+
+第3步：通过scp将固件的ubi镜像`openwrt-ipq60xx-Redmi_AX5-squashfs-nand-factory.ubi`（[来源](https://pan.baidu.com/share/init?surl=on9ev9HuSrCyju44PdIahA&pwd=eawj)，已备份）下载到路由器的`/tmp`目录。
+
+第4步：写入固件到`rootfs`分区（第1步已经看到`rootfs`是`/dev/mtd18`），并重启。这个固件就是刷扩容固件时用到的所谓“过渡固件”，以它为跳板，刷入扩容版固件，结合其他大佬魔改过的分区表和UBoot，即可从扩容版固件启动，同时获得融合后的大分区。
+
+```
+# 将固件镜像写入rootfs分区，如果报错，则改成rootfs_1所在分区。
+ubiformat /dev/mtd18 -y -f /tmp/openwrt-ipq60xx-Redmi_AX5-squashfs-nand-factory.ubi
+# 注意：下面两个flag，如果刷入的是rootfs，则为0；如果刷入的是rootfs_1，则为1。
+nvram set flag_last_success=0
+nvram set flag_boot_rootfs=0
+nvram commit
+reboot
+```
+
+第5步：路由器重启后，访问192.168.1.1，使用root+无密码登录luci界面，也可以ssh进入。
 
 ## 交换机：Cisco Catalyst 4948E
 
