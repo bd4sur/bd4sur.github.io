@@ -197,22 +197,22 @@ echo 3199000000 > /sys/kernel/debug/bpmp/debug/clk/emc/rate
         "terminal.foreground":"#F8F8F2",
         "terminalCursor.background":"#F8F8F2",
         "terminalCursor.foreground":"#F8F8F2",
-        "terminal.ansiBlack":"#272822",
-        "terminal.ansiBlue":"#66D9EF",
-        "terminal.ansiBrightBlack":"#75715E",
-        "terminal.ansiBrightBlue":"#66ccff",
-        "terminal.ansiBrightCyan":"#A1EFE4",
-        "terminal.ansiBrightGreen":"#A6E22E",
-        "terminal.ansiBrightMagenta":"#AE81FF",
-        "terminal.ansiBrightRed":"#F92672",
-        "terminal.ansiBrightWhite":"#F9F8F5",
-        "terminal.ansiBrightYellow":"#F4BF75",
-        "terminal.ansiCyan":"#A1EFE4",
-        "terminal.ansiGreen":"#A6E22E",
-        "terminal.ansiMagenta":"#AE81FF",
-        "terminal.ansiRed":"#F92672",
-        "terminal.ansiWhite":"#F8F8F2",
-        "terminal.ansiYellow":"#F4BF75"
+        "terminal.ansiBlack":"#000000",
+        "terminal.ansiBlue":"#0066a8",
+        "terminal.ansiBrightBlack":"#222222",
+        "terminal.ansiBrightBlue":"#009aff",
+        "terminal.ansiBrightCyan":"#a1efe4",
+        "terminal.ansiBrightGreen":"#93e22e",
+        "terminal.ansiBrightMagenta":"#ae81ff",
+        "terminal.ansiBrightRed":"#ff2c6b",
+        "terminal.ansiBrightWhite":"#ffffff",
+        "terminal.ansiBrightYellow":"#ffe36d",
+        "terminal.ansiCyan":"#00cdaf",
+        "terminal.ansiGreen":"#529200",
+        "terminal.ansiMagenta":"#6e1eff",
+        "terminal.ansiRed":"#8e002a",
+        "terminal.ansiWhite":"#aaaaaa",
+        "terminal.ansiYellow":"#b79400"
     },
     "terminal.integrated.fontSize": 14,
     "terminal.integrated.lineHeight": 1.2,
@@ -874,11 +874,17 @@ echo 1 > /sys/class/gpio/gpio3/value
 
 # 网络设备
 
-## 路由器：红米AX5
+## 路由器：红米AX5(RA67和RA50)
 
-红米AX5相关内容整理于2025-03-31。
+阶段进展记录：[红米AX5路由器部署大语言模型](https://www.bilibili.com/video/BV1vPRDYyEgp)
 
-**官方固件开启SSH方法**
+红米AX5路由器刷机相关内容，从2025-03-31开始更新。
+
+**机型概述**
+
+红米AX5(RA67)、AX5京东云无线宝(RA50)、小米AX1800实质上都是同一款路由器，都是基于高通IPQ6000芯片。但是这些型号的存储设备类型规格都不太一样，因此设备树有差异，bootloader也不通用。RA50具有512MB大内存（魔改后可以达到1GB）和64GB的eMMC，具备一定的实用性。
+
+**RA67开启SSH方法**
 
 参考[恩山上的帖子](https://www.right.com.cn/forum/thread-4032490-1-1.html)：
 
@@ -918,7 +924,7 @@ nvram set ssh_en=1
 nvram commit
 ```
 
-**刷入OpenWRT固件（非扩容）**
+**RA67刷入OpenWRT固件（非扩容）**
 
 以下步骤主要参考[恩山上的帖子](https://www.right.com.cn/forum/thread-8278695-1-1.html)、[恩山上的帖子](https://www.right.com.cn/forum/thread-5774296-1-1.html)和[参考资料](https://alphapenng.github.io/zh-cn/2022/10/06/%E7%BA%A2%E7%B1%B3-ax6-%E8%A7%A3%E9%94%81-ssh-%E5%88%B7%E6%9C%BA-openwrt-%E6%95%99%E7%A8%8B/)。
 
@@ -941,6 +947,66 @@ reboot
 ```
 
 第5步：路由器重启后，访问192.168.1.1，使用root+无密码登录luci界面，也可以ssh进入。
+
+**刷入UBoot和大分区表**
+
+购买大佬魔改的UBoot，按照文档刷入。注意不要遗漏任何一个步骤。
+
+**编译LiBwrt固件**
+
+固件分为4种，后面两种可以自行编译得到：
+
++ 官方固件：包括利用SSH漏洞的降级固件。
++ 过渡固件：开SSH漏洞后，直接刷入固件分区即可利用原厂bootloader启动的OpenWRT固件，这一固件是刷入UBoot和大分区表的跳板，因原厂系统不允许修改boot分区和分区表。
++ 大分区factory固件：刷入UBoot后，通过UBoot刷入的全量固件。
++ 大分区sysupgrade固件：刷入factory固件后，通过系统升级入口刷入的sysupdate固件。
+
+编译前设置：关掉`USE_APK`!!!其实不需要在固件中打包太多应用程序，因为后面还可以编译成ipk包。但是编译ipk包的前提是完成一次固件编译。
+
+使用[LiBwrt/openwrt-6.x](https://github.com/LiBwrt/openwrt-6.x)在本地进行编译。这个分支支持高通NSS驱动。
+
+首次编译建议用1个线程。无误再尝试多个线程。编译过程非常漫长（半小时起步）。注意备份`.config`配置文件。
+
+刷入sysupgrade固件时，不要保留当前配置，防止配置文件不兼容出现奇怪问题。
+
+**必要的设置**
+
+建议安装的软件包：nano-full、ttyd+luci、cpufreq+luci、luci-app-vlmcsd
+
+设置交换内存：
+
+```
+# 创建4GB的交换内存文件（注意eMMC分区号可能不同）
+dd if=/dev/zero of=/mnt/mmcblk0p27/swap bs=1M count=4096
+chmod 600 /mnt/mmcblk0p27/swap
+mkswap /mnt/mmcblk0p27/swap
+swapon /mnt/mmcblk0p27/swap
+
+# 然后修改 /etc/fstab 增加一行：
+# <file system>      <mount point> <type> <options> <dump> <pass>
+/mnt/mmcblk0p27/swap swap          swap   defaults  0      0
+```
+
+[用OpenSSHD替换dropbear](https://openwrt.org/docs/guide-user/services/ssh/openssh_instead_dropbear)：
+
+```
+uci set dropbear.@dropbear[0].Port=2222
+uci commit dropbear
+/etc/init.d/dropbear restart
+
+opkg update
+opkg install openssh-server
+
+sed -i 's/^#PermitRootLogin prohibit-password/PermitRootLogin yes/' /etc/ssh/sshd_config
+
+/etc/init.d/sshd enable
+/etc/init.d/sshd restart
+
+/etc/init.d/dropbear disable
+/etc/init.d/dropbear stop
+
+opkg install openssh-sftp-server
+```
 
 ## 交换机：Cisco Catalyst 4948E
 
@@ -1205,7 +1271,7 @@ screen -r <session>
 ```
 # 临时交换空间的设置方式如下：
 sudo fallocate -l 50G /swap
-sudo sudo chmod 600 /swap
+sudo chmod 600 /swap
 sudo mkswap /swap
 sudo swapon /swap
 # 查看交换空间
