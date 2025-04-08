@@ -948,7 +948,7 @@ reboot
 
 第5步：路由器重启后，访问192.168.1.1，使用root+无密码登录luci界面，也可以ssh进入。
 
-**刷入UBoot和大分区表**
+**刷入UBoot、大分区表和CDT分区**
 
 购买大佬魔改的UBoot，按照文档刷入。注意不要遗漏任何一个步骤。
 
@@ -969,9 +969,32 @@ reboot
 
 刷入sysupgrade固件时，不要保留当前配置，防止配置文件不兼容出现奇怪问题。
 
+也可以通过UBoot刷入factory固件，方法是按住复位键通电开机，等待黄灯闪5下转蓝灯后松开复位键，电脑静态IP接路由器LAN口访问192.168.1.1，刷入factory固件。
+
 **必要的设置**
 
-建议安装的软件包：nano-full、ttyd+luci、cpufreq+luci、luci-app-vlmcsd
+/etc/opkg.conf
+
+```
+dest root /
+dest ram /tmp
+lists_dir ext /var/opkg-lists
+option overlay_root /overlay
+# option check_signature
+option http_proxy http://192.168.10.90:1080/
+```
+
+/etc/opkg/distfeeds.conf
+
+```
+src/gz libwrt_base http://mirrors.ustc.edu.cn/openwrt/releases/24.10.0/packages/aarch64_cortex-a53/base
+src/gz libwrt_luci http://mirrors.ustc.edu.cn/openwrt/releases/24.10.0/packages/aarch64_cortex-a53/luci
+src/gz libwrt_packages http://mirrors.ustc.edu.cn/openwrt/releases/24.10.0/packages/aarch64_cortex-a53/packages
+src/gz libwrt_routing http://mirrors.ustc.edu.cn/openwrt/releases/24.10.0/packages/aarch64_cortex-a53/routing
+src/gz libwrt_telephony http://mirrors.ustc.edu.cn/openwrt/releases/24.10.0/packages/aarch64_cortex-a53/telephony
+```
+
+建议安装的软件包：nano-full、ttyd+luci、cpufreq+luci、luci-app-vlmcsd、fdisk
 
 设置交换内存：
 
@@ -1007,6 +1030,12 @@ sed -i 's/^#PermitRootLogin prohibit-password/PermitRootLogin yes/' /etc/ssh/ssh
 
 opkg install openssh-sftp-server
 ```
+
+在基于MUSL的系统上编译quickjs：把Makefile中`-ldl`和`-lpthread`删掉。因为DeepSeek说：MUSL将动态链接功能直接集成到libc中，因此不需要单独的libdl库。显式链接-ldl会导致找不到库的错误。MUSL的线程支持也直接集成在libc中，不需要单独的libpthread。链接-lpthread同样是多余的。
+
+在基于MUSL的系统上使用OpenMP的一些信息：
+
+- https://stackoverflow.com/questions/26339936/gomp-without-glibc
 
 ## 交换机：Cisco Catalyst 4948E
 
