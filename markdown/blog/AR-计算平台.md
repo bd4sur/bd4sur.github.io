@@ -994,7 +994,7 @@ src/gz libwrt_routing http://mirrors.ustc.edu.cn/openwrt/releases/24.10.0/packag
 src/gz libwrt_telephony http://mirrors.ustc.edu.cn/openwrt/releases/24.10.0/packages/aarch64_cortex-a53/telephony
 ```
 
-建议安装的软件包：nano-full、ttyd+luci、cpufreq+luci、luci-app-vlmcsd、fdisk
+建议安装的软件包：nano-full、ttyd+luci、cpufreq+luci、luci-app-vlmcsd、fdisk、git、git-http
 
 设置交换内存：
 
@@ -1036,6 +1036,14 @@ opkg install openssh-sftp-server
 在基于MUSL的系统上使用OpenMP的一些信息：
 
 - https://stackoverflow.com/questions/26339936/gomp-without-glibc
+
+查看eMMC剩余寿命（[参考](https://www.right.com.cn/forum/thread-8283518-1-1.html)）：
+
+```
+opkg install mmc-utils
+mmc extcsd read /dev/mmcxxx | grep Life
+# 寿命数字越小越好
+```
 
 ## 交换机：Cisco Catalyst 4948E
 
