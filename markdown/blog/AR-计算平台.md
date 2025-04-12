@@ -987,11 +987,11 @@ option http_proxy http://192.168.10.90:1080/
 /etc/opkg/distfeeds.conf
 
 ```
-src/gz libwrt_base http://mirrors.ustc.edu.cn/openwrt/releases/24.10.0/packages/aarch64_cortex-a53/base
-src/gz libwrt_luci http://mirrors.ustc.edu.cn/openwrt/releases/24.10.0/packages/aarch64_cortex-a53/luci
-src/gz libwrt_packages http://mirrors.ustc.edu.cn/openwrt/releases/24.10.0/packages/aarch64_cortex-a53/packages
-src/gz libwrt_routing http://mirrors.ustc.edu.cn/openwrt/releases/24.10.0/packages/aarch64_cortex-a53/routing
-src/gz libwrt_telephony http://mirrors.ustc.edu.cn/openwrt/releases/24.10.0/packages/aarch64_cortex-a53/telephony
+src/gz libwrt_base http://mirrors.tuna.tsinghua.edu.cn/openwrt/releases/24.10.0/packages/aarch64_cortex-a53/base
+src/gz libwrt_luci http://mirrors.tuna.tsinghua.edu.cn/openwrt/releases/24.10.0/packages/aarch64_cortex-a53/luci
+src/gz libwrt_packages http://mirrors.tuna.tsinghua.edu.cn/openwrt/releases/24.10.0/packages/aarch64_cortex-a53/packages
+src/gz libwrt_routing http://mirrors.tuna.tsinghua.edu.cn/openwrt/releases/24.10.0/packages/aarch64_cortex-a53/routing
+src/gz libwrt_telephony http://mirrors.tuna.tsinghua.edu.cn/openwrt/releases/24.10.0/packages/aarch64_cortex-a53/telephony
 ```
 
 建议安装的软件包：nano-full、ttyd+luci、cpufreq+luci、luci-app-vlmcsd、fdisk、git、git-http
@@ -1000,14 +1000,16 @@ src/gz libwrt_telephony http://mirrors.ustc.edu.cn/openwrt/releases/24.10.0/pack
 
 ```
 # 创建4GB的交换内存文件（注意eMMC分区号可能不同）
-dd if=/dev/zero of=/mnt/mmcblk0p27/swap bs=1M count=4096
-chmod 600 /mnt/mmcblk0p27/swap
-mkswap /mnt/mmcblk0p27/swap
-swapon /mnt/mmcblk0p27/swap
+cd <swap所在分区，例如/emmc>
+dd if=/dev/zero of=swap bs=1M count=4096
+chmod 600 swap
+mkswap swap
+swapon swap
 
-# 然后修改 /etc/fstab 增加一行：
-# <file system>      <mount point> <type> <options> <dump> <pass>
-/mnt/mmcblk0p27/swap swap          swap   defaults  0      0
+# 然后修改 /etc/config/fstab 增加以下内容，或者在LuCI界面中设置：
+config swap
+	option enabled '1'
+	option device '/emmc/swap'
 ```
 
 [用OpenSSHD替换dropbear](https://openwrt.org/docs/guide-user/services/ssh/openssh_instead_dropbear)：
