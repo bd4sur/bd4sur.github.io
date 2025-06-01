@@ -194,8 +194,55 @@
     }
 }
 
-.hrline {
-    background: linear-gradient(90deg, #fff, #e7e9ee, #fff); height: 2px; width: 100%; margin: 10px auto 20px auto;
+
+.DemoTagContainer {
+    display: flex;
+    flex-wrap: wrap;
+    flex-direction: row;
+    align-items: center;
+    justify-content: center;
+    margin: 0px 0 24px 0;
+}
+.DemoTag {
+    border-radius: 5px;
+    background: linear-gradient(0deg, #f2f4f7, #ffffff);
+    color: #656e83;
+    margin: 5px;
+    padding: 6px 10px;
+    font-size: 13px;
+    line-height: 1.5;
+    letter-spacing: 0.5px;
+    cursor: pointer;
+}
+.DemoTag:hover {
+    background: linear-gradient(0deg, #e3e5e9, #ffffff);
+}
+
+
+
+
+
+.HorizonLine {
+    line-height: 16px;
+    margin: 20px auto 24px auto;
+    text-align: center;
+    cursor: pointer;
+}
+
+.HorizonLineContent {
+    font-size: 13px;
+    padding: 0 10px;
+    color: #003cc3;
+    background-color: #fff;
+    /* font-weight: bold; */
+}
+
+.HorizonLine::after {
+    display: block;
+    content: "";
+    height: 2px;
+    background: linear-gradient(90deg, #fff, #e7e9ee, #fff);
+    margin-top: -8px;
 }
 
 </style>
@@ -213,7 +260,7 @@
                 <div class="FixedArticleTitle"><a class="TopLink SPA_TRIGGER" data-target="blog/Cyber-计算与证明">计算·证明</a></div>
                 <div class="FixedArticleTitle"><a class="TopLink SPA_TRIGGER" data-target="blog/AR-认知与寻优">认知·寻优</a></div>
                 <div class="FixedArticleTitle"><a class="TopLink SPA_TRIGGER" data-target="blog/AR-通信与控制">通信·控制</a></div>
-                <div class="FixedArticleTitle"><a class="TopLink SPA_TRIGGER" data-target="blog/AR-射频电子技术">电子·射频</a></div>
+                <div class="FixedArticleTitle"><a class="TopLink SPA_TRIGGER" data-target="blog/AR-射频电子技术">电路·电波</a></div>
                 <div class="FixedArticleTitle"><a class="TopLink SPA_TRIGGER" data-target="blog/AR-能源动力技术">能源·动力</a></div>
             </div>
         </div>
@@ -228,12 +275,11 @@
         </div>
 
         <div class="block_container">
-            <div class="CategoryTitle">设 备 · 工 具</div>
+            <div class="CategoryTitle">电 台 各 系 统</div>
             <div class="item_container">
                 <div class="FixedArticleTitle"><a class="TopLink SPA_TRIGGER" data-target="blog/AR-计算平台">计算平台</a></div>
-                <div class="FixedArticleTitle"><a class="TopLink SPA_TRIGGER" data-target="blog/AR-环境平台">环境平台</a></div>
-                <div class="FixedArticleTitle"><a class="TopLink SPA_TRIGGER" data-target="blog/AR-工具平台">工具平台</a></div>
-                <div class="FixedArticleTitle"><a class="TopLink SPA_TRIGGER" data-target="blog/AR-仪器仪表">仪器仪表</a></div>
+                <div class="FixedArticleTitle"><a class="TopLink SPA_TRIGGER" data-target="blog/AR-环境系统">环境系统</a></div>
+                <div class="FixedArticleTitle"><a class="TopLink SPA_TRIGGER" data-target="blog/AR-工具系统">工具系统</a></div>
                 <div class="FixedArticleTitle"><a class="TopLink SPA_TRIGGER" data-target="blog/AR-收发信机">收发信机</a></div>
                 <div class="FixedArticleTitle"><a class="TopLink SPA_TRIGGER" data-target="blog/AR-天馈系统">天馈系统</a></div>
             </div>
@@ -242,31 +288,36 @@
         <div class="line_seperator"></div>
 
         <div class="block_container">
-            <div class="CategoryTitle">业 务 实 践</div>
+            <div class="CategoryTitle">无 线 电 业 务</div>
             <div class="item_container">
                 <div class="FixedArticleTitle"><a class="TopLink SPA_TRIGGER" data-target="blog/AR-法规与标准">法规·标准</a></div>
                 <div class="FixedArticleTitle"><a class="TopLink SPA_TRIGGER" data-target="blog/AR-架台与通联">架台·通联</a></div>
                 <div class="FixedArticleTitle"><a class="TopLink SPA_TRIGGER" data-target="blog/AR-猎狐与测定">猎狐·测定</a></div>
                 <div class="FixedArticleTitle"><a class="TopLink SPA_TRIGGER" data-target="blog/AR-软件无线电">软件无线电</a></div>
                 <div class="FixedArticleTitle"><a class="TopLink SPA_TRIGGER" data-target="blog/AR-广播电视">广播电视</a></div>
-                <div class="FixedArticleTitle"><a class="TopLink SPA_TRIGGER" data-target="blog/AR-业余卫星">业余卫星</a></div>
             </div>
         </div>
 
-        <div class="block_container">
-            <div class="CategoryTitle">创 造 实 践</div>
-            <div class="item_container">
-                <div class="FixedArticleTitle"><a class="TopLink SPA_TRIGGER" data-target="blog/Meta-创造实践汇总">◁ 汇总 ▷</a></div>
-                <div class="FixedArticleTitle"><a class="TopLink" href="./html/bpm.html">BPM分析<sup>β</sup></a></div>
-                <div class="FixedArticleTitle"><a class="TopLink" href="./html/cw-morse-encoder.html">CW练习器<sup>β</sup></a></div>
-                <div class="FixedArticleTitle"><a class="TopLink" href="./html/cw-morse-decoder.html">CW解码器<sup>α</sup></a></div>
-                <div class="FixedArticleTitle"><a class="TopLink" href="./html/ar-exam.html">操作证刷题<sup>RC</sup></a></div>
-                <div class="FixedArticleTitle"><a class="TopLink" href="./html/am32.html">频谱绘图<sup>RC</sup></a></div>
-            </div>
-        </div>
     </div>
 
-    <div class="hrline"></div>
+    <div class="HorizonLine"><span class="HorizonLineContent">创 造 实 践</span></div>
+
+    <div class="DemoTagContainer">
+        <div class="DemoTag SPA_TRIGGER" data-target="blog/PL-Animac设计备忘录">Animac设计备忘录</div>
+        <div class="DemoTag" onclick="window.open('https://bd4sur.com/Animac', '_blank');"><b>Animac</b> · Scheme解释器<sup>RC</sup></div>
+        <div class="DemoTag" onclick="window.open('https://bd4sur.com/Aqua', '_blank');"><b>Aqua</b> · MP3编码器<sup>RC</sup></div>
+        <div class="DemoTag" onclick="window.open('https://bd4sur.com/Nano/infer', '_blank');"><b>Nano</b> · 电子鹦鹉<sup>RC</sup></div>
+        <div style="width: 100%;"></div>
+        <div class="DemoTag" onclick="window.open('./html/bpm.html', '_blank');">BPM分析<sup>β</sup></div>
+        <div class="DemoTag" onclick="window.open('./html/cw-morse-encoder.html', '_blank');">CW练习器<sup>β</sup></div>
+        <div class="DemoTag" onclick="window.open('./html/cw-morse-decoder.html', '_blank');">CW解码器<sup>α</sup></div>
+        <div class="DemoTag" onclick="window.open('./html/ar-exam.html', '_blank');">操作证刷题<sup>RC</sup></div>
+        <div class="DemoTag" onclick="window.open('./html/am32.html', '_blank');">频谱绘图<sup>RC</sup></div>
+        <div class="DemoTag" onclick="window.open('./html/ofdm.html', '_blank');">音频OFDM试验<sup>α</sup></div>
+        <div class="DemoTag" onclick="window.open('./html/mechwatch-analyser.html', '_blank');">机械表校表仪<sup>α</sup></div>
+    </div>
+
+    <div class="HorizonLine"><span class="HorizonLineContent">百 科 笔 记</span></div>
 
     <div class="CategoryList">
         <div class="CategoryBlock SPA_TRIGGER" data-target="blog/A.哲学宗教伦理心理">
