@@ -3,7 +3,7 @@
 <html lang="zh-CN">
 <head>
 <meta charset="utf-8">
-<title>定时器 - BD4SUR</title>
+<title>定时提醒 - BD4SUR</title>
 
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
 <style>
@@ -15,7 +15,7 @@
     }
     
     body {
-        background: linear-gradient(135deg, #6a11cb 0%, #2575fc 100%);
+        background: linear-gradient(10deg, #000e8d, #101339, #000000, #0f204e);
         min-height: 100vh;
         display: flex;
         justify-content: center;
@@ -250,49 +250,41 @@
 
 </head>
 <body>
-    <div class="container">
-        <header>
-            <h1><i class="fas fa-clock"></i> 智能定时提醒器</h1>
-            <p class="subtitle">每30分钟提醒您休息或执行特定任务</p>
-        </header>
-        
-        <div class="timer-display">30:00</div>
-        
-        <div class="progress-container">
-            <div class="progress-bar" id="progressBar"></div>
-        </div>
-        
-        <div class="controls">
-            <button id="startBtn" class="btn btn-primary">
-                <i class="fas fa-play"></i> 开始计时
-            </button>
-            <button id="stopBtn" class="btn btn-secondary" disabled>
-                <i class="fas fa-stop"></i> 停止
-            </button>
-            <button id="resetBtn" class="btn btn-secondary">
-                <i class="fas fa-redo"></i> 重置
-            </button>
-        </div>
-        
-        <div class="custom-message">
-            <label for="message"><i class="fas fa-comment-alt"></i> 自定义提醒消息：</label>
-            <textarea id="message" placeholder="输入您想要的提醒内容...">该休息一下了！站起来活动活动，喝点水吧！</textarea>
-        </div>
-        
-        <div class="permission-status" id="permissionStatus">
-            <i class="fas fa-info-circle"></i>
-            <span>通知权限状态：未请求</span>
-        </div>
-        
-        <div class="notification-preview" id="notificationPreview">
-            <div class="notification-title">定时提醒</div>
-            <div class="notification-body" id="previewMessage">该休息一下了！站起来活动活动，喝点水吧！</div>
-        </div>
-        
-        <footer>
-            <p>保持高效工作，合理安排休息时间</p>
-        </footer>
+<div class="container">
+    <header>
+        <h2>定时提醒 for YL</h2>
+        <p class="subtitle">每30分钟提醒一次，不要关闭这个选项卡噢</p>
+    </header>
+
+    <div class="timer-display">30:00</div>
+
+    <div class="progress-container">
+        <div class="progress-bar" id="progressBar"></div>
     </div>
+
+    <div class="controls">
+        <button id="startBtn" class="btn btn-primary">
+            <i class="fas fa-play"></i> 开始计时
+        </button>
+        <button id="stopBtn" class="btn btn-secondary" disabled>
+            <i class="fas fa-stop"></i> 停止
+        </button>
+        <button id="resetBtn" class="btn btn-secondary">
+            <i class="fas fa-redo"></i> 重置
+        </button>
+    </div>
+
+    <div class="custom-message">
+        <label for="message"><i class="fas fa-comment-alt"></i> 提醒消息：</label>
+        <textarea id="message" placeholder="输入您想要的提醒内容...">该休息一下了！站起来活动活动，喝点水吧！</textarea>
+    </div>
+
+    <div class="permission-status" id="permissionStatus">
+        <i class="fas fa-info-circle"></i>
+        <span>通知权限状态：未请求</span>
+    </div>
+
+</div>
 
 <script>
 document.addEventListener('DOMContentLoaded', function() {
@@ -304,14 +296,20 @@ document.addEventListener('DOMContentLoaded', function() {
     const messageInput = document.getElementById('message');
     const permissionStatus = document.getElementById('permissionStatus');
     const notificationPreview = document.getElementById('notificationPreview');
-    const previewMessage = document.getElementById('previewMessage');
     const progressBar = document.getElementById('progressBar');
+
+    const TOTAL_SECONDS = 30;
+    const MESSAGE = "该休息一下了！站起来活动活动，喝点水吧！";
+    const TITLE = "定时提醒 - BD4SUR";
 
     // 计时器变量
     let timer;
-    let timeLeft = 1 * 60; // 30分钟（秒）
+    let timeLeft = TOTAL_SECONDS; // 30分钟（秒）
     let isRunning = false;
-    const totalTime = 1 * 60; // 30分钟的秒数
+    const totalTime = TOTAL_SECONDS; // 30分钟的秒数
+
+    let title_flash_counter = 10;
+    let title_flash_timer = 0;
 
     // 检查通知权限
     function checkNotificationPermission() {
@@ -335,14 +333,11 @@ document.addEventListener('DOMContentLoaded', function() {
         if (status === "granted") {
             permissionStatus.classList.add("permission-granted");
             permissionStatus.classList.remove("permission-denied");
-            notificationPreview.style.display = 'block';
         } else if (status === "denied") {
             permissionStatus.classList.add("permission-denied");
             permissionStatus.classList.remove("permission-granted");
-            notificationPreview.style.display = 'none';
         } else {
             permissionStatus.classList.remove("permission-granted", "permission-denied");
-            notificationPreview.style.display = 'none';
         }
     }
 
@@ -355,7 +350,7 @@ document.addEventListener('DOMContentLoaded', function() {
         Notification.requestPermission().then(permission => {
             if (permission === "granted") {
                 updatePermissionStatus("已授予通知权限", "granted");
-                showNotification(); // 测试通知
+                // showNotification(); // 测试通知
             } else {
                 updatePermissionStatus("通知权限已被拒绝", "denied");
             }
@@ -364,14 +359,29 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // 显示通知
     function showNotification() {
+        title_flash_counter = 100;
+        title_flash_timer = setInterval(()=>{
+            if (title_flash_counter % 2 === 0) {
+                document.title = `【时间到】${TITLE}`;
+            }
+            else {
+                document.title = `⏰⏰⏰⏰⏰${TITLE}`;
+            }
+            title_flash_counter--;
+            if (title_flash_counter <= 0) {
+                clearInterval(title_flash_timer);
+                document.title = TITLE;
+            }
+        }, 300);
+
         if (Notification.permission !== "granted") return;
 
-        const message = messageInput.value || "时间到！该休息一下了！";
+        const message = messageInput.value || MESSAGE;
 
         // 创建并显示通知
         const notification = new Notification("定时提醒", {
             body: message,
-            icon: "https://cdn-icons-png.flaticon.com/512/567/567947.png"
+            icon: "../image/B/menhera-alarm.jpg"
         });
 
         // 点击通知时关闭它
@@ -407,7 +417,8 @@ document.addEventListener('DOMContentLoaded', function() {
             if (timeLeft <= 0) {
                 clearInterval(timer);
                 showNotification();
-                timeLeft = 1 * 60;
+                isRunning = false;
+                timeLeft = TOTAL_SECONDS;
                 updateTimerDisplay();
                 startTimer(); // 自动重新开始
             }
@@ -425,7 +436,7 @@ document.addEventListener('DOMContentLoaded', function() {
     // 重置计时器
     function resetTimer() {
         stopTimer();
-        timeLeft = 1 * 60;
+        timeLeft = TOTAL_SECONDS;
         updateTimerDisplay();
         progressBar.style.width = '0%';
         startBtn.disabled = false;
@@ -437,13 +448,9 @@ document.addEventListener('DOMContentLoaded', function() {
         checkNotificationPermission();
 
         // 事件监听器
-        startBtn.addEventListener('click', startTimer);
+        startBtn.addEventListener('click', ()=> { requestNotificationPermission(); startTimer(); } );
         stopBtn.addEventListener('click', stopTimer);
         resetBtn.addEventListener('click', resetTimer);
-
-        messageInput.addEventListener('input', function() {
-            previewMessage.textContent = this.value || "该休息一下了！站起来活动活动，喝点水吧！";
-        });
 
         permissionStatus.addEventListener('click', requestNotificationPermission);
     }
