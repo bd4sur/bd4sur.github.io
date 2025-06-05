@@ -144,7 +144,7 @@
         align-items: center;
     }
     .FixedArticleTitle {
-        margin: 5px auto;
+        margin: 3px auto;
     }
     .FixedArticleTitle2 {
         margin: 5px 10px;
@@ -300,9 +300,12 @@
 
     </div>
 
-    <div class="HorizonLine"><span class="HorizonLineContent">创 造 实 践</span></div>
+    <div class="HorizonLine"><span class="HorizonLineContent">实 践 创 造</span></div>
 
     <div class="DemoTagContainer">
+        <div class="DemoTag" onclick="window.open('https://space.bilibili.com/7919331/upload/video', '_blank');"><span style="font-family: 'Font Awesome 5 Brands'; color: #00A1D6;">&#xe3d9;</span> <span style="font-weight: bold; color: #273a67;">Bilibili 投稿视频</span></div>
+        <div class="DemoTag" onclick="window.open('https://github.com/BD4SUR', '_blank');"><span style="font-family: 'Font Awesome 5 Brands'; color: #273a67;">&#xf09b;</span> <span style="font-weight: bold; color: #273a67;">GitHub 仓库</span></div>
+        <div style="width: 100%;"></div>
         <div class="DemoTag SPA_TRIGGER" data-target="blog/PL-Animac设计备忘录">Animac设计备忘录</div>
         <div class="DemoTag" onclick="window.open('https://bd4sur.com/Animac', '_blank');"><b>Animac</b> · Scheme解释器<sup>RC</sup></div>
         <div class="DemoTag" onclick="window.open('https://bd4sur.com/Aqua', '_blank');"><b>Aqua</b> · MP3编码器<sup>RC</sup></div>
@@ -313,7 +316,7 @@
         <div class="DemoTag" onclick="window.open('./html/cw-morse-decoder.html', '_blank');">CW解码器<sup>α</sup></div>
         <div class="DemoTag" onclick="window.open('./html/ar-exam.html', '_blank');">操作证刷题<sup>RC</sup></div>
         <div class="DemoTag" onclick="window.open('./html/am32.html', '_blank');">频谱绘图<sup>RC</sup></div>
-        <div class="DemoTag" onclick="window.open('./html/ofdm.html', '_blank');">音频OFDM试验<sup>α</sup></div>
+        <div class="DemoTag" onclick="window.open('./html/ofdm.html', '_blank');">音频OFDM<sup>α</sup></div>
         <div class="DemoTag" onclick="window.open('./html/mechwatch-analyser.html', '_blank');">机械表校表仪<sup>α</sup></div>
     </div>
 
