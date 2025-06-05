@@ -1,0 +1,455 @@
+<!-- Framework Iroha -->
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<title>定时器 - BD4SUR</title>
+
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+<style>
+    * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+        font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    }
+    
+    body {
+        background: linear-gradient(135deg, #6a11cb 0%, #2575fc 100%);
+        min-height: 100vh;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        padding: 20px;
+        color: #fff;
+    }
+    
+    .container {
+        width: 100%;
+        max-width: 500px;
+        background: rgba(255, 255, 255, 0.1);
+        backdrop-filter: blur(10px);
+        border-radius: 20px;
+        box-shadow: 0 15px 35px rgba(0, 0, 0, 0.2);
+        padding: 30px;
+        text-align: center;
+    }
+    
+    header {
+        margin-bottom: 30px;
+    }
+    
+    h1 {
+        font-size: 2.5rem;
+        margin-bottom: 10px;
+        text-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
+    }
+    
+    .subtitle {
+        color: rgba(255, 255, 255, 0.8);
+        font-size: 1.1rem;
+        margin-bottom: 5px;
+    }
+    
+    .timer-display {
+        background: rgba(255, 255, 255, 0.15);
+        border-radius: 15px;
+        padding: 25px;
+        margin: 25px 0;
+        font-size: 4rem;
+        font-weight: 700;
+        letter-spacing: 3px;
+        box-shadow: inset 0 0 15px rgba(0, 0, 0, 0.1);
+        position: relative;
+        overflow: hidden;
+    }
+    
+    .timer-display::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: -100%;
+        width: 100%;
+        height: 100%;
+        background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent);
+        animation: shimmer 3s infinite;
+    }
+    
+    @keyframes shimmer {
+        100% {
+            left: 100%;
+        }
+    }
+    
+    .controls {
+        display: flex;
+        justify-content: center;
+        gap: 15px;
+        margin: 25px 0;
+    }
+    
+    .btn {
+        padding: 12px 25px;
+        font-size: 1rem;
+        font-weight: 600;
+        border: none;
+        border-radius: 50px;
+        cursor: pointer;
+        transition: all 0.3s ease;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);
+    }
+    
+    .btn-primary {
+        background: linear-gradient(to right, #00b09b, #96c93d);
+        color: white;
+    }
+    
+    .btn-secondary {
+        background: rgba(255, 255, 255, 0.2);
+        color: white;
+    }
+    
+    .btn:hover {
+        transform: translateY(-3px);
+        box-shadow: 0 8px 20px rgba(0, 0, 0, 0.3);
+    }
+    
+    .btn:active {
+        transform: translateY(1px);
+    }
+    
+    .btn:disabled {
+        opacity: 0.6;
+        cursor: not-allowed;
+        transform: none;
+    }
+    
+    .custom-message {
+        margin: 25px 0;
+        text-align: left;
+    }
+    
+    label {
+        display: block;
+        margin-bottom: 10px;
+        font-weight: 500;
+        font-size: 1.1rem;
+    }
+    
+    textarea {
+        width: 100%;
+        height: 100px;
+        padding: 15px;
+        border-radius: 12px;
+        border: none;
+        background: rgba(255, 255, 255, 0.15);
+        color: white;
+        font-size: 1rem;
+        resize: none;
+        outline: none;
+        transition: background 0.3s;
+    }
+    
+    textarea:focus {
+        background: rgba(255, 255, 255, 0.25);
+    }
+    
+    textarea::placeholder {
+        color: rgba(255, 255, 255, 0.6);
+    }
+    
+    .permission-status {
+        padding: 15px;
+        background: rgba(255, 255, 255, 0.1);
+        border-radius: 12px;
+        margin: 20px 0;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 10px;
+        font-size: 0.95rem;
+    }
+    
+    .permission-granted {
+        color: #aaffaa;
+    }
+    
+    .permission-denied {
+        color: #ff9999;
+    }
+    
+    .notification-preview {
+        margin-top: 30px;
+        padding: 20px;
+        background: rgba(255, 255, 255, 0.15);
+        border-radius: 15px;
+        text-align: left;
+        display: none;
+    }
+    
+    .notification-title {
+        font-weight: bold;
+        font-size: 1.2rem;
+        margin-bottom: 8px;
+        color: #fff;
+    }
+    
+    .notification-body {
+        color: rgba(255, 255, 255, 0.9);
+        line-height: 1.5;
+    }
+    
+    .progress-container {
+        height: 8px;
+        background: rgba(255, 255, 255, 0.1);
+        border-radius: 4px;
+        margin: 25px 0;
+        overflow: hidden;
+    }
+    
+    .progress-bar {
+        height: 100%;
+        background: linear-gradient(to right, #00b09b, #96c93d);
+        width: 0%;
+        transition: width 1s linear;
+    }
+    
+    footer {
+        margin-top: 30px;
+        font-size: 0.9rem;
+        color: rgba(255, 255, 255, 0.7);
+    }
+    
+    @media (max-width: 500px) {
+        .container {
+            padding: 20px;
+        }
+        
+        h1 {
+            font-size: 2rem;
+        }
+        
+        .timer-display {
+            font-size: 3rem;
+            padding: 20px;
+        }
+        
+        .controls {
+            flex-direction: column;
+        }
+        
+        .btn {
+            width: 100%;
+            justify-content: center;
+        }
+    }
+</style>
+
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1><i class="fas fa-clock"></i> 智能定时提醒器</h1>
+            <p class="subtitle">每30分钟提醒您休息或执行特定任务</p>
+        </header>
+        
+        <div class="timer-display">30:00</div>
+        
+        <div class="progress-container">
+            <div class="progress-bar" id="progressBar"></div>
+        </div>
+        
+        <div class="controls">
+            <button id="startBtn" class="btn btn-primary">
+                <i class="fas fa-play"></i> 开始计时
+            </button>
+            <button id="stopBtn" class="btn btn-secondary" disabled>
+                <i class="fas fa-stop"></i> 停止
+            </button>
+            <button id="resetBtn" class="btn btn-secondary">
+                <i class="fas fa-redo"></i> 重置
+            </button>
+        </div>
+        
+        <div class="custom-message">
+            <label for="message"><i class="fas fa-comment-alt"></i> 自定义提醒消息：</label>
+            <textarea id="message" placeholder="输入您想要的提醒内容...">该休息一下了！站起来活动活动，喝点水吧！</textarea>
+        </div>
+        
+        <div class="permission-status" id="permissionStatus">
+            <i class="fas fa-info-circle"></i>
+            <span>通知权限状态：未请求</span>
+        </div>
+        
+        <div class="notification-preview" id="notificationPreview">
+            <div class="notification-title">定时提醒</div>
+            <div class="notification-body" id="previewMessage">该休息一下了！站起来活动活动，喝点水吧！</div>
+        </div>
+        
+        <footer>
+            <p>保持高效工作，合理安排休息时间</p>
+        </footer>
+    </div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // 获取DOM元素
+    const timerDisplay = document.querySelector('.timer-display');
+    const startBtn = document.getElementById('startBtn');
+    const stopBtn = document.getElementById('stopBtn');
+    const resetBtn = document.getElementById('resetBtn');
+    const messageInput = document.getElementById('message');
+    const permissionStatus = document.getElementById('permissionStatus');
+    const notificationPreview = document.getElementById('notificationPreview');
+    const previewMessage = document.getElementById('previewMessage');
+    const progressBar = document.getElementById('progressBar');
+
+    // 计时器变量
+    let timer;
+    let timeLeft = 1 * 60; // 30分钟（秒）
+    let isRunning = false;
+    const totalTime = 1 * 60; // 30分钟的秒数
+
+    // 检查通知权限
+    function checkNotificationPermission() {
+        if (!("Notification" in window)) {
+            updatePermissionStatus("您的浏览器不支持桌面通知", "denied");
+            return;
+        }
+
+        if (Notification.permission === "granted") {
+            updatePermissionStatus("已授予通知权限", "granted");
+        } else if (Notification.permission === "denied") {
+            updatePermissionStatus("通知权限已被拒绝", "denied");
+        } else {
+            updatePermissionStatus("通知权限尚未请求", "default");
+        }
+    }
+
+    // 更新权限状态显示
+    function updatePermissionStatus(text, status) {
+        permissionStatus.innerHTML = `<i class="fas fa-info-circle"></i> <span>通知权限状态：${text}</span>`;
+        if (status === "granted") {
+            permissionStatus.classList.add("permission-granted");
+            permissionStatus.classList.remove("permission-denied");
+            notificationPreview.style.display = 'block';
+        } else if (status === "denied") {
+            permissionStatus.classList.add("permission-denied");
+            permissionStatus.classList.remove("permission-granted");
+            notificationPreview.style.display = 'none';
+        } else {
+            permissionStatus.classList.remove("permission-granted", "permission-denied");
+            notificationPreview.style.display = 'none';
+        }
+    }
+
+    // 请求通知权限
+    function requestNotificationPermission() {
+        if (!("Notification" in window)) {
+            updatePermissionStatus("您的浏览器不支持桌面通知", "denied");
+            return;
+        }
+        Notification.requestPermission().then(permission => {
+            if (permission === "granted") {
+                updatePermissionStatus("已授予通知权限", "granted");
+                showNotification(); // 测试通知
+            } else {
+                updatePermissionStatus("通知权限已被拒绝", "denied");
+            }
+        });
+    }
+
+    // 显示通知
+    function showNotification() {
+        if (Notification.permission !== "granted") return;
+
+        const message = messageInput.value || "时间到！该休息一下了！";
+
+        // 创建并显示通知
+        const notification = new Notification("定时提醒", {
+            body: message,
+            icon: "https://cdn-icons-png.flaticon.com/512/567/567947.png"
+        });
+
+        // 点击通知时关闭它
+        notification.onclick = function() {
+            window.focus();
+            notification.close();
+        };
+    }
+
+    // 更新计时器显示
+    function updateTimerDisplay() {
+        const minutes = Math.floor(timeLeft / 60).toString().padStart(2, '0');
+        const seconds = (timeLeft % 60).toString().padStart(2, '0');
+        timerDisplay.textContent = `${minutes}:${seconds}`;
+
+        // 更新进度条
+        const progressPercentage = ((totalTime - timeLeft) / totalTime) * 100;
+        progressBar.style.width = `${progressPercentage}%`;
+    }
+
+    // 开始计时器
+    function startTimer() {
+        if (isRunning) return;
+
+        isRunning = true;
+        startBtn.disabled = true;
+        stopBtn.disabled = false;
+
+        timer = setInterval(() => {
+            timeLeft--;
+            updateTimerDisplay();
+
+            if (timeLeft <= 0) {
+                clearInterval(timer);
+                showNotification();
+                timeLeft = 1 * 60;
+                updateTimerDisplay();
+                startTimer(); // 自动重新开始
+            }
+        }, 1000);
+    }
+
+    // 停止计时器
+    function stopTimer() {
+        clearInterval(timer);
+        isRunning = false;
+        startBtn.disabled = false;
+        stopBtn.disabled = true;
+    }
+
+    // 重置计时器
+    function resetTimer() {
+        stopTimer();
+        timeLeft = 1 * 60;
+        updateTimerDisplay();
+        progressBar.style.width = '0%';
+        startBtn.disabled = false;
+    }
+
+    // 初始化
+    function init() {
+        updateTimerDisplay();
+        checkNotificationPermission();
+
+        // 事件监听器
+        startBtn.addEventListener('click', startTimer);
+        stopBtn.addEventListener('click', stopTimer);
+        resetBtn.addEventListener('click', resetTimer);
+
+        messageInput.addEventListener('input', function() {
+            previewMessage.textContent = this.value || "该休息一下了！站起来活动活动，喝点水吧！";
+        });
+
+        permissionStatus.addEventListener('click', requestNotificationPermission);
+    }
+
+    init();
+});
+</script>
+</body>
+</html>
