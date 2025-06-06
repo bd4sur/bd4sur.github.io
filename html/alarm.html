@@ -288,6 +288,48 @@
 </div>
 
 <script>
+
+const workerScript = `
+let startTime = 0;
+let elapsedTime = 0;
+let timerInterval = null;
+let isRunning = false;
+
+self.onmessage = function(e) {
+    const command = e.data.command;
+
+    switch(command) {
+        case 'start':
+            if (!isRunning) {
+                startTime = Date.now() - elapsedTime;
+                timerInterval = setInterval(() => {
+                    elapsedTime = Date.now() - startTime;
+                    self.postMessage({ type: 'update', elapsedTime: elapsedTime });
+                }, 100);
+                isRunning = true;
+            }
+            break;
+
+        case 'pause':
+            if (isRunning) {
+                clearInterval(timerInterval);
+                isRunning = false;
+            }
+            break;
+
+        case 'reset':
+            clearInterval(timerInterval);
+            elapsedTime = 0;
+            isRunning = false;
+            self.postMessage({ type: 'update' });
+            break;
+    }
+};
+`;
+
+const blob = new Blob([workerScript], { type: 'application/javascript' });
+const worker = new Worker(URL.createObjectURL(blob));
+
 document.addEventListener('DOMContentLoaded', function() {
     // 获取DOM元素
     const timerDisplay = document.querySelector('.timer-display');
@@ -303,11 +345,7 @@ document.addEventListener('DOMContentLoaded', function() {
     const MESSAGE = "该休息一下了！站起来活动活动，喝点水吧！❤️ from Y\u200BM";
     const TITLE = "定时提醒 - BD4SUR";
 
-    // 计时器变量
-    let timer;
-    let timeLeft = TOTAL_SECONDS; // 30分钟（秒）
-    let isRunning = false;
-    const totalTime = TOTAL_SECONDS; // 30分钟的秒数
+    const totalTime = TOTAL_SECONDS * 1000; // 毫秒
 
     let title_flash_counter = 10;
     let title_flash_timer = 0;
@@ -393,59 +431,58 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     // 更新计时器显示
-    function updateTimerDisplay() {
-        const minutes = Math.floor(timeLeft / 60).toString().padStart(2, '0');
-        const seconds = (timeLeft % 60).toString().padStart(2, '0');
-        timerDisplay.textContent = `${minutes}:${seconds}`;
+    function updateTimerDisplay(timeLeft) {
+        if (isNaN(timeLeft) || timeLeft < 0) return;
+
+        let minutes = Math.floor(timeLeft / 1000 / 60).toString().padStart(2, '0');
+        let seconds = (Math.floor(timeLeft / 1000) % 60).toString().padStart(2, '0');
+        let ms = Math.floor((timeLeft - (minutes * 60 * 1000 + seconds * 1000)) / 100).toString().padStart(1, '0');
+        timerDisplay.innerHTML = `${minutes}:${seconds}.<span style="font-size: smaller;">${ms}</span>`;
 
         // 更新进度条
         const progressPercentage = ((totalTime - timeLeft) / totalTime) * 100;
         progressBar.style.width = `${progressPercentage}%`;
     }
 
+    // 处理来自Worker的消息
+    worker.onmessage = function(e) {
+        if (e.data.type === 'update') {
+            let elapsedTime = e.data.elapsedTime;
+            updateTimerDisplay(totalTime - elapsedTime);
+            if (elapsedTime >= totalTime) {
+                showNotification();
+                // 自动重新开始
+                worker.postMessage({ command: 'reset' });
+                worker.postMessage({ command: 'start' });
+            }
+        }
+    };
+
     // 开始计时器
     function startTimer() {
-        if (isRunning) return;
-
-        isRunning = true;
         startBtn.disabled = true;
         stopBtn.disabled = false;
-
-        timer = setInterval(() => {
-            timeLeft--;
-            updateTimerDisplay();
-
-            if (timeLeft <= 0) {
-                clearInterval(timer);
-                showNotification();
-                isRunning = false;
-                timeLeft = TOTAL_SECONDS;
-                updateTimerDisplay();
-                startTimer(); // 自动重新开始
-            }
-        }, 1000);
+        worker.postMessage({ command: 'start' });
     }
 
     // 停止计时器
     function stopTimer() {
-        clearInterval(timer);
-        isRunning = false;
         startBtn.disabled = false;
         stopBtn.disabled = true;
+        worker.postMessage({ command: 'pause' });
     }
 
     // 重置计时器
     function resetTimer() {
-        stopTimer();
-        timeLeft = TOTAL_SECONDS;
-        updateTimerDisplay();
+        updateTimerDisplay(totalTime);
         progressBar.style.width = '0%';
         startBtn.disabled = false;
+        worker.postMessage({ command: 'reset' });
     }
 
     // 初始化
     function init() {
-        updateTimerDisplay();
+        updateTimerDisplay(totalTime);
         checkNotificationPermission();
 
         // 事件监听器
