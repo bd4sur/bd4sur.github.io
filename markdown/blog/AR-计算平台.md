@@ -1154,7 +1154,8 @@ Defaults env_keep += "http_proxy https_proxy no_proxy"
 桌面系统，在应用商店中通过snap安装Chromium、VSCode。然后安装其他必备软件：
 
 ```
-sudo apt install gcc cmake lame mpg123 git npm screen neofetch rsync python-is-python3 python3-pip
+sudo apt install build-essential
+sudo apt install lame mpg123 git npm screen neofetch rsync python-is-python3 python3-pip
 
 # 通过npm安装node
 sudo npm install -g n
