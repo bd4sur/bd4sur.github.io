@@ -18,7 +18,7 @@
 
 虽然Verilog不是编程语言，但是它明确区分阻塞赋值和非阻塞复制之类的概念，是真正贴近现实世界的。反而C语言的抽象层次太高，对世界做了很多不切实际（但是很方便初学者理解）的假定。
 
-所以任何人用来入门编程的第一门语言，应该是JavaScript，它最有助于揭示世界的真相：你的请求可能不响应，你的承诺可能不履行。“凡事有交待，件件有着落，事事有回音”是做梦
+所以任何人用来入门编程的第一门语言，应该是JavaScript，它最有助于揭示世界的真相：你的请求可能不响应，你的承诺可能不履行。“凡事有交待，件件有着落，事事有回音”是做梦。
 
 # JavaScript之美 @ 2025-07-09
 
@@ -476,9 +476,15 @@ CV与NLP的差异是技术化的实在界与象征界的分工，而它们的联
 
 #(LLM)# #(系统思维)#
 
-# 服务业就是人人为我我为人人 @ 2024-10-07
+# 消费观·服务业就是人人为我我为人人 @ 2024-10-07
+
+**2024-10-07**
 
 许多人根本没有购买服务的意识，归根结底是因为许多消费者自身不具备提供任何靠谱服务的能力，无法评估各种服务的价值，也就无法意识到“人人为我，我为人人”的服务业本质。绝大多数人是价值的耗散终端，而不是价值的路由中继。如何让生产消费循环顺畅地运转起来？恐怕还是要靠教育，以及时间。总是要度过这一阶段。
+
+**2025-07-21**
+
+我作为一个消费上的蠢人，从没有精打细算的作风，精打细算不在我的财务方针里。譬如发快递，我从来都是JD或者SF，要求上门服务，没有低于15元的时候。因为：①我相信快递员的服务是有其固有成本的，这部分成本必须由某一方（包括快递员自己）、在某个时刻支付。②我相信的劳动也是有价值的，我通过货币媒介，以我的劳动去购买他人的劳动，货币为这种服务交易提供了一种非共时化的手段。③不能一边抱怨着XX对自己的剥削，一边享受明显不符合经济规律（至少是我自己认为的经济规律）的定价去纵容对于其他劳动者的剥削。因此，我宁愿用比较高（并且合理）的价格，去购买一个相对比较优质的、让我感觉靠谱的服务。
 
 # Who rules homo? @ 2024-10-06
 
@@ -614,7 +620,7 @@ OpenAI's framework for measuring AI progress:
 
 上回说到，有这样一道连丘成桐先生都不会做的题（[来源](https://www.zhihu.com/question/341026031/answer/841578656)），很多人认为这是对严肃学术的一种侮辱。我倒是觉得这类问题很有意思，因为它隐约在挑战着我们头脑中固有的”能行可计算“的概念。于是，在做进一步讨论之前，我至少用两种方法，试图让电脑理解这个问题。考虑到这个问题竟然难倒了丘成桐先生，下文称之为”Q问题“。
 
-**方法1：前馈神经网络（多层感知机）。**2016年，有人写了一篇有趣的[博客](https://joelgrus.com/2016/05/23/fizz-buzz-in-tensorflow)，使用多层感知机解决FizzBuzz问题。参考这篇博客，我也做了一个类似的小东西，通过6层前馈网络学习99999以内的Q问题。训练集是0~99999之间随机选取20000个整数，而验证集是剩余的80000个整数。经过5000个epoch，模型收敛得很好，在验证集上的准确率达到0.92，这是否可以认为神经网络已经发现了Q问题的规律呢？
+**方法1：前馈神经网络（多层感知机）。**2016年，有人写了一篇有趣的[博客](https://joelgrus.com/2016/05/23/fizz-buzz-in-tensorflow)，使用多层感知机解决FizzBuzz问题。参考这篇博客，我也做了一个类似的[小东西](../script/q_problem.py)，通过6层前馈网络学习99999以内的Q问题。训练集是0~99999之间随机选取20000个整数，而验证集是剩余的80000个整数。经过5000个epoch，模型收敛得很好，在验证集上的准确率达到0.92，这是否可以认为神经网络已经发现了Q问题的规律呢？
 
 **方法2：大语言模型提示工程。**通过零样本学习、思维链等提示工程手段，让部署在自家机柜里的Qwen1.5-72B在上下文中寻找Q问题的规律。在没有提示的情况下，大模型完全无法正确回答。在添加了提示之后，本地大模型偶尔能够回答正确，答对的概率大约是五成，而Copilot基本上每次都能答对。
 
@@ -653,148 +659,6 @@ OpenAI's framework for measuring AI progress:
 
 - [SATNet: Bridging deep learning and logical reasoning using a differentiable satisfiability solver](https://arxiv.org/abs/1905.12149)
 - [SoDeep: a Sorting Deep net to learn ranking loss surrogates](https://arxiv.org/abs/1904.04272)
-
-<details>
-
-<summary>代码</summary>
-
-```python
-import os
-import random
-import torch
-import torch.nn as nn
-import numpy as np
-from torch.utils.data import DataLoader, TensorDataset
-from torch.utils.tensorboard import SummaryWriter
-from sklearn import metrics
-from tqdm import tqdm
-
-device = torch.device("cuda:1") if torch.cuda.is_available() else torch.device("cpu")
-
-BATCH_SIZE = 2000
-LEARNING_RATE = 1e-3
-TRAIN_RATIO = 0.2
-NUM_DIGITS = 5
-NUM_CATEGORIES = NUM_DIGITS * 2 + 1
-HIDDEN_DIMS = [32, 128, 1024, 1024, 128, 32]
-
-  # Q函数：一串数字中有多少个圈儿
-def q_function(number: int) -> int:
-    """
-    Q函数：一串数字中有多少个圈儿。
-        例如：q(2024)=1，q(888)=6
-        出典：https://www.zhihu.com/question/338618946/answer/831919337、https://www.zhihu.com/question/341026031/answer/841578656
-    """
-    #         0  1  2  3  4  5  6  7  8  9  10
-    qv_map = [1, 0, 0, 0, 0, 0, 1, 0, 2, 1, 0]
-    istr = f"---------------------------{str(number)}"[-NUM_DIGITS:]
-    qv = 0
-    for i in range(NUM_DIGITS):
-        d = 10 if istr[i] == "-" else int(istr[i])
-        qv = qv + qv_map[d]
-    return qv
-
-def encode_number(n):
-    """
-    将一个整数变换成对应的矢量，作为神经网络的输入矢量。
-    例如：114514变换为numpy.ndarray([1,1,4,5,1,4])
-    """
-    # return np.array([n >> d & 1 for d in range(NUM_DIGITS)], dtype=np.float32)
-    istr = f"---------------------------{str(n)}"[-NUM_DIGITS:]
-    return np.array([(10 if istr[i] == "-" else int(istr[i])) for i in range(NUM_DIGITS)], dtype=np.float32)
-
-def create_dataset(train_ratio):
-    """
-    构造训练集和验证集
-    """
-    indexes = list(range(10 ** NUM_DIGITS))
-    random.shuffle(indexes)
-    train_x = torch.tensor(np.array([encode_number(v) for v in indexes[:int(10 ** NUM_DIGITS * train_ratio)]]), device=device, requires_grad=False)
-    train_y = torch.tensor(np.array([q_function(v) for v in indexes[:int(10 ** NUM_DIGITS * train_ratio)]]), device=device, requires_grad=False)
-    val_set = [(v, q_function(v)) for v in indexes[int(10 ** NUM_DIGITS * train_ratio):]]
-    return TensorDataset(train_x, train_y), val_set
-
-class QNet(nn.Module):
-    """
-    QNet：简单的多层感知机，用于解决Q问题。其层数和隐层维度在HIDDEN_DIMS中定义。
-    """
-    def __init__(self):
-        super().__init__()
-        self.layer_num = len(HIDDEN_DIMS)
-        self.layers = nn.ModuleList()
-        self.afs = nn.ModuleList()
-        self.layers.append(nn.Linear(NUM_DIGITS, HIDDEN_DIMS[0]))
-        self.afs.append(nn.ReLU())
-        for i in range(self.layer_num-2):
-            self.layers.append(nn.Linear(HIDDEN_DIMS[i], HIDDEN_DIMS[i+1]))
-            self.afs.append(nn.ReLU())
-        self.output = nn.Linear(HIDDEN_DIMS[self.layer_num-2], NUM_CATEGORIES)
-
-    def forward(self, x):
-        y = x
-        for i in range(self.layer_num-1):
-            y = (self.layers[i])(y)
-            y = (self.afs[i])(y)
-        return self.output(y)
-
-    def predict(self, input_number):
-        input_tensor = torch.tensor(encode_number(input_number), device=device)
-        output = self.forward(input_tensor)
-        return output.argmax()
-
-def train():
-    tb_writer = SummaryWriter(log_dir="log", comment='train')
-
-    train_set, val_set = create_dataset(TRAIN_RATIO)
-    data_loader = DataLoader(train_set, batch_size=BATCH_SIZE, pin_memory=False)
-    model = QNet().to(device)
-
-    # optimizer = optim.SGD(model.parameters(), lr=0.05, momentum=0.9)
-    optimizer = torch.optim.Adam(model.parameters(), lr=LEARNING_RATE)
-    scheduler = torch.optim.lr_scheduler.ExponentialLR(optimizer, gamma=0.999)
-
-    for epoch in range(100000):
-        epoch_loss = 0
-        for batch_index, batch in enumerate(data_loader):
-            x, y = batch
-            y_hat = model(x)
-            loss = nn.CrossEntropyLoss()(y_hat, y)
-            optimizer.zero_grad()
-            loss.backward()
-            optimizer.step()
-            loss_value = loss.item()
-            epoch_loss += loss_value
-        scheduler.step()
-
-        # 计算训练集损失和精度
-        x_train, y_train_gold = data_loader.dataset.tensors
-        y_train_pred = model(x_train).argmax(-1).detach()
-        accuracy = metrics.accuracy_score(y_train_gold.cpu(), y_train_pred.cpu())
-        print(f"Epoch={epoch}, lr={optimizer.param_groups[0]['lr']:.5e}, loss={epoch_loss:4.4f}, acc@train={accuracy}")
-        tb_writer.add_scalar('loss@trainset', epoch_loss, epoch)
-
-        # 计算验证集精度
-        if epoch > 0 and epoch % 200 == 0:
-            equal_count = 0
-            val_results = []
-            for x, y_gold in tqdm(val_set):
-                y_hat = model.predict(x)
-                if y_hat == y_gold:
-                    flag = "√"
-                    equal_count += 1
-                else:
-                    flag = "×"
-                val_results.append(f"[{flag}] [{x}] 实际有 {y_gold} 个圈儿，预测有 {y_hat} 个圈儿")
-            with open(os.path.join(os.path.dirname(__file__), 'val_results.txt'), 'w', encoding="utf-8") as f:
-                f.write("\n".join(val_results))
-            print(f"Acc@val = {equal_count / len(val_set)}")
-
-if __name__ == "__main__":
-    train()
-
-```
-
-</details>
 
 #(LLM)# #(系统思维)#
 
@@ -2033,6 +1897,8 @@ PLT里面不少东西都给我一种如鲠在喉的感觉，那就是虽然我�
 
 评“现在的学生都在觉醒”：我觉得这算不上“觉醒”，只是随着时局和舆论的波动而做出相应反应而已。新时代的新青年，在看到对手的黑暗面的同时，还是要善于师夷长技才行。
 
+**2025-07-20**补充：以下是老灯发言：年轻人成天撅醒，成天整顿这个整顿那个，好羡慕啊，只有没被撅过的才成天撅醒，但凡被撅一次就不出声了。所以我正式劝青年朋友们少读一点书，多去做一些实际的事情，多晒晒太阳，与有肝胆人共事，从无字句处读书，免得上了萨满大师们的当。
+
 **2022-03-10**
 
 人都是**前半辈子学说话，后半辈子学闭嘴**。从看山是山，到看山不是山，再回到看山还是山。摧毁一个旧世界固然很厉害，而建设一个新世界才是真正了不起。思维终究是要有建设性才行，与他人共情，与自己和解，才能健壮而洒脱地行走在这人世间。（见2019-03-05）
@@ -2640,7 +2506,7 @@ NLP（自然语言处理）是人工智能皇冠上的明珠。以NLP领域为�
 
 一旦机器具备了形式化、结构化思考的能力，与神经网络模型赋予它强大的模式处理能力结合起来，就很有可能实现“形神兼备”的真·人工智能。当然，这究竟是不是通往强人工智能的不二法门，还需要学术界和产业界共同努力探cai索keng。
 
-正如最开始的比较中所说，形式化方法对人的要求是极高的，知识图谱同样面临这个问题。知识图谱（或者说知识库）是一项系统工程，几乎集齐了NLP领域的大多数问题，那么既然是系统工程，就必然涉及到项目管理的问题。其中，领域本体的设计和确定就是一个核心问题，也是各方博si弈bi的焦点所在。在知识库的全生命周期中，项目管理、领域专家、逻辑学家、架构师、系统工程师、算法工程师、运维工程师、客户都各有各的诉求，各有各的观点，如何在高层次上把握这些问题，其复杂性是远远超出技术本身的。所以文因互联的鲍捷博士有一个观点：项目的结构决定了项目团队的结构，项目的演化决定了项目团队的演化。在知识图谱中，形式化方法主要集中在本体设计上。关于本体，鲍捷博士认为“本体的设计是政治”，就是这个意思。进一步说，数理逻辑的类型论和范畴论，在实际的工程项目中，体现为类型系统的设计，也就是系统架构的设计。架构设计从来不是一个技术问题，而是管理问题，甚至是政治问题；对类型的理解，体现的是项目管理者对于项目的理解，而不是基层工程人员的理解。因此，形式化方法的应用，其实并不是一个简单的技术问题，而是涉及到工程项目全局的复杂的管理问题。
+正如最开始的比较中所说，形式化方法对人的要求是极高的，知识图谱同样面临这个问题。知识图谱（或者说知识库）是一项系统工程，几乎集齐了NLP领域的大多数问题，那么既然是系统工程，就必然涉及到项目管理的问题。其中，领域本体的设计和确定就是一个核心问题，也是各方博si弈bi的焦点所在。在知识库的全生命周期中，项目管理、领域专家、逻辑学家、架构师、系统工程师、算法工程师、运维工程师、客户都各有各的诉求，各有各的观点，如何在高层次上把握这些问题，其复杂性是远远超出技术本身的。所以，康威定律认为，项目的结构决定了项目团队的结构，项目的演化决定了项目团队的演化。在知识图谱中，形式化方法主要集中在本体设计上。进一步说，数理逻辑的类型论和范畴论，在实际的工程项目中，体现为类型系统的设计，也就是系统架构的设计。架构设计从来不是一个技术问题，而是管理问题，甚至是政治问题；对类型的理解，体现的是项目管理者对于项目的理解，而不是基层工程人员的理解。因此，形式化方法的应用，其实并不是一个简单的技术问题，而是涉及到工程项目全局的复杂的管理问题。
 
 扯了这么多，好像有点偏题了。简单来说，基于统计的方法尽管难以解释，但是只要你投喂足够多足够好的数据，就会得到一个足够满意的模型。但基于形式化方法的方法尽管很靠谱，但它实际上是把许多技术上的问题转嫁到管理或者项目实施的其他环节上了。比较来看，谁也不比谁的代价小，但总的来看，还是机器学习显得更下里巴人一点。毕竟，没有什么问题，不能用一句`import tensorflow as tf`解决的（滑稽
 
