@@ -259,6 +259,10 @@ KC908U在短波段的调谐精细度（颗粒度）大约是0.25kHz或以上。�
 
 ![ ](./image/G3/kc908/kc908-block-diagram.png)
 
+### 射频前端框图
+
+![ ](./image/G3/kc908/KC908_RF_Front_end.jpg)
+
 ### 核心器件AD9361
 
 ![[来源](https://wiki.analog.com/resources/eval/user-guides/ad-fmcomms2-ebz/ad9361)](./image/G3/ad9361.svg)

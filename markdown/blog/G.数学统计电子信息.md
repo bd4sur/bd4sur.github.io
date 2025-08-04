@@ -36,6 +36,10 @@ HP 39gs 计算器功能强大，但价格非常低廉，一个重要的原因就
 + [人类历史上第一个集成电路使用什么仪器制作的？](https://www.zhihu.com/question/51927758/answer/129057832)
 + 基尔比的集成电路专利：[Method of making miniaturized electronic circuits](https://patents.google.com/patent/US3261081A/en)
 
+# 半导体制程
+
+![ ](./image/G3/半导体制程.jpg)
+
 # 手机工程模式
 
 |手机型号|代码|功能|
