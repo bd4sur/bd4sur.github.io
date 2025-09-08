@@ -63,18 +63,7 @@
         position: relative;
         overflow: hidden;
     }
-    
-    .timer-display::before {
-        content: '';
-        position: absolute;
-        top: 0;
-        left: -100%;
-        width: 100%;
-        height: 100%;
-        background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent);
-        animation: shimmer 3s infinite;
-    }
-    
+
     @keyframes shimmer {
         100% {
             left: 100%;
@@ -214,7 +203,7 @@
         height: 100%;
         background: linear-gradient(to right, #00b09b, #96c93d);
         width: 0%;
-        transition: width 1s linear;
+        transition: width 0.1s linear;
     }
     
     footer {
@@ -246,68 +235,20 @@
             justify-content: center;
         }
     }
-    
-    /* 弹窗样式 */
-    #alertWindow {
-        display: none;
-        position: fixed;
-        top: 0;
-        left: 0;
-        width: 100%;
-        height: 100%;
-        background: rgba(0, 0, 0, 0.8);
-        z-index: 9999;
-        justify-content: center;
-        align-items: center;
-    }
-    
-    .alert-content {
-        background: linear-gradient(135deg, #1a2a6c, #b21f1f, #1a2a6c);
-        padding: 30px;
-        border-radius: 20px;
-        text-align: center;
-        max-width: 500px;
-        width: 90%;
-        box-shadow: 0 0 50px rgba(255, 0, 0, 0.5);
-        animation: pulse 1.5s infinite;
-    }
-    
-    @keyframes pulse {
-        0% { box-shadow: 0 0 0 0 rgba(255, 0, 0, 0.7); }
-        70% { box-shadow: 0 0 0 20px rgba(255, 0, 0, 0); }
-        100% { box-shadow: 0 0 0 0 rgba(255, 0, 0, 0); }
-    }
-    
-    .alert-content h2 {
-        font-size: 2.5rem;
-        margin-bottom: 20px;
-        color: #fff;
-        text-shadow: 0 0 10px rgba(255, 255, 255, 0.5);
-    }
-    
-    .alert-content p {
-        font-size: 1.5rem;
-        margin-bottom: 30px;
-        color: #fff;
-        line-height: 1.6;
-    }
-    
-    .alert-btn {
-        padding: 15px 40px;
-        font-size: 1.2rem;
-        background: linear-gradient(to right, #00b09b, #96c93d);
+
+    #minute, #second {
         border: none;
-        border-radius: 50px;
-        color: white;
-        cursor: pointer;
-        font-weight: bold;
-        transition: all 0.3s;
-        box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3);
+        background: none;
+        font-size: inherit;
+        font-weight: inherit;
+        text-align: center;
+        color: inherit;
+        width: 84px;
+        outline: none;
     }
-    
-    .alert-btn:hover {
-        transform: scale(1.05);
-        box-shadow: 0 8px 20px rgba(0, 0, 0, 0.4);
+
+    #millisecond {
+        font-size: smaller;
     }
 </style>
 
@@ -316,10 +257,10 @@
 <div class="container">
     <header>
         <h2>定时提醒 for Y&#8203;L</h2>
-        <p class="subtitle">每30分钟提醒一次，不要关闭这个选项卡噢</p>
+        <!-- <p class="subtitle">每30分钟提醒一次，不要关闭这个选项卡噢</p> -->
     </header>
 
-    <div class="timer-display">30:00</div>
+    <div class="timer-display"><input type="text" value="30" id="minute"/>:<input type="text" value="00" id="second"/>.<span id="millisecond">00</span></div>
 
     <div class="progress-container">
         <div class="progress-bar" id="progressBar"></div>
@@ -345,15 +286,6 @@
     <div class="permission-status" id="permissionStatus">
         <i class="fas fa-info-circle"></i>
         <span>弹窗提醒状态：已启用</span>
-    </div>
-</div>
-
-<!-- 弹窗提醒窗口 -->
-<div id="alertWindow">
-    <div class="alert-content">
-        <h2><i class="fas fa-bell"></i> 时间到！</h2>
-        <p id="alertMessage">该休息一下了！站起来活动活动，喝点水吧！❤️ from Y&#8203;M</p>
-        <button class="alert-btn" id="closeAlert">我知道了</button>
     </div>
 </div>
 
@@ -402,21 +334,21 @@ const worker = new Worker(URL.createObjectURL(blob));
 document.addEventListener('DOMContentLoaded', function() {
     // 获取DOM元素
     const timerDisplay = document.querySelector('.timer-display');
+    const minuteInput = document.querySelector('#minute');
+    const secondInput = document.querySelector('#second');
+    const millisecond = document.querySelector('#millisecond');
     const startBtn = document.getElementById('startBtn');
     const stopBtn = document.getElementById('stopBtn');
     const resetBtn = document.getElementById('resetBtn');
     const messageInput = document.getElementById('message');
     const permissionStatus = document.getElementById('permissionStatus');
     const progressBar = document.getElementById('progressBar');
-    const alertWindow = document.getElementById('alertWindow');
-    const alertMessage = document.getElementById('alertMessage');
     const closeAlertBtn = document.getElementById('closeAlert');
 
-    const TOTAL_SECONDS = 5; // 30 * 60;
     const MESSAGE = "该休息一下了！站起来活动活动，喝点水吧！❤️ from Y\u200BM";
     const TITLE = "定时提醒 - BD4SUR";
 
-    const totalTime = TOTAL_SECONDS * 1000; // 毫秒
+    let totalTime = 20 * 60 * 1000; // 毫秒
 
     let title_flash_counter = 10;
     let title_flash_timer = 0;
@@ -450,7 +382,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 document.title = `【时间到】${TITLE}`;
             }
             else {
-                document.title = `⏰⏰⏰⏰⏰${TITLE}`;
+                document.title = `⏰⏰${TITLE}`;
             }
             title_flash_counter--;
             if (title_flash_counter <= 0) {
@@ -461,13 +393,14 @@ document.addEventListener('DOMContentLoaded', function() {
 
         // 更新弹窗消息
         const message = messageInput.value || MESSAGE;
-        alertMessage.textContent = message;
 
         // 显示弹窗
-        alertWindow.style.display = 'flex';
+        // alertWindow.style.display = 'flex';
+
+        closeAlert();
         
         // 创建新窗口
-        const windowFeatures = "width=600,height=400,left=100,top=100,resizable=yes,scrollbars=yes,status=yes";
+        const windowFeatures = "popup=1,width=1200,height=800,left=0,top=0,resizable=yes,scrollbars=yes,status=yes";
         alertWindowRef = window.open("", "alertWindow", windowFeatures);
         
         if (alertWindowRef) {
@@ -478,13 +411,14 @@ document.addEventListener('DOMContentLoaded', function() {
                 <head>
                     <meta charset="UTF-8">
                     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-                    <title>提醒</title>
+                    <title>⏰⏰【时间到】⏰⏰</title>
                     <style>
                         body {
-                            margin: 0;
-                            padding: 0;
-                            background: linear-gradient(135deg, #1a2a6c, #b21f1f, #1a2a6c);
-                            height: 100vh;
+                            margin: 25px;
+                            padding: 20px;
+                            border: 16px solid #7cbaff;
+                            height: 80vh;
+                            background: linear-gradient(10deg, #00095a, #101339, #000000, #0f204e);
                             display: flex;
                             justify-content: center;
                             align-items: center;
@@ -523,19 +457,22 @@ document.addEventListener('DOMContentLoaded', function() {
                             box-shadow: 0 8px 20px rgba(0, 0, 0, 0.4);
                         }
                         @keyframes pulse {
-                            0% { box-shadow: 0 0 0 0 rgba(255, 0, 0, 0.7); }
-                            70% { box-shadow: 0 0 0 20px rgba(255, 0, 0, 0); }
-                            100% { box-shadow: 0 0 0 0 rgba(255, 0, 0, 0); }
+                            0% { box-shadow: 0 0 0 0 #66ccffee; }
+                            70% { box-shadow: 0 0 0 20px #66ccff00; }
+                            100% { box-shadow: 0 0 0 0 #66ccff00; }
                         }
                         .pulse {
                             animation: pulse 1.5s infinite;
                         }
                     </style>
                 </head>
-                <body>
-                    <div class="container pulse">
+                <body class="pulse">
+                    <div class="container">
                         <h1><i class="fas fa-bell"></i> 时间到！</h1>
                         <p>${message}</p>
+                        <div style="background-color: #fff; border-radius: 6px; width: 320px; margin: 20px auto;">
+                            <img src="../image/L/miku-drink.png" style="width: 100%;">
+                        </div>
                         <button onclick="window.close()">我知道了</button>
                     </div>
                 </body>
@@ -544,17 +481,17 @@ document.addEventListener('DOMContentLoaded', function() {
             
             // 最大化窗口并置于顶层
             alertWindowRef.moveTo(0, 0);
-            alertWindowRef.resizeTo(screen.width, screen.height);
+            alertWindowRef.resizeTo(window.screen.availWidth, window.screen.availHeight);
             alertWindowRef.focus();
         } else {
             // 如果弹窗被阻止，显示内嵌弹窗
-            alertWindow.style.display = 'flex';
+            // alertWindow.style.display = 'flex';
         }
     }
 
     // 关闭弹窗
     function closeAlert() {
-        alertWindow.style.display = 'none';
+        // alertWindow.style.display = 'none';
         if (alertWindowRef && !alertWindowRef.closed) {
             alertWindowRef.close();
         }
@@ -567,7 +504,10 @@ document.addEventListener('DOMContentLoaded', function() {
         let minutes = Math.floor(timeLeft / 1000 / 60).toString().padStart(2, '0');
         let seconds = (Math.floor(timeLeft / 1000) % 60).toString().padStart(2, '0');
         let ms = Math.floor((timeLeft - (minutes * 60 * 1000 + seconds * 1000)) / 100).toString().padStart(1, '0');
-        timerDisplay.innerHTML = `${minutes}:${seconds}.<span style="font-size: smaller;">${ms}</span>`;
+        // timerDisplay.innerHTML = `${minutes}:${seconds}.<span style="font-size: smaller;">${ms}</span>`;
+        minuteInput.value = minutes;
+        secondInput.value = seconds;
+        millisecond.innerHTML = ms;
 
         // 更新进度条
         const progressPercentage = ((totalTime - timeLeft) / totalTime) * 100;
@@ -590,6 +530,11 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // 开始计时器
     function startTimer() {
+        totalTime = (Number(minuteInput.value) * 60 + Number(secondInput.value)) * 1000;
+        if (totalTime <= 3) {
+            alert("时间太短啦");
+            return;
+        }
         startBtn.disabled = true;
         stopBtn.disabled = false;
         worker.postMessage({ command: 'start' });
@@ -621,13 +566,6 @@ document.addEventListener('DOMContentLoaded', function() {
         stopBtn.addEventListener('click', stopTimer);
         resetBtn.addEventListener('click', resetTimer);
         closeAlertBtn.addEventListener('click', closeAlert);
-
-        // 点击弹窗背景关闭弹窗
-        alertWindow.addEventListener('click', function(e) {
-            if (e.target === alertWindow) {
-                closeAlert();
-            }
-        });
     }
 
     init();
