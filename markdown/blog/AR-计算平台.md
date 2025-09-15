@@ -401,12 +401,87 @@ conda install -c conda-forge gxx_linux-64
   # 参考：https://stackoverflow.com/questions/60503514/how-can-i-make-conda-find-cc1plus/66880336#66880336
 ```
 
-## RK3588开发板
+## 树莓派
+
+![ ](./image/G3/mcu/Raspberry-Pi-4.jpg)
+
+![[来源](https://www.raspberrypi-spy.co.uk/2012/06/simple-guide-to-the-rpi-gpio-header-and-pins)](./image/G3/mcu/Raspberry-Pi-GPIO.jpg)
+
+- [官方文档](https://www.raspberrypi.com/documentation/computers/raspberry-pi.html#gpio)
+- [树莓派引脚定义导航](https://pinout.vvzero.com/)
+
+如何控制（[参考](http://codefoster.com/pi-basicgpio/)）：
+
+```
+echo 端口号 > /sys/class/gpio/export
+echo out > /sys/class/gpio/gpio端口号/direction
+echo 0/1 > /sys/class/gpio端口号/gpio4/value
+```
+
+
+## 树莓派5+UPS底板+SSD帽子的EEPROM设置
+
+```
+sudo rpi-eeprom-config -e
+
+BOOT_UART=1
+BOOT_ORDER=0xf461
+PCIE_PROBE=1
+PSU_MAX_CURRENT=5000
+POWER_OFF_ON_HALT=1
+NET_INSTALL_AT_POWER_ON=1
+```
+
+# 树莓派5启动参数和超频
+
+```
+sudo nano /boot/firmware/config.txt
+
+# 启用I2C并设置频率为400kHz
+dtparam=i2c_arm=on,i2c_arm_baudrate=400000
+
+[all]
+usb_max_current_enable=1
+
+# 超频
+arm_freq=2900
+over_voltage_delta=50000
+dtparam=cpu_tepid=43000,cpu_tepid_hyst=2000
+dtparam=cpu_warm=48000,cpu_warm_hyst=3000
+dtparam=cpu_hot=52000,cpu_hot_hyst=4000
+dtparam=cpu_vhot=58000,cpu_vhot_hyst=5000
+
+# I2S扬声器
+dtoverlay=hifiberry-dac
+dtoverlay=i2s-mmap
+
+# SPI屏幕（ILI9341）
+# Ref. https://forums.raspberrypi.com/viewtopic.php?t=380704#p2275555
+# 首先下载wavesku18366.bin并 sudo cp wavesku18366.bin /lib/firmware
+# 320x240pixels Waveshare SKU18366 2.8in display
+dtoverlay=mipi-dbi-spi,speed=48000000
+dtparam=compatible=wavesku18366\0panel-mipi-dbi-spi
+dtparam=write-only,cpha,cpol
+dtparam=width=320,height=240,width-mm=57,height-mm=43
+dtparam=reset-gpio=27,dc-gpio=22,backlight-gpio=17
+```
+
+注：监测温度
+
+```
+vcgencmd get_throttled
+vcgencmd measure_temp
+vcgencmd measure_volts uncached
+```
+
+## RK3588单板机
 
 ![Radxa ROCK 5B+](./image/G3/mcu/rock-5bp.jpg)
 
 - Radxa ROCK 5B+ (32GB)
 - 友善Nanopc-T6 (16GB)
+
+![Radxa ROCK 5B+ GPIO [(来源)](https://docs.radxa.com/rock5/rock5b/hardware-design/hardware-interface?versions=ROCK+5B%2B)](./image/G3/mcu/rock-5bp-gpio.png)
 
 [Radxa ROCK 5B+](https://radxa.com/products/rock5/5bp/)：注意官方镜像装好后，将GCC/G++替换为11。
 [Nanopc-T6](https://wiki.friendlyelec.com/wiki/index.php/NanoPC-T6/zh)
@@ -567,7 +642,7 @@ SSD经过调研，中端SSD以英特尔760p、三星970evo和浦科特M9PeG最�
 
 </details>
 
-## 开发板
+## 其他开发板/单板机
 
 ### ESP32 (2023)
 
@@ -590,27 +665,6 @@ SSD经过调研，中端SSD以英特尔760p、三星970evo和浦科特M9PeG最�
 |D4|GPIO2|2|带3V3上拉|
 
 只有D3、D4可以方便地设置为I2C总线，因其带有上拉电阻。尽管其他端口均可通过软件设置为I2C总线，但是需要外部上拉。Arduino中，调用`begin(SDA=0, SCL=2)`设置I2C总线，即，默认D3接器件的SDA，D4接器件的SCL。
-
-### 树莓派 (2017-02-13)
-
-![ ](./image/G3/mcu/Raspberry-Pi-4.jpg)
-
-![[来源](https://www.raspberrypi-spy.co.uk/2012/06/simple-guide-to-the-rpi-gpio-header-and-pins)](./image/G3/mcu/Raspberry-Pi-GPIO.jpg)
-
-如何控制（[参考](http://codefoster.com/pi-basicgpio/)）：
-
-```
-echo 端口号 > /sys/class/gpio/export
-echo out > /sys/class/gpio/gpio端口号/direction
-echo 0/1 > /sys/class/gpio端口号/gpio4/value
-```
-
-```
-# 串口工具
-sudo apt-get install minicom
-# 修改开机启动信息
-/etc/motd
-```
 
 ### Edison开发板 (2017-03-11)
 
@@ -1102,7 +1156,7 @@ mmc extcsd read /dev/mmcxxx | grep Life
 
 2、安装后重启，黑屏怎么办？按`Ctrl+Alt+F2`进入字符终端，安装`sudo apt install openssh-server`，即可通过ssh远程进系统。
 
-3、禁止自动休眠
+3、禁止自动休眠、自动更新等无聊的功能
 
 ```
 # 查看休眠设置
@@ -1110,13 +1164,19 @@ systemctl status sleep.target
 # 关闭自动休眠
 sudo systemctl mask sleep.target suspend.target hibernate.target hybrid-sleep.target
 # 然后，最好进入GUI桌面，禁止熄屏、关闭待机
+
+# 禁止并卸载自动更新
+sudo systemctl stop --now unattended-upgrades
+sudo systemctl disable --now unattended-upgrades
+sudo apt remove unattended-upgrades
+
+# 禁止内核自动更新
+sudo apt-mark hold linux-image-generic linux-headers-generic
 ```
 
-4、禁止内核自动更新：`sudo apt-mark hold linux-image-generic linux-headers-generic`
+4、设置声卡采样率到48kHz：`arecord --list-devices`查看声卡设备，`/etc/pulse/daemon.conf`编辑采样率。
 
-5、设置声卡采样率到48kHz：`arecord --list-devices`查看声卡设备，`/etc/pulse/daemon.conf`编辑采样率。
-
-6、设置代理
+5、设置代理
 
 在设置代理前，先安装pysocks：`pip install pysocks httpx[socks]`。这一步可能会比较艰难，多试几次，或者直接找wheel安装。
 
@@ -1151,7 +1211,7 @@ visudo
 Defaults env_keep += "http_proxy https_proxy no_proxy"
 ```
 
-7、安装必备软件
+6、安装必备软件
 
 桌面系统，在应用商店中通过snap安装Chromium、VSCode。然后安装其他必备软件：
 
@@ -1168,7 +1228,7 @@ sudo n stable
 
 docker的安装比较复杂，参考[文档](https://docs.docker.com/engine/install/ubuntu/)。Jetson的JetPack已经安装了docker。
 
-8、设置各类软件的代理
+7、设置各类软件的代理
 
 设置git代理：
 
@@ -1203,9 +1263,9 @@ sudo systemctl show --property=Environment docker
 sudo docker info
 ```
 
-9、安装CUDA（详见后文；Jetson只要安装好了JetPack，就无需手动安装CUDA等）。
+8、安装CUDA（详见后文；Jetson只要安装好了JetPack，就无需手动安装CUDA等）。
 
-10、Jetson特有的初始设置
+9、Jetson特有的初始设置
 
 具体内容详见上文，以下仅为事项检查单：
 
@@ -1216,7 +1276,7 @@ sudo docker info
 - 拉取sdgui等镜像。
 - 在图形桌面中，将语言设置成中文，并安装中文输入法。
 
-11、桌面OS的GUI优化
+10、桌面OS的GUI优化
 
 - `sudo nautilus`打开文件管理器。
 - 将微软雅黑字体放置在`/usr/share/fonts/msyh`目录下。
@@ -1225,7 +1285,7 @@ sudo docker info
 - 安装GUI美化工具：`sudo apt install gnome-tweak-tool`
 - 在应用-工具菜单中找到“优化”，除设置字体外，还可以设置其他。
 
-12、安装filebrowser
+11、安装filebrowser
 
 - `curl -fsSL https://raw.githubusercontent.com/filebrowser/get/master/get.sh | bash`
 - `cd /nas`

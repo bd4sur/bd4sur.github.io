@@ -276,6 +276,7 @@
         <div class="block_container">
             <div class="CategoryTitle">问 题 · 观 点</div>
             <div class="item_container">
+                <div class="FixedArticleTitle"><a class="TopLink SPA_TRIGGER" data-target="blog/Cyber-知觉智能">知觉智能</a></div>
                 <div class="FixedArticleTitle"><a class="TopLink SPA_TRIGGER" data-target="blog/Cyber-信息安全">信息安全</a></div>
                 <div class="FixedArticleTitle"><a class="TopLink SPA_TRIGGER" data-target="blog/Cyber-知识管理">知识管理</a></div>
             </div>
