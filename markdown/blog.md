@@ -317,7 +317,7 @@
         <div class="DemoTag SPA_TRIGGER" data-target="blog/PL-Animac设计备忘录">Animac设计备忘录</div>
         <div class="DemoTag" onclick="window.open('https://bd4sur.com/Animac', '_blank');"><b>Animac</b> · Scheme解释器<sup>RC</sup></div>
         <div class="DemoTag" onclick="window.open('https://bd4sur.com/Aqua', '_blank');"><b>Aqua</b> · MP3编码器<sup>RC</sup></div>
-        <div class="DemoTag" onclick="window.open('https://bd4sur.com/Nano/infer', '_blank');"><b>Nano</b> · 电子鹦鹉<sup>RC</sup></div>
+        <div class="DemoTag" onclick="window.open('https://bd4sur.com/Nano/infer/web', '_blank');"><b>Nano</b> · 电子鹦鹉<sup>RC</sup></div>
         <div style="width: 100%;"></div>
         <div class="DemoTag" onclick="window.open('./html/bpm.html', '_blank');">BPM分析<sup>β</sup></div>
         <div class="DemoTag" onclick="window.open('./html/cw-morse-encoder.html', '_blank');">CW练习器<sup>β</sup></div>
