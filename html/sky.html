@@ -1,0 +1,899 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>sky</title>
+</head>
+<body>
+    <div class="container">
+        <canvas id="skyCanvas" width="240" height="240" style="width: 240px; height: 240px;"></canvas>
+        <div class="controls">
+            <label for="sunAngle">alt:</label>
+            <input type="range" id="sunAngle" min="-180" max="180" value="45">
+            <span class="value-display" id="angleValue">45°</span>
+        </div>
+    </div>
+
+    <script>
+
+
+
+let moonTextureData;
+let texWidth;
+let texHeight;
+
+const img = new Image();
+img.src = '../image/H/moon.jpg';
+img.onload = () => {
+    const canvas = document.createElement('canvas');
+    canvas.width = img.width;
+    canvas.height = img.height;
+    texWidth = img.width;
+    texHeight = img.height;
+    const ctx = canvas.getContext('2d');
+    ctx.drawImage(img, 0, 0);
+    moonTextureData = ctx.getImageData(0, 0, img.width, img.height).data; // Uint8ClampedArray
+    // 现在可以传给 draw_moon_with_texture
+};
+
+
+
+
+
+// 物理常数
+const PHYSICS = {
+    // 大气光学参数
+    MIE_G: 0.9,           // 米氏散射不对称因子
+    RAYLEIGH_BETA: 0.5,  // 瑞利散射系数 感觉是海拔越高越小
+    MIE_BETA_BASE: 0.001,      // 米氏散射系数 越大光斑越大
+    MIE_BETA_MAX: 0.1,      // 米氏散射系数 越大光斑越大
+    ATMOSPHERE_HEIGHT: 100.0, // 虚拟大气层厚度 (km)
+    SUN_ANGULAR_SIZE: 0.5, // 太阳视直径 (度)
+    
+    // 波长相关的瑞利散射系数 (近似)
+    RAYLEIGH_WAVELENGTH_FACTORS: [
+        680, // Red
+        550, // Green  
+        450  // Blue
+    ],
+
+    // 臭氧吸收系数（近似，单位：1/km，针对 R/G/B 通道）
+    // 参考 Chappuis 吸收带：蓝绿光吸收强，红光弱
+    OZONE_ABSORPTION: [
+        0.005,  // Red   (650nm) — 弱吸收
+        0.040,  // Green (550nm) — 中等吸收
+        0.025   // Blue  (450nm) — 比绿光略弱（实际臭氧在~600nm最强，但简化模型）
+    ],
+
+    // 臭氧层有效厚度（km），典型值 ~20–30 km，此处取 25 km
+    OZONE_LAYER_HEIGHT: 25.0
+};
+
+
+
+
+
+
+
+
+
+function star_burst_filter(pixels, width, height, sunScreenPos = null, sunBrightness = 1.0, threshold = 0.9, clusterRadius = 10) {
+    // 1. 收集高亮点
+    const candidates = [];
+    for (let y = 0; y < height; y++) {
+        for (let x = 0; x < width; x++) {
+            const idx = (y * width + x) * 4;
+            const r = pixels[idx] / 255;
+            const g = pixels[idx + 1] / 255;
+            const b = pixels[idx + 2] / 255;
+            const lum = 0.299 * r + 0.587 * g + 0.114 * b;
+
+            if (lum > threshold) {
+                const factor = Math.min(1, (lum - threshold) * 5);
+                candidates.push({
+                    x: x,
+                    y: y,
+                    r: r * factor * 255,
+                    g: g * factor * 255,
+                    b: b * factor * 255,
+                    lum: lum
+                });
+            }
+        }
+    }
+
+    if (candidates.length === 0) return;
+
+    // 2. 按亮度降序排序（确保最亮点优先作为簇主）
+    candidates.sort((a, b) => b.lum - a.lum);
+
+    const visited = new Array(candidates.length).fill(false);
+    const clusters = [];
+
+    const r2 = clusterRadius * clusterRadius;
+
+    // 3. 贪心聚类：以最亮点为种子，吸收邻域内未访问点
+    for (let i = 0; i < candidates.length; i++) {
+        if (visited[i]) continue;
+
+        const cluster = [candidates[i]];
+        visited[i] = true;
+
+        // 将当前种子作为中心，搜索其邻域内所有未访问点（不分层，单层即可）
+        // 注意：这里不递归扩展，仅以种子为中心做一次半径判断（简化版）
+        // 若需多层扩展，可用队列 BFS，但通常 clusterRadius 足够覆盖整个亮斑
+        for (let j = i + 1; j < candidates.length; j++) {
+            if (visited[j]) continue;
+            const dx = candidates[i].x - candidates[j].x;
+            const dy = candidates[i].y - candidates[j].y;
+            if (dx * dx + dy * dy <= r2) {
+                cluster.push(candidates[j]);
+                visited[j] = true;
+            }
+        }
+
+        clusters.push(cluster);
+    }
+
+    // 4. 为每个簇计算几何中心和代表颜色
+    const starCenters = clusters.map(cluster => {
+        let sumX = 0, sumY = 0;
+        let totalWeight = 0;
+        let weightedR = 0, weightedG = 0, weightedB = 0;
+
+        // 使用亮度作为权重进行加权平均（也可改用最亮点）
+        for (const pt of cluster) {
+            const w = pt.lum; // 权重：原始亮度
+            sumX += pt.x;
+            sumY += pt.y;
+            weightedR += pt.r * w;
+            weightedG += pt.g * w;
+            weightedB += pt.b * w;
+            totalWeight += w;
+        }
+
+        const avgX = sumX / cluster.length;
+        const avgY = sumY / cluster.length;
+
+        // 颜色：亮度加权平均（避免暗点污染）
+        const colorR = totalWeight > 0 ? weightedR / totalWeight : cluster[0].r;
+        const colorG = totalWeight > 0 ? weightedG / totalWeight : cluster[0].g;
+        const colorB = totalWeight > 0 ? weightedB / totalWeight : cluster[0].b;
+
+        return { x: avgX, y: avgY, r: colorR, g: colorG, b: colorB };
+    });
+
+    // 5. 绘制星芒
+    const starResult = new Array(width * height * 4).fill(0);
+    const directions = [[1, 0], [0, 1], [1, 1], [1, -1]];
+    const blurLength = 100;
+    const decay = 0.97;
+
+    for (const center of starCenters) {
+        const cx = center.x;
+        const cy = center.y;
+        const sr = center.r;
+        const sg = center.g;
+        const sb = center.b;
+
+        for (const [dx, dy] of directions) {
+            const len = Math.hypot(dx, dy);
+            const ndx = dx / len;
+            const ndy = dy / len;
+
+            for (let d = 1; d <= blurLength; d++) {
+                const alpha = Math.pow(decay, d);
+                if (alpha < 0.01) break;
+
+                const px = Math.floor(cx + ndx * d);
+                const py = Math.floor(cy + ndy * d);
+                const nx = Math.floor(cx - ndx * d);
+                const ny = Math.floor(cy - ndy * d);
+
+                if (px >= 0 && px < width && py >= 0 && py < height) {
+                    const idx = (py * width + px) * 4;
+                    starResult[idx]     += sr * alpha;
+                    starResult[idx + 1] += sg * alpha;
+                    starResult[idx + 2] += sb * alpha;
+                }
+                if (nx >= 0 && nx < width && ny >= 0 && ny < height) {
+                    const idx = (ny * width + nx) * 4;
+                    starResult[idx]     += sr * alpha;
+                    starResult[idx + 1] += sg * alpha;
+                    starResult[idx + 2] += sb * alpha;
+                }
+            }
+        }
+    }
+
+    // 6. 叠加结果
+    for (let i = 0; i < pixels.length; i++) {
+        pixels[i] = Math.min(255, pixels[i] + starResult[i]);
+    }
+}
+
+
+
+
+function star_burst_filter2(pixels, width, height, sunScreenPos, sunBrightness) {
+    const threshold = 0.9;
+    const brightMask = new Array(width * height * 4).fill(0);
+    
+    // 1. 创建高亮掩码
+    for (let i = 0; i < pixels.length; i += 4) {
+        const r = pixels[i] / 255, g = pixels[i+1] / 255, b = pixels[i+2] / 255;
+        const lum = 0.299 * r + 0.587 * g + 0.114 * b;
+        if (lum > threshold) {
+            const factor = Math.min(1, (lum - threshold) * 5);
+            brightMask[i] = r * factor * 255;
+            brightMask[i+1] = g * factor * 255;
+            brightMask[i+2] = b * factor * 255;
+            brightMask[i+3] = 255;
+        }
+    }
+
+    // 2. 如果提供了 sunScreenPos，检查该位置是否在 brightMask 中足够亮
+    let starCenter = null;
+    let starColor = [0, 0, 0];
+    if (sunScreenPos) {
+        const { x: cx, y: cy } = sunScreenPos;
+        const ix = Math.floor(cx), iy = Math.floor(cy);
+        if (ix >= 0 && ix < width && iy >= 0 && iy < height) {
+            const idx = (iy * width + ix) * 4;
+            const br = brightMask[idx], bg = brightMask[idx+1], bb = brightMask[idx+2];
+            const maskLum = 0.299 * br + 0.587 * bg + 0.114 * bb;
+            // 只有当 brightMask 在该位置有显著亮度时，才启用星芒
+            if (maskLum > 0.1) { // 阈值可调，避免噪声触发
+                starCenter = { x: cx, y: cy };
+                starColor = [br, bg, bb];
+            }
+        }
+    }
+
+    // 若未提供有效 sunScreenPos 或位置不亮，则可选：自动找最亮点（此处暂不实现，保持原逻辑）
+
+    // 3. 生成星芒
+    const starResult = new Array(width * height * 4).fill(0);
+    const directions = [
+        [1, 0], [0, 1], [1, 1], [1, -1]
+    ];
+    const blurLength = 100;
+    const decay = 0.97;
+
+    if (starCenter) {
+        const { x: cx, y: cy } = starCenter;
+        const [sr, sg, sb] = starColor;
+
+        for (const [dx, dy] of directions) {
+            const len = Math.hypot(dx, dy);
+            const ndx = dx / len, ndy = dy / len;
+
+            for (let d = 1; d <= blurLength; d++) {
+                const alpha = Math.pow(decay, d);
+                if (alpha < 0.01) break;
+
+                const px = Math.floor(cx + ndx * d);
+                const py = Math.floor(cy + ndy * d);
+                const nx = Math.floor(cx - ndx * d);
+                const ny = Math.floor(cy - ndy * d);
+
+                // 正向
+                if (px >= 0 && px < width && py >= 0 && py < height) {
+                    const idx = (py * width + px) * 4;
+                    starResult[idx]     += sr * alpha;
+                    starResult[idx + 1] += sg * alpha;
+                    starResult[idx + 2] += sb * alpha;
+                }
+                // 反向
+                if (nx >= 0 && nx < width && ny >= 0 && ny < height) {
+                    const idx = (ny * width + nx) * 4;
+                    starResult[idx]     += sr * alpha;
+                    starResult[idx + 1] += sg * alpha;
+                    starResult[idx + 2] += sb * alpha;
+                }
+            }
+        }
+    }
+
+    // 4. 叠加星芒到原图
+    for (let i = 0; i < pixels.length; i++) {
+        pixels[i] = Math.min(255, pixels[i] + starResult[i]);
+    }
+}
+
+
+// 基于球面几何 terminator 的月相绘制（带物理合理的软边缘）
+function draw_moon(frame_buffer, fb_width, fb_height, center_x, center_y, radius, phase, alpha) {
+    const moonX = center_x;
+    const moonY = center_y;
+    const moonRadius = radius;
+
+    // 太阳方向（单位向量），同原逻辑
+    const cosPhase = Math.cos(phase);
+    const sinPhase = Math.sin(phase);
+    const sunDirX = cosPhase * Math.cos(alpha);
+    const sunDirY = cosPhase * Math.sin(alpha);
+    const sunDirZ = sinPhase;
+
+    const sunLen = Math.sqrt(sunDirX * sunDirX + sunDirY * sunDirY + sunDirZ * sunDirZ);
+    const sunUnitX = sunLen > 0 ? sunDirX / sunLen : 1;
+    const sunUnitY = sunLen > 0 ? sunDirY / sunLen : 0;
+    const sunUnitZ = sunLen > 0 ? sunDirZ / sunLen : 0;
+
+    // 颜色与环境光
+    const litColor = [220, 220, 210];
+    const darkColor = [10, 10, 20];
+    const ambient = 0.01;
+
+    // 半影角宽度（弧度）：太阳角半径 ≈ 0.0047 rad，取稍大值保证可见性
+    const PENUMBRA_HALF_ANGLE = 0.2; // ≈ 0.5°
+
+    const r2 = moonRadius * moonRadius;
+    for (let dy = -moonRadius; dy <= moonRadius; dy++) {
+        for (let dx = -moonRadius; dx <= moonRadius; dx++) {
+            if (dx * dx + dy * dy > r2) continue;
+
+            const px = Math.floor(moonX + dx);
+            const py = Math.floor(moonY + dy);
+            if (px < 0 || px >= fb_width || py < 0 || py >= fb_height) continue;
+
+            const idx = (py * fb_width + px) * 4;
+
+            // 构造单位球面上的表面点（归一化位置向量 = 法向量）
+            const len = Math.sqrt(dx * dx + dy * dy + r2 - dx * dx - dy * dy); // = moonRadius
+            // 实际上，(dx, dy, dz) 在半径为 moonRadius 的球面上，所以单位向量为：
+            const nx = dx / moonRadius;
+            const ny = dy / moonRadius;
+            const nz = Math.sqrt(Math.max(0, r2 - dx * dx - dy * dy)) / moonRadius;
+
+            // 关键：计算该点与 terminator 的球面角距离
+            // terminator 是太阳方向与月球中心构成的大圆
+            // 点积 dot = cos(θ)，其中 θ 是表面点与太阳方向的夹角
+            const dot = nx * sunUnitX + ny * sunUnitY + nz * sunUnitZ;
+
+            // θ = acos(dot)，但避免 acos 开销，直接用 dot 表示角度关系
+            // terminator 位于 dot = 0（即 θ = 90°）
+            // 我们定义 signed_angle_dist ∝ -dot （因为 dot>0 为亮区）
+            // 将角距离映射为线性过渡变量（单位：弧度等效）
+
+            // 使用小角度近似：angle ≈ sqrt(1 - dot^2) 不适用；更简单：
+            // 直接用 dot 作为“余弦空间”的代理变量，其梯度在 terminator 附近 ≈ 1/rad
+            // 因此，我们定义“有效角偏移”为：
+            const angleFromTerminator = Math.acos(Math.max(-1, Math.min(1, dot))) - Math.PI / 2; // ∈ [-π/2, π/2]
+
+            // 或者更高效（避免 acos）：利用 sin(θ - π/2) = -cosθ = -dot
+            // 在 terminator 附近（θ≈π/2），有 θ - π/2 ≈ -dot （一阶泰勒）
+            // 所以可用：approxAngle = -dot （单位为“弧度等效”，需缩放）
+            // 但为保精度，这里采用 acos 方法（可选优化见注释）
+
+            // === 软边缘判断 ===
+            let intensity;
+            if (angleFromTerminator >= PENUMBRA_HALF_ANGLE) {
+                intensity = 1.0; // 完全照亮
+            } else if (angleFromTerminator <= -PENUMBRA_HALF_ANGLE) {
+                intensity = ambient; // 完全背光
+            } else {
+                // 映射到 [0,1]
+                const t = (angleFromTerminator + PENUMBRA_HALF_ANGLE) / (2 * PENUMBRA_HALF_ANGLE);
+                const smoothT = t * t * (3 - 2 * t); // smoothstep
+                intensity = ambient + (1 - ambient) * smoothT;
+            }
+
+
+
+
+
+
+            // === 纹理映射：法向量 → 经纬度 → UV ===
+            // 注意：月球贴图通常是 equirectangular 投影，经度 0 在中间
+            const lon = Math.atan2(nx, nz); // [-π, π]
+            const lat = Math.asin(ny);       // [-π/2, π/2]
+
+            let u = (lon + Math.PI) / (2 * Math.PI); // [0, 1)
+            let v = (lat + Math.PI / 2) / Math.PI;   // [0, 1]
+
+            // 处理边缘 wrap（可选，但推荐）
+            u = u - Math.floor(u); // 保证 [0,1)
+
+            // 双线性采样
+            const tx = u * texWidth - 0.5;
+            const ty = v * texHeight - 0.5;
+
+            const x0 = Math.floor(tx);
+            const y0 = Math.floor(ty);
+            const x1 = (x0 + 1) % texWidth;
+            const y1 = Math.min(y0 + 1, texHeight - 1);
+
+            const wx = tx - x0;
+            const wy = ty - y0;
+
+            function getPixel(tex, x, y, c) {
+                return tex[((y * texWidth + x) * 4) + c];
+            }
+
+            const c00_r = getPixel(moonTextureData, x0, y0, 0);
+            const c00_g = getPixel(moonTextureData, x0, y0, 1);
+            const c00_b = getPixel(moonTextureData, x0, y0, 2);
+
+            const c10_r = getPixel(moonTextureData, x1, y0, 0);
+            const c10_g = getPixel(moonTextureData, x1, y0, 1);
+            const c10_b = getPixel(moonTextureData, x1, y0, 2);
+
+            const c01_r = getPixel(moonTextureData, x0, y1, 0);
+            const c01_g = getPixel(moonTextureData, x0, y1, 1);
+            const c01_b = getPixel(moonTextureData, x0, y1, 2);
+
+            const c11_r = getPixel(moonTextureData, x1, y1, 0);
+            const c11_g = getPixel(moonTextureData, x1, y1, 1);
+            const c11_b = getPixel(moonTextureData, x1, y1, 2);
+
+            // bilinear interpolation
+            const r0 = c00_r + wx * (c10_r - c00_r);
+            const g0 = c00_g + wx * (c10_g - c00_g);
+            const b0 = c00_b + wx * (c10_b - c00_b);
+
+            const r1 = c01_r + wx * (c11_r - c01_r);
+            const g1 = c01_g + wx * (c11_g - c01_g);
+            const b1 = c01_b + wx * (c11_b - c01_b);
+
+            let texR = r0 + wy * (r1 - r0);
+            let texG = g0 + wy * (g1 - g0);
+            let texB = b0 + wy * (b1 - b0);
+
+            // 应用光照强度（保留你的明暗效果）
+            const r = Math.round(texR * intensity);
+            const g = Math.round(texG * intensity);
+            const b = Math.round(texB * intensity);
+
+
+
+
+            // const r = Math.round(darkColor[0] + intensity * (litColor[0] - darkColor[0]));
+            // const g = Math.round(darkColor[1] + intensity * (litColor[1] - darkColor[1]));
+            // const b = Math.round(darkColor[2] + intensity * (litColor[2] - darkColor[2]));
+
+            frame_buffer[idx]     = r;
+            frame_buffer[idx + 1] = g;
+            frame_buffer[idx + 2] = b;
+        }
+    }
+}
+
+
+
+
+function draw_star(frame_buffer, fb_width, fb_height, center_x, center_y, lum) {
+    const idx = (center_y * fb_width + center_x) * 4;
+    frame_buffer[idx]     = lum;
+    frame_buffer[idx + 1] = lum;
+    frame_buffer[idx + 2] = lum;
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+// 计算大气散射强度
+function calculateScattering(rayDir, sunDir) {
+    if (isNaN(rayDir.z)) return { r: 0, g: 0, b: 0 };
+
+    const rayLength = Math.sqrt(rayDir.x * rayDir.x + rayDir.y * rayDir.y + rayDir.z * rayDir.z);
+    if (rayLength === 0) return { r: 0, g: 0, b: 0 };
+
+    const normalizedRay = {
+        x: rayDir.x / rayLength,
+        y: rayDir.y / rayLength,
+        z: rayDir.z / rayLength,
+    };
+
+    // 太阳方向归一化
+    const sunR = Math.sqrt(sunDir.x * sunDir.x + sunDir.y * sunDir.y + sunDir.z * sunDir.z);
+    const sunDirection = {
+        x: sunDir.x / sunR,
+        y: sunDir.y / sunR,
+        z: sunDir.z / sunR,
+    };
+
+
+    // ===== 1. 太阳光入射路径：计算太阳仰角和大气质量（使用 Kasten-Young 近似，仅用于光源衰减） =====
+    const sunElevation = Math.asin(Math.max(-1, Math.min(1, sunDirection.z))); // [-π/2, π/2]
+    const sunZenith = Math.PI / 2 - sunElevation; // [0, π]
+    const sunElevationDeg = sunElevation * 180 / Math.PI;
+
+    let sunAirMass;
+    if (sunElevationDeg > -3) {
+        // 使用 Kasten-Young 公式（适用于 -5° ~ 90°）
+        const theta = 90 - sunElevationDeg; // 天顶角 in degrees
+        sunAirMass = 1.0 / (Math.cos(sunZenith) + 0.50572 * Math.pow(96.07995 - theta, -1.6364));
+    }
+    else {
+        // 太阳太低，大气质量极大，散射光极弱
+        sunAirMass = 40;
+    }
+    // 限制最大光程（避免数值不稳定）
+    sunAirMass = Math.min(sunAirMass, 40);
+
+
+    // 观察方向与太阳方向夹角
+    const cosTheta = normalizedRay.x * sunDirection.x +
+                    normalizedRay.y * sunDirection.y +
+                    normalizedRay.z * sunDirection.z;
+
+    // 米氏散射相函数（不变）
+    const miePhase = Math.pow(
+        1 + PHYSICS.MIE_G * PHYSICS.MIE_G - 2 * PHYSICS.MIE_G * cosTheta,
+        -1.5
+    );
+
+    // 瑞利相函数（正确形式应为 (1 + cos²θ)/2，但你用了 sqrt(1+cos²θ)，可保留或修正）
+    // 更标准的瑞利相函数：
+    const rayleighPhase = (1 + cosTheta * cosTheta) / 2;
+
+
+
+
+/*
+    // 计算视线方向的大气密度积分（光学深度近似）
+    const H = PHYSICS.ATMOSPHERE_HEIGHT; // km，标高
+    const mu = Math.max(0.01, normalizedRay.z); // 避免除零，mu = cos(天顶角)
+    // 简化光学深度：tau ≈ 1 / (H * mu)，但用于密度权重
+    const densityFactor = Math.exp(-1.0 / (H * mu)); // 更物理的密度衰减
+*/
+    // 大气密度随视线高度变化（简化）
+    const densityFactor = Math.exp(-Math.abs(normalizedRay.z) * 0.5);
+
+
+
+    // —— 关键：按波长计算瑞利散射的透射与强度 ——
+    const wavelengths = PHYSICS.RAYLEIGH_WAVELENGTH_FACTORS;
+    const rayleighBetaBase = PHYSICS.RAYLEIGH_BETA; // 参考波长下的 β
+    const referenceWavelength = 550; // nm
+
+    // 瑞利散射系数 ∝ λ^(-4)
+    const betaRayleigh = wavelengths.map(w => 
+        rayleighBetaBase * Math.pow(referenceWavelength / w, 4)
+    );
+
+    // 米氏散射系数：当太阳接近地平线时，光线穿过更厚的低层大气，气溶胶路径长度剧增，米氏散射贡献显著上升
+    const effectiveMieBeta = Math.min(PHYSICS.MIE_BETA_MAX, PHYSICS.MIE_BETA_BASE * sunAirMass);
+
+    // 计算每个通道的散射强度（考虑光程衰减）
+    const intensities = wavelengths.map((w, i) => {
+        const totalBeta = betaRayleigh[i] + effectiveMieBeta; // 总消光系数（简化）
+        // 散射光强度 ∝ 相函数 × exp(-totalBeta * sunAirMass) × density
+        // 注意：实际是体散射积分，此处简化为比例模型
+        const rayleighContrib = betaRayleigh[i] * rayleighPhase;
+        const mieContrib = effectiveMieBeta * miePhase;
+        const totalScattering = (rayleighContrib + mieContrib) * densityFactor;
+        // 衰减：散射光在传播到观察者途中也会被吸收
+        const attenuation = Math.exp(-totalBeta * sunAirMass * 0.1); // 0.1 为缩放因子，调节强度
+        return totalScattering * attenuation;
+    });
+
+    // 归一化或缩放到 [0,1]
+    let [r, g, b] = intensities;
+
+
+    // 臭氧吸收路径 ≈ sunAirMass * OZONE_LAYER_HEIGHT / ATMOSPHERE_HEIGHT
+    // 但更简单：直接用 sunAirMass 缩放（因 sunAirMass ∝ 光程）
+    const path = sunAirMass * 0.8; // 调节因子，控制臭氧影响强度
+    const ozoneTransmittance = PHYSICS.OZONE_ABSORPTION.map(abs => 
+        Math.exp(-abs * path)
+    );
+    r *= ozoneTransmittance[0];
+    g *= ozoneTransmittance[1];
+    b *= ozoneTransmittance[2];
+
+
+    // 最终裁剪
+    return {
+        r: Math.min(1, r * 2.0), // 根据场景调整全局增益
+        g: Math.min(1, g * 2.0),
+        b: Math.min(1, b * 2.0)
+    };
+}
+
+
+
+
+
+
+// 计算大气散射强度（修正版）
+function calculateScattering2(rayDir, sunDir) {
+    if (isNaN(rayDir.z)) return { r: 0, g: 0, b: 0 };
+
+    const rayLength = Math.sqrt(rayDir.x * rayDir.x + rayDir.y * rayDir.y + rayDir.z * rayDir.z);
+    if (rayLength === 0) return { r: 0, g: 0, b: 0 };
+
+    const normalizedRay = {
+        x: rayDir.x / rayLength,
+        y: rayDir.y / rayLength,
+        z: rayDir.z / rayLength,
+    };
+
+    // 太阳方向归一化
+    const sunR = Math.sqrt(sunDir.x * sunDir.x + sunDir.y * sunDir.y + sunDir.z * sunDir.z);
+    if (sunR === 0) return { r: 0, g: 0, b: 0 };
+    const sunDirection = {
+        x: sunDir.x / sunR,
+        y: sunDir.y / sunR,
+        z: sunDir.z / sunR,
+    };
+
+    // ===== 1. 太阳光入射路径：计算太阳仰角和大气质量（仅用于光源衰减） =====
+    const sunElevation = Math.asin(Math.max(-1, Math.min(1, sunDirection.z))); // [-π/2, π/2]
+    const sunZenith = Math.PI / 2 - sunElevation; // [0, π]
+    const sunElevationDeg = sunElevation * 180 / Math.PI;
+
+    let sunAirMass;
+    if (sunElevationDeg > -3) {
+        const theta = 90 - sunElevationDeg; // 天顶角 in degrees
+        sunAirMass = 1.0 / (Math.cos(sunZenith) + 0.50572 * Math.pow(96.07995 - theta, -1.6364));
+    } else {
+        sunAirMass = 40;
+    }
+    sunAirMass = Math.min(sunAirMass, 40);
+
+    // 太阳光经过大气后的透射率（控制整体光照强度）
+    // const solarTransmittance = Math.exp(-0.1 * sunAirMass); // 系数 0.1 可微调
+
+
+
+    // ===== 2. 视线方向：计算观察者视线的天顶角和有效光程 =====
+    const viewZenithAngle = Math.acos(Math.max(0, Math.min(1, normalizedRay.z))); // [0, π/2] for upper hemisphere
+    const muView = Math.cos(viewZenithAngle); // = normalizedRay.z
+
+    let viewAirMass;
+    if (muView > 0.01) {
+        viewAirMass = 1.0 / muView;
+    } else {
+        viewAirMass = 40; // 接近地平线
+    }
+    viewAirMass = Math.min(viewAirMass, 40);
+
+    // 密度权重：高层大气稀薄，散射弱；但天顶方向仍应有显著瑞利散射
+    // 使用 1/(1 + k * viewAirMass) 避免地平线过曝，同时保留天顶亮度
+    const densityWeight = 1.0 / (1.0 + 0.08 * viewAirMass);
+
+    // ===== 3. 相函数 =====
+    const cosTheta = normalizedRay.x * sunDirection.x +
+                    normalizedRay.y * sunDirection.y +
+                    normalizedRay.z * sunDirection.z;
+
+    const miePhase = Math.pow(
+        1 + PHYSICS.MIE_G * PHYSICS.MIE_G - 2 * PHYSICS.MIE_G * cosTheta,
+        -1.5
+    );
+
+    const rayleighPhase = (1 + cosTheta * cosTheta) / 2;
+
+    // ===== 4. 波长相关散射系数 =====
+    const wavelengths = PHYSICS.RAYLEIGH_WAVELENGTH_FACTORS;
+    const rayleighBetaBase = PHYSICS.RAYLEIGH_BETA;
+    const referenceWavelength = 550; // nm
+
+    const betaRayleigh = wavelengths.map(w => 
+        rayleighBetaBase * Math.pow(referenceWavelength / w, 4)
+    );
+
+    // 米氏散射随太阳光程增强（低角度时气溶胶路径更长）
+    const effectiveMieBeta = Math.min(PHYSICS.MIE_BETA_MAX, PHYSICS.MIE_BETA_BASE * sunAirMass);
+
+    // ===== 5. 【关键】波长相关的太阳光透射率 =====
+    const transmittance = wavelengths.map((w, i) => {
+        // 总消光系数 = 瑞利 + 米氏（米氏近似无波长依赖）
+        const totalExtinction = betaRayleigh[i] + effectiveMieBeta;
+        // 光程衰减（系数 0.2 可调，控制衰减强度）
+        return Math.exp(-totalExtinction * sunAirMass * 0.1);
+    });
+
+    // ===== 6. 散射强度（各通道独立）=====
+    const intensities = wavelengths.map((w, i) => {
+        const rayleighContrib = betaRayleigh[i] * rayleighPhase;
+        const mieContrib = effectiveMieBeta * miePhase;
+        const totalScattering = (rayleighContrib + mieContrib) * transmittance[i] * densityWeight;
+        return totalScattering;
+    });
+
+    let [r, g, b] = intensities;
+
+    // ===== 6. 臭氧吸收（可选，当前影响较小） =====
+    const path = sunAirMass * 0.8; // 臭氧路径与太阳光程相关
+    const ozoneTransmittance = PHYSICS.OZONE_ABSORPTION.map(abs => 
+        Math.exp(-abs * path)
+    );
+    r *= ozoneTransmittance[0];
+    g *= ozoneTransmittance[1];
+    b *= ozoneTransmittance[2];
+
+    // ===== 7. 最终增益与裁剪 =====
+    const gain = 2.0; // 可根据效果调整
+    return {
+        r: Math.min(1, Math.max(0, r * gain)),
+        g: Math.min(1, Math.max(0, g * gain)),
+        b: Math.min(1, Math.max(0, b * gain))
+    };
+}
+
+
+
+class SkyRenderer {
+    constructor(canvasId) {
+        this.canvas = document.getElementById(canvasId);
+        this.ctx = this.canvas.getContext('2d');
+
+        
+        function adaptRatio(context) {
+            var devicePixelRatio = window.devicePixelRatio || 1;
+            var backingStoreRatio = context.webkitBackingStorePixelRatio || context.mozBackingStorePixelRatio || context.msBackingStorePixelRatio || context.oBackingStorePixelRatio || context.backingStorePixelRatio || 1;
+            return devicePixelRatio / backingStoreRatio;
+        }
+        this.RATIO = adaptRatio(this.ctx);
+        this.canvas.width = this.canvas.width * this.RATIO;
+        this.canvas.height = this.canvas.height * this.RATIO;
+        
+        // 获取DOM元素
+        this.angleSlider = document.getElementById('sunAngle');
+        this.angleValue = document.getElementById('angleValue');
+        
+        // 监听滑块变化
+        this.angleSlider.addEventListener('input', () => {
+            this.updateSunAngle();
+        });
+        
+        // 初始化太阳角度
+        this.sunAngle = 45 * Math.PI / 180; // 弧度
+        this.updateSunAngle();
+    }
+
+    updateSunAngle() {
+        this.sunAngle = parseFloat(this.angleSlider.value) * Math.PI / 180;
+        this.angleValue.textContent = `${this.angleSlider.value}°`;
+        this.render();
+    }
+
+    // 计算太阳位置
+    getSunPosition() {
+        const R = this.canvas.height / 2;
+        return {
+            x: R + R * Math.cos(this.sunAngle),
+            y: R
+        };
+    }
+
+    // 渲染整个天空
+    render() {
+        const imageData = this.ctx.createImageData(this.canvas.width, this.canvas.height);
+
+        const data = imageData.data;
+
+        draw_moon(data, this.canvas.width, this.canvas.height, this.canvas.width / 4, this.canvas.height / 4, 30, this.sunAngle, this.sunAngle);
+
+        draw_star(data, this.canvas.width, this.canvas.height, this.canvas.width / 4 * 3, this.canvas.height / 4 * 3 + 1, 100);
+        draw_star(data, this.canvas.width, this.canvas.height, this.canvas.width / 4 * 3 + 1, this.canvas.height / 4 * 3, 100);
+        draw_star(data, this.canvas.width, this.canvas.height, this.canvas.width / 4 * 3, this.canvas.height / 4 * 3, 100);
+        draw_star(data, this.canvas.width, this.canvas.height, this.canvas.width / 4 * 3 + 1, this.canvas.height / 4 * 3 + 1, 100);
+
+
+
+
+        const R = this.canvas.height / 2;
+
+        const canvasCenter = {
+            x: this.canvas.width / 2,
+            y: this.canvas.height / 2,
+            z: 0
+        };
+
+        const sunPos = this.getSunPosition();
+
+        let a = parseInt(this.angleSlider.value);
+
+        const sunDir = {
+            x: R * Math.cos(this.sunAngle),
+            y: 0,
+            z: R * Math.sin(this.sunAngle)
+        };
+
+        for (let y = 0; y < this.canvas.height; y++) {
+            for (let x = 0; x < this.canvas.width; x++) {
+                const pixelIndex = (y * this.canvas.width + x) * 4;
+
+                // 计算从观察者到该像素的方向向量
+                const rayDir = {
+                    x: x-R,
+                    y: y-R,
+                    z: Math.sqrt(R*R - ((x-R)*(x-R) + (y-R)*(y-R)))
+                };
+                const scatterColor = calculateScattering(rayDir, sunDir);
+
+
+/*
+                // 假设 canvas 中心为 (cx, cy)
+                const cx = this.canvas.width / 2;
+                const cy = this.canvas.height / 2;
+                const dx = x - cx;
+                const dy = y - cy;
+
+                // 将屏幕坐标映射到单位球面（鱼眼投影）
+                let r = Math.sqrt(dx*dx + dy*dy) / (this.canvas.height / 2); // 归一化半径
+                let scatterColor = 0;
+                if (r <= 1) {
+
+                    const theta = r * Math.PI / 2; // 0 = 天顶, π/2 = 地平线, 可扩展到 π（天底）
+                    const phi = Math.atan2(dy, dx);
+
+                    const rayDir = {
+                        x: Math.sin(theta) * Math.cos(phi),
+                        y: Math.sin(theta) * Math.sin(phi),
+                        z: Math.cos(theta)  // z=1: 天顶, z=0: 地平线, z=-1: 天底
+                    };
+
+                    // 计算散射颜色
+                    scatterColor = calculateScattering(rayDir, sunDir);
+                }
+*/
+
+                // 应用散射颜色
+                data[pixelIndex] += Math.min(255, scatterColor.r * 255);     // R
+                data[pixelIndex + 1] += Math.min(255, scatterColor.g * 255); // G
+                data[pixelIndex + 2] += Math.min(255, scatterColor.b * 255); // B
+                data[pixelIndex + 3] = 255; // Alpha
+            }
+        }
+
+        // star_burst_filter(data, this.canvas.width, this.canvas.height, sunPos, 0, 0.97, 160);
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+        
+        // 绘制散射后的天空
+        this.ctx.putImageData(imageData, 0, 0);
+    }
+
+}
+
+// 初始化渲染器
+window.onload = function() {
+    const renderer = new SkyRenderer('skyCanvas');
+
+    let alt = 0;
+
+    setInterval(() => {
+        renderer.angleSlider.value = alt;
+        alt++;
+        if (alt >= 180) alt = -10; 
+        renderer.updateSunAngle();
+    }, 10);
+};
+    </script>
+</body>
+</html>
