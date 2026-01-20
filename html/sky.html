@@ -34,7 +34,6 @@ img.onload = () => {
     const ctx = canvas.getContext('2d');
     ctx.drawImage(img, 0, 0);
     moonTextureData = ctx.getImageData(0, 0, img.width, img.height).data; // Uint8ClampedArray
-    // 现在可以传给 draw_moon_with_texture
 };
 
 
