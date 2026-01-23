@@ -6,20 +6,28 @@
     <title>天空大气光学模拟</title>
 </head>
 <body>
-    <div class="container">
-        <canvas id="skyCanvas" width="240" height="240" style="width: 240px; height: 240px;"></canvas>
-        <div class="controls">
-            <label for="sun_altitude_deg">alt:</label>
-            <input type="range" id="sun_altitude_deg" min="-360" max="360" value="60" step="0.1" style="width: 100%;">
-            <span class="value-display" id="angleValue">--°</span>
-        </div>
+    <div class="container" style="text-align: center;">
+        <div>星历+天空大气光学模拟</div>
+        <div>&copy; BD4SUR 2011-08 2011-09 2026-01</div>
+        <table style="margin: 0px auto;">
+            <tr><td></td><td>北 N</td><td></td></tr>
+            <tr>
+                <td>东 E</td>
+                <td><canvas id="skyCanvas" width="240" height="240" style="width: 240px; height: 240px; border-radius: 240px;"></canvas></td>
+                <td>W 西</td>
+            </tr>
+            <tr><td></td><td>南 S</td><td></td></tr>
+        </table>
+        <div id="datetime">-</div>
+        <div>屏幕朝向地面，顶部指向北方</div>
     </div>
 
+    <script src="../script/eph.js"></script>
     <script>
 
 
 
-const USE_FISHEYE_PROJECTION = false; // 是否使用鱼眼投影（否则使用XY投影）
+const USE_FISHEYE_PROJECTION = true; // 是否使用鱼眼投影（否则使用XY投影）
 const USE_SIMPLE_PHYSICS_MODEL = false; // 是否使用不符合物理但是比较好看的大气光学模型
 
 
@@ -40,6 +48,7 @@ img.onload = () => {
     // console.log(JSON.stringify(Array.from(moon_texture_rgba)));
 };
 
+let counter = 3600*6;
 
 let RADIUS = 120;
 
@@ -77,9 +86,27 @@ function to_deg(rad) {
     return rad * 180 / Math.PI;
 }
 
+// 将hms格式的赤经转为度数
+function ra_hms_to_deg(h, m, s) {
+    let totalHours = h + m / 60.0 + s / 3600.0;
+    let degrees = totalHours * 15.0;
+    degrees = degrees % 360;
+    if (degrees < 0) degrees += 360;
+    return degrees;
+}
+
+// 将度分秒格式的赤纬转为度数
+function dec_dms_to_decimal(d, m, s) {
+    const sign = d < 0 ? -1 : 1;
+    const absD = Math.abs(d);
+    const decimal = sign * (absD + m / 60 + s / 3600);
+    return decimal;
+}
+
+// 地平天球的球坐标系→地平天球的笛卡尔坐标系
 function horizontal_to_xyz(azimuth_deg, altitude_deg, R) {
     const altRad = to_rad(altitude_deg);
-    const azRad = to_rad(180 - azimuth_deg);
+    const azRad = to_rad(180 + azimuth_deg);
     return [
         R * Math.cos(altRad) * Math.sin(azRad),
         R * Math.cos(altRad) * Math.cos(azRad),
@@ -87,9 +114,61 @@ function horizontal_to_xyz(azimuth_deg, altitude_deg, R) {
     ];
 }
 
-function horizontal_to_projection_xy(azimuth_deg, altitude_deg, R) {
-    const xyz = horizontal_to_xyz(azimuth_deg, altitude_deg, R);
-    return [xyz[0] + RADIUS, xyz[1] + RADIUS];
+// 地平天球的球坐标系→地平天球的笛卡尔坐标系→投影到地面投影坐标系
+function horizontal_to_screen_xy(azimuth_deg, altitude_deg, R) {
+    // 鱼眼投影
+    if (USE_FISHEYE_PROJECTION) {
+        const az_rad = (-azimuth_deg * Math.PI) / 180; // 因为是躺在地上看天，所以方位角是从正北逆时针旋转
+        const alt_rad = (altitude_deg * Math.PI) / 180;
+        // 天顶距（zenith distance）θ = π/2 - altitude
+        const theta = Math.PI / 2 - alt_rad; // 弧度
+        // 等距鱼眼投影：r ∝ θ，且当地平线（θ = π/2）时 r = R
+        // 所以 r = R * (θ / (π/2)) = (2R / π) * θ
+        const r = (2 * R / Math.PI) * theta;
+        // 投影到平面：X指向东（注意因为是躺在地上看天，所以东是屏幕坐标系的左侧/负半轴），Y指向北
+        // azimuth=0°（北）→ (0, r)；azimuth=90°（东）→ (r, 0)
+        const X = r * Math.sin(az_rad);
+        const Y = -r * Math.cos(az_rad);
+        return [X + RADIUS, Y + RADIUS];
+    }
+    // XY投影：笛卡尔坐标系的XY直接垂直投射到地平面上
+    else {
+        const xyz = horizontal_to_xyz(azimuth_deg, altitude_deg, R);
+        if (altitude_deg >= 0) {
+            return [xyz[0] + RADIUS, xyz[1] + RADIUS]; // 转到canvas的屏幕坐标系
+        }
+        else {
+            return [xyz[0] - RADIUS, xyz[1] - RADIUS]; // 地平面以下的，移出canvas显示范围
+        }
+    }
+}
+
+
+// 屏幕坐标系→地面投影坐标系→反演回地平天球的直角坐标系
+function screen_xy_to_xyz(scr_x, scr_y) {
+    const cx = RADIUS;
+    const cy = RADIUS;
+    const dx = scr_x - cx;
+    const dy = scr_y - cy;
+    let hor_xyz = [0, 0, 0];
+    // 鱼眼投影
+    if (USE_FISHEYE_PROJECTION) {
+        let r = Math.sqrt(dx*dx + dy*dy) / RADIUS; // 归一化半径
+        if (r <= 1) {
+            const theta = r * Math.PI / 2; // 天顶角
+            const phi = Math.atan2(dy, dx); // 方位角
+            hor_xyz = [
+                RADIUS * Math.sin(theta) * Math.cos(phi),
+                RADIUS * Math.sin(theta) * Math.sin(phi),
+                RADIUS * Math.cos(theta)
+            ];
+        }
+    }
+    // XY投影
+    else {
+        hor_xyz = [ dx, dy, Math.sqrt(RADIUS*RADIUS - (dx*dx + dy*dy)) ];
+    }
+    return hor_xyz;
 }
 
 
@@ -219,6 +298,7 @@ function draw_moon(frame_buffer, fb_width, fb_height, center_x, center_y, lum, r
     const moonRadius = radius;
 
     // 太阳方向（单位向量），同原逻辑
+    phase_deg += 90;
     const cosPhase = Math.cos(to_rad(phase_deg));
     const sinPhase = Math.sin(to_rad(phase_deg));
     const sunDirX = cosPhase * Math.cos(to_rad(tilt_deg));
@@ -586,8 +666,9 @@ function calculate_scattered_pixel(ray_vec, sun_vec) {
             attenuation = Math.exp(-totalBeta * sunAirMass * 0.1); // 另一种不符合物理但是还算好看的衰减模型
         }
         else {
-            // 独立发现的关键修正：衰减中加入时间调节因子，防止白天出现过于明显的维纳斯带
-            let scale = 0.5 * Math.cos(2 * sunElevation) + 0.501; // 调节因子，控制一天中不同时间的衰减强度
+            // 独立发现的关键修正：衰减中加入时间调节因子，控制一天中不同时间的衰减强度，防止白天出现过于明显的维纳斯带
+            // let scale = 0.5 * Math.cos(2 * sunElevation) + 0.501;
+            let scale = (sunElevationDeg >= 0) ? Math.exp(- Math.pow((sunElevationDeg / 20), 4)) + 0.01 : 1;
             attenuation = Math.exp(-totalBeta * viewAirMass * scale);
         }
 
@@ -632,100 +713,123 @@ class SkyRenderer {
             return devicePixelRatio / backingStoreRatio;
         }
         this.RATIO = adaptRatio(this.ctx);
-        this.canvas.width = this.canvas.width * this.RATIO;
-        this.canvas.height = this.canvas.height * this.RATIO;
+        this.canvas.width = Math.floor(this.canvas.width * this.RATIO);
+        this.canvas.height = Math.floor(this.canvas.height * this.RATIO);
         RADIUS *= this.RATIO;
+        RADIUS = Math.floor(RADIUS);
 
-        // 获取DOM元素
-        this.angleSlider = document.getElementById('sun_altitude_deg');
-        this.angleValue = document.getElementById('angleValue');
-        
-        // 监听滑块变化
-        this.angleSlider.addEventListener('input', () => {
-            this.update_sun_altitude();
-        });
-        
-        // 初始化太阳角度
-        this.sun_altitude_deg = 45; // 弧度
-        this.update_sun_altitude();
-    }
-
-    update_sun_altitude() {
-        this.sun_altitude_deg = parseFloat(this.angleSlider.value);
-        this.angleValue.textContent = `${this.angleSlider.value}°`;
         this.render();
     }
-
 
     // 渲染整个天空
     render() {
         const imageData = this.ctx.createImageData(this.canvas.width, this.canvas.height);
         const frame_buffer = imageData.data;
 
-        draw_moon(
-            frame_buffer, RADIUS*2, RADIUS*2, RADIUS/2, RADIUS/2,
-            0.8, 30, 90-this.sun_altitude_deg, this.sun_altitude_deg/3);
+        const longitude = 119.0;
+        const latitude = 31.0;
+        const timezone = 8.0;
 
-        const star0_proj_xy = horizontal_to_projection_xy(0  , 60, RADIUS);
-        const star1_proj_xy = horizontal_to_projection_xy(45 , 60, RADIUS);
-        const star2_proj_xy = horizontal_to_projection_xy(90 , 60, RADIUS);
-        const star3_proj_xy = horizontal_to_projection_xy(135, 60, RADIUS);
-        const star4_proj_xy = horizontal_to_projection_xy(180, 60, RADIUS);
-        const star5_proj_xy = horizontal_to_projection_xy(225, 60, RADIUS);
-        const star6_proj_xy = horizontal_to_projection_xy(270, 60, RADIUS);
-        const star7_proj_xy = horizontal_to_projection_xy(315, 60, RADIUS);
+        const second = counter % 60;
+        const minute = Math.floor(counter / 60) % 60;
+        const hour = Math.floor(counter / 3600) % 24;
+
+        const day = 24;
+        const month = 1;
+        const year = 2026;
+
+
+        document.getElementById('datetime').innerHTML = `${year}-${month}-${day} ${hour}:${minute}:${second}`;
+
+
+        // 北斗七星和北极星
+
+        //            (RA)h   m   s    (Dec)d   m   s       Mag
+        const beiji    = [2,  32, 9.3,      89, 16, 10.8,   2.09];
+        const tianshu  = [11, 3,  45.2,     61, 44, 47.5,   1.95];
+        const tianxuan = [11, 1,  52.5,     56, 22, 43.0,   2.34];
+        const tianji   = [11, 53, 51.4,     53, 41, 24.5,   2.42];
+        const tianquan = [12, 15, 27.0,     57, 1,  39.6,   3.33];
+        const yuheng   = [12, 54, 2.8,      55, 57, 16.2,   1.75];
+        const kaiyang  = [13, 23, 56.3,     54, 55, 11.3,   2.25];
+        const yaoguang = [13, 47, 32.2,     49, 18, 28.7,   1.80];
+
+        const beiji_hc = equatorial_to_horizontal(
+                            ra_hms_to_deg(beiji[0], beiji[1], beiji[2]), dec_dms_to_decimal(beiji[3], beiji[4], beiji[5]),
+                            year, month, day, hour, minute, second, timezone, longitude, latitude);
+        const tianshu_hc = equatorial_to_horizontal(
+                            ra_hms_to_deg(tianshu[0], tianshu[1], tianshu[2]), dec_dms_to_decimal(tianshu[3], tianshu[4], tianshu[5]),
+                            year, month, day, hour, minute, second, timezone, longitude, latitude);
+        const tianxuan_hc = equatorial_to_horizontal(
+                            ra_hms_to_deg(tianxuan[0], tianxuan[1], tianxuan[2]), dec_dms_to_decimal(tianxuan[3], tianxuan[4], tianxuan[5]),
+                            year, month, day, hour, minute, second, timezone, longitude, latitude);
+        const tianji_hc = equatorial_to_horizontal(
+                            ra_hms_to_deg(tianji[0], tianji[1], tianji[2]), dec_dms_to_decimal(tianji[3], tianji[4], tianji[5]),
+                            year, month, day, hour, minute, second, timezone, longitude, latitude);
+        const tianquan_hc = equatorial_to_horizontal(
+                            ra_hms_to_deg(tianquan[0], tianquan[1], tianquan[2]), dec_dms_to_decimal(tianquan[3], tianquan[4], tianquan[5]),
+                            year, month, day, hour, minute, second, timezone, longitude, latitude);
+        const yuheng_hc = equatorial_to_horizontal(
+                            ra_hms_to_deg(yuheng[0], yuheng[1], yuheng[2]), dec_dms_to_decimal(yuheng[3], yuheng[4], yuheng[5]),
+                            year, month, day, hour, minute, second, timezone, longitude, latitude);
+        const kaiyang_hc = equatorial_to_horizontal(
+                            ra_hms_to_deg(kaiyang[0], kaiyang[1], kaiyang[2]), dec_dms_to_decimal(kaiyang[3], kaiyang[4], kaiyang[5]),
+                            year, month, day, hour, minute, second, timezone, longitude, latitude);
+        const yaoguang_hc = equatorial_to_horizontal(
+                            ra_hms_to_deg(yaoguang[0], yaoguang[1], yaoguang[2]), dec_dms_to_decimal(yaoguang[3], yaoguang[4], yaoguang[5]),
+                            year, month, day, hour, minute, second, timezone, longitude, latitude);
+
+        const beiji_proj_xy = horizontal_to_screen_xy(beiji_hc[1], beiji_hc[0], RADIUS);
+        const tianshu_proj_xy = horizontal_to_screen_xy(tianshu_hc[1], tianshu_hc[0], RADIUS);
+        const tianxuan_proj_xy = horizontal_to_screen_xy(tianxuan_hc[1], tianxuan_hc[0], RADIUS);
+        const tianji_proj_xy = horizontal_to_screen_xy(tianji_hc[1], tianji_hc[0], RADIUS);
+        const tianquan_proj_xy = horizontal_to_screen_xy(tianquan_hc[1], tianquan_hc[0], RADIUS);
+        const yuheng_proj_xy = horizontal_to_screen_xy(yuheng_hc[1], yuheng_hc[0], RADIUS);
+        const kaiyang_proj_xy = horizontal_to_screen_xy(kaiyang_hc[1], kaiyang_hc[0], RADIUS);
+        const yaoguang_proj_xy = horizontal_to_screen_xy(yaoguang_hc[1], yaoguang_hc[0], RADIUS);
 
         const stars = [
-            [star0_proj_xy[0], star0_proj_xy[1], Math.random() * 1.5],
-            [star1_proj_xy[0], star1_proj_xy[1], Math.random() * 1.5],
-            [star2_proj_xy[0], star2_proj_xy[1], Math.random() * 1.5],
-            [star3_proj_xy[0], star3_proj_xy[1], Math.random() * 1.5],
-            [star4_proj_xy[0], star4_proj_xy[1], Math.random() * 1.5],
-            [star5_proj_xy[0], star5_proj_xy[1], Math.random() * 1.5],
-            [star6_proj_xy[0], star6_proj_xy[1], Math.random() * 1.5],
-            [star7_proj_xy[0], star7_proj_xy[1], Math.random() * 1.5],
+            [beiji_proj_xy[0], beiji_proj_xy[1], Math.random() * 0.5 -1.5 + beiji[6]],
+            [tianshu_proj_xy[0], tianshu_proj_xy[1], Math.random() * 0.5 -1.5 + tianshu[6]],
+            [tianxuan_proj_xy[0], tianxuan_proj_xy[1], Math.random() * 0.5 -1.5 + tianxuan[6]],
+            [tianji_proj_xy[0], tianji_proj_xy[1], Math.random() * 0.5 -1.5 + tianji[6]],
+            [tianquan_proj_xy[0], tianquan_proj_xy[1], Math.random() * 0.5 -1.5 + tianquan[6]],
+            [yuheng_proj_xy[0], yuheng_proj_xy[1], Math.random() * 0.5 -1.5 + yuheng[6]],
+            [kaiyang_proj_xy[0], kaiyang_proj_xy[1], Math.random() * 0.5 -1.5 + kaiyang[6]],
+            [yaoguang_proj_xy[0], yaoguang_proj_xy[1], Math.random() * 0.5 -1.5 + yaoguang[6]],
         ];
 
-        const sun_azi = this.sun_altitude_deg + 180;
-        const sun_alt = 80 * Math.cos(to_rad(this.sun_altitude_deg));
-        const sun_r = RADIUS;
+        // 计算北天极投影位置 TODO 与观测点纬度有关
+        const np_proj_xy = horizontal_to_screen_xy(0, latitude, RADIUS);
 
-        const sun_vec = horizontal_to_xyz(sun_azi, sun_alt, sun_r);
+        // 计算太阳位置
+        const sun_horizontal_coord = where_is_the_sun(year, month, day, hour, minute, second, timezone, longitude, latitude);
+        const sun_vec = horizontal_to_xyz(sun_horizontal_coord[1], sun_horizontal_coord[0], RADIUS);
+        const sun_proj_xy = horizontal_to_screen_xy(sun_horizontal_coord[1], sun_horizontal_coord[0], RADIUS);
 
-        const sun_projection_xy = horizontal_to_projection_xy(sun_azi, sun_alt, sun_r);
+        // 计算月球位置、月相、月球方向角
+        const moon_horizontal_coord = where_is_the_moon(year, month, day, hour, minute, second, timezone, longitude, latitude);
+        const moon_proj_xy = horizontal_to_screen_xy(moon_horizontal_coord[1], moon_horizontal_coord[0], RADIUS);
+        const mphase = moon_phase(year, month, day, hour, minute, second, timezone);
+
+        let xa = moon_proj_xy[0];
+        let ya = moon_proj_xy[1];
+        let xb = np_proj_xy[0];
+        let yb = np_proj_xy[1];
+
+        let tilt_rad = Math.acos((-xa * (xb - xa) - ya * (yb - ya)) / (Math.sqrt(xa*xa+ya*ya) * Math.sqrt((xb-xa)*(xb-xa) + (yb-ya)*(yb-ya))));
+
+        draw_moon(
+            frame_buffer, RADIUS*2, RADIUS*2, moon_proj_xy[0], moon_proj_xy[1],
+            0.8, 16, 180 * (mphase + 1), (to_deg(tilt_rad) + 180));
 
         for (let y = 0; y < this.canvas.height; y++) {
             for (let x = 0; x < this.canvas.width; x++) {
                 const pixel_index = (y * this.canvas.width + x) * 4;
 
-                // 计算从观察者到该像素的方向向量
-
-                const cx = RADIUS;
-                const cy = RADIUS;
-                const dx = x - cx;
-                const dy = y - cy;
-
-                let ray_vec = [0, 0, 0];
-                if (USE_FISHEYE_PROJECTION) {
-                    // 鱼眼投影
-                    let r = Math.sqrt(dx*dx + dy*dy) / RADIUS; // 归一化半径
-                    if (r <= 1) {
-                        const theta = r * Math.PI / 2; // 天顶角
-                        const phi = Math.atan2(dy, dx); // 方位角
-                        ray_vec = [
-                            Math.sin(theta) * Math.cos(phi),
-                            Math.sin(theta) * Math.sin(phi),
-                            Math.cos(theta)
-                        ];
-                    }
-                }
-                else {
-                    // XY投影
-                    ray_vec = [ dx, dy, Math.sqrt(RADIUS*RADIUS - (dx*dx + dy*dy)) ];
-                }
-
+                // 观察者到该像素的方向向量（从屏幕坐标系转回地平天球的笛卡尔坐标系）
+                let ray_vec = screen_xy_to_xyz(x, y);
                 const scattered_sky_pixel = calculate_scattered_pixel(ray_vec, sun_vec);
-
 
                 // 应用散射颜色
                 frame_buffer[pixel_index    ] += Math.min(255, scattered_sky_pixel[0] * 255);
@@ -737,10 +841,12 @@ class SkyRenderer {
 
         draw_star(frame_buffer, RADIUS*2, RADIUS*2, stars);
 
-        star_burst_filter(frame_buffer, RADIUS*2, RADIUS*2, sun_projection_xy[0], sun_projection_xy[1], 0, 0.97, 160);
+        star_burst_filter(frame_buffer, RADIUS*2, RADIUS*2, sun_proj_xy[0], sun_proj_xy[1], 0, 0.97, 160);
 
 
-        // draw_circle_outline(frame_buffer, RADIUS*2, RADIUS*2, RADIUS, RADIUS, RADIUS * 0.3, 1, 64, 64, 64, 255);
+        draw_circle_outline(frame_buffer, RADIUS*2, RADIUS*2, RADIUS, RADIUS, RADIUS, 1, 128, 128, 128, 255);
+        draw_circle_outline(frame_buffer, RADIUS*2, RADIUS*2, RADIUS, RADIUS, RADIUS / 3, 1, 16, 16, 16, 255);
+        draw_circle_outline(frame_buffer, RADIUS*2, RADIUS*2, RADIUS, RADIUS, RADIUS / 3 * 2, 1, 16, 16, 16, 255);
 
         // 绘制散射后的天空
         this.ctx.putImageData(imageData, 0, 0);
@@ -752,13 +858,9 @@ class SkyRenderer {
 window.onload = function() {
     const renderer = new SkyRenderer('skyCanvas');
 
-    let alt = 0;
-
     function draw() {
-        renderer.angleSlider.value = alt;
-        alt++;
-        if (alt >= 180) alt = -180;
-        renderer.update_sun_altitude();
+        counter += 60;
+        renderer.render();
         requestAnimationFrame(draw);
     }
 
