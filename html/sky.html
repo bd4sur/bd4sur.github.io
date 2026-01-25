@@ -929,13 +929,13 @@ function calculate_scattered_pixel(ray_vec, sun_vec) {
 
     // 太阳光入射路径：计算仰角、天顶角、大气光学质量
     const sunElevation = Math.asin(Math.max(-1, Math.min(1, sun_norm[2]))); // [-π/2, π/2]
-    const sunZenith = Math.PI / 2 - sunElevation; // [0, π]
     const sunElevationDeg = sunElevation * 180 / Math.PI;
+    const sunZenith = Math.PI / 2 - sunElevation; // [0, π]
+    const sunZenithDeg = sunZenith * 180 / Math.PI;
     let sunAirMass;
     // Kasten-Young, Ref. https://kexue.fm/archives/396
     if (sunElevationDeg >= 0) {
-        const theta = 90 - sunElevationDeg; // 天顶角 in degrees
-        sunAirMass = 1.0 / (Math.cos(sunZenith) + 0.50572 * Math.pow(96.07995 - theta, -1.6364));
+        sunAirMass = 1.0 / (Math.cos(sunZenith) + 0.50572 * Math.pow(96.07995 - sunZenithDeg, -1.6364));
     }
     else {
         sunAirMass = 40;
@@ -943,31 +943,25 @@ function calculate_scattered_pixel(ray_vec, sun_vec) {
 
 
     // 观察者视线的仰角、天顶角、大气光学质量
-    const viewZenithAngle = Math.acos(Math.max(0, Math.min(1, ray_norm[2])));
-    const viewZenithDeg = viewZenithAngle * 180 / Math.PI;
+    const viewZenith = Math.acos(Math.max(0, Math.min(1, ray_norm[2])));
+    const viewZenithDeg = viewZenith * 180 / Math.PI;
     const viewElevationDeg = 90 - viewZenithDeg;
     let viewAirMass;
     // Kasten-Young, Ref. https://kexue.fm/archives/396
     if (viewElevationDeg >= 0) {
-        const theta = 90 - viewZenithDeg; // 天顶角 in degrees
-        viewAirMass = 1.0 / (Math.cos(viewZenithAngle) + 0.50572 * Math.pow(96.07995 - theta, -1.6364));
+        viewAirMass = 1.0 / (Math.cos(viewZenith) + 0.50572 * Math.pow(96.07995 - viewZenithDeg, -1.6364));
     }
     else {
         viewAirMass = 40;
     }
 
 
-    // 观察方向与太阳方向夹角
-    const cosTheta = ray_norm[0] * sun_norm[0] +
-                    ray_norm[1] * sun_norm[1] +
-                    ray_norm[2] * sun_norm[2];
+    // 观察方向与太阳方向夹角余弦
+    const cosTheta = ray_norm[0] * sun_norm[0] + ray_norm[1] * sun_norm[1] + ray_norm[2] * sun_norm[2];
 
 
     // 米氏散射相函数
-    const miePhase = Math.pow(
-        1 + PHYSICS.MIE_G * PHYSICS.MIE_G - 2 * PHYSICS.MIE_G * cosTheta,
-        -1.5
-    );
+    const miePhase = Math.pow(1 + PHYSICS.MIE_G * PHYSICS.MIE_G - 2 * PHYSICS.MIE_G * cosTheta, -1.5);
 
 
     // 瑞利散射相函数
