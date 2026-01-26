@@ -50,16 +50,16 @@ button {
 const USE_FISHEYE_PROJECTION = true; // 是否使用鱼眼投影（否则使用XY投影）
 
 // 是否启用赤道坐标圈
-let enable_equatorial_coord = true;
+let enable_equatorial_coord = false;
 // 是否启用地平坐标圈
-let enable_horizontal_coord = true;
+let enable_horizontal_coord = false;
 // 是否启用星芒效果
 let enable_star_burst = true;
 // 是否启用大气散射效果
 let enable_atmospheric_scattering = true;
 
-let moon_texture_width = 128;
-let moon_texture_height = 128;
+let moon_texture_width = 64;
+let moon_texture_height = 64;
 
 const img = new Image();
 img.src = '../image/H/moon.jpg';
@@ -921,6 +921,12 @@ function calculate_scattered_pixel(ray_vec, sun_vec) {
 
     // 太阳方向归一化
     const sun_vec_radius = Math.sqrt(sun_vec[0] * sun_vec[0] + sun_vec[1] * sun_vec[1] + sun_vec[2] * sun_vec[2]);
+    if (sun_vec_radius === 0) {
+        red = 0;
+        green = 0;
+        blue = 0;
+        return [red, green, blue];
+    }
     const sun_norm = [];
     sun_norm[0] = sun_vec[0] / sun_vec_radius;
     sun_norm[1] = sun_vec[1] / sun_vec_radius;
