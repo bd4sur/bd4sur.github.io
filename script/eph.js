@@ -334,50 +334,46 @@ function calculate_solar_equatorial_coordinates(jd) {
 
 
 
-// 带符号月相：-1.0 ~ +1.0
-// 假设输入 RA 和 Dec 单位为弧度
+// 月球亮面方向角
+// NOTE 根据 AA p.346 表述，“Position Angle of the Moon's bright limb”的定义是：
+//      从月面视圆盘的 North Point（天球北方向）起算，向东（即沿天球方位角增加方向）测量到明亮月面边缘中点的角度。
+//      这个角度是相对于天球赤道坐标系的子午线的扭转角度。与观测者位置无关。
 function moon_phase(year, month, day, hour, minute, second, timezone_offset) {
     let jd = julian_day(year, month, day, hour, minute, second, timezone_offset);
     let ec_moon = calculate_lunar_equatorial_coordinates(jd);
     let ec_sun = calculate_solar_equatorial_coordinates(jd);
 
-    let sun_ra = to_rad(ec_sun[0]);
-    let sun_dec = to_rad(ec_sun[1]);
-    let moon_ra = to_rad(ec_moon[0]);
-    let moon_dec = to_rad(ec_moon[1]);
+    let a0 = to_rad(ec_sun[0]);
+    let d0 = to_rad(ec_sun[1]);
+    let a  = to_rad(ec_moon[0]);
+    let d  = to_rad(ec_moon[1]);
 
-    // 1. 转换为单位向量
-    let sun_x = Math.cos(sun_dec) * Math.cos(sun_ra);
-    let sun_y = Math.cos(sun_dec) * Math.sin(sun_ra);
-    let sun_z = Math.sin(sun_dec);
-
-    let moon_x = Math.cos(moon_dec) * Math.cos(moon_ra);
-    let moon_y = Math.cos(moon_dec) * Math.sin(moon_ra);
-    let moon_z = Math.sin(moon_dec);
-
-    // 2. 计算日月角距 psi（弧度）
-    let dot = sun_x * moon_x + sun_y * moon_y + sun_z * moon_z;
-    // 限制 dot 在 [-1, 1] 防止数值误差
-    if (dot > 1.0) dot = 1.0;
-    if (dot < -1.0) dot = -1.0;
-    let psi = Math.acos(dot); // [0, π]
-
-    // 3. 照明比例（0 ~ 1）
-    let illumination = (1.0 + Math.cos(psi)) / 2.0; // 注意：这是简化模型！
-
-    // 4. 判断盈亏：比较赤经（需处理 0/2π 跳变）
-    let ra_diff = fmod(moon_ra - sun_ra, 2.0 * Math.PI);
-    if (ra_diff < 0) ra_diff += 2.0 * Math.PI;
-
-    // 若月亮赤经领先太阳（0 < diff < π），则为盈（waxing，正）
-    // 若落后（π < diff < 2π），则为亏（waning，负）
-    let sign = (ra_diff < Math.PI) ? 1.0 : -1.0;
-
-    // 5. 带符号月相：-1.0 ~ +1.0
-    let signed_phase = sign * illumination;
-
-    return signed_phase;
+    let cosp = Math.sin(d0) * Math.sin(d) + Math.cos(d0) * Math.cos(d) * Math.cos(a0-a);
+    let phase_angle_deg = normalize_angle(to_deg(Math.acos(-cosp)));
+    return phase_angle_deg;
 }
+
+
+// 月球亮面方向角
+// NOTE 根据 AA p.346 表述，“Position Angle of the Moon's bright limb”的定义是：
+//      从月面视圆盘的 North Point（天球北方向）起算，向东（即沿天球方位角增加方向）测量到明亮月面边缘中点的角度。
+//      这个角度是相对于天球赤道坐标系的子午线的扭转角度。与观测者位置无关。
+function moon_bright_limb_pos_angle(year, month, day, hour, minute, second, timezone_offset) {
+    let jd = julian_day(year, month, day, hour, minute, second, timezone_offset);
+    let ec_moon = calculate_lunar_equatorial_coordinates(jd);
+    let ec_sun = calculate_solar_equatorial_coordinates(jd);
+
+    let a0 = to_rad(ec_sun[0]);
+    let d0 = to_rad(ec_sun[1]);
+    let a  = to_rad(ec_moon[0]);
+    let d  = to_rad(ec_moon[1]);
+
+    let y = Math.cos(d0) * Math.sin(a0 - a);
+    let x = Math.sin(d0) * Math.cos(d) - Math.cos(d0) * Math.sin(d) * Math.cos(a0 - a);
+
+    return to_deg(Math.atan2(y, x));
+}
+
 
 
 // 赤道坐标 → 地平坐标

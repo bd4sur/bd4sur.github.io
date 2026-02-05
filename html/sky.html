@@ -569,8 +569,7 @@ function draw_moon(frame_buffer, fb_width, fb_height, center_x, center_y, lum, r
     const moonY = center_y;
     const moonRadius = radius;
 
-    // 太阳方向（单位向量），同原逻辑
-    phase_deg += 90;
+    // 相位角（日地距角）
     const cosPhase = Math.cos(to_rad(phase_deg));
     const sinPhase = Math.sin(to_rad(phase_deg));
     const sunDirX = cosPhase * Math.cos(to_rad(tilt_deg));
@@ -1074,16 +1073,64 @@ function render_all(frame_buffer, fb_width, fb_height, year, month, day, hour, m
     const sun_vec = horizontal_to_xyz(sun_horizontal_coord[1], sun_horizontal_coord[0], RADIUS);
     const sun_proj_xy = horizontal_to_screen_xy(sun_horizontal_coord[1], sun_horizontal_coord[0], RADIUS);
 
+
     // 计算月球位置、月相、月球方向角
-    const moon_horizontal_coord = where_is_the_moon(year, month, day, hour, minute, second, timezone, longitude, latitude);
-    const moon_proj_xy = horizontal_to_screen_xy(moon_horizontal_coord[1], moon_horizontal_coord[0], RADIUS);
-    const mphase = moon_phase(year, month, day, hour, minute, second, timezone);
-    const np_proj_xy = horizontal_to_screen_xy(0, latitude, RADIUS); // 计算北天极投影位置
+
+    let jd = julian_day(year, month, day, hour, minute, second, timezone);
+
+    let moon_ec = calculate_lunar_equatorial_coordinates(jd);
+    let moon_RA = moon_ec[0];
+    let moon_Dec = moon_ec[1];
+
+    let moon_hc = equatorial_to_horizontal(moon_RA, moon_Dec, year, month, day, hour, minute, second, timezone, longitude, latitude);
+    let moon_azi = moon_hc[1];
+    let moon_alt = moon_hc[0];
+
+    // 计算月球的屏幕投影坐标
+    let moon_proj_xy = horizontal_to_screen_xy(moon_azi, moon_alt, RADIUS);
+
     const xa = moon_proj_xy[0];
     const ya = moon_proj_xy[1];
-    const xb = np_proj_xy[0];
-    const yb = np_proj_xy[1];
-    const tilt_rad = Math.acos((-xa * (xb - xa) - ya * (yb - ya)) / (Math.sqrt(xa*xa+ya*ya) * Math.sqrt((xb-xa)*(xb-xa) + (yb-ya)*(yb-ya))));
+
+    // 以下是计算月面贴图的北极（月球地理北极）相对于屏幕y轴的旋转角
+    // 这一步是旋转月球地理北极，使其指向其所在的天球子午圈北向切线方向，为后面计算月球亮区旋转角作准备
+    // 天球赤道坐标系经圈（子午圈）上，月亮所在位置往北2度的位置，在屏幕上的投影坐标
+
+    let northdelta_hc = equatorial_to_horizontal(
+        moon_RA, moon_Dec + 2, year, month, day, hour, minute, second, timezone,
+        longitude, latitude);
+
+    let northdelta_azi = northdelta_hc[1];
+    let northdelta_alt = northdelta_hc[0];
+
+    let northdelta_scr_xy = horizontal_to_screen_xy(northdelta_azi, northdelta_alt, RADIUS);
+    let xb = northdelta_scr_xy[0];
+    let yb = northdelta_scr_xy[1];
+
+    // 计算月面贴图的北极（月球地理北极）相对于屏幕y轴的旋转角
+    let tilt_rad = Math.atan2(xb-xa, -(yb-ya)); // 屏幕坐标系y向下为正
+    let tilt_deg = normalize_angle(to_deg(tilt_rad));
+
+    // 月面视圆盘的亮区拱点，在天球赤道坐标系背景上，相对于天北极方向向东的偏转角度
+    let bright_pos_deg = moon_bright_limb_pos_angle(year, month, day, hour, minute, second, timezone);
+    bright_pos_deg = normalize_angle(bright_pos_deg);
+    // 假定月面亮区两端永远是月球的地理南北极
+    tilt_deg = normalize_angle(tilt_deg - (bright_pos_deg-90)); // NOTE 仰视东西颠倒；亮区拱点和亮区的尖尖相差90度
+
+    // 月相
+    let moon_i = moon_phase(year, month, day, hour, minute, second, timezone);
+    let phase_deg = normalize_angle(moon_i - 90);
+
+
+
+
+
+
+
+
+
+
+
 
     // 大气散射
     if (enable_atmospheric_scattering) {
@@ -1167,7 +1214,7 @@ function render_all(frame_buffer, fb_width, fb_height, year, month, day, hour, m
 
     draw_moon(
         frame_buffer, RADIUS*2, RADIUS*2, moon_proj_xy[0], moon_proj_xy[1],
-        0.8, moon_radius, 180 * (mphase + 1), (to_deg(tilt_rad) + 180));
+        0.8, moon_radius, phase_deg, tilt_deg);
 
 
     const sun_radius = Math.round(RADIUS * 0.02);
