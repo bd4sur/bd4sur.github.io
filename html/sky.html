@@ -21,7 +21,7 @@ button {
 <body>
     <div class="container" style="text-align: center;">
         <div><b>玲珑天象仪</b><br>Planetarium Linglong</div>
-        <div style="font-size: smaller;">&copy; BD4SUR 2011-08 2011-09 2026-01</div>
+        <div style="font-size: smaller;">&copy; 2011-2026 BD4SUR</div>
         <div style="margin: 3px 0;">
             <button id="toggle_equatorial_coord">赤道坐标圈</button>
             <button id="toggle_horizontal_coord">地平坐标圈</button>
@@ -29,8 +29,8 @@ button {
             <button id="toggle_atmospheric_scattering">大气散射</button>
         </div>
         <div style="margin: 3px 0;">
-            <button id="toggle_timemachine">时光机/实时天空</button>
-            <button id="toggle_opt_sym">渲染加速</button>
+            <button id="toggle_star_name">恒星名称</button>
+            <button id="toggle_planet_name">行星名称</button>
         </div>
         <table style="margin: 0px auto;">
             <tr><td></td><td>北 N</td><td></td></tr>
@@ -42,10 +42,16 @@ button {
             <tr><td></td><td>南 S</td><td></td></tr>
         </table>
         <div id="datetime">-</div>
+        <div style="margin: 3px 0;">
+            <button id="toggle_timemachine">时光机/实时天空</button>
+            <button id="toggle_opt_sym">渲染加速</button>
+        </div>
         <div>屏幕朝向地面，顶部指向北方</div>
         <div id="fps">FPS: --</div>
     </div>
 
+    <script src="../script/glyph.js"></script>
+    <script src="../script/vsop87c_milli.js"></script>
     <script src="../script/eph.js"></script>
     <script>
 
@@ -61,6 +67,12 @@ let enable_horizontal_coord = false;
 let enable_star_burst = true;
 // 是否启用大气散射效果
 let enable_atmospheric_scattering = true;
+// 是否显示恒星名称
+let enable_star_name = false;
+// 是否显示大行星
+let enable_planet = true;
+// 是否显示大行星名称
+let enable_planet_name = true;
 
 // 是否启用时光机（以尽可能快的速度渲染并绘制）
 let enable_timemachine = false;
@@ -115,6 +127,14 @@ const PHYSICS = {
     ],
 };
 
+// 行星相关常量（用于渲染）
+//                      -     1Mer  2Ven  3Ear  4Mars 5Jup  6Sat  7Ura  8Nep
+const PLANET_RADIUS  = [0.0,  1.0,  2.0,  0.0,  1.0,  3.0,  2.0,  1.0,  1.0 ];
+const PLANET_COLOR_R = [0,    192,  255,  0,    255,  255,  192,  0,    192 ];
+const PLANET_COLOR_G = [0,    192,  255,  0,    64,   192,  255,  255,  128 ];
+const PLANET_COLOR_B = [0,    192,  64,   0,    0,    128,  128,  255,  255 ];
+const PLANET_NAME    = ["", "水星", "金星", "地球", "火星", "木星", "土星", "天王星", "海王星"];
+
 // 星表
 const STARS = [
 //(RA)h   m   s    (Dec)d   m   s       Mag
@@ -133,7 +153,11 @@ const STARS = [
     [19, 50, 46.6,      8, 52, 10.9,   0.76], // 河鼓二
 ];
 
-
+const STAR_NAME = [
+    "北极星", "天枢", "", "", "", "", "开阳", "",
+    "天狼", "大角", "织女一", "河鼓二", "M31",
+    "参宿四", "", "", "", "", "", "参宿七", ""
+];
 
 
 
@@ -759,37 +783,40 @@ function draw_moon(frame_buffer, fb_width, fb_height, center_x, center_y, lum, r
 
 
 
+function draw_star(frame_buffer, fb_width, fb_height, sx, sy, magnitude, radius, red, green, blue) {
 
-function draw_star(frame_buffer, fb_width, fb_height, altitude, azimuth, magnitude) {
-
-    const maxGlowRadius = 3; // 光晕最大半径（像素）
-
-    const proj_xy = horizontal_to_screen_xy(azimuth, altitude, RADIUS);
+    const maxGlowRadius = 2; // 光晕最大半径（像素）
 
     const starLumBase = magnitude_to_relative_luminance(magnitude);
-    const sx = proj_xy[0];
-    const sy = proj_xy[1];
+
+    // 获取背景亮度用于对比度抑制
+    const bgIdx = Math.round(sy * fb_width + sx) * 4;
+    const bgR = frame_buffer[bgIdx] / 255;
+    const bgG = frame_buffer[bgIdx + 1] / 255;
+    const bgB = frame_buffer[bgIdx + 2] / 255;
+    const bgLum = 0.299 * bgR + 0.587 * bgG + 0.114 * bgB;
 
     // 遍历光晕区域（正方形包围圆）
-    for (let dy = -maxGlowRadius; dy <= maxGlowRadius; dy++) {
-        for (let dx = -maxGlowRadius; dx <= maxGlowRadius; dx++) {
+    const R = radius + maxGlowRadius;
+    for (let dy = -R; dy <= R; dy++) {
+        for (let dx = -R; dx <= R; dx++) {
             const dist = Math.sqrt(dx * dx + dy * dy);
-            if (dist > maxGlowRadius) continue;
+            if (dist > R) continue;
 
             const px = Math.round(sx + dx);
             const py = Math.round(sy + dy);
             if (px < 0 || px >= fb_width || py < 0 || py >= fb_height) continue;
 
-            // 获取背景亮度用于对比度抑制
-            const bgIdx = (py * fb_width + px) * 4;
-            const bgR = frame_buffer[bgIdx] / 255;
-            const bgG = frame_buffer[bgIdx + 1] / 255;
-            const bgB = frame_buffer[bgIdx + 2] / 255;
-            const bgLum = 0.299 * bgR + 0.587 * bgG + 0.114 * bgB;
+            const idx = (py * fb_width + px) * 4;
 
-            // 计算恒星在该点的原始发光强度（带光晕衰减）
-            const glowFactor = Math.exp(-dist * 1);
-            let starLum = starLumBase * glowFactor;
+            let starLum = 0;
+            if (dist <= radius) {
+                starLum = starLumBase;
+            }
+            // 光晕衰减
+            else if (dist > radius) {
+                starLum = starLumBase * Math.exp(-dist * 1);
+            }
 
             // 对比度抑制：白天背景亮时，星星和光晕都应被压制
             const contrast = starLum / (bgLum + 0.001);
@@ -801,19 +828,17 @@ function draw_star(frame_buffer, fb_width, fb_height, altitude, azimuth, magnitu
             starLum *= visibility;
 
             // 转为 0–255 范围
-            const add = Math.min(255, starLum * 255);
+            const r = Math.min(255, starLum * red);
+            const g = Math.min(255, starLum * green);
+            const b = Math.min(255, starLum * blue);
 
             // 叠加到 RGB（保持白色光晕，可改为彩色）
-            frame_buffer[bgIdx]     = Math.min(255, frame_buffer[bgIdx]     + add);
-            frame_buffer[bgIdx + 1] = Math.min(255, frame_buffer[bgIdx + 1] + add);
-            frame_buffer[bgIdx + 2] = Math.min(255, frame_buffer[bgIdx + 2] + add);
+            frame_buffer[idx + 0] = Math.min(255, frame_buffer[idx + 0] + r);
+            frame_buffer[idx + 1] = Math.min(255, frame_buffer[idx + 1] + g);
+            frame_buffer[idx + 2] = Math.min(255, frame_buffer[idx + 2] + b);
         }
     }
-
 }
-
-
-
 
 
 /**
@@ -1122,16 +1147,6 @@ function render_all(frame_buffer, fb_width, fb_height, year, month, day, hour, m
     let phase_deg = normalize_angle(moon_i - 90);
 
 
-
-
-
-
-
-
-
-
-
-
     // 大气散射
     if (enable_atmospheric_scattering) {
         if (enable_opt_sym) {
@@ -1221,6 +1236,10 @@ function render_all(frame_buffer, fb_width, fb_height, year, month, day, hour, m
 
     draw_sun(frame_buffer, RADIUS*2, RADIUS*2, sun_proj_xy[0], sun_proj_xy[1], sun_horizontal_coord[0], sun_radius);
 
+    // 绘制星芒
+    if (enable_star_burst && sun_horizontal_coord[0] > 0) {
+        star_burst_filter(frame_buffer, RADIUS*2, RADIUS*2, sun_proj_xy[0], sun_proj_xy[1], 0, 0.97, 160);
+    }
 
     // 绘制恒星等其他天体
     const mag_offset = -2;
@@ -1230,26 +1249,37 @@ function render_all(frame_buffer, fb_width, fb_height, year, month, day, hour, m
                             ra_hms_to_deg(star_item[0], star_item[1], star_item[2]),
                             dec_dms_to_decimal(star_item[3], star_item[4], star_item[5]),
                             year, month, day, hour, minute, second, timezone, longitude, latitude);
+
+        const proj_xy = horizontal_to_screen_xy(star_ec[1], star_ec[0], RADIUS);
         const mag = Math.random() * 0.5 + mag_offset + star_item[6];
-        draw_star(frame_buffer, RADIUS*2, RADIUS*2, star_ec[0], star_ec[1], mag);
+        draw_star(frame_buffer, RADIUS*2, RADIUS*2, proj_xy[0], proj_xy[1], mag, 1, 255, 255, 255);
+        if (enable_star_name) {
+            fb_draw_textline(frame_buffer, fb_width, fb_height, STAR_NAME[i], proj_xy[0]+3, proj_xy[1]+3, 255, 255, 255);
+        }
     }
 
-    // 绘制星芒
-    if (enable_star_burst && sun_horizontal_coord[0] > 0) {
-        star_burst_filter(frame_buffer, RADIUS*2, RADIUS*2, sun_proj_xy[0], sun_proj_xy[1], 0, 0.97, 160);
+    // 绘制大行星
+    if (enable_planet) {
+        for (let i = 8; i >= 1; i--) { // 之所以倒数，是为了让靠近太阳的行星后绘制，使其覆盖在远离太阳的行星上面
+            if (i == 3) continue; // 跳过地球
+
+            const planet_hc = where_is_the_planet(year, month, day, hour, minute, second, timezone, longitude, latitude, i);
+            const planet_azi = planet_hc[1];
+            const planet_alt = planet_hc[0];
+
+            const planet_proj_xy = horizontal_to_screen_xy(planet_azi, planet_alt, RADIUS);
+            const planet_proj_x = planet_proj_xy[0];
+            const planet_proj_y = planet_proj_xy[1];
+
+            draw_star(frame_buffer, RADIUS*2, RADIUS*2, planet_proj_x, planet_proj_y,
+                0, PLANET_RADIUS[i], PLANET_COLOR_R[i], PLANET_COLOR_G[i], PLANET_COLOR_B[i]);
+
+            if (enable_planet_name) {
+                fb_draw_textline(frame_buffer, fb_width, fb_height, PLANET_NAME[i], planet_proj_x+3, planet_proj_y+3, PLANET_COLOR_R[i], PLANET_COLOR_G[i], PLANET_COLOR_B[i]);
+            }
+        }
     }
 
-    // 绘制地景（天空投影圆盘之外的部分）
-    draw_horizon(frame_buffer, RADIUS*2, RADIUS*2, null, 0, 0);
-
-    // 绘制地平坐标网格
-    if (enable_horizontal_coord) {
-        draw_circle_outline(frame_buffer, RADIUS*2, RADIUS*2, RADIUS, RADIUS, RADIUS-1, 2, 128, 128, 128, 255);
-        draw_circle_outline(frame_buffer, RADIUS*2, RADIUS*2, RADIUS, RADIUS, RADIUS / 3, 1, 16, 16, 16, 255);
-        draw_circle_outline(frame_buffer, RADIUS*2, RADIUS*2, RADIUS, RADIUS, RADIUS / 3 * 2, 1, 16, 16, 16, 255);
-        draw_line(frame_buffer, RADIUS*2, RADIUS*2, RADIUS, 0, RADIUS, RADIUS*2, 1, 16, 16, 16);
-        draw_line(frame_buffer, RADIUS*2, RADIUS*2, 0, RADIUS, RADIUS*2, RADIUS, 1, 16, 16, 16);
-    }
 
     // 绘制赤道坐标网格
     if (enable_equatorial_coord) {
@@ -1273,6 +1303,18 @@ function render_all(frame_buffer, fb_width, fb_height, year, month, day, hour, m
                 year, month, day, hour, minute, second, timezone, longitude, latitude
             );
         }
+    }
+
+    // 绘制地景（天空投影圆盘之外的部分）
+    draw_horizon(frame_buffer, RADIUS*2, RADIUS*2, null, 0, 0);
+
+    // 绘制地平坐标网格
+    if (enable_horizontal_coord) {
+        draw_circle_outline(frame_buffer, RADIUS*2, RADIUS*2, RADIUS, RADIUS, RADIUS-1, 2, 128, 128, 128, 255);
+        draw_circle_outline(frame_buffer, RADIUS*2, RADIUS*2, RADIUS, RADIUS, RADIUS / 3, 1, 16, 16, 16, 255);
+        draw_circle_outline(frame_buffer, RADIUS*2, RADIUS*2, RADIUS, RADIUS, RADIUS / 3 * 2, 1, 16, 16, 16, 255);
+        draw_line(frame_buffer, RADIUS*2, RADIUS*2, RADIUS, 0, RADIUS, RADIUS*2, 1, 16, 16, 16);
+        draw_line(frame_buffer, RADIUS*2, RADIUS*2, 0, RADIUS, RADIUS*2, RADIUS, 1, 16, 16, 16);
     }
 
 }
@@ -1319,6 +1361,12 @@ window.onload = function() {
     });
     document.getElementById("toggle_atmospheric_scattering").addEventListener("click", function(e) {
         enable_atmospheric_scattering = !enable_atmospheric_scattering;
+    });
+    document.getElementById("toggle_star_name").addEventListener("click", function(e) {
+        enable_star_name = !enable_star_name;
+    });
+    document.getElementById("toggle_planet_name").addEventListener("click", function(e) {
+        enable_planet_name = !enable_planet_name;
     });
 
     document.getElementById("toggle_timemachine").addEventListener("click", function(e) {

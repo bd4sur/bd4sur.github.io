@@ -511,3 +511,51 @@ function find_sunset(year, month, day, timezone, longitude, latitude) {
     }
     return -1;
 }
+
+
+// 基于VSOP87c计算大行星地平坐标（不做章动、光行差等精密修正）
+function where_is_the_planet(
+    year, month, day, hour, minute, second,
+    timezone_offset, // 时区偏移（小时），如北京时间 +8.0
+    longitude,       // 观测者经度 (东正)
+    latitude,        // 观测者纬度 (北正)
+    planet_index     // 计算哪个行星：1-水 2-金 3-地球（直接返回） 4-火 5-木 6-土 7-天王 8-海王 其他无定义
+) {
+    // 计算儒略千年数
+    const jd = julian_day(year, month, day, hour, minute, second, timezone_offset);
+    const t = (jd - 2451545.0) / 365250.0; // NOTE 注意：是千年数！
+
+    // 计算地球的日心直角坐标
+    const earth_xyz = vsop87c_milli.getEarth(t);
+
+    // 计算行星的日心直角坐标
+    let planet_xyz = null;
+    switch (planet_index) {
+        case 1: planet_xyz = vsop87c_milli.getMercury(t); break;
+        case 2: planet_xyz = vsop87c_milli.getVenus(t); break;
+        case 3: return null;
+        case 4: planet_xyz = vsop87c_milli.getMars(t); break;
+        case 5: planet_xyz = vsop87c_milli.getJupiter(t); break;
+        case 6: planet_xyz = vsop87c_milli.getSaturn(t); break;
+        case 7: planet_xyz = vsop87c_milli.getUranus(t); break;
+        case 8: planet_xyz = vsop87c_milli.getNeptune(t); break;
+        default: return null;
+    }
+
+    // 计算行星的地心直角坐标
+    const x_geo = planet_xyz[0] - earth_xyz[0];
+    const y_geo = planet_xyz[1] - earth_xyz[1];
+    const z_geo = planet_xyz[2] - earth_xyz[2];
+
+    // 计算行星赤道坐标
+    const eps_rad = to_rad(23.0 + (26.0 / 60.0)); // 黄赤交角
+    const x_eq = x_geo;
+    const y_eq = y_geo * Math.cos(eps_rad) - z_geo * Math.sin(eps_rad);
+    const z_eq = y_geo * Math.sin(eps_rad) + z_geo * Math.cos(eps_rad);
+
+    const planet_ra  = to_deg(Math.atan2(y_eq, x_eq));
+    const planet_dec = to_deg(Math.asin(z_eq / Math.sqrt(x_eq * x_eq + y_eq * y_eq + z_eq * z_eq)));
+
+    // 计算地平坐标
+    return equatorial_to_horizontal(planet_ra, planet_dec, year, month, day, hour, minute, second, timezone_offset, longitude, latitude);
+}
