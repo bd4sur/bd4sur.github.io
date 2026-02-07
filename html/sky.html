@@ -14,7 +14,8 @@ button {
     border: none;
     background-color: #2f2f2f;
     color: #989898;
-    padding: 3px 10px;
+    padding: 3px 6px;
+    font-size: smaller;
 }
     </style>
 </head>
@@ -23,12 +24,14 @@ button {
         <div><b>玲珑天象仪</b><br>Planetarium Linglong</div>
         <div style="font-size: smaller;">&copy; 2011-2026 BD4SUR</div>
         <div style="margin: 3px 0;">
-            <button id="toggle_equatorial_coord">赤道坐标圈</button>
-            <button id="toggle_horizontal_coord">地平坐标圈</button>
+            <button id="toggle_equatorial_coord">赤道坐标</button>
+            <button id="toggle_horizontal_coord">地平坐标</button>
+            <button id="toggle_ecliptic_circle">黄道</button>
             <button id="toggle_star_burst">星芒</button>
             <button id="toggle_atmospheric_scattering">大气散射</button>
         </div>
         <div style="margin: 3px 0;">
+            <button id="toggle_planet">行星</button>
             <button id="toggle_star_name">恒星名称</button>
             <button id="toggle_planet_name">行星名称</button>
         </div>
@@ -73,6 +76,8 @@ let enable_star_name = false;
 let enable_planet = true;
 // 是否显示大行星名称
 let enable_planet_name = true;
+// 是否显示黄道
+let enable_ecliptic_circle = true;
 
 // 是否启用时光机（以尽可能快的速度渲染并绘制）
 let enable_timemachine = false;
@@ -909,7 +914,41 @@ function draw_celestial_circle(
 }
 
 
+function draw_ecliptic_circle(
+    frame_buffer, fb_width, fb_height,
+    line_weight, colorR, colorG, colorB,
+    year, month, day, hour, minute, second, timezone, longitude, latitude
+) {
+    const POINTS = 360; // 提高采样密度以获得更平滑曲线
+    const R = RADIUS;
 
+    let points = [];
+
+    for (let i = 0; i <= POINTS; i++) {
+        // 计算黄道上各点的赤经赤纬
+        let lmd = (360.0 * i / POINTS);
+        const [RA, Dec] = ecliptic_to_equatorial(lmd, 0);
+        // 将其转为地平坐标
+        const [alt, az] = equatorial_to_horizontal(
+            RA, Dec, year, month, day, hour, minute, second, timezone, longitude, latitude
+        );
+        if (alt >= 0) {
+            const [x, y] = horizontal_to_screen_xy(az, alt, R);
+            points.push([x, y]);
+        } else {
+            points.push(null);
+        }
+    }
+
+    // 使用抗锯齿 draw_line 连接可见段
+    for (let i = 0; i < points.length - 1; i++) {
+        const p1 = points[i];
+        const p2 = points[i + 1];
+        if (p1 && p2) {
+            draw_line(frame_buffer, fb_width, fb_height, p1[0], p1[1], p2[0], p2[1], line_weight, colorR, colorG, colorB);
+        }
+    }
+}
 
 
 
@@ -1258,6 +1297,15 @@ function render_all(frame_buffer, fb_width, fb_height, year, month, day, hour, m
         }
     }
 
+    // 绘制黄道
+    if (enable_ecliptic_circle) {
+        draw_ecliptic_circle(
+            frame_buffer, fb_width, fb_height,
+            6, 16, 16, 0,
+            year, month, day, hour, minute, second, timezone, longitude, latitude
+        );
+    }
+
     // 绘制大行星
     if (enable_planet) {
         for (let i = 8; i >= 1; i--) { // 之所以倒数，是为了让靠近太阳的行星后绘制，使其覆盖在远离太阳的行星上面
@@ -1362,11 +1410,17 @@ window.onload = function() {
     document.getElementById("toggle_atmospheric_scattering").addEventListener("click", function(e) {
         enable_atmospheric_scattering = !enable_atmospheric_scattering;
     });
+    document.getElementById("toggle_planet").addEventListener("click", function(e) {
+        enable_planet = !enable_planet;
+    });
     document.getElementById("toggle_star_name").addEventListener("click", function(e) {
         enable_star_name = !enable_star_name;
     });
     document.getElementById("toggle_planet_name").addEventListener("click", function(e) {
         enable_planet_name = !enable_planet_name;
+    });
+    document.getElementById("toggle_ecliptic_circle").addEventListener("click", function(e) {
+        enable_ecliptic_circle = !enable_ecliptic_circle;
     });
 
     document.getElementById("toggle_timemachine").addEventListener("click", function(e) {

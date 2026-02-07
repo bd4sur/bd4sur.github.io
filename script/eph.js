@@ -269,7 +269,7 @@ function calculate_lunar_equatorial_coordinates(jd) {
     if (ra_deg > -90.0 && ra_deg <= 180.0) {
         RA = 270.0 - ra_deg;
     }
-    else if (ra_deg <= -90.0 && ra_deg > -180.0) {
+    else if (ra_deg <= -90.0 && ra_deg >= -180.0) {
         RA = -90.0 - ra_deg;
     }
 
@@ -374,6 +374,34 @@ function moon_bright_limb_pos_angle(year, month, day, hour, minute, second, time
     return to_deg(Math.atan2(y, x));
 }
 
+
+// 地心黄道坐标 → 赤道坐标（简单转换，不考虑任何岁差、章动等因素）
+function ecliptic_to_equatorial(lmd, beta) {
+    let R = 1.0;
+
+    let eps = 23.0 + (26.0 / 60.0); // 黄赤交角
+    beta = to_rad(beta); eps = to_rad(eps); lmd = to_rad(lmd);
+    let X = -R * Math.cos(beta) * Math.cos(eps) * Math.sin(lmd) + R * Math.sin(beta) * Math.sin(eps);
+    let Y = -R * Math.cos(beta) * Math.cos(lmd);
+    let Z =  R * Math.cos(beta) * Math.sin(eps) * Math.sin(lmd) + R * Math.sin(beta) * Math.cos(eps);
+
+    let RA = 0;
+    let Dec = 0;
+
+    // 赤经RA
+    let ra_deg = to_deg(Math.atan2(Y, X));
+    if (ra_deg > -90.0 && ra_deg <= 180.0) {
+        RA = 270.0 - ra_deg;
+    }
+    else if (ra_deg <= -90.0 && ra_deg >= -180.0) {
+        RA = -90.0 - ra_deg;
+    }
+
+    // 赤纬Dec
+    Dec = to_deg(Math.atan2(Z, Math.sqrt(X * X + Y * Y)));
+
+    return [RA, Dec];
+}
 
 
 // 赤道坐标 → 地平坐标
