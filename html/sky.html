@@ -47,7 +47,8 @@ button {
         <div id="datetime">-</div>
         <div style="margin: 3px 0;">
             <button id="toggle_timemachine">时光机/实时天空</button>
-            <button id="toggle_opt_sym">渲染加速</button>
+            <button id="toggle_opt_sym">对称加速</button>
+            <button id="toggle_opt_bilinear">双线性插值</button>
         </div>
         <div>屏幕朝向地面，顶部指向北方</div>
         <div id="fps">FPS: --</div>
@@ -84,6 +85,8 @@ let enable_timemachine = false;
 
 // 是否启用基于对称性的渲染优化
 let enable_opt_sym = true;
+// 是否启用双线性插值
+let enable_opt_bilinear = true;
 
 let moon_texture_width = 64;
 let moon_texture_height = 64;
@@ -593,7 +596,7 @@ function draw_sun(frame_buffer, fb_width, fb_height, sun_x, sun_y, sun_altitude_
 
 
 // 基于球面几何 terminator 的月相绘制（带物理合理的软边缘）
-function draw_moon(frame_buffer, fb_width, fb_height, center_x, center_y, lum, radius, phase_deg, tilt_deg) {
+function draw_moon(frame_buffer, fb_width, fb_height, center_x, center_y, lum, radius, phase_deg, bright_limb_pos_angle_deg, surface_tilt_deg) {
     const moonX = center_x;
     const moonY = center_y;
     const moonRadius = radius;
@@ -601,8 +604,8 @@ function draw_moon(frame_buffer, fb_width, fb_height, center_x, center_y, lum, r
     // 相位角（日地距角）
     const cosPhase = Math.cos(to_rad(phase_deg));
     const sinPhase = Math.sin(to_rad(phase_deg));
-    const sunDirX = cosPhase * Math.cos(to_rad(tilt_deg));
-    const sunDirY = cosPhase * Math.sin(to_rad(tilt_deg));
+    const sunDirX = cosPhase * Math.cos(to_rad(bright_limb_pos_angle_deg));
+    const sunDirY = cosPhase * Math.sin(to_rad(bright_limb_pos_angle_deg));
     const sunDirZ = sinPhase;
 
     const sunLen = Math.sqrt(sunDirX * sunDirX + sunDirY * sunDirY + sunDirZ * sunDirZ);
@@ -709,8 +712,8 @@ function draw_moon(frame_buffer, fb_width, fb_height, center_x, center_y, lum, r
             let v_norm = dy / moonRadius;   // ∈ [-1, 1]
 
             // 绕原点旋转 -alpha（使贴图随光照方向对齐）
-            const cosA = Math.cos(-to_rad(tilt_deg));
-            const sinA = Math.sin(-to_rad(tilt_deg));
+            const cosA = Math.cos(-to_rad(surface_tilt_deg));
+            const sinA = Math.sin(-to_rad(surface_tilt_deg));
             const u_rot = u_norm * cosA - v_norm * sinA;
             const v_rot = u_norm * sinA + v_norm * cosA;
 
@@ -1179,7 +1182,7 @@ function render_all(frame_buffer, fb_width, fb_height, year, month, day, hour, m
     let bright_pos_deg = moon_bright_limb_pos_angle(year, month, day, hour, minute, second, timezone);
     bright_pos_deg = normalize_angle(bright_pos_deg);
     // 假定月面亮区两端永远是月球的地理南北极
-    tilt_deg = normalize_angle(tilt_deg - (bright_pos_deg-90)); // NOTE 仰视东西颠倒；亮区拱点和亮区的尖尖相差90度
+    bright_pos_deg = normalize_angle(tilt_deg - (bright_pos_deg-90)); // NOTE 仰视东西颠倒；亮区拱点和亮区的尖尖相差90度
 
     // 月相
     let moon_i = moon_phase(year, month, day, hour, minute, second, timezone);
@@ -1188,12 +1191,22 @@ function render_all(frame_buffer, fb_width, fb_height, year, month, day, hour, m
 
     // 大气散射
     if (enable_atmospheric_scattering) {
+
+        const sky_radius = RADIUS;
+        const center_x = RADIUS;
+        const center_y = RADIUS;
+
+        let C = 8; // 降采样因子
+        if (sun_horizontal_coord[0] < -18.0) {
+            C = (enable_opt_bilinear && !enable_opt_sym) ? 16 : 8;
+        }
+        else {
+            C = (enable_opt_bilinear && !enable_opt_sym) ? 8 : 2;
+        }
+
         if (enable_opt_sym) {
             for (let y = 0; y < fb_height; y+=2) {
                 for (let x = 0; x < fb_width; x+=2) {
-                    const center_x = RADIUS;
-                    const center_y = RADIUS;
-                    const sky_radius = RADIUS;
 
                     // 计算太阳与圆心的连线法向量，进而计算半圆范围和镜像点坐标
                     let dx = sun_proj_xy[0] - center_x;
@@ -1246,17 +1259,78 @@ function render_all(frame_buffer, fb_width, fb_height, year, month, day, hour, m
             }
         }
         else {
-            for (let y = 0; y < fb_height; y+=2) { // NOTE 两倍降采样
-                for (let x = 0; x < fb_width; x+=2) { // NOTE 两倍降采样
+
+            for (let y = 0; y < fb_height; y+=C) {
+                for (let x = 0; x < fb_width; x+=C) {
 
                     // 观察者到该像素的方向向量（从屏幕坐标系转回地平天球的笛卡尔坐标系）
                     let ray_vec = screen_xy_to_xyz(x, y);
                     const ssp = calculate_scattered_pixel(ray_vec, sun_vec);
 
-                    set_pixel(frame_buffer, fb_width, fb_height, (x+0), (y+0), ssp[0]*255, ssp[1]*255, ssp[2]*255);
-                    set_pixel(frame_buffer, fb_width, fb_height, (x+0), (y+1), ssp[0]*255, ssp[1]*255, ssp[2]*255);
-                    set_pixel(frame_buffer, fb_width, fb_height, (x+1), (y+0), ssp[0]*255, ssp[1]*255, ssp[2]*255);
-                    set_pixel(frame_buffer, fb_width, fb_height, (x+1), (y+1), ssp[0]*255, ssp[1]*255, ssp[2]*255);
+                    if (enable_opt_bilinear) {
+                        set_pixel(frame_buffer, fb_width, fb_height, (x+0), (y+0), ssp[0]*255, ssp[1]*255, ssp[2]*255);
+                    }
+                    else {
+                        for (let i = 0; i < C; i++) {
+                            for (let j = 0; j < C; j++) {
+                                set_pixel(frame_buffer, fb_width, fb_height, (x+j), (y+i), ssp[0]*255, ssp[1]*255, ssp[2]*255);
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        if (enable_opt_bilinear) {
+
+            // 双线性插值以缓解块效应
+            for (let y = 0; y < fb_height; y+=C) {
+                for (let x = 0; x < fb_width; x+=C) {
+
+                    const r2 = (x-center_x)*(x-center_x) + (y-center_y)*(y-center_y);
+                    if (r2 > (sky_radius+C)*(sky_radius+C)) continue;
+
+                    let idx_11 = ((y+0) * fb_width + (x+0)) * 4;
+                    let idx_12 = ((y+0) * fb_width + (x+C)) * 4;
+                    let idx_21 = ((y+C) * fb_width + (x+0)) * 4;
+                    let idx_22 = ((y+C) * fb_width + (x+C)) * 4;
+
+                    let r11 = frame_buffer[idx_11 + 0] ?? 0; let r12 = frame_buffer[idx_12 + 0] ?? 0; let r21 = frame_buffer[idx_21 + 0] ?? 0; let r22 = frame_buffer[idx_22 + 0] ?? 0;
+                    let g11 = frame_buffer[idx_11 + 1] ?? 0; let g12 = frame_buffer[idx_12 + 1] ?? 0; let g21 = frame_buffer[idx_21 + 1] ?? 0; let g22 = frame_buffer[idx_22 + 1] ?? 0;
+                    let b11 = frame_buffer[idx_11 + 2] ?? 0; let b12 = frame_buffer[idx_12 + 2] ?? 0; let b21 = frame_buffer[idx_21 + 2] ?? 0; let b22 = frame_buffer[idx_22 + 2] ?? 0;
+
+                    // 检查并处理黑边
+                    if (r11+b11+g11 === 0) {
+                        if      (r22+b22+g22 != 0) { r11 = r22; g11 = g22; b11 = b22; }
+                        else if (r12+b12+g12 != 0) { r11 = r12; g11 = g12; b11 = b12; }
+                        else if (r21+b21+g21 != 0) { r11 = r21; g11 = g21; b11 = b21; }
+                    }
+                    if (r12+b12+g12 === 0) {
+                        if      (r22+b22+g22 != 0) { r12 = r22; g12 = g22; b12 = b22; }
+                        else if (r11+b11+g11 != 0) { r12 = r11; g12 = g11; b12 = b11; }
+                        else if (r21+b21+g21 != 0) { r12 = r21; g12 = g21; b12 = b21; }
+                    }
+                    if (r21+b21+g21 === 0) {
+                        if      (r22+b22+g22 != 0) { r21 = r22; g21 = g22; b21 = b22; }
+                        else if (r11+b11+g11 != 0) { r21 = r11; g21 = g11; b21 = b11; }
+                        else if (r12+b12+g12 != 0) { r21 = r12; g21 = g12; b21 = b12; }
+                    }
+                    if (r22+b22+g22 === 0) {
+                        if      (r21+b21+g21 != 0) { r22 = r21; g22 = g21; b22 = b21; }
+                        else if (r11+b11+g11 != 0) { r22 = r11; g22 = g11; b22 = b11; }
+                        else if (r12+b12+g12 != 0) { r22 = r12; g22 = g12; b22 = b12; }
+                    }
+
+                    for (let i = 0; i < C; i++) {
+                        for (let j = 0; j < C; j++) {
+                            let idx = ((y+i) * fb_width + (x+j)) * 4;
+                            let v = i/C;
+                            let u = j/C;
+                            frame_buffer[idx + 0] = (1-u)*(1-v)*r11 + u*(1-v)*r12 + (1-u)*v*r21 + u*v*r22;
+                            frame_buffer[idx + 1] = (1-u)*(1-v)*g11 + u*(1-v)*g12 + (1-u)*v*g21 + u*v*g22;
+                            frame_buffer[idx + 2] = (1-u)*(1-v)*b11 + u*(1-v)*b12 + (1-u)*v*b21 + u*v*b22;
+                        }
+                    }
                 }
             }
         }
@@ -1268,7 +1342,7 @@ function render_all(frame_buffer, fb_width, fb_height, year, month, day, hour, m
 
     draw_moon(
         frame_buffer, RADIUS*2, RADIUS*2, moon_proj_xy[0], moon_proj_xy[1],
-        0.8, moon_radius, phase_deg, tilt_deg);
+        0.8, moon_radius, phase_deg, bright_pos_deg, tilt_deg);
 
 
     const sun_radius = Math.round(RADIUS * 0.02);
@@ -1431,6 +1505,9 @@ window.onload = function() {
 
     document.getElementById("toggle_opt_sym").addEventListener("click", function(e) {
         enable_opt_sym = !enable_opt_sym;
+    });
+    document.getElementById("toggle_opt_bilinear").addEventListener("click", function(e) {
+        enable_opt_bilinear = !enable_opt_bilinear;
     });
 
 
