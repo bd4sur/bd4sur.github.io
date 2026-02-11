@@ -9,6 +9,7 @@ body {
     background-color: #000000;
     color: #fff;
     font-size: 14px;
+    /* touch-action: none; */
 }
 button {
     border: none;
@@ -38,15 +39,9 @@ button {
             <button id="toggle_star_name">恒星名称<br><span class="status_label" id="star_name_status">-</span></button>
             <button id="toggle_planet_name">行星名称<br><span class="status_label" id="planet_name_status">-</span></button>
         </div>
-        <table style="margin: 0px auto;">
-            <tr><td></td><td>北 N</td><td></td></tr>
-            <tr>
-                <td>东 E</td>
-                <td><canvas id="skyCanvas" width="240" height="240" style="width: 240px; height: 240px;"></canvas></td>
-                <td>W 西</td>
-            </tr>
-            <tr><td></td><td>南 S</td><td></td></tr>
-        </table>
+
+        <canvas id="skyCanvas" width="240" height="240" style="width: 240px; height: 240px;"></canvas>
+
         <div id="datetime">-</div>
         <div style="margin: 3px 0;">
             <button id="toggle_realtime">实时天象<br><span class="status_label" id="realtime_status">-</span></button>
@@ -54,9 +49,21 @@ button {
             <button id="toggle_opt_sym">折半渲染<br><span class="status_label" id="opt_sym_status">-</span></button>
             <button id="toggle_opt_bilinear">双线性插值<br><span class="status_label" id="opt_bilinear_status">-</span></button>
         </div>
-        <div>屏幕朝向地面，顶部指向北方</div>
+        <table style="margin: 0px auto;">
+            <tr><td></td><td><button id="cam_pitch_up">仰</button></td><td></td></tr>
+            <tr>
+                <td><button id="cam_rot_eastward">东</button></td>
+                <td><button id="cam_reset">归中</button></td>
+                <td><button id="cam_rot_westward">西</button></td>
+            </tr>
+            <tr>
+                <td><button id="cam_zoom_in">推</button></td>
+                <td><button id="cam_pitch_down">俯</button></td>
+                <td><button id="cam_zoom_out">拉</button></td>
+            </tr>
+        </table>
         <div id="fps">FPS: --</div>
-        <div style="font-size: smaller; text-align: left; max-width: 320px; margin: 0 auto; color: #b1b7c3;">
+        <div style="font-size: smaller; text-align: left; max-width: 320px; margin: 0 auto; color: #aaaaaa;">
             <p><b>主要参考文献</b></p>
             <ol>
                 <li>Nishita T, et al. <b>Display of The Earth Taking into Account Atmospheric Scattering</b>. 1993.</li>
@@ -76,8 +83,8 @@ const USE_FISHEYE_PROJECTION = true; // 是否使用鱼眼投影（否则使用X
 
 // 是否启用赤道坐标圈
 let enable_equatorial_coord = true;
-// 是否启用地平坐标圈
-let enable_horizontal_coord = false;
+// 是否启用地平坐标
+let enable_horizontal_coord = true;
 // 是否启用星芒效果
 let enable_star_burst = true;
 // 大气散射模型（0-不启用；1-简化模型；2-西田模型）
@@ -229,6 +236,485 @@ function horizontal_to_xyz(azimuth_deg, altitude_deg, R) {
         R * Math.sin(altRad)
     ];
 }
+
+// 笛卡尔坐标系 → 地平天球球坐标系 (altitude, azimuth, radius)
+function xyz_to_horizontal(x, y, z) {
+    // 1. 计算半径（处理原点情况）
+    const R = Math.sqrt(x * x + y * y + z * z);
+    if (R < 1e-15) {
+        return [0, 0, 0]; // 原点无定义，返回默认值
+    }
+
+    // 2. 计算高度角（钳制避免浮点误差导致 asin 越界）
+    let sinAlt = z / R;
+    sinAlt = Math.max(-1, Math.min(1, sinAlt)); // 严格限制在 [-1, 1]
+    const altitude_deg = Math.asin(sinAlt) * (180 / Math.PI);
+
+    // 3. 处理天顶/天底（|z| ≈ R 时方位角无定义）
+    if (Math.abs(z) >= R * (1 - 1e-10)) {
+        return [altitude_deg, 0, R]; // 方位角设为0（惯例）
+    }
+
+    // 4. 计算方位角（核心：atan2(x, y) 对应原函数中的 azRad）
+    const azRad = Math.atan2(x, y); // 注意参数顺序：x 对应 sin(azRad), y 对应 cos(azRad)
+    let azimuth_deg = azRad * (180 / Math.PI) - 180; // 逆向抵消原函数的 +180°
+
+    // 5. 归一化到 [0, 360)
+    azimuth_deg = (azimuth_deg + 360) % 360;
+    if (azimuth_deg >= 360) azimuth_deg -= 360; // 双保险（应对浮点误差）
+    if (azimuth_deg < 0) azimuth_deg += 360;
+
+    return [altitude_deg, azimuth_deg, R];
+}
+
+
+function cross(a, b) {
+    return [
+        a[1] * b[2] - a[2] * b[1],
+        a[2] * b[0] - a[0] * b[2],
+        a[0] * b[1] - a[1] * b[0]
+    ];
+}
+function dot(a, b) {
+    return a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
+}
+function scale(v, n) {
+    return [v[0] * n, v[1] * n, v[2] * n];
+}
+function sub(a, b) {
+    return [a[0] - b[0], a[1] - b[1], a[2] - b[2]];
+}
+function norm(v) {
+    const r = Math.sqrt(dot(v, v));
+    return scale(v, 1/r);
+}
+
+// 地平天球的球坐标系→地平天球的笛卡尔坐标系→投影到地面投影坐标系
+function fisheye_project(azimuth_deg, altitude_deg, R, center_x, center_y, view_alt, view_azi, f) {
+    view_alt = 180 - view_alt;
+
+    let v_view = norm(horizontal_to_xyz(view_azi, view_alt, R));
+    let v = norm(horizontal_to_xyz(azimuth_deg, altitude_deg, R));
+
+    let x_v = [0,0,0];
+    let y_v = [0,0,0];
+
+    if (view_alt === 90) { // 谨慎处理临界点附近的浮点误差问题
+        v_view = [0, 0, 1];
+        y_v = [0, -1, 0];
+    }
+    else {
+        let zenith = [0, 0, 1];
+        let proj = scale(v_view, dot(zenith, v_view));
+        y_v = norm(sub(zenith, proj));
+    }
+
+    x_v = cross(y_v, v_view);
+
+    let vx = dot(v, x_v);
+    let vy = dot(v, y_v);
+    let vz = dot(v, v_view);
+
+    if (vz < -1) return [0, 0];
+
+    const theta = Math.acos(vz); // rad
+    const phi_v = -Math.atan2(vx, vy); // rad
+    const r = (f * 2.0 * R / Math.PI) * theta;
+    const x =  r * Math.sin(phi_v);
+    const y = -r * Math.cos(phi_v);
+    return [x + center_x, y + center_y];
+}
+
+function fisheye_unproject(scr_x, scr_y, R, center_x, center_y, view_alt, view_azi, f) {
+    // 屏幕坐标转极坐标
+    const dx = center_x - scr_x;
+    const dy = center_y - scr_y;
+    const r = Math.hypot(dx, dy);
+
+    // 处理中心点退化
+    let phi_prime = 0.0;
+    if (r < 1e-6) {
+        phi_prime = 0.0;
+    }
+    else {
+        phi_prime = Math.atan2(dx, dy);
+    }
+
+    // 极坐标转单位向量
+    let theta = (Math.PI / 2) * (r / (R * f));
+    let pxy = Math.sin(theta);
+    let p_prime = [
+        pxy * Math.sin(phi_prime),
+        pxy * Math.cos(phi_prime),
+        Math.cos(theta)
+    ];
+
+    // 构建旋转矩阵转置
+    let V_alt_rad = to_rad(view_alt);
+    let V_azi_rad = to_rad(view_azi);
+
+    // 视线向量v
+    let v = [
+        Math.cos(V_alt_rad) * Math.sin(V_azi_rad),
+        Math.cos(V_alt_rad) * Math.cos(V_azi_rad),
+        Math.sin(V_alt_rad)
+    ];
+
+    // 构建y'轴
+    let dot = v[2]; // dot(zenith=[0,0,1], v) => vz
+    let y_prime = [-dot * v[0], -dot * v[1], 1.0 - dot * v[2]];
+    y_prime = norm(y_prime);
+
+    // 构建x'轴
+    let x_prime = cross(y_prime, v);
+    x_prime = norm(x_prime);
+
+    // 局部坐标转地平坐标
+    let px = x_prime[0] * p_prime[0] + y_prime[0] * p_prime[1] + v[0] * p_prime[2];
+    let py = x_prime[1] * p_prime[0] + y_prime[1] * p_prime[1] + v[1] * p_prime[2];
+    let pz = x_prime[2] * p_prime[0] + y_prime[2] * p_prime[1] + v[2] * p_prime[2];
+
+    // 归一化到R
+    return scale(norm([px, py, pz]), R);
+}
+
+
+
+
+
+
+
+
+
+
+
+// 通过屏幕坐标和地平方位坐标，反解视线方向
+function find_view_dir(alt, azi, R, x, y, center_x, center_y, f, last_alt = 90, last_azi = 0) {
+    // ===== 统一辅助函数（供解析解和数值优化共用）=====
+    function norm(v) {
+        const len = Math.hypot(v[0], v[1], v[2]);
+        return len < 1e-15 ? [0, 0, 0] : [v[0]/len, v[1]/len, v[2]/len];
+    }
+    
+    function dot(a, b) {
+        return a[0]*b[0] + a[1]*b[1] + a[2]*b[2];
+    }
+    
+    function cross(a, b) {
+        return [
+            a[1]*b[2] - a[2]*b[1],
+            a[2]*b[0] - a[0]*b[2],
+            a[0]*b[1] - a[1]*b[0]
+        ];
+    }
+    
+    function horizontal_to_xyz(azimuth_deg, altitude_deg, radius) {
+        const alt_rad = altitude_deg * Math.PI / 180;
+        const azi_rad = azimuth_deg * Math.PI / 180;
+        const r_xy = radius * Math.cos(alt_rad);
+        return [
+            r_xy * Math.sin(azi_rad),
+            r_xy * Math.cos(azi_rad),
+            radius * Math.sin(alt_rad)
+        ];
+    }
+    
+    // ===== 将last参数转换为单位向量（用于解选择）=====
+    let last_vec;
+    try {
+        // last_alt是view_alt格式（0-180），需转为常规仰角：常规仰角 = 180 - view_alt
+        const last_conventional_alt = 180 - last_alt;
+        last_vec = norm(horizontal_to_xyz(last_azi, last_conventional_alt, 1.0));
+        // 验证有效性
+        if (!isFinite(last_vec[0]) || Math.abs(dot(last_vec, last_vec) - 1) > 1e-6) throw new Error();
+    } catch (e) {
+        // 回退到天顶（安全默认值）
+        last_vec = [0, 0, 1];
+    }
+    
+    // ===== 主逻辑：解析求解 =====
+    // 1. 目标点单位向量
+    const P = norm(horizontal_to_xyz(azi, alt, 1.0));
+    
+    // 2. 投影偏移处理
+    const dx = x - center_x;
+    const dy = y - center_y;
+    const r = Math.hypot(dx, dy);
+    
+    // 特殊情况：投影中心点
+    if (r < 1e-10) {
+        const view_alt = 180 - alt;
+        return [view_alt, (azi % 360 + 360) % 360];
+    }
+    
+    // 3. 计算球面参数
+    let theta = r * Math.PI / (2 * f * R);
+    theta = Math.max(0, Math.min(Math.PI, theta));
+    const phi_v = Math.atan2(dx, -dy); // 由投影公式反推
+    const k = Math.sin(theta) * Math.cos(phi_v);
+    const c = P[2]; // P·Z
+    const cos_theta = Math.cos(theta);
+    
+    // 4. 求解二次方程 A·a² + B·a + C = 0 (a = S·Z)
+    const A = cos_theta * cos_theta + k * k;
+    const B = -2 * c * cos_theta;
+    const C = c * c - k * k;
+    const discriminant = B * B - 4 * A * C;
+    
+    // 无实数解时直接进入数值优化
+    if (discriminant < -1e-12) {
+        return find_view_dir_numerical(alt, azi, R, x, y, center_x, center_y, f, last_alt, last_azi);
+    }
+    
+    // 5. 生成候选解
+    const candidates = [];
+    const sqrt_disc = Math.sqrt(Math.max(0, discriminant));
+    const a_candidates = [
+        (-B + sqrt_disc) / (2 * A),
+        (-B - sqrt_disc) / (2 * A)
+    ];
+    
+    for (const a_raw of a_candidates) {
+        const a = Math.max(-1, Math.min(1, a_raw));
+        const R0_sq = 1 - a * a;
+        if (R0_sq < -1e-10) continue;
+        const R0 = Math.sqrt(Math.max(0, R0_sq));
+        
+        const D = cos_theta - a * c;
+        const Px = P[0], Py = P[1];
+        const len_sq = Px * Px + Py * Py;
+        
+        // P在z轴上的特殊情况
+        if (len_sq < 1e-20) {
+            if (Math.abs(D) > 1e-8) continue;
+            if (R0 < 1e-10) candidates.push([0, 0, a]);
+            else {
+                candidates.push([0, R0, a]);
+                candidates.push([0, -R0, a]);
+            }
+            continue;
+        }
+        
+        const len = Math.sqrt(len_sq);
+        const nx = Px / len, ny = Py / len;
+        const dist = Math.abs(D) / len;
+        if (dist > R0 + 1e-8) continue;
+        
+        const base_x = (D / len) * nx;
+        const base_y = (D / len) * ny;
+        const tx = -ny, ty = nx;
+        const h = Math.sqrt(Math.max(0, R0_sq - (D * D) / len_sq));
+        
+        candidates.push([base_x + h * tx, base_y + h * ty, a]);
+        candidates.push([base_x - h * tx, base_y - h * ty, a]);
+    }
+    
+    // 6. 验证候选解（消除增根）
+    const valid_candidates = [];
+    for (const S_raw of candidates) {
+        const S = norm(S_raw);
+        if (!isFinite(S[0])) continue;
+        
+        const a = S[2];
+        const left = c - a * cos_theta;
+        const right = k * Math.sqrt(Math.max(0, 1 - a * a));
+        
+        // 符号与数值验证（容忍浮点误差）
+        if (Math.abs(left - right) < 1e-6 * (Math.abs(left) + Math.abs(right) + 1)) {
+            valid_candidates.push(S);
+        }
+    }
+    
+    // 7. 优先选择与last最接近的有效解
+    if (valid_candidates.length > 0) {
+        // 按与last_vec的角距离升序排序
+        valid_candidates.sort((s1, s2) => {
+            const cos1 = Math.max(-1, Math.min(1, dot(s1, last_vec)));
+            const cos2 = Math.max(-1, Math.min(1, dot(s2, last_vec)));
+            return Math.acos(cos1) - Math.acos(cos2);
+        });
+        
+        // 转换最优解为view_alt/view_azi格式
+        const S = valid_candidates[0];
+        const sz = Math.max(-1, Math.min(1, S[2]));
+        const alt_s = Math.asin(sz) * 180 / Math.PI; // 常规仰角
+        let azi_s = Math.atan2(S[0], S[1]) * 180 / Math.PI;
+        
+        const view_alt = 180 - alt_s;
+        azi_s = (azi_s % 360 + 360) % 360;
+        return [view_alt, azi_s];
+    }
+    
+    // 8. 解析法失败：调用数值优化（传入last参数）
+    return find_view_dir_numerical(alt, azi, R, x, y, center_x, center_y, f, last_alt, last_azi);
+}
+
+// ===== 数值优化后备方案（增强：使用last作为初始点）=====
+function find_view_dir_numerical(alt, azi, R, x, y, center_x, center_y, f, last_alt, last_azi) {
+    // 辅助函数（复用主函数中定义的逻辑，此处简化内联）
+    function norm(v) {
+        const len = Math.hypot(v[0], v[1], v[2]);
+        return len < 1e-15 ? [0,0,0] : [v[0]/len, v[1]/len, v[2]/len];
+    }
+    function dot(a,b) { return a[0]*b[0]+a[1]*b[1]+a[2]*b[2]; }
+    function cross(a,b) { 
+        return [a[1]*b[2]-a[2]*b[1], a[2]*b[0]-a[0]*b[2], a[0]*b[1]-a[1]*b[0]]; 
+    }
+    function horizontal_to_xyz(az, al, r) {
+        const ar = al*Math.PI/180, azr = az*Math.PI/180;
+        const rxy = r*Math.cos(ar);
+        return [rxy*Math.sin(azr), rxy*Math.cos(azr), r*Math.sin(ar)];
+    }
+    
+    // 投影计算（简化版）
+    function project(view_alt, view_azi) {
+        const v_view = norm(horizontal_to_xyz(view_azi, 180 - view_alt, 1));
+        const v = norm(horizontal_to_xyz(azi, alt, 1));
+        
+        let y_v;
+        if (Math.abs(view_alt - 90) < 1e-5) {
+            y_v = [0, -1, 0];
+        } else {
+            const zenith = [0, 0, 1];
+            const proj_scale = dot(zenith, v_view);
+            const proj = [v_view[0]*proj_scale, v_view[1]*proj_scale, v_view[2]*proj_scale];
+            y_v = norm([zenith[0]-proj[0], zenith[1]-proj[1], zenith[2]-proj[2]]);
+        }
+        const x_v = cross(y_v, v_view);
+        
+        const vx = dot(v, x_v);
+        const vy = dot(v, y_v);
+        const vz = dot(v, v_view);
+        if (vz <= -1) return [center_x, center_y];
+        
+        const theta = Math.acos(Math.max(-1, Math.min(1, vz)));
+        const phi_v = -Math.atan2(vx, vy);
+        const r_proj = (f * 2 * R / Math.PI) * theta;
+        return [
+            r_proj * Math.sin(phi_v) + center_x,
+            -r_proj * Math.cos(phi_v) + center_y
+        ];
+    }
+    
+    // ===== 关键增强：以last为初始点构建单纯形 =====
+    const alt0 = Math.max(0, Math.min(180, last_alt));
+    const azi0 = (last_azi % 360 + 360) % 360;
+    
+    // 构建非退化单纯形（last为中心，两个小扰动）
+    let simplex = [
+        [alt0, azi0], // 最优猜测点
+        [Math.max(0, Math.min(180, alt0 + 5)), azi0], // 仰角扰动
+        [alt0, (azi0 + 15) % 360] // 方位角扰动（避免与仰角扰动共线）
+    ];
+    
+    // Nelder-Mead优化（精简版）
+    const max_iter = 80;
+    const tol = 1e-4;
+    
+    for (let iter = 0; iter < max_iter; iter++) {
+        // 计算投影误差
+        const errors = simplex.map(p => {
+            const [px, py] = project(p[0], p[1]);
+            return Math.hypot(px - x, py - y);
+        });
+        
+        // 排序：best → worst
+        const indices = [0,1,2].sort((i,j) => errors[i] - errors[j]);
+        simplex = [simplex[indices[0]], simplex[indices[1]], simplex[indices[2]]];
+        errors.sort((a,b) => a - b);
+        
+        if (errors[2] - errors[0] < tol) break;
+        
+        // 计算centroid（除最差点外）
+        const centroid = [
+            (simplex[0][0] + simplex[1][0]) / 2,
+            (simplex[0][1] + simplex[1][1]) / 2
+        ];
+        
+        // 反射
+        const reflected = [
+            2*centroid[0] - simplex[2][0],
+            2*centroid[1] - simplex[2][1]
+        ];
+        reflected[0] = Math.max(0, Math.min(180, reflected[0]));
+        reflected[1] = (reflected[1] % 360 + 360) % 360;
+        
+        const ref_err = (() => {
+            const [px, py] = project(reflected[0], reflected[1]);
+            return Math.hypot(px - x, py - y);
+        })();
+        
+        // 标准Nelder-Mead操作
+        if (ref_err < errors[0]) {
+            // 扩展
+            const expanded = [
+                centroid[0] + 2*(reflected[0] - centroid[0]),
+                centroid[1] + 2*(reflected[1] - centroid[1])
+            ];
+            expanded[0] = Math.max(0, Math.min(180, expanded[0]));
+            expanded[1] = (expanded[1] % 360 + 360) % 360;
+            const exp_err = (() => {
+                const [px, py] = project(expanded[0], expanded[1]);
+                return Math.hypot(px - x, py - y);
+            })();
+            simplex[2] = exp_err < ref_err ? expanded : reflected;
+        } else if (ref_err < errors[1]) {
+            simplex[2] = reflected;
+        } else {
+            // 收缩
+            const contracted = [
+                centroid[0] + 0.5*(simplex[2][0] - centroid[0]),
+                centroid[1] + 0.5*(simplex[2][1] - centroid[1])
+            ];
+            contracted[0] = Math.max(0, Math.min(180, contracted[0]));
+            contracted[1] = (contracted[1] % 360 + 360) % 360;
+            const cont_err = (() => {
+                const [px, py] = project(contracted[0], contracted[1]);
+                return Math.hypot(px - x, py - y);
+            })();
+            if (cont_err < errors[2]) {
+                simplex[2] = contracted;
+            } else {
+                // 全局收缩（向best点）
+                for (let i = 1; i < 3; i++) {
+                    simplex[i] = [
+                        simplex[0][0] + 0.5*(simplex[i][0] - simplex[0][0]),
+                        simplex[0][1] + 0.5*(simplex[i][1] - simplex[0][1])
+                    ];
+                    simplex[i][0] = Math.max(0, Math.min(180, simplex[i][0]));
+                    simplex[i][1] = (simplex[i][1] % 360 + 360) % 360;
+                }
+            }
+        }
+    }
+    
+    // 返回最优解（已归一化）
+    const best = simplex[0];
+    return [
+        Math.max(0, Math.min(180, best[0])),
+        (best[1] % 360 + 360) % 360
+    ];
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 // 地平天球的球坐标系→地平天球的笛卡尔坐标系→投影到地面投影坐标系
 function horizontal_to_screen_xy(azimuth_deg, altitude_deg, R) {
@@ -499,26 +985,25 @@ function draw_circle_outline(frame_buffer, fb_width, fb_height, center_x, center
 
 
 // 地面填充纯黑色
-function draw_horizon(frame_buffer, fb_width, fb_height) {
-    const margin = 4;
+function draw_horizon(frame_buffer, fb_width, fb_height, R, center_x, center_y, view_alt, view_azi, f) {
+    const margin = 6;
     const cx = fb_width / 2;
     const cy = fb_height / 2;
-    const R_sq = RADIUS * RADIUS;
-    const R_margin_sq = (RADIUS-margin) * (RADIUS-margin);
     for (let y = 0; y < fb_height; y++) {
         for (let x = 0; x < fb_width; x++) {
+            const [hx, hy, hz] = fisheye_unproject(x, y, R, center_x, center_y, view_alt, view_azi, f);
             const dx = x - cx;
             const dy = y - cy;
             const r2 = dx * dx + dy * dy;
-            if (r2 > R_sq) {
+            if (hz < 0) {
                 const idx = (y * fb_width + x) * 4;
                 frame_buffer[idx]     = 0;     // R
                 frame_buffer[idx + 1] = 0;     // G
                 frame_buffer[idx + 2] = 0;     // B
                 frame_buffer[idx + 3] = 255;   // A
             }
-            else if (r2 >= R_margin_sq && r2 < R_sq) {
-                const k = 1 - (Math.sqrt(r2) - (RADIUS - margin)) / margin;
+            else if (hz <= margin && hz >= 0) {
+                const k = hz / margin;
                 const idx = (y * fb_width + x) * 4;
                 frame_buffer[idx + 0] = k * frame_buffer[idx + 0];     // R
                 frame_buffer[idx + 1] = k * frame_buffer[idx + 1];     // G
@@ -880,12 +1365,14 @@ function draw_star(frame_buffer, fb_width, fb_height, sx, sy, magnitude, radius,
  */
 function draw_celestial_circle(
     frame_buffer, fb_width, fb_height,
+    sky_radius, center_x, center_y,
+    view_alt, view_azi, f,
     isMeridian, ra_hours, dec_deg,
     line_weight, colorR, colorG, colorB,
     year, month, day, hour, minute, second, timezone, longitude, latitude
 ) {
     const POINTS = 360; // 提高采样密度以获得更平滑曲线
-    const R = RADIUS;
+    const R = sky_radius;
 
     let points = [];
 
@@ -899,7 +1386,7 @@ function draw_celestial_circle(
                 ra_deg, dec, year, month, day, hour, minute, second, timezone, longitude, latitude
             );
             if (alt >= 0) {
-                const [x, y] = horizontal_to_screen_xy(az, alt, R);
+                const [x, y] = fisheye_project(az, alt, R, center_x, center_y, view_alt, view_azi, f);
                 points.push([x, y]);
             } else {
                 points.push(null);
@@ -915,7 +1402,7 @@ function draw_celestial_circle(
                 ra_deg, dec_deg, year, month, day, hour, minute, second, timezone, longitude, latitude
             );
             if (alt >= 0) {
-                const [x, y] = horizontal_to_screen_xy(az, alt, R);
+                const [x, y] = fisheye_project(az, alt, R, center_x, center_y, view_alt, view_azi, f);
                 points.push([x, y]);
             } else {
                 points.push(null);
@@ -936,11 +1423,13 @@ function draw_celestial_circle(
 
 function draw_ecliptic_circle(
     frame_buffer, fb_width, fb_height,
+    sky_radius, center_x, center_y,
+    view_alt, view_azi, f,
     line_weight, colorR, colorG, colorB,
     year, month, day, hour, minute, second, timezone, longitude, latitude
 ) {
     const POINTS = 360; // 提高采样密度以获得更平滑曲线
-    const R = RADIUS;
+    const R = sky_radius;
 
     let points = [];
 
@@ -953,7 +1442,7 @@ function draw_ecliptic_circle(
             RA, Dec, year, month, day, hour, minute, second, timezone, longitude, latitude
         );
         if (alt >= 0) {
-            const [x, y] = horizontal_to_screen_xy(az, alt, R);
+            const [x, y] = fisheye_project(az, alt, R, center_x, center_y, view_alt, view_azi, f);
             points.push([x, y]);
         } else {
             points.push(null);
@@ -1323,12 +1812,17 @@ function set_pixel(frame_buffer, fb_width, fb_height, x, y, r, g, b) {
 
 
 // 渲染整个天空
-function render_all(frame_buffer, fb_width, fb_height, year, month, day, hour, minute, second, timezone, longitude, latitude) {
+function render_all(
+    frame_buffer, fb_width, fb_height,
+    sky_radius, center_x, center_y,
+    view_alt, view_azi, f,
+    year, month, day, hour, minute, second, timezone, longitude, latitude
+) {
 
     // 计算太阳位置
     const sun_horizontal_coord = where_is_the_sun(year, month, day, hour, minute, second, timezone, longitude, latitude);
     const sun_vec = horizontal_to_xyz(sun_horizontal_coord[1], sun_horizontal_coord[0], RADIUS);
-    const sun_proj_xy = horizontal_to_screen_xy(sun_horizontal_coord[1], sun_horizontal_coord[0], RADIUS);
+    const sun_proj_xy = fisheye_project(sun_horizontal_coord[1], sun_horizontal_coord[0], RADIUS, center_x, center_y, view_alt, view_azi, f);
 
 
     // 计算月球位置、月相、月球方向角
@@ -1344,7 +1838,7 @@ function render_all(frame_buffer, fb_width, fb_height, year, month, day, hour, m
     let moon_alt = moon_hc[0];
 
     // 计算月球的屏幕投影坐标
-    let moon_proj_xy = horizontal_to_screen_xy(moon_azi, moon_alt, RADIUS);
+    let moon_proj_xy = fisheye_project(moon_azi, moon_alt, RADIUS, center_x, center_y, view_alt, view_azi, f);
 
     const xa = moon_proj_xy[0];
     const ya = moon_proj_xy[1];
@@ -1360,7 +1854,7 @@ function render_all(frame_buffer, fb_width, fb_height, year, month, day, hour, m
     let northdelta_azi = northdelta_hc[1];
     let northdelta_alt = northdelta_hc[0];
 
-    let northdelta_scr_xy = horizontal_to_screen_xy(northdelta_azi, northdelta_alt, RADIUS);
+    let northdelta_scr_xy = fisheye_project(northdelta_azi, northdelta_alt, RADIUS, center_x, center_y, view_alt, view_azi, f);
     let xb = northdelta_scr_xy[0];
     let yb = northdelta_scr_xy[1];
 
@@ -1419,7 +1913,7 @@ function render_all(frame_buffer, fb_width, fb_height, year, month, day, hour, m
 
                     if (dp >= 0) {
                         // 观察者到该像素的方向向量（从屏幕坐标系转回地平天球的笛卡尔坐标系）
-                        let ray_vec = screen_xy_to_xyz(x, y);
+                        let ray_vec = fisheye_unproject(x, y, sky_radius, center_x, center_y, view_alt, view_azi, f);
                         const ssp = calculate_scattered_pixel(ray_vec, sun_vec, enable_atmospheric_scattering);
 
                         set_pixel(frame_buffer, fb_width, fb_height, (x+0), (y+0), ssp[0]*255, ssp[1]*255, ssp[2]*255);
@@ -1454,7 +1948,7 @@ function render_all(frame_buffer, fb_width, fb_height, year, month, day, hour, m
                 for (let x = 0; x < fb_width; x+=C) {
 
                     // 观察者到该像素的方向向量（从屏幕坐标系转回地平天球的笛卡尔坐标系）
-                    let ray_vec = screen_xy_to_xyz(x, y);
+                    let ray_vec = fisheye_unproject(x, y, sky_radius, center_x, center_y, view_alt, view_azi, f);
                     const ssp = calculate_scattered_pixel(ray_vec, sun_vec, enable_atmospheric_scattering);
 
                     if (enable_opt_bilinear) {
@@ -1477,8 +1971,8 @@ function render_all(frame_buffer, fb_width, fb_height, year, month, day, hour, m
             for (let y = 0; y < fb_height; y+=C) {
                 for (let x = 0; x < fb_width; x+=C) {
 
-                    const r2 = (x-center_x)*(x-center_x) + (y-center_y)*(y-center_y);
-                    if (r2 > (sky_radius+C)*(sky_radius+C)) continue;
+                    // const r2 = (x-center_x)*(x-center_x) + (y-center_y)*(y-center_y);
+                    // if (r2 > (sky_radius+C)*(sky_radius+C)) continue;
 
                     let idx_11 = ((y+0) * fb_width + (x+0)) * 4;
                     let idx_12 = ((y+0) * fb_width + (x+C)) * 4;
@@ -1553,7 +2047,7 @@ function render_all(frame_buffer, fb_width, fb_height, year, month, day, hour, m
                             dec_dms_to_decimal(star_item[3], star_item[4], star_item[5]),
                             year, month, day, hour, minute, second, timezone, longitude, latitude);
 
-        const proj_xy = horizontal_to_screen_xy(star_ec[1], star_ec[0], RADIUS);
+        const proj_xy = fisheye_project(star_ec[1], star_ec[0], RADIUS, center_x, center_y, view_alt, view_azi, f);
         const mag = Math.random() * 0.5 + mag_offset + star_item[6];
         draw_star(frame_buffer, RADIUS*2, RADIUS*2, proj_xy[0], proj_xy[1], mag, 1, 255, 255, 255);
         if (enable_star_name) {
@@ -1565,6 +2059,8 @@ function render_all(frame_buffer, fb_width, fb_height, year, month, day, hour, m
     if (enable_ecliptic_circle) {
         draw_ecliptic_circle(
             frame_buffer, fb_width, fb_height,
+            sky_radius, center_x, center_y,
+            view_alt, view_azi, f,
             6, 16, 16, 0,
             year, month, day, hour, minute, second, timezone, longitude, latitude
         );
@@ -1579,7 +2075,7 @@ function render_all(frame_buffer, fb_width, fb_height, year, month, day, hour, m
             const planet_azi = planet_hc[1];
             const planet_alt = planet_hc[0];
 
-            const planet_proj_xy = horizontal_to_screen_xy(planet_azi, planet_alt, RADIUS);
+            const planet_proj_xy = fisheye_project(planet_azi, planet_alt, RADIUS, center_x, center_y, view_alt, view_azi, f);
             const planet_proj_x = planet_proj_xy[0];
             const planet_proj_y = planet_proj_xy[1];
 
@@ -1600,6 +2096,8 @@ function render_all(frame_buffer, fb_width, fb_height, year, month, day, hour, m
             let line_width = (i === 0 || i == 12) ? 3 : 2;
             draw_celestial_circle(
                 frame_buffer, RADIUS*2, RADIUS*2,
+                sky_radius, center_x, center_y,
+                view_alt, view_azi, f,
                 true, i, null,
                 line_width, 8, 16, 32,
                 year, month, day, hour, minute, second, timezone, longitude, latitude
@@ -1610,6 +2108,8 @@ function render_all(frame_buffer, fb_width, fb_height, year, month, day, hour, m
             let line_width = (i === 0) ? 3 : 2;
             draw_celestial_circle(
                 frame_buffer, RADIUS*2, RADIUS*2,
+                sky_radius, center_x, center_y,
+                view_alt, view_azi, f,
                 false, null, i,
                 line_width, 8, 16, 32,
                 year, month, day, hour, minute, second, timezone, longitude, latitude
@@ -1617,17 +2117,46 @@ function render_all(frame_buffer, fb_width, fb_height, year, month, day, hour, m
         }
     }
 
+    // 绘制方位文字
+    if (enable_horizontal_coord) {
+        let lable_north = fisheye_project(0, 6, sky_radius, center_x, center_y, view_alt, view_azi, f);
+        fb_draw_textline_centered(frame_buffer, fb_width, fb_height, "北", lable_north[0], lable_north[1], 255, 0, 0);
+        let lable_east = fisheye_project(90, 6, sky_radius, center_x, center_y, view_alt, view_azi, f);
+        fb_draw_textline_centered(frame_buffer, fb_width, fb_height, "东", lable_east[0], lable_east[1], 255, 0, 0);
+        let lable_south = fisheye_project(180, 6, sky_radius, center_x, center_y, view_alt, view_azi, f);
+        fb_draw_textline_centered(frame_buffer, fb_width, fb_height, "南", lable_south[0], lable_south[1], 255, 0, 0);
+        let lable_west = fisheye_project(270, 6, sky_radius, center_x, center_y, view_alt, view_azi, f);
+        fb_draw_textline_centered(frame_buffer, fb_width, fb_height, "西", lable_west[0], lable_west[1], 255, 0, 0);
+
+        let lable_pos = fisheye_project(30, 6, sky_radius, center_x, center_y, view_alt, view_azi, f);
+        fb_draw_textline_centered(frame_buffer, fb_width, fb_height, "30", lable_pos[0], lable_pos[1], 255, 0, 0);
+        lable_pos = fisheye_project(60, 6, sky_radius, center_x, center_y, view_alt, view_azi, f);
+        fb_draw_textline_centered(frame_buffer, fb_width, fb_height, "60", lable_pos[0], lable_pos[1], 255, 0, 0);
+        lable_pos = fisheye_project(120, 6, sky_radius, center_x, center_y, view_alt, view_azi, f);
+        fb_draw_textline_centered(frame_buffer, fb_width, fb_height, "120", lable_pos[0], lable_pos[1], 255, 0, 0);
+        lable_pos = fisheye_project(150, 6, sky_radius, center_x, center_y, view_alt, view_azi, f);
+        fb_draw_textline_centered(frame_buffer, fb_width, fb_height, "150", lable_pos[0], lable_pos[1], 255, 0, 0);
+        lable_pos = fisheye_project(210, 6, sky_radius, center_x, center_y, view_alt, view_azi, f);
+        fb_draw_textline_centered(frame_buffer, fb_width, fb_height, "210", lable_pos[0], lable_pos[1], 255, 0, 0);
+        lable_pos = fisheye_project(240, 6, sky_radius, center_x, center_y, view_alt, view_azi, f);
+        fb_draw_textline_centered(frame_buffer, fb_width, fb_height, "240", lable_pos[0], lable_pos[1], 255, 0, 0);
+        lable_pos = fisheye_project(300, 6, sky_radius, center_x, center_y, view_alt, view_azi, f);
+        fb_draw_textline_centered(frame_buffer, fb_width, fb_height, "300", lable_pos[0], lable_pos[1], 255, 0, 0);
+        lable_pos = fisheye_project(330, 6, sky_radius, center_x, center_y, view_alt, view_azi, f);
+        fb_draw_textline_centered(frame_buffer, fb_width, fb_height, "330", lable_pos[0], lable_pos[1], 255, 0, 0);
+    }
+
     // 绘制地景（天空投影圆盘之外的部分）
-    draw_horizon(frame_buffer, RADIUS*2, RADIUS*2, null, 0, 0);
+    draw_horizon(frame_buffer, RADIUS*2, RADIUS*2, sky_radius, center_x, center_y, view_alt, view_azi, f);
 
     // 绘制地平坐标网格
-    if (enable_horizontal_coord) {
-        draw_circle_outline(frame_buffer, RADIUS*2, RADIUS*2, RADIUS, RADIUS, RADIUS-1, 2, 128, 128, 128, 255);
-        draw_circle_outline(frame_buffer, RADIUS*2, RADIUS*2, RADIUS, RADIUS, RADIUS / 3, 1, 16, 16, 16, 255);
-        draw_circle_outline(frame_buffer, RADIUS*2, RADIUS*2, RADIUS, RADIUS, RADIUS / 3 * 2, 1, 16, 16, 16, 255);
-        draw_line(frame_buffer, RADIUS*2, RADIUS*2, RADIUS, 0, RADIUS, RADIUS*2, 1, 16, 16, 16);
-        draw_line(frame_buffer, RADIUS*2, RADIUS*2, 0, RADIUS, RADIUS*2, RADIUS, 1, 16, 16, 16);
-    }
+    // if (enable_horizontal_coord) {
+    //     draw_circle_outline(frame_buffer, RADIUS*2, RADIUS*2, RADIUS, RADIUS, RADIUS-1, 2, 128, 128, 128, 255);
+    //     draw_circle_outline(frame_buffer, RADIUS*2, RADIUS*2, RADIUS, RADIUS, RADIUS / 3, 1, 16, 16, 16, 255);
+    //     draw_circle_outline(frame_buffer, RADIUS*2, RADIUS*2, RADIUS, RADIUS, RADIUS / 3 * 2, 1, 16, 16, 16, 255);
+    //     draw_line(frame_buffer, RADIUS*2, RADIUS*2, RADIUS, 0, RADIUS, RADIUS*2, 1, 16, 16, 16);
+    //     draw_line(frame_buffer, RADIUS*2, RADIUS*2, 0, RADIUS, RADIUS*2, RADIUS, 1, 16, 16, 16);
+    // }
 
 }
 
@@ -1775,8 +2304,13 @@ function refresh_button_status() {
 
 
 
+const sky_radius = RADIUS;
+const center_x = RADIUS;
+const center_y = RADIUS;
 
-
+let view_alt = 90; // 90度为地平天顶
+let view_azi = 0; // 0度为正南
+let view_range = 1.0;
 
 let longitude = 119.0;
 let latitude = 31.0;
@@ -1791,8 +2325,50 @@ let month = 2;
 let year = 2026;
 
 
+let isDrawing = false;
+let last_point_alt = 0;
+let last_point_azi = 0;
+
+
 
 window.onload = function() {
+
+    document.getElementById("cam_pitch_up").addEventListener("click", function(e) {
+        view_alt += 10;
+        if (view_alt >= 90) view_alt = 90;
+        refresh_button_status();
+    });
+    document.getElementById("cam_pitch_down").addEventListener("click", function(e) {
+        view_alt -= 10;
+        if (view_alt <= -90) view_alt = -90;
+        refresh_button_status();
+    });
+    document.getElementById("cam_rot_eastward").addEventListener("click", function(e) {
+        view_azi -= 10;
+        if (view_azi <= 0) view_azi = 360;
+        refresh_button_status();
+    });
+    document.getElementById("cam_rot_westward").addEventListener("click", function(e) {
+        view_azi += 10;
+        if (view_azi >= 360) view_azi = 0;
+        refresh_button_status();
+    });
+    document.getElementById("cam_zoom_in").addEventListener("click", function(e) {
+        view_range += 0.1;
+        if (view_range >= 5.0) view_range = 5.0;
+        refresh_button_status();
+    });
+    document.getElementById("cam_zoom_out").addEventListener("click", function(e) {
+        view_range -= 0.1;
+        if (view_range <= 0.1) view_range = 0.1;
+        refresh_button_status();
+    });
+    document.getElementById("cam_reset").addEventListener("click", function(e) {
+        view_alt = 90;
+        view_azi = 0;
+        view_range = 1.0;
+        refresh_button_status();
+    });
 
     document.getElementById("toggle_equatorial_coord").addEventListener("click", function(e) {
         enable_equatorial_coord = !enable_equatorial_coord;
@@ -1862,6 +2438,84 @@ window.onload = function() {
     const imageData = sky.ctx.createImageData(sky.canvas.width, sky.canvas.height);
     const frame_buffer = imageData.data;
 
+    const canvas = sky.canvas;
+    const ctx = sky.ctx;
+
+
+
+    // 获取事件在 Canvas 内的 CSS 像素坐标
+    function getCanvasPos(e) {
+        const rect = canvas.getBoundingClientRect();
+        let clientX, clientY;
+
+        if (e.type.startsWith('touch')) {
+            const touch = e.touches[0] || e.changedTouches[0];
+            clientX = touch.clientX;
+            clientY = touch.clientY;
+        } else {
+            clientX = e.clientX;
+            clientY = e.clientY;
+        }
+
+        // 转换为 Canvas 内的 CSS 像素坐标（非物理像素）
+        return {
+            x: (clientX - rect.left) * (canvas.width / rect.width) / sky.RATIO,
+            y: (clientY - rect.top) * (canvas.height / rect.height) / sky.RATIO
+        };
+    }
+
+    // 开始绘制
+    function startDrawing(e) {
+        e.preventDefault(); // 阻止触摸默认行为（滚动/缩放）
+        isDrawing = true;
+        const pos = getCanvasPos(e);
+
+        let xyz = fisheye_unproject(pos.x, pos.y, sky_radius, center_x, center_y, view_alt, view_azi, view_range);
+        let hc = xyz_to_horizontal(xyz[0], xyz[1], xyz[2]);
+        last_point_alt = hc[0];
+        last_point_azi = hc[1];
+
+        console.log(`定点坐标`);
+        console.log(hc);
+    }
+
+    // 绘制中
+    function drag(e) {
+        if (!isDrawing) return;
+        e.preventDefault(); // 阻止触摸滚动
+        const pos = getCanvasPos(e);
+
+        let view_dir = find_view_dir(last_point_alt, last_point_azi, sky_radius, pos.x, pos.y, center_x, center_y, view_range, view_alt, view_azi);
+
+        view_alt = view_dir[0];
+        view_azi = view_dir[1];
+
+        console.log(view_dir);
+
+        let xyz = fisheye_unproject(pos.x, pos.y, sky_radius, center_x, center_y, view_alt, view_azi, view_range);
+        let hc = xyz_to_horizontal(xyz[0], xyz[1], xyz[2]);
+        last_point_alt = hc[0];
+        last_point_azi = hc[1];
+    }
+
+    // 停止绘制
+    function stopDrawing() {
+        isDrawing = false;
+        console.log(`松开`);
+    }
+
+    // 事件绑定
+    sky.canvas.addEventListener('mousedown', startDrawing);
+    sky.canvas.addEventListener('mousemove', drag);
+    sky.canvas.addEventListener('mouseup', stopDrawing);
+    sky.canvas.addEventListener('mouseout', stopDrawing); // 鼠标移出 Canvas 停止绘制
+
+    // 触摸事件（移动端）
+    sky.canvas.addEventListener('touchstart', startDrawing, { passive: false });
+    sky.canvas.addEventListener('touchmove', drag, { passive: false });
+    sky.canvas.addEventListener('touchend', stopDrawing);
+    sky.canvas.addEventListener('touchcancel', stopDrawing);
+
     // FPS计算相关
     let frameCount = 0;
     let lastTime = performance.now();
@@ -1900,7 +2554,11 @@ window.onload = function() {
 
         document.getElementById('datetime').innerHTML = `${year}-${month}-${day} ${hour}:${minute}:${second}`;
 
-        render_all(frame_buffer, sky.canvas.width, sky.canvas.height, year, month, day, hour, minute, second, timezone, longitude, latitude);
+        render_all(
+            frame_buffer, sky.canvas.width, sky.canvas.height,
+            RADIUS, RADIUS, RADIUS,
+            view_alt, view_azi, view_range,
+            year, month, day, hour, minute, second, timezone, longitude, latitude);
 
         sky.ctx.putImageData(imageData, 0, 0);
 
