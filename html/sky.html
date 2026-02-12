@@ -38,6 +38,7 @@ button {
             <button id="toggle_planet">行星<br><span class="status_label" id="planet_status">-</span></button>
             <button id="toggle_star_name">恒星名称<br><span class="status_label" id="star_name_status">-</span></button>
             <button id="toggle_planet_name">行星名称<br><span class="status_label" id="planet_name_status">-</span></button>
+            <button id="toggle_landscape">地景<br><span class="status_label" id="landscape_status">-</span></button>
         </div>
 
         <canvas id="skyCanvas" width="240" height="240" style="width: 240px; height: 240px;"></canvas>
@@ -108,26 +109,48 @@ let enable_opt_sym = false;
 // 是否启用双线性插值
 let enable_opt_bilinear = true;
 
-
+// 地景选项：0-无地景
+let landscape_index = 1;
 
 
 
 let moon_texture_width = 64;
 let moon_texture_height = 64;
+let moon_texture_rgba = null;
+let img_moon_texture = new Image();
 
-const img = new Image();
-img.src = '../image/H/moon.jpg';
-img.onload = () => {
+img_moon_texture.src = '../image/H/moon.jpg';
+img_moon_texture.onload = () => {
     const canvas = document.createElement('canvas');
-    canvas.width = img.width;
-    canvas.height = img.height;
-    moon_texture_width = img.width;
-    moon_texture_height = img.height;
+    canvas.width = img_moon_texture.width;
+    canvas.height = img_moon_texture.height;
+    moon_texture_width = img_moon_texture.width;
+    moon_texture_height = img_moon_texture.height;
     const ctx = canvas.getContext('2d');
-    ctx.drawImage(img, 0, 0);
-    moon_texture_rgba = ctx.getImageData(0, 0, img.width, img.height).data; // Uint8ClampedArray
+    ctx.drawImage(img_moon_texture, 0, 0);
+    moon_texture_rgba = ctx.getImageData(0, 0, img_moon_texture.width, img_moon_texture.height).data; // Uint8ClampedArray
     // console.log(JSON.stringify(Array.from(moon_texture_rgba)));
 };
+
+
+
+
+let landscape_texture_width = 600;
+let landscape_texture_height = 600;
+let landscape_texture_rgba = null;
+let img_landscape_texture = new Image();
+const LANDSCAPES = [
+    ["", ""],
+    ["../image/H/landscape_0.jpg", "草原1"],
+    ["../image/H/landscape_1.jpg", "草原2"],
+    ["../image/H/landscape_2.jpg", "雪地"],
+    ["../image/H/landscape_3.jpg", "海洋"]
+];
+
+
+
+
+
 
 let counter = 0;
 let timemachine_start_time = new Date();
@@ -717,7 +740,7 @@ function find_view_dir_numerical(alt, azi, R, x, y, center_x, center_y, f, last_
 
 
 // 地平天球的球坐标系→地平天球的笛卡尔坐标系→投影到地面投影坐标系
-function horizontal_to_screen_xy(azimuth_deg, altitude_deg, R) {
+function horizontal_to_screen_xy(azimuth_deg, altitude_deg, R, center_x, center_y) {
     // 鱼眼投影
     if (USE_FISHEYE_PROJECTION) {
         const az_rad = (-azimuth_deg * Math.PI) / 180; // 因为是躺在地上看天，所以方位角是从正北逆时针旋转
@@ -731,16 +754,16 @@ function horizontal_to_screen_xy(azimuth_deg, altitude_deg, R) {
         // azimuth=0°（北）→ (0, r)；azimuth=90°（东）→ (r, 0)
         const X = r * Math.sin(az_rad);
         const Y = -r * Math.cos(az_rad);
-        return [X + RADIUS, Y + RADIUS];
+        return [X + center_x, Y + center_y];
     }
     // XY投影：笛卡尔坐标系的XY直接垂直投射到地平面上
     else {
         const xyz = horizontal_to_xyz(azimuth_deg, altitude_deg, R);
         if (altitude_deg >= 0) {
-            return [xyz[0] + RADIUS, xyz[1] + RADIUS]; // 转到canvas的屏幕坐标系
+            return [xyz[0] + center_x, xyz[1] + center_y]; // 转到canvas的屏幕坐标系
         }
         else {
-            return [xyz[0] - RADIUS, xyz[1] - RADIUS]; // 地平面以下的，移出canvas显示范围
+            return [xyz[0] - center_x, xyz[1] - center_y]; // 地平面以下的，移出canvas显示范围
         }
     }
 }
@@ -985,29 +1008,47 @@ function draw_circle_outline(frame_buffer, fb_width, fb_height, center_x, center
 
 
 // 地面填充纯黑色
-function draw_horizon(frame_buffer, fb_width, fb_height, R, center_x, center_y, view_alt, view_azi, f) {
-    const margin = 6;
-    const cx = fb_width / 2;
-    const cy = fb_height / 2;
+function draw_horizon(frame_buffer, fb_width, fb_height, R, center_x, center_y, view_alt, view_azi, f, sun_alt) {
+    function getPixel(tex, x, y, c) {
+        return tex[((y * landscape_texture_width + x) * 4) + c];
+    }
+    const margin = 10;
+    const k = Math.max(0.2, Math.sin(to_rad(sun_alt)) * 1.5);
     for (let y = 0; y < fb_height; y++) {
         for (let x = 0; x < fb_width; x++) {
             const [hx, hy, hz] = fisheye_unproject(x, y, R, center_x, center_y, view_alt, view_azi, f);
-            const dx = x - cx;
-            const dy = y - cy;
-            const r2 = dx * dx + dy * dy;
             if (hz < 0) {
-                const idx = (y * fb_width + x) * 4;
-                frame_buffer[idx]     = 0;     // R
-                frame_buffer[idx + 1] = 0;     // G
-                frame_buffer[idx + 2] = 0;     // B
-                frame_buffer[idx + 3] = 255;   // A
+                if (landscape_texture_rgba === null) {
+                    const idx = (y * fb_width + x) * 4;
+                    frame_buffer[idx + 0] = 0;     // R
+                    frame_buffer[idx + 1] = 0;     // G
+                    frame_buffer[idx + 2] = 0;     // B
+                    frame_buffer[idx + 3] = 255;   // A
+                }
+                else {
+                    // 反解此处的xyz坐标，转为地平坐标
+                    let [alt, azi, rr] = xyz_to_horizontal(hx, hy, hz);
+                    // 再转为地面贴图上的xy坐标
+                    let [tx, ty] = horizontal_to_screen_xy(-azi, -alt, 300, 300, 300); // R略小于地面贴图的半径，注意修改其中的center_x/y
+
+                    const r = getPixel(landscape_texture_rgba, Math.floor(tx), Math.floor(ty), 0);
+                    const g = getPixel(landscape_texture_rgba, Math.floor(tx), Math.floor(ty), 1);
+                    const b = getPixel(landscape_texture_rgba, Math.floor(tx), Math.floor(ty), 2);
+
+                    const idx = (y * fb_width + x) * 4;
+                    frame_buffer[idx + 0] = r * k;     // R
+                    frame_buffer[idx + 1] = g * k;     // G
+                    frame_buffer[idx + 2] = b * k;     // B
+                    frame_buffer[idx + 3] = 255;   // A
+                }
             }
-            else if (hz <= margin && hz >= 0) {
-                const k = hz / margin;
+            else if (landscape_texture_rgba === null &&hz <= margin && hz >= 0) {
+                let c = 0;
+                const t = hz / margin;
                 const idx = (y * fb_width + x) * 4;
-                frame_buffer[idx + 0] = k * frame_buffer[idx + 0];     // R
-                frame_buffer[idx + 1] = k * frame_buffer[idx + 1];     // G
-                frame_buffer[idx + 2] = k * frame_buffer[idx + 2];     // B
+                frame_buffer[idx + 0] = c + t * (frame_buffer[idx + 0] - c);     // R
+                frame_buffer[idx + 1] = c + t * (frame_buffer[idx + 1] - c);     // G
+                frame_buffer[idx + 2] = c + t * (frame_buffer[idx + 2] - c);     // B
                 frame_buffer[idx + 3] = 255;   // A
             }
         }
@@ -1669,6 +1710,7 @@ function scatter_model_2(ray_vec, sun_vec) {
     // 太阳光入射路径：计算仰角、天顶角、大气光学质量
     const sunElevation = Math.asin(Math.max(-1, Math.min(1, sun_norm[2]))); // [-π/2, π/2]
     const sunElevationDeg = sunElevation * 180 / Math.PI;
+    const sunAzimuth = 90 + Math.atan2(sun_norm[1], sun_norm[0]) * 180 / Math.PI;
 
     // 观察者视线的仰角、天顶角、大气光学质量
     const viewZenith = Math.acos(Math.max(0, Math.min(1, ray_norm[2])));
@@ -1700,10 +1742,10 @@ function scatter_model_2(ray_vec, sun_vec) {
     // 米氏散射beta
     const beta_Mie = 0.05;
 
-    const H = 10.0; // 大气层厚度
+    const H = 8.0; // 大气层厚度
     const H_R = 8.0;
     const H_M = 1.2;
-    const R = 6420.0;
+    const R = 3000.0 * Math.cos(to_rad(sunAzimuth)) + 3300.0; // 控制维纳斯带强度
 
     const S = 4;
 
@@ -2147,7 +2189,7 @@ function render_all(
     }
 
     // 绘制地景（天空投影圆盘之外的部分）
-    draw_horizon(frame_buffer, RADIUS*2, RADIUS*2, sky_radius, center_x, center_y, view_alt, view_azi, f);
+    draw_horizon(frame_buffer, RADIUS*2, RADIUS*2, sky_radius, center_x, center_y, view_alt, view_azi, f, sun_horizontal_coord[0]);
 
     // 绘制地平坐标网格
     // if (enable_horizontal_coord) {
@@ -2184,6 +2226,29 @@ class SkyCanvas {
         RADIUS = Math.floor(RADIUS);
     }
 }
+
+
+
+function load_landscape_texture(idx) {
+    if (idx === 0) {
+        landscape_texture_rgba = null;
+    }
+    else {
+        img_landscape_texture.src = LANDSCAPES[idx][0];
+        img_landscape_texture.onload = () => {
+            const canvas = document.createElement('canvas');
+            canvas.width = img_landscape_texture.width;
+            canvas.height = img_landscape_texture.height;
+            landscape_texture_width = img_landscape_texture.width;
+            landscape_texture_height = img_landscape_texture.height;
+            const ctx = canvas.getContext('2d');
+            ctx.drawImage(img_landscape_texture, 0, 0);
+            landscape_texture_rgba = ctx.getImageData(0, 0, img_landscape_texture.width, img_landscape_texture.height).data; // Uint8ClampedArray
+            // console.log(JSON.stringify(Array.from(landscape_texture_rgba)));
+        };
+    }
+}
+
 
 
 function refresh_button_status() {
@@ -2300,6 +2365,15 @@ function refresh_button_status() {
     }
     document.getElementById("opt_bilinear_status").innerHTML = status;
 
+    // toggle_landscape
+    if (landscape_index === 0) {
+        status = `<span style="color: #aa0000;">关闭</span>`;
+    }
+    else {
+        status = `<span style="color: #00cccc;">${LANDSCAPES[landscape_index][1]}</span>`;
+    }
+    document.getElementById("landscape_status").innerHTML = status;
+
 }
 
 
@@ -2329,6 +2403,8 @@ let isDrawing = false;
 let last_point_alt = 0;
 let last_point_azi = 0;
 
+
+load_landscape_texture(landscape_index);
 
 
 window.onload = function() {
@@ -2433,6 +2509,13 @@ window.onload = function() {
         refresh_button_status();
     });
 
+    document.getElementById("toggle_landscape").addEventListener("click", function(e) {
+        landscape_index++;
+        if (landscape_index >= LANDSCAPES.length) landscape_index = 0;
+        load_landscape_texture(landscape_index);
+        refresh_button_status();
+    });
+
 
     const sky = new SkyCanvas('skyCanvas');
     const imageData = sky.ctx.createImageData(sky.canvas.width, sky.canvas.height);
@@ -2475,8 +2558,6 @@ window.onload = function() {
         last_point_alt = hc[0];
         last_point_azi = hc[1];
 
-        console.log(`定点坐标`);
-        console.log(hc);
     }
 
     // 绘制中
@@ -2490,8 +2571,6 @@ window.onload = function() {
         view_alt = view_dir[0];
         view_azi = view_dir[1];
 
-        console.log(view_dir);
-
         let xyz = fisheye_unproject(pos.x, pos.y, sky_radius, center_x, center_y, view_alt, view_azi, view_range);
         let hc = xyz_to_horizontal(xyz[0], xyz[1], xyz[2]);
         last_point_alt = hc[0];
@@ -2501,7 +2580,6 @@ window.onload = function() {
     // 停止绘制
     function stopDrawing() {
         isDrawing = false;
-        console.log(`松开`);
     }
 
     // 事件绑定
