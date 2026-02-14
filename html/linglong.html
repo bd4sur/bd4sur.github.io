@@ -44,6 +44,7 @@ button {
         <canvas id="skyCanvas" width="240" height="240" style="width: 240px; height: 240px;"></canvas>
 
         <div id="datetime">-</div>
+        <div id="coord">Lon: <span id="longitude">-</span>° Lat: <span id="latitude">-</span>°</div>
         <div style="margin: 3px 0;">
             <button id="toggle_realtime">实时天象<br><span class="status_label" id="realtime_status">-</span></button>
             <button id="toggle_timemachine">时光机<br><span class="status_label" id="timemachine_status">-</span></button>
@@ -51,7 +52,11 @@ button {
             <button id="toggle_opt_bilinear">双线性插值<br><span class="status_label" id="opt_bilinear_status">-</span></button>
         </div>
         <table style="margin: 0px auto;">
-            <tr><td></td><td><button id="cam_pitch_up">仰</button></td><td></td></tr>
+            <tr>
+                <td><button id="set_time">设置时间</button></td>
+                <td><button id="cam_pitch_up">仰</button></td>
+                <td><button id="set_coord">设置位置</button></td>
+            </tr>
             <tr>
                 <td><button id="cam_rot_eastward">东</button></td>
                 <td><button id="cam_reset">归中</button></td>
@@ -1710,7 +1715,6 @@ function scatter_model_2(ray_vec, sun_vec) {
     // 太阳光入射路径：计算仰角、天顶角、大气光学质量
     const sunElevation = Math.asin(Math.max(-1, Math.min(1, sun_norm[2]))); // [-π/2, π/2]
     const sunElevationDeg = sunElevation * 180 / Math.PI;
-    const sunAzimuth = 90 + Math.atan2(sun_norm[1], sun_norm[0]) * 180 / Math.PI;
 
     // 观察者视线的仰角、天顶角、大气光学质量
     const viewZenith = Math.acos(Math.max(0, Math.min(1, ray_norm[2])));
@@ -1745,7 +1749,7 @@ function scatter_model_2(ray_vec, sun_vec) {
     const H = 8.0; // 大气层厚度
     const H_R = 8.0;
     const H_M = 1.2;
-    const R = 3000.0 * Math.cos(to_rad(sunAzimuth)) + 3300.0; // 控制维纳斯带强度
+    const R = (sunElevationDeg >= 0) ? ((3000-300) * Math.exp(-sunElevationDeg * 0.1) + 300) : ((3000-60) * Math.exp(sunElevationDeg * 0.2) + 60);
 
     const S = 4;
 
@@ -2206,6 +2210,41 @@ function render_all(
 
 
 
+
+
+
+
+
+
+
+const sky_radius = RADIUS;
+const center_x = RADIUS;
+const center_y = RADIUS;
+
+let view_alt = 90; // 90度为地平天顶
+let view_azi = 0; // 0度为正南
+let view_range = 1.0;
+
+let longitude = 119.0;
+let latitude = 31.0;
+let timezone = 8.0;
+
+let second = 0;
+let minute = 0;
+let hour = 12;
+
+let day = 11;
+let month = 2;
+let year = 2026;
+
+
+let isDrawing = false;
+let last_point_alt = 0;
+let last_point_azi = 0;
+
+
+
+
 class SkyCanvas {
     constructor(canvasId) {
         this.canvas = document.getElementById(canvasId);
@@ -2374,34 +2413,14 @@ function refresh_button_status() {
     }
     document.getElementById("landscape_status").innerHTML = status;
 
+
+
+    document.getElementById("longitude").innerHTML = String(longitude);
+    document.getElementById("latitude").innerHTML = String(latitude);
+
 }
 
 
-
-const sky_radius = RADIUS;
-const center_x = RADIUS;
-const center_y = RADIUS;
-
-let view_alt = 90; // 90度为地平天顶
-let view_azi = 0; // 0度为正南
-let view_range = 1.0;
-
-let longitude = 119.0;
-let latitude = 31.0;
-let timezone = 8.0;
-
-let second = 0;
-let minute = 0;
-let hour = 12;
-
-let day = 11;
-let month = 2;
-let year = 2026;
-
-
-let isDrawing = false;
-let last_point_alt = 0;
-let last_point_azi = 0;
 
 
 load_landscape_texture(landscape_index);
@@ -2513,6 +2532,25 @@ window.onload = function() {
         landscape_index++;
         if (landscape_index >= LANDSCAPES.length) landscape_index = 0;
         load_landscape_texture(landscape_index);
+        refresh_button_status();
+    });
+
+
+    document.getElementById("set_time").addEventListener("click", function(e) {
+        enable_realtime = false;
+        enable_timemachine_running = false;
+        year = Number(prompt(`输入年份`));
+        month = Number(prompt(`输入月份`));
+        day = Number(prompt(`输入日期`));
+        hour = Number(prompt(`输入时`));
+        minute = Number(prompt(`输入分`));
+        second = 0;
+        refresh_button_status();
+    });
+
+    document.getElementById("set_coord").addEventListener("click", function(e) {
+        longitude = Number(prompt(`输入经度（十进制，东为正）`));
+        latitude = Number(prompt(`输入纬度（十进制，北为正）`));
         refresh_button_status();
     });
 
