@@ -255,13 +255,14 @@ function dec_dms_to_decimal(d, m, s) {
 }
 
 // 地平天球的球坐标系→地平天球的笛卡尔坐标系
-function horizontal_to_xyz(azimuth_deg, altitude_deg, R) {
-    const altRad = to_rad(altitude_deg);
-    const azRad = to_rad(180 + azimuth_deg);
+function horizontal_to_xyz(azimuth_deg, altitude_deg, radius) {
+    const alt_rad = altitude_deg * Math.PI / 180;
+    const azi_rad = azimuth_deg * Math.PI / 180;
+    const r_xy = radius * Math.cos(alt_rad);
     return [
-        R * Math.cos(altRad) * Math.sin(azRad),
-        R * Math.cos(altRad) * Math.cos(azRad),
-        R * Math.sin(altRad)
+        r_xy * Math.sin(azi_rad),
+        r_xy * Math.cos(azi_rad),
+        radius * Math.sin(alt_rad)
     ];
 }
 
@@ -313,13 +314,13 @@ function sub(a, b) {
     return [a[0] - b[0], a[1] - b[1], a[2] - b[2]];
 }
 function norm(v) {
-    const r = Math.sqrt(dot(v, v));
-    return scale(v, 1/r);
+    const len = Math.hypot(v[0], v[1], v[2]);
+    return (len < 1e-20) ? [0, 0, 0] : [v[0]/len, v[1]/len, v[2]/len];
 }
+
 
 // 地平天球的球坐标系→地平天球的笛卡尔坐标系→投影到地面投影坐标系
 function fisheye_project(azimuth_deg, altitude_deg, R, center_x, center_y, view_alt, view_azi, f) {
-    view_alt = 180 - view_alt;
 
     let v_view = norm(horizontal_to_xyz(view_azi, view_alt, R));
     let v = norm(horizontal_to_xyz(azimuth_deg, altitude_deg, R));
@@ -327,15 +328,16 @@ function fisheye_project(azimuth_deg, altitude_deg, R, center_x, center_y, view_
     let x_v = [0,0,0];
     let y_v = [0,0,0];
 
-    if (view_alt === 90) { // 谨慎处理临界点附近的浮点误差问题
-        v_view = [0, 0, 1];
-        y_v = [0, -1, 0];
-    }
-    else {
+    // if (Math.abs(view_alt - 90) < 1e-5) { // 谨慎处理临界点附近的浮点误差问题
+    //     v_view = [0, 0, 1];
+    //     // NOTE 如果强行设置y_v，将失去天顶视角的旋转（某种 gimble lock？）
+    //     y_v = [0, 1, 0]; // NOTE 方向的选择有任意性，与默认方向与坐标反解有关
+    // }
+    // else {
         let zenith = [0, 0, 1];
         let proj = scale(v_view, dot(zenith, v_view));
         y_v = norm(sub(zenith, proj));
-    }
+    // }
 
     x_v = cross(y_v, v_view);
 
@@ -418,35 +420,7 @@ function fisheye_unproject(scr_x, scr_y, R, center_x, center_y, view_alt, view_a
 
 // 通过屏幕坐标和地平方位坐标，反解视线方向
 function find_view_dir(alt, azi, R, x, y, center_x, center_y, f, last_alt = 90, last_azi = 0) {
-    // ===== 统一辅助函数（供解析解和数值优化共用）=====
-    function norm(v) {
-        const len = Math.hypot(v[0], v[1], v[2]);
-        return len < 1e-15 ? [0, 0, 0] : [v[0]/len, v[1]/len, v[2]/len];
-    }
-    
-    function dot(a, b) {
-        return a[0]*b[0] + a[1]*b[1] + a[2]*b[2];
-    }
-    
-    function cross(a, b) {
-        return [
-            a[1]*b[2] - a[2]*b[1],
-            a[2]*b[0] - a[0]*b[2],
-            a[0]*b[1] - a[1]*b[0]
-        ];
-    }
-    
-    function horizontal_to_xyz(azimuth_deg, altitude_deg, radius) {
-        const alt_rad = altitude_deg * Math.PI / 180;
-        const azi_rad = azimuth_deg * Math.PI / 180;
-        const r_xy = radius * Math.cos(alt_rad);
-        return [
-            r_xy * Math.sin(azi_rad),
-            r_xy * Math.cos(azi_rad),
-            radius * Math.sin(alt_rad)
-        ];
-    }
-    
+
     // ===== 将last参数转换为单位向量（用于解选择）=====
     let last_vec;
     try {
@@ -579,29 +553,17 @@ function find_view_dir(alt, azi, R, x, y, center_x, center_y, f, last_alt = 90, 
 
 // ===== 数值优化后备方案（增强：使用last作为初始点）=====
 function find_view_dir_numerical(alt, azi, R, x, y, center_x, center_y, f, last_alt, last_azi) {
-    // 辅助函数（复用主函数中定义的逻辑，此处简化内联）
-    function norm(v) {
-        const len = Math.hypot(v[0], v[1], v[2]);
-        return len < 1e-15 ? [0,0,0] : [v[0]/len, v[1]/len, v[2]/len];
-    }
-    function dot(a,b) { return a[0]*b[0]+a[1]*b[1]+a[2]*b[2]; }
-    function cross(a,b) { 
-        return [a[1]*b[2]-a[2]*b[1], a[2]*b[0]-a[0]*b[2], a[0]*b[1]-a[1]*b[0]]; 
-    }
-    function horizontal_to_xyz(az, al, r) {
-        const ar = al*Math.PI/180, azr = az*Math.PI/180;
-        const rxy = r*Math.cos(ar);
-        return [rxy*Math.sin(azr), rxy*Math.cos(azr), r*Math.sin(ar)];
-    }
-    
+
+    console.log("find_view_dir_numerical");
+
     // 投影计算（简化版）
-    function project(view_alt, view_azi) {
+    function fisheye_project(view_alt, view_azi) {
         const v_view = norm(horizontal_to_xyz(view_azi, 180 - view_alt, 1));
         const v = norm(horizontal_to_xyz(azi, alt, 1));
         
         let y_v;
         if (Math.abs(view_alt - 90) < 1e-5) {
-            y_v = [0, -1, 0];
+            y_v = [0, 1, 0];
         } else {
             const zenith = [0, 0, 1];
             const proj_scale = dot(zenith, v_view);
@@ -642,7 +604,7 @@ function find_view_dir_numerical(alt, azi, R, x, y, center_x, center_y, f, last_
     for (let iter = 0; iter < max_iter; iter++) {
         // 计算投影误差
         const errors = simplex.map(p => {
-            const [px, py] = project(p[0], p[1]);
+            const [px, py] = fisheye_project(p[0], p[1]);
             return Math.hypot(px - x, py - y);
         });
         
@@ -668,7 +630,7 @@ function find_view_dir_numerical(alt, azi, R, x, y, center_x, center_y, f, last_
         reflected[1] = (reflected[1] % 360 + 360) % 360;
         
         const ref_err = (() => {
-            const [px, py] = project(reflected[0], reflected[1]);
+            const [px, py] = fisheye_project(reflected[0], reflected[1]);
             return Math.hypot(px - x, py - y);
         })();
         
@@ -682,7 +644,7 @@ function find_view_dir_numerical(alt, azi, R, x, y, center_x, center_y, f, last_
             expanded[0] = Math.max(0, Math.min(180, expanded[0]));
             expanded[1] = (expanded[1] % 360 + 360) % 360;
             const exp_err = (() => {
-                const [px, py] = project(expanded[0], expanded[1]);
+                const [px, py] = fisheye_project(expanded[0], expanded[1]);
                 return Math.hypot(px - x, py - y);
             })();
             simplex[2] = exp_err < ref_err ? expanded : reflected;
@@ -697,7 +659,7 @@ function find_view_dir_numerical(alt, azi, R, x, y, center_x, center_y, f, last_
             contracted[0] = Math.max(0, Math.min(180, contracted[0]));
             contracted[1] = (contracted[1] % 360 + 360) % 360;
             const cont_err = (() => {
-                const [px, py] = project(contracted[0], contracted[1]);
+                const [px, py] = fisheye_project(contracted[0], contracted[1]);
                 return Math.hypot(px - x, py - y);
             })();
             if (cont_err < errors[2]) {
@@ -1068,7 +1030,7 @@ function draw_sun(frame_buffer, fb_width, fb_height, sun_x, sun_y, sun_altitude_
     const radius = baseRadius * (1 + 0.20 * Math.max(0, 1 - sun_altitude_deg / 10)); // 地平线+15%
 
     // 2. 光晕半径（可调）
-    const glowRadius = 20; // Math.max(radius, 6); // 可根据需要调整
+    const glowRadius = 6; // Math.max(radius, 6); // 可根据需要调整
 
     // 3. 太阳颜色：随高度从红→黄→白
     let r, g, b;
@@ -2222,7 +2184,7 @@ const center_x = RADIUS;
 const center_y = RADIUS;
 
 let view_alt = 90; // 90度为地平天顶
-let view_azi = 0; // 0度为正南
+let view_azi = 180; // 0度为正南
 let view_range = 1.0;
 
 let longitude = 119.0;
@@ -2460,7 +2422,7 @@ window.onload = function() {
     });
     document.getElementById("cam_reset").addEventListener("click", function(e) {
         view_alt = 90;
-        view_azi = 0;
+        view_azi = 180;
         view_range = 1.0;
         refresh_button_status();
     });
