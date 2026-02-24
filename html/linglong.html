@@ -48,7 +48,6 @@ button {
         <div style="margin: 3px 0;">
             <button id="toggle_realtime">实时天象<br><span class="status_label" id="realtime_status">-</span></button>
             <button id="toggle_timemachine">时光机<br><span class="status_label" id="timemachine_status">-</span></button>
-            <button id="toggle_opt_sym">折半渲染<br><span class="status_label" id="opt_sym_status">-</span></button>
             <button id="toggle_opt_bilinear">双线性插值<br><span class="status_label" id="opt_bilinear_status">-</span></button>
         </div>
         <table style="margin: 0px auto;">
@@ -109,8 +108,6 @@ let enable_realtime = true;
 // 时光机状态（以尽可能快的速度渲染并绘制）
 let enable_timemachine_running = false;
 
-// 是否启用基于对称性的渲染优化
-let enable_opt_sym = false;
 // 是否启用双线性插值
 let enable_opt_bilinear = true;
 
@@ -162,30 +159,6 @@ let timemachine_start_time = new Date();
 
 let RADIUS = 120;
 
-// 物理常数
-const PHYSICS = {
-    // 大气光学参数
-    MIE_G: 0.9,           // 米氏散射不对称因子
-    RAYLEIGH_BETA: 0.3,  // 瑞利散射系数 感觉是海拔越高越小
-    MIE_BETA_BASE: 0.001,      // 米氏散射系数 越大光斑越大
-    MIE_BETA_MAX: 0.1,      // 米氏散射系数 越大光斑越大
-    ATMOSPHERE_HEIGHT: 8.5, // 虚拟大气层厚度 (km)
-    SUN_ANGULAR_SIZE: 0.5, // 太阳视直径 (度)
-
-    // 波长相关的瑞利散射系数 (近似)
-    RAYLEIGH_WAVELENGTH_FACTORS: [
-        680, // Red
-        550, // Green
-        450  // Blue
-    ],
-
-    // 臭氧吸收系数
-    OZONE_ABSORPTION: [
-        0.005,  // Red   (650nm) — 弱吸收
-        0.040,  // Green (550nm) — 中等吸收
-        0.025   // Blue  (450nm) — 比绿光略弱（实际臭氧在~600nm最强，但简化模型）
-    ],
-};
 
 // 行星相关常量（用于渲染）
 //                      -     1Mer  2Ven  3Ear  4Mars 5Jup  6Sat  7Ura  8Nep
@@ -1559,7 +1532,8 @@ function scatter_model_1(ray_vec, sun_vec) {
 
 
     // 米氏散射相函数
-    const miePhase = Math.pow(1 + PHYSICS.MIE_G * PHYSICS.MIE_G - 2 * PHYSICS.MIE_G * cosTheta, -1.5);
+    const mie_g = 0.9; // 米氏散射不对称因子
+    const miePhase = Math.pow(1 + mie_g * mie_g - 2 * mie_g * cosTheta, -1.5);
 
 
     // 瑞利散射相函数
@@ -1567,14 +1541,14 @@ function scatter_model_1(ray_vec, sun_vec) {
 
 
     // 计算视线方向的大气密度系数：直觉上来看，密度越大，对散射的贡献越大
-    const H = PHYSICS.ATMOSPHERE_HEIGHT; // km，标高
+    const H = 8.5; // 虚拟大气层厚度 (km)
     const mu = Math.max(0.01, ray_norm[2]); // 避免除零，mu = cos(天顶角)
     const densityFactor = Math.exp(-mu / H);
 
 
     // 分波长计算瑞利散射系数
-    const wavelengths = PHYSICS.RAYLEIGH_WAVELENGTH_FACTORS;
-    const rayleighBetaBase = PHYSICS.RAYLEIGH_BETA; // 参考波长下的 β
+    const wavelengths = [680, 550, 450]; // 波长相关的瑞利散射系数 (近似)
+    const rayleighBetaBase = 0.3; // 参考波长下的瑞利散射系数，感觉是海拔越高越小
     const referenceWavelength = wavelengths[1]; // G分量作为参考（550nm）
     const betaRayleigh = [];
     for (let i = 0; i < wavelengths.length; i++) {
@@ -1586,7 +1560,9 @@ function scatter_model_1(ray_vec, sun_vec) {
 
 
     // 米氏散射系数：地平线附近，气溶胶浓度剧增（用viewAirMass模拟），米氏散射贡献显著上升
-    const effectiveMieBeta = Math.min(PHYSICS.MIE_BETA_MAX, PHYSICS.MIE_BETA_BASE * viewAirMass);
+    const mie_beta_base = 0.001; // 米氏散射系数 越大光斑越大
+    const mie_beta_max = 0.1; // 米氏散射系数最大值
+    const effectiveMieBeta = Math.min(mie_beta_max, mie_beta_base * viewAirMass);
 
 
     // 计算每个通道的散射强度（考虑光程衰减）
@@ -1608,7 +1584,12 @@ function scatter_model_1(ray_vec, sun_vec) {
         const totalScattering = (rayleighContrib + mieContrib) * attenuation * densityFactor;
 
         // 臭氧吸收
-        const ozoneTransmittance = Math.exp(-PHYSICS.OZONE_ABSORPTION[i] * sunAirMass * 0.8); // 调节因子
+        const ozone_absorption = [
+            0.005,  // Red   (650nm) — 弱吸收
+            0.040,  // Green (550nm) — 中等吸收
+            0.025   // Blue  (450nm) — 比绿光略弱（实际臭氧在~600nm最强，但简化模型）
+        ];
+        const ozoneTransmittance = Math.exp(-ozone_absorption[i] * sunAirMass * 0.8); // 调节因子
 
         intensities[i] = totalScattering * ozoneTransmittance;
     }
@@ -1694,7 +1675,7 @@ function scatter_model_2(ray_vec, sun_vec) {
     const rayleighPhase = (1 + cosTheta * cosTheta) / 4 * 3;
 
     // 分波长计算瑞利散射系数
-    const wavelengths = PHYSICS.RAYLEIGH_WAVELENGTH_FACTORS;
+    const wavelengths = [680, 550, 450]; // 波长相关的瑞利散射系数 (近似)
     const rayleighBetaBase = 0.04; // 参考波长下的 β
     const referenceWavelength = wavelengths[1]; // G分量作为参考（550nm）
     const betaRayleigh = [];
@@ -1775,9 +1756,14 @@ function scatter_model_2(ray_vec, sun_vec) {
 
     // 臭氧吸收
     const oz_factor = 0.16;
-    const oz_r = Math.exp(-PHYSICS.OZONE_ABSORPTION[0] * Lsun * oz_factor);
-    const oz_g = Math.exp(-PHYSICS.OZONE_ABSORPTION[1] * Lsun * oz_factor);
-    const oz_b = Math.exp(-PHYSICS.OZONE_ABSORPTION[2] * Lsun * oz_factor);
+    const ozone_absorption = [
+        0.005,  // Red   (650nm) — 弱吸收
+        0.040,  // Green (550nm) — 中等吸收
+        0.025   // Blue  (450nm) — 比绿光略弱（实际臭氧在~600nm最强，但简化模型）
+    ];
+    const oz_r = Math.exp(-ozone_absorption[0] * Lsun * oz_factor);
+    const oz_g = Math.exp(-ozone_absorption[1] * Lsun * oz_factor);
+    const oz_b = Math.exp(-ozone_absorption[2] * Lsun * oz_factor);
 
     red   = (sum_R_r * betaRayleigh[0] * rayleighPhase + sum_M_r * beta_Mie * miePhase) * oz_r;
     green = (sum_R_g * betaRayleigh[1] * rayleighPhase + sum_M_g * beta_Mie * miePhase) * oz_g;
@@ -1890,83 +1876,26 @@ function render_all(
 
         let C = 8; // 降采样因子
         if (sun_horizontal_coord[0] < -18.0) {
-            C = (enable_opt_bilinear && !enable_opt_sym) ? 16 : 8;
+            C = (enable_opt_bilinear) ? 16 : 8;
         }
         else {
-            C = (enable_opt_bilinear && !enable_opt_sym) ? 8 : 2;
+            C = (enable_opt_bilinear) ? 8 : 2;
         }
 
-        if (enable_opt_sym) {
-            for (let y = 0; y < fb_height; y+=2) {
-                for (let x = 0; x < fb_width; x+=2) {
+        for (let y = 0; y < fb_height; y+=C) {
+            for (let x = 0; x < fb_width; x+=C) {
 
-                    // 计算太阳与圆心的连线法向量，进而计算半圆范围和镜像点坐标
-                    let dx = sun_proj_xy[0] - center_x;
-                    let dy = sun_proj_xy[1] - center_y;
-                    let t = ((x - center_x) * dx + (y - center_y) * dy) / (dx * dx + dy * dy);
-                    let xx = Math.floor(sky_radius * 2 + 2 * t * dx - x);
-                    let yy = Math.floor(sky_radius * 2 + 2 * t * dy - y);
+                // 观察者到该像素的方向向量（从屏幕坐标系转回地平天球的笛卡尔坐标系）
+                let ray_vec = fisheye_unproject(x, y, sky_radius, center_x, center_y, view_alt, view_azi, f);
+                const ssp = calculate_scattered_pixel(ray_vec, sun_vec, enable_atmospheric_scattering);
 
-                    if ((xx - center_x) * (xx - center_x) + (yy - center_y) * (yy - center_y) > sky_radius * sky_radius ||
-                        (x - center_x) * (x - center_x) + (y - center_y) * (y - center_y) > sky_radius * sky_radius
-                    ) {
-                        continue;
-                    }
-
-                    let c0 = (-center_x) * dy - (-center_y) * dx;
-                    let nx = (c0 > 0) ? (dy) : (-dy);
-                    let ny = (c0 > 0) ? (-dx) : (dx);
-
-                    let dp = nx * (x - center_x) + ny * (y - center_y);
-
-                    if (dp >= 0) {
-                        // 观察者到该像素的方向向量（从屏幕坐标系转回地平天球的笛卡尔坐标系）
-                        let ray_vec = fisheye_unproject(x, y, sky_radius, center_x, center_y, view_alt, view_azi, f);
-                        const ssp = calculate_scattered_pixel(ray_vec, sun_vec, enable_atmospheric_scattering);
-
-                        set_pixel(frame_buffer, fb_width, fb_height, (x+0), (y+0), ssp[0]*255, ssp[1]*255, ssp[2]*255);
-                        set_pixel(frame_buffer, fb_width, fb_height, (x+0), (y+1), ssp[0]*255, ssp[1]*255, ssp[2]*255);
-                        set_pixel(frame_buffer, fb_width, fb_height, (x+0), (y+2), ssp[0]*255, ssp[1]*255, ssp[2]*255);
-                        set_pixel(frame_buffer, fb_width, fb_height, (x+1), (y+0), ssp[0]*255, ssp[1]*255, ssp[2]*255);
-                        set_pixel(frame_buffer, fb_width, fb_height, (x+1), (y+1), ssp[0]*255, ssp[1]*255, ssp[2]*255);
-                        set_pixel(frame_buffer, fb_width, fb_height, (x+1), (y+2), ssp[0]*255, ssp[1]*255, ssp[2]*255);
-                        set_pixel(frame_buffer, fb_width, fb_height, (x+2), (y+0), ssp[0]*255, ssp[1]*255, ssp[2]*255);
-                        set_pixel(frame_buffer, fb_width, fb_height, (x+2), (y+1), ssp[0]*255, ssp[1]*255, ssp[2]*255);
-                        set_pixel(frame_buffer, fb_width, fb_height, (x+2), (y+2), ssp[0]*255, ssp[1]*255, ssp[2]*255);
-
-                        let offset_x = (dy/dx < 1 && dy/dx >= 0) ? 1 : 0;
-                        let offset_y = (dy/dx >= 1 && dy/dx >= 0) ? 1 : 0;
-                        set_pixel(frame_buffer, fb_width, fb_height, (xx+offset_x+0), (yy+offset_y+0), ssp[0]*255, ssp[1]*255, ssp[2]*255);
-                        set_pixel(frame_buffer, fb_width, fb_height, (xx+offset_x+0), (yy+offset_y+1), ssp[0]*255, ssp[1]*255, ssp[2]*255);
-                        set_pixel(frame_buffer, fb_width, fb_height, (xx+offset_x+0), (yy+offset_y+2), ssp[0]*255, ssp[1]*255, ssp[2]*255);
-                        set_pixel(frame_buffer, fb_width, fb_height, (xx+offset_x+1), (yy+offset_y+0), ssp[0]*255, ssp[1]*255, ssp[2]*255);
-                        set_pixel(frame_buffer, fb_width, fb_height, (xx+offset_x+1), (yy+offset_y+1), ssp[0]*255, ssp[1]*255, ssp[2]*255);
-                        set_pixel(frame_buffer, fb_width, fb_height, (xx+offset_x+1), (yy+offset_y+2), ssp[0]*255, ssp[1]*255, ssp[2]*255);
-                        set_pixel(frame_buffer, fb_width, fb_height, (xx+offset_x+2), (yy+offset_y+0), ssp[0]*255, ssp[1]*255, ssp[2]*255);
-                        set_pixel(frame_buffer, fb_width, fb_height, (xx+offset_x+2), (yy+offset_y+1), ssp[0]*255, ssp[1]*255, ssp[2]*255);
-                        set_pixel(frame_buffer, fb_width, fb_height, (xx+offset_x+2), (yy+offset_y+2), ssp[0]*255, ssp[1]*255, ssp[2]*255);
-
-                    }
+                if (enable_opt_bilinear) {
+                    set_pixel(frame_buffer, fb_width, fb_height, (x+0), (y+0), ssp[0]*255, ssp[1]*255, ssp[2]*255);
                 }
-            }
-        }
-        else {
-
-            for (let y = 0; y < fb_height; y+=C) {
-                for (let x = 0; x < fb_width; x+=C) {
-
-                    // 观察者到该像素的方向向量（从屏幕坐标系转回地平天球的笛卡尔坐标系）
-                    let ray_vec = fisheye_unproject(x, y, sky_radius, center_x, center_y, view_alt, view_azi, f);
-                    const ssp = calculate_scattered_pixel(ray_vec, sun_vec, enable_atmospheric_scattering);
-
-                    if (enable_opt_bilinear) {
-                        set_pixel(frame_buffer, fb_width, fb_height, (x+0), (y+0), ssp[0]*255, ssp[1]*255, ssp[2]*255);
-                    }
-                    else {
-                        for (let i = 0; i < C; i++) {
-                            for (let j = 0; j < C; j++) {
-                                set_pixel(frame_buffer, fb_width, fb_height, (x+j), (y+i), ssp[0]*255, ssp[1]*255, ssp[2]*255);
-                            }
+                else {
+                    for (let i = 0; i < C; i++) {
+                        for (let j = 0; j < C; j++) {
+                            set_pixel(frame_buffer, fb_width, fb_height, (x+j), (y+i), ssp[0]*255, ssp[1]*255, ssp[2]*255);
                         }
                     }
                 }
@@ -2348,15 +2277,6 @@ function refresh_button_status() {
     }
     document.getElementById("timemachine_status").innerHTML = status;
 
-    // toggle_opt_sym
-    if (!enable_opt_sym) {
-        status = `<span style="color: #aa0000;">关闭</span>`;
-    }
-    else {
-        status = `<span style="color: #00cc00;">开启</span>`;
-    }
-    document.getElementById("opt_sym_status").innerHTML = status;
-
     // toggle_opt_bilinear
     if (!enable_opt_bilinear) {
         status = `<span style="color: #aa0000;">关闭</span>`;
@@ -2481,10 +2401,6 @@ window.onload = function() {
         refresh_button_status();
     });
 
-    document.getElementById("toggle_opt_sym").addEventListener("click", function(e) {
-        enable_opt_sym = !enable_opt_sym;
-        refresh_button_status();
-    });
     document.getElementById("toggle_opt_bilinear").addEventListener("click", function(e) {
         enable_opt_bilinear = !enable_opt_bilinear;
         refresh_button_status();
