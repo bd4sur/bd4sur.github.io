@@ -721,10 +721,10 @@ function screen_xy_to_xyz(scr_x, scr_y) {
         let r = Math.sqrt(dx*dx + dy*dy) / RADIUS; // 归一化半径
         if (r <= 1) {
             const theta = r * Math.PI / 2; // 天顶角
-            const phi = Math.atan2(dy, dx); // 方位角
+            const phi = Math.atan2(dx, dy); // 方位角
             hor_xyz = [
-                RADIUS * Math.sin(theta) * Math.cos(phi),
-                RADIUS * Math.sin(theta) * Math.sin(phi),
+                -RADIUS * Math.sin(theta) * Math.sin(phi),
+                -RADIUS * Math.sin(theta) * Math.cos(phi),
                 RADIUS * Math.cos(theta)
             ];
         }
@@ -976,13 +976,13 @@ function draw_horizon(frame_buffer, fb_width, fb_height, R, center_x, center_y, 
                     const b = getPixel(landscape_texture_rgba, Math.floor(tx), Math.floor(ty), 2);
 
                     const idx = (y * fb_width + x) * 4;
-                    frame_buffer[idx + 0] = r * k;     // R
-                    frame_buffer[idx + 1] = g * k;     // G
-                    frame_buffer[idx + 2] = b * k;     // B
+                    frame_buffer[idx + 0] = r * k; // R
+                    frame_buffer[idx + 1] = g * k; // G
+                    frame_buffer[idx + 2] = b * k; // B
                     frame_buffer[idx + 3] = 255;   // A
                 }
             }
-            else if (landscape_texture_rgba === null &&hz <= margin && hz >= 0) {
+            else if (landscape_texture_rgba === null && hz <= margin && hz >= 0) {
                 let c = 0;
                 const t = hz / margin;
                 const idx = (y * fb_width + x) * 4;
@@ -1668,7 +1668,7 @@ function scatter_model_2(ray_vec, sun_vec) {
     const cosTheta = ray_norm[0] * sun_norm[0] + ray_norm[1] * sun_norm[1] + ray_norm[2] * sun_norm[2];
 
     // 米氏散射相函数
-    const g = 0.76;
+    const g = 0.7;
     const miePhase = 3.0 / (8.0 * Math.PI) * ((1.0 - g*g) * (1 + cosTheta * cosTheta)) / ((2.0 + g*g) * Math.pow(1.0 + g*g - 2.0 * g * cosTheta, 1.5));
 
     // 瑞利散射相函数
@@ -2174,7 +2174,15 @@ function load_landscape_texture(idx) {
             const ctx = canvas.getContext('2d');
             ctx.drawImage(img_landscape_texture, 0, 0);
             landscape_texture_rgba = ctx.getImageData(0, 0, img_landscape_texture.width, img_landscape_texture.height).data; // Uint8ClampedArray
-            // console.log(JSON.stringify(Array.from(landscape_texture_rgba)));
+
+            // let rgb = [];
+            // for (let i = 0; i < landscape_texture_rgba.length; i+=4) {
+            //     rgb.push(landscape_texture_rgba[i]);
+            //     rgb.push(landscape_texture_rgba[i+1]);
+            //     rgb.push(landscape_texture_rgba[i+2]);
+            // }
+            // console.log(JSON.stringify(Array.from(rgb)));
+            // console.log(rgb.length);
         };
     }
 }
