@@ -136,6 +136,9 @@ img_moon_texture.onload = () => {
 
 
 
+let landscape_global_width  = 600;
+let landscape_global_height = 600;
+let landscape_global_rgba = new Uint8ClampedArray(landscape_global_width * landscape_global_height * 4);
 
 let landscape_texture_width = 600;
 let landscape_texture_height = 600;
@@ -945,6 +948,251 @@ function draw_circle_outline(frame_buffer, fb_width, fb_height, center_x, center
         }
     }
 }
+
+
+
+
+
+
+
+
+
+
+/**
+ * 自然地形生成器
+ * @param {ArrayBuffer} frame_buffer - 目标显存/缓冲区 (通常为 ImageData.data)
+ * @param {number} fb_width - 缓冲区宽度
+ * @param {number} fb_height - 缓冲区高度
+ * @param {number} seed - 随机种子
+ * @param {number} scale - 地形缩放比例
+ * @param {number} octaves - 噪声层数
+ */
+function generate_landscape(frame_buffer, fb_width, fb_height, seed = 123, scale = 0.005, octaves = 4) {
+
+    // --- 1. 改进的哈希函数 (整数哈希，避免浮点精度问题) ---
+    const hash = (ix, iy) => {
+        let h = (ix * 374761393 + iy * 668265263 + seed * 123456789) | 0;
+        h = (h ^ (h >> 13)) * 1274126177;
+        h = h ^ (h >> 16);
+        return (h >>> 0) / 4294967296; // 返回 0~1 之间的值
+    };
+
+    // --- 2. 修复的噪声函数 (正确的双线性插值) ---
+    const noise = (x, y) => {
+        const X = Math.floor(x);
+        const Y = Math.floor(y);
+        const xFrac = x - X;
+        const yFrac = y - Y;
+        
+        // Quintic 平滑曲线 (比 smoothstep 更平滑)
+        const u = xFrac * xFrac * xFrac * (xFrac * (xFrac * 6 - 15) + 10);
+        const v = yFrac * yFrac * yFrac * (yFrac * (yFrac * 6 - 15) + 10);
+
+        // 四个角落的哈希值
+        const tl = hash(X, Y);
+        const tr = hash(X + 1, Y);
+        const bl = hash(X, Y + 1);
+        const br = hash(X + 1, Y + 1);
+
+        // 正确的双线性插值
+        const xInterpTop = tl * (1 - u) + tr * u;      // 上边插值
+        const xInterpBottom = bl * (1 - u) + br * u;   // 下边插值
+        return xInterpTop * (1 - v) + xInterpBottom * v; // 垂直插值
+    };
+
+    // --- 3. 分形布朗运动 (FBM) ---
+    const getHeight = (x, y) => {
+        let value = 0;
+        let amplitude = 0.5;
+        let frequency = 1;
+        let maxValue = 0;
+
+        for (let i = 0; i < octaves; i++) {
+            value += amplitude * noise(x * frequency * scale, y * frequency * scale);
+            maxValue += amplitude;
+            amplitude *= 0.5;
+            frequency *= 2;
+        }
+        
+        // 归一化到 0~1，并稍微压缩范围避免极端值
+        const normalized = value / maxValue;
+        return Math.max(0, Math.min(1, normalized));
+    };
+
+    // --- 4. 色彩映射配置 (更细致的过渡) ---
+    const palette = [
+        { h: 0.00, c: [10, 10, 80] },      // 深海
+        { h: 0.25, c: [30, 100, 180] },    // 浅海
+        { h: 0.35, c: [100, 150, 200] },   // 近岸浅水
+        { h: 0.40, c: [210, 200, 140] },   // 沙滩
+        { h: 0.45, c: [180, 200, 100] },   // 沙地过渡
+        { h: 0.55, c: [80, 180, 80] },     // 草地
+        { h: 0.65, c: [40, 140, 40] },     // 森林
+        { h: 0.75, c: [30, 100, 30] },     // 密林
+        { h: 0.82, c: [120, 110, 100] },   // 岩石
+        { h: 0.90, c: [180, 170, 160] },   // 高山岩石
+        { h: 0.95, c: [220, 220, 230] },   // 积雪开始
+        { h: 1.00, c: [255, 255, 255] }    // 雪顶
+    ];
+
+    const getColor = (height) => {
+        if (height <= palette[0].h) return palette[0].c;
+        if (height >= palette[palette.length - 1].h) return palette[palette.length - 1].c;
+
+        for (let i = 0; i < palette.length - 1; i++) {
+            const p1 = palette[i];
+            const p2 = palette[i + 1];
+            if (height >= p1.h && height < p2.h) {
+                const t = (height - p1.h) / (p2.h - p1.h);
+                // 使用缓动函数让颜色过渡更自然
+                const tSmooth = t * t * (3 - 2 * t);
+                const r = Math.round(p1.c[0] + (p2.c[0] - p1.c[0]) * tSmooth);
+                const g = Math.round(p1.c[1] + (p2.c[1] - p1.c[1]) * tSmooth);
+                const b = Math.round(p1.c[2] + (p2.c[2] - p1.c[2]) * tSmooth);
+                return [r, g, b];
+            }
+        }
+        return [255, 0, 255];
+    };
+
+    // --- 5. 主循环：填充像素 ---
+    for (let y = 0; y < fb_height; y++) {
+        for (let x = 0; x < fb_width; x++) {
+            const h = getHeight(x, y) * 2 - 0.3;
+            const [r, g, b] = getColor(h);
+            
+            const index = (y * fb_width + x) * 4;
+            frame_buffer[index] = r;
+            frame_buffer[index + 1] = g;
+            frame_buffer[index + 2] = b;
+            frame_buffer[index + 3] = 255;
+        }
+    }
+}
+
+
+
+
+/**
+ * 将正方形平面图像映射为圆形鱼眼图像
+ * @param {Uint8ClampedArray} inputBuffer - 输入图像数据 (RGBA)
+ * @param {Uint8ClampedArray} outputBuffer - 输出图像数据 (RGBA)
+ * @param {number} width - 图像宽度 (假设宽高相等)
+ * @param {number} height - 图像高度 (假设宽高相等)
+ * @param {number} fovFactor - 鱼眼视场角因子 (0.5 ~ 1.55), 越大畸变越强
+ */
+function to_fisheye(inputBuffer, outputBuffer, width, height, fovFactor = 1.3) {
+    const centerX = width / 2;
+    const centerY = height / 2;
+    const maxRadius = width / 2;
+    
+    // 输入图像的最大半径 (半对角线), 确保正方形角点映射到圆边缘
+    const inputMaxRadius = maxRadius; // Math.sqrt(centerX * centerX + centerY * centerY);
+    
+    // 预计算 tan(fovFactor), 避免循环内重复计算
+    const tanFov = Math.tan(fovFactor);
+    
+    // 遍历输出图像的每一个像素 (逆向映射)
+    for (let y = 0; y < height; y++) {
+        for (let x = 0; x < width; x++) {
+            const dx = x - centerX;
+            const dy = y - centerY;
+            const rOut = Math.sqrt(dx * dx + dy * dy);
+            
+            // 如果在输出圆外，设为透明
+            if (rOut > maxRadius) {
+                const idx = (y * width + x) * 4;
+                outputBuffer[idx] = 0;
+                outputBuffer[idx + 1] = 0;
+                outputBuffer[idx + 2] = 0;
+                outputBuffer[idx + 3] = 0;
+                continue;
+            }
+            
+            // 归一化半径 (0 ~ 1)
+            const rNorm = rOut / maxRadius;
+            
+            // 计算角度
+            const theta = Math.atan2(dy, dx);
+            
+            // 鱼眼映射核心公式 (正切投影)
+            let rIn;
+            if (fovFactor >= Math.PI / 2 - 0.001) {
+                // 防止 tan 无穷大，退化处理
+                rIn = rNorm * inputMaxRadius;
+            } else {
+                rIn = inputMaxRadius * Math.tan(rNorm * fovFactor) / tanFov;
+            }
+            
+            // 计算输入图像的坐标
+            const srcX = centerX + rIn * Math.cos(theta);
+            const srcY = centerY + rIn * Math.sin(theta);
+            
+            // 双线性插值获取颜色
+            const color = bilinearSample(inputBuffer, srcX, srcY, width, height);
+            
+            // 写入输出像素
+            const outIdx = (y * width + x) * 4;
+            outputBuffer[outIdx] = color[0];
+            outputBuffer[outIdx + 1] = color[1];
+            outputBuffer[outIdx + 2] = color[2];
+            outputBuffer[outIdx + 3] = color[3];
+        }
+    }
+}
+
+/**
+ * 双线性插值采样
+ * @param {Uint8ClampedArray} buffer - 图像数据
+ * @param {number} x - 采样点 X 坐标 (浮点数)
+ * @param {number} y - 采样点 Y 坐标 (浮点数)
+ * @param {number} width - 图像宽度
+ * @param {number} height - 图像高度
+ * @returns {number[]} [R, G, B, A]
+ */
+function bilinearSample(buffer, x, y, width, height) {
+    // 边界检查
+    if (x < 0 || x >= width - 1 || y < 0 || y >= height - 1) {
+        return [0, 0, 0, 0];
+    }
+    
+    const x0 = Math.floor(x);
+    const y0 = Math.floor(y);
+    const x1 = x0 + 1;
+    const y1 = y0 + 1;
+    
+    const dx = x - x0;
+    const dy = y - y0;
+    const dx1 = 1 - dx;
+    const dy1 = 1 - dy;
+    
+    const idx00 = (y0 * width + x0) * 4;
+    const idx10 = (y0 * width + x1) * 4;
+    const idx01 = (y1 * width + x0) * 4;
+    const idx11 = (y1 * width + x1) * 4;
+    
+    // 对 RGBA 四个通道分别插值
+    return [
+        buffer[idx00] * dx1 * dy1 + buffer[idx10] * dx * dy1 + 
+        buffer[idx01] * dx1 * dy + buffer[idx11] * dx * dy,
+        
+        buffer[idx00 + 1] * dx1 * dy1 + buffer[idx10 + 1] * dx * dy1 + 
+        buffer[idx01 + 1] * dx1 * dy + buffer[idx11 + 1] * dx * dy,
+        
+        buffer[idx00 + 2] * dx1 * dy1 + buffer[idx10 + 2] * dx * dy1 + 
+        buffer[idx01 + 2] * dx1 * dy + buffer[idx11 + 2] * dx * dy,
+        
+        buffer[idx00 + 3] * dx1 * dy1 + buffer[idx10 + 3] * dx * dy1 + 
+        buffer[idx01 + 3] * dx1 * dy + buffer[idx11 + 3] * dx * dy
+    ];
+}
+
+
+
+
+
+
+
 
 
 // 地面填充纯黑色
@@ -2084,6 +2332,10 @@ function render_all(
     }
 
     // 绘制地景（天空投影圆盘之外的部分）
+    if (landscape_index === 0) {
+        let fov = (0.45/90) * Math.abs(sun_horizontal_coord[0]) + 1.1;
+        update_landscape(fov);
+    }
     draw_horizon(frame_buffer, RADIUS*2, RADIUS*2, sky_radius, center_x, center_y, view_alt, view_azi, f, sun_horizontal_coord[0]);
 
     // 绘制地平坐标网格
@@ -2161,7 +2413,8 @@ class SkyCanvas {
 
 function load_landscape_texture(idx) {
     if (idx === 0) {
-        landscape_texture_rgba = null;
+        generate_landscape(landscape_global_rgba, landscape_global_width, landscape_global_height, Math.random(), 0.02, 6);
+        to_fisheye(landscape_global_rgba, landscape_texture_rgba, landscape_texture_width, landscape_texture_height, 1.3);
     }
     else {
         img_landscape_texture.src = LANDSCAPES[idx][0];
@@ -2185,6 +2438,12 @@ function load_landscape_texture(idx) {
             // console.log(rgb.length);
         };
     }
+}
+
+
+
+function update_landscape(fov) {
+    to_fisheye(landscape_global_rgba, landscape_texture_rgba, landscape_texture_width, landscape_texture_height, fov);
 }
 
 
