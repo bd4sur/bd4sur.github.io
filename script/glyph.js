@@ -7626,7 +7626,7 @@ function get_glyph(utf32) {
 function fb_draw_char(
     frame_buffer, fb_width, fb_height,
     x, y, glyph, font_width, font_height,
-    red, green, blue
+    red, green, blue, mode
 ) {
     const row_bytes = Math.floor((font_height + 8 - 1) / 8);
     const col_bytes = font_width;
@@ -7641,17 +7641,24 @@ function fb_draw_char(
                 if ((g >> b) & 0x1) {
                     // set_pixel(frame_buffer, fb_width, fb_height, px, py, red, green, blue);
                     const idx = (py * fb_width + px) * 4;
-                    frame_buffer[idx+0] = Math.min(255, red);
-                    frame_buffer[idx+1] = Math.min(255, green);
-                    frame_buffer[idx+2] = Math.min(255, blue);
+                    if (mode === 3) {
+                        frame_buffer[idx+0] = Math.min(255, frame_buffer[idx+0] + red);
+                        frame_buffer[idx+1] = Math.min(255, frame_buffer[idx+1] + green);
+                        frame_buffer[idx+2] = Math.min(255, frame_buffer[idx+2] + blue);
+                    }
+                    else {
+                        frame_buffer[idx+0] = Math.min(255, red);
+                        frame_buffer[idx+1] = Math.min(255, green);
+                        frame_buffer[idx+2] = Math.min(255, blue);
+                    }
                 }
-                else {
-                    // add_pixel(frame_buffer, fb_width, fb_height, px, py, 0, 0, 0);
-                    const idx = (py * fb_width + px) * 4;
-                    frame_buffer[idx+0] = Math.min(255, frame_buffer[idx+0] + 0);
-                    frame_buffer[idx+1] = Math.min(255, frame_buffer[idx+1] + 0);
-                    frame_buffer[idx+2] = Math.min(255, frame_buffer[idx+2] + 0);
-                }
+                // else {
+                //     // add_pixel(frame_buffer, fb_width, fb_height, px, py, 0, 0, 0);
+                //     const idx = (py * fb_width + px) * 4;
+                //     frame_buffer[idx+0] = Math.min(255, frame_buffer[idx+0] + 0);
+                //     frame_buffer[idx+1] = Math.min(255, frame_buffer[idx+1] + 0);
+                //     frame_buffer[idx+2] = Math.min(255, frame_buffer[idx+2] + 0);
+                // }
             }
         }
     }
@@ -7660,7 +7667,7 @@ function fb_draw_char(
 // 绘制一行文本
 function fb_draw_textline(
     frame_buffer, fb_width, fb_height,
-    line, x, y, red, green, blue
+    line, x, y, red, green, blue, mode
 ) {
     let x_pos = Math.trunc(x);
     let y_pos = Math.trunc(y);
@@ -7674,7 +7681,7 @@ function fb_draw_textline(
             break;
         }
         fb_draw_char(frame_buffer, fb_width, fb_height,
-            x_pos, y_pos, glyph, font_width, font_height, red, green, blue);
+            x_pos, y_pos, glyph, font_width, font_height, red, green, blue, mode);
         x_pos += font_width;
     }
 }
@@ -7682,7 +7689,7 @@ function fb_draw_textline(
 
 // 绘制一行文本（居中）
 function fb_draw_textline_centered(
-    frame_buffer, fb_width, fb_height, line, cx, cy, red, green, blue
+    frame_buffer, fb_width, fb_height, line, cx, cy, red, green, blue, mode
 ) {
     // 第一遍扫描：计算文本渲染长度
     let total_width = 0;
@@ -7715,7 +7722,7 @@ function fb_draw_textline_centered(
             break;
         }
         fb_draw_char(frame_buffer, fb_width, fb_height,
-            x_pos, y_pos, glyph, font_width, font_height, red, green, blue);
+            x_pos, y_pos, glyph, font_width, font_height, red, green, blue, mode);
         x_pos += font_width;
     }
 }

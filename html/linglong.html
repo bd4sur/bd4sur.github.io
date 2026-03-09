@@ -17,9 +17,22 @@ button {
     color: #989898;
     padding: 3px 6px;
     font-size: 13px;
+    border-radius: 3px;
+}
+.mainCanvas {
+    image-rendering: pixelated; 
 }
 .status_label {
     font-size: smaller;
+}
+.switch_on {
+    color: #00ff00;
+}
+.switch_off {
+    color: #515258;
+}
+.switch_active {
+    color: #00cccc;
 }
     </style>
 </head>
@@ -41,7 +54,7 @@ button {
             <button id="toggle_landscape">地景<br><span class="status_label" id="landscape_status">-</span></button>
         </div>
 
-        <canvas id="skyCanvas" width="240" height="240" style="width: 240px; height: 240px;"></canvas>
+        <canvas class="mainCanvas" id="skyCanvas" width="320" height="240" style="width: 320px; height: 240px;"></canvas>
 
         <div id="datetime">-</div>
         <div id="coord">Lon: <span id="longitude">-</span>° Lat: <span id="latitude">-</span>°</div>
@@ -87,21 +100,21 @@ button {
 const USE_FISHEYE_PROJECTION = true; // 是否使用鱼眼投影（否则使用XY投影）
 
 // 是否启用赤道坐标圈
-let enable_equatorial_coord = true;
+let enable_equatorial_coord = false;
 // 是否启用地平坐标
-let enable_horizontal_coord = true;
+let enable_horizontal_coord = false;
 // 是否启用星芒效果
 let enable_star_burst = true;
 // 大气散射模型（0-不启用；1-简化模型；2-西田模型）
 let enable_atmospheric_scattering = 2;
 // 是否显示恒星名称
-let enable_star_name = true;
+let enable_star_name = false;
 // 是否显示大行星
 let enable_planet = true;
 // 是否显示大行星名称
-let enable_planet_name = true;
+let enable_planet_name = false;
 // 是否显示黄道
-let enable_ecliptic_circle = true;
+let enable_ecliptic_circle = false;
 
 // 是否展示实时天象（置位后将enable_timemachine_running设为false）
 let enable_realtime = true;
@@ -161,6 +174,13 @@ let counter = 0;
 let timemachine_start_time = new Date();
 
 let RADIUS = 120;
+let FB_WIDTH = 320;
+let FB_HEIGHT = 240;
+
+let sky_radius = RADIUS;
+let center_x = FB_WIDTH / 2;
+let center_y = FB_HEIGHT / 2;
+
 
 
 // 行星相关常量（用于渲染）
@@ -187,12 +207,22 @@ const STARS = [
     [14, 15, 37.6,     19, 9,  53.3,  -0.05], // 大角
     [18, 36, 55.2,     38, 46, 59.8,   0.03], // 织女一
     [19, 50, 46.6,      8, 52, 10.9,   0.76], // 河鼓二
+    [ 0.0, 42.0, 43.6,     41.0, 16.0, 15.7,   3.40], // M31
+    [ 5.0, 55.0, 11.4,      7.0, 24.0, 22.2,   0.42], // 参宿四
+    [ 5.0, 25.0,  8.8,      6.0, 20.0, 55.1,   1.64], // 参宿五
+    [ 5.0, 40.0, 46.6,     -1.0, 56.0, 38.7,   1.77], // 参宿一
+    [ 5.0, 36.0, 13.8,     -1.0, 12.0, 12.3,   1.69], // 参宿二
+    [ 5.0, 32.0,  1.4,      0.0,-18.0,  1.9,   2.41], // 参宿三
+    [ 5.0, 47.0, 46.5,     -9.0, 40.0, 17.7,   2.06], // 参宿六
+    [ 5.0, 14.0, 33.2,     -8.0, 12.0, 13.0,   0.13], // 参宿七
+    [ 5.0, 35.0, 27.0,     -5.0, 54.0, 42.2,   2.77], // 伐三
+    [ 3.0, 47.0, 29.4,     24.0,  6.0, 19.6,   2.87], // 昴宿星团
 ];
 
 const STAR_NAME = [
-    "北极星", "天枢", "", "", "", "", "开阳", "",
+    "北极星", "天枢", "天璇", "天玑", "天权", "玉衡", "开阳", "摇光",
     "天狼", "大角", "织女一", "河鼓二", "M31",
-    "参宿四", "", "", "", "", "", "参宿七", ""
+    "参宿四", "参宿五", "参宿一", "参宿二", "参宿三", "参宿六", "参宿七", "伐三", "昴宿星团"
 ];
 
 
@@ -713,28 +743,28 @@ function horizontal_to_screen_xy(azimuth_deg, altitude_deg, R, center_x, center_
 
 
 // 屏幕坐标系→地面投影坐标系→反演回地平天球的直角坐标系
-function screen_xy_to_xyz(scr_x, scr_y) {
-    const cx = RADIUS;
-    const cy = RADIUS;
+function screen_xy_to_xyz(scr_x, scr_y, radius, center_x, center_y) {
+    const cx = center_x;
+    const cy = center_y;
     const dx = scr_x - cx;
     const dy = scr_y - cy;
     let hor_xyz = [0, 0, 0];
     // 鱼眼投影
     if (USE_FISHEYE_PROJECTION) {
-        let r = Math.sqrt(dx*dx + dy*dy) / RADIUS; // 归一化半径
+        let r = Math.sqrt(dx*dx + dy*dy) / radius; // 归一化半径
         if (r <= 1) {
             const theta = r * Math.PI / 2; // 天顶角
             const phi = Math.atan2(dx, dy); // 方位角
             hor_xyz = [
-                -RADIUS * Math.sin(theta) * Math.sin(phi),
-                -RADIUS * Math.sin(theta) * Math.cos(phi),
-                RADIUS * Math.cos(theta)
+                -radius * Math.sin(theta) * Math.sin(phi),
+                -radius * Math.sin(theta) * Math.cos(phi),
+                radius * Math.cos(theta)
             ];
         }
     }
     // XY投影
     else {
-        hor_xyz = [ dx, dy, Math.sqrt(RADIUS*RADIUS - (dx*dx + dy*dy)) ];
+        hor_xyz = [ dx, dy, Math.sqrt(radius*radius - (dx*dx + dy*dy)) ];
     }
     return hor_xyz;
 }
@@ -776,8 +806,8 @@ function star_burst_filter(frame_buffer, width, height, sun_screen_x, sun_screen
 
     // 3. 绘制星芒（沿4个方向双向延伸）
     const directions = [[1, 0], [0, 1], [1, 1], [1, -1]];
-    const blurLength = 100;
-    const decay = 0.97;
+    const blurLength = 50;
+    const decay = 0.94;
 
     for (const [dx, dy] of directions) {
         const len = Math.hypot(dx, dy);
@@ -1058,7 +1088,7 @@ function generate_landscape(frame_buffer, fb_width, fb_height, seed = 123, scale
     // --- 5. 主循环：填充像素 ---
     for (let y = 0; y < fb_height; y++) {
         for (let x = 0; x < fb_width; x++) {
-            const h = getHeight(x, y) * 2 - 0.3;
+            const h = getHeight(x, y) * 2 - 0.1;
             const [r, g, b] = getColor(h);
             
             const index = (y * fb_width + x) * 4;
@@ -1196,10 +1226,14 @@ function bilinearSample(buffer, x, y, width, height) {
 
 
 // 地面填充纯黑色
-function draw_horizon(frame_buffer, fb_width, fb_height, R, center_x, center_y, view_alt, view_azi, f, sun_alt) {
+function draw_horizon(
+    frame_buffer, fb_width, fb_height, R, center_x, center_y, view_alt, view_azi, f, sun_alt,
+    enable_atmosphere_scattering, atmo_r, atmo_g, atmo_b
+) {
     function getPixel(tex, x, y, c) {
         return tex[((y * landscape_texture_width + x) * 4) + c];
     }
+    const max_scattering_depth = 0.8;
     const margin = 10;
     const k = Math.max(0.2, Math.sin(to_rad(sun_alt)) * 1.5);
     for (let y = 0; y < fb_height; y++) {
@@ -1219,24 +1253,47 @@ function draw_horizon(frame_buffer, fb_width, fb_height, R, center_x, center_y, 
                     // 再转为地面贴图上的xy坐标
                     let [tx, ty] = horizontal_to_screen_xy(-azi, -alt, 300, 300, 300); // R略小于地面贴图的半径，注意修改其中的center_x/y
 
-                    const r = getPixel(landscape_texture_rgba, Math.floor(tx), Math.floor(ty), 0);
-                    const g = getPixel(landscape_texture_rgba, Math.floor(tx), Math.floor(ty), 1);
-                    const b = getPixel(landscape_texture_rgba, Math.floor(tx), Math.floor(ty), 2);
+                    let r = getPixel(landscape_texture_rgba, Math.floor(tx), Math.floor(ty), 0);
+                    let g = getPixel(landscape_texture_rgba, Math.floor(tx), Math.floor(ty), 1);
+                    let b = getPixel(landscape_texture_rgba, Math.floor(tx), Math.floor(ty), 2);
+
+                    // 模拟近地大气散射
+                    let scattered_r = 1.0;
+                    let scattered_g = 1.0;
+                    let scattered_b = 1.0;
+                    if (enable_atmosphere_scattering) {
+                        let depth = Math.sqrt(hx * hx + hy * hy) / rr;
+                        depth = Math.min(1.0, Math.pow(depth, 2.0)) * max_scattering_depth;
+                        scattered_r = (1 - depth) * r + atmo_r * depth;
+                        scattered_g = (1 - depth) * g + atmo_g * depth;
+                        scattered_b = (1 - depth) * b + atmo_b * depth;
+                    }
+                    else {
+                        scattered_r = r;
+                        scattered_g = g;
+                        scattered_b = b;
+                    }
+
+                    r = Math.min(255.0, (scattered_r * k));
+                    g = Math.min(255.0, (scattered_g * k));
+                    b = Math.min(255.0, (scattered_b * k));
 
                     const idx = (y * fb_width + x) * 4;
-                    frame_buffer[idx + 0] = r * k; // R
-                    frame_buffer[idx + 1] = g * k; // G
-                    frame_buffer[idx + 2] = b * k; // B
+                    frame_buffer[idx + 0] = r; // R
+                    frame_buffer[idx + 1] = g; // G
+                    frame_buffer[idx + 2] = b; // B
                     frame_buffer[idx + 3] = 255;   // A
                 }
             }
-            else if (landscape_texture_rgba === null && hz <= margin && hz >= 0) {
-                let c = 0;
-                const t = hz / margin;
-                const idx = (y * fb_width + x) * 4;
-                frame_buffer[idx + 0] = c + t * (frame_buffer[idx + 0] - c);     // R
-                frame_buffer[idx + 1] = c + t * (frame_buffer[idx + 1] - c);     // G
-                frame_buffer[idx + 2] = c + t * (frame_buffer[idx + 2] - c);     // B
+            else if (enable_atmosphere_scattering && hz <= margin && hz >= 0) {
+                let cr = atmo_r * k;
+                let cg = atmo_g * k;
+                let cb = atmo_b * k;
+                let t = Math.sqrt(hz / margin);
+                let idx = (y * fb_width + x) * 4;
+                frame_buffer[idx + 0] = Math.min(255.0, ((1.0 - t) * cr + t * frame_buffer[idx + 0]));
+                frame_buffer[idx + 1] = Math.min(255.0, ((1.0 - t) * cg + t * frame_buffer[idx + 1]));
+                frame_buffer[idx + 2] = Math.min(255.0, ((1.0 - t) * cb + t * frame_buffer[idx + 2]));
                 frame_buffer[idx + 3] = 255;   // A
             }
         }
@@ -1247,11 +1304,11 @@ function draw_horizon(frame_buffer, fb_width, fb_height, R, center_x, center_y, 
 
 function draw_sun(frame_buffer, fb_width, fb_height, sun_x, sun_y, sun_altitude_deg, sun_radius) {
     // 1. 太阳半径（随高度变化）：地平线附近略大
-    const baseRadius = (sun_radius < 6) ? 6 : sun_radius; // 像素
+    const baseRadius = (sun_radius < 2) ? 2 : sun_radius; // 像素
     const radius = baseRadius * (1 + 0.20 * Math.max(0, 1 - sun_altitude_deg / 10)); // 地平线+15%
 
     // 2. 光晕半径（可调）
-    const glowRadius = 6; // Math.max(radius, 6); // 可根据需要调整
+    const glowRadius = 3; // Math.max(radius, 3); // 可根据需要调整
 
     // 3. 太阳颜色：随高度从红→黄→白
     let r, g, b;
@@ -1536,7 +1593,7 @@ function draw_star(frame_buffer, fb_width, fb_height, sx, sy, magnitude, radius,
     const bgLum = 0.299 * bgR + 0.587 * bgG + 0.114 * bgB;
 
     // 遍历光晕区域（正方形包围圆）
-    const R = radius + maxGlowRadius;
+    const R = 0; // radius + maxGlowRadius;
     for (let dy = -R; dy <= R; dy++) {
         for (let dx = -R; dx <= R; dx++) {
             const dist = Math.sqrt(dx * dx + dy * dy);
@@ -2118,9 +2175,9 @@ function render_all(
     // 大气散射
     if (enable_atmospheric_scattering > 0) {
 
-        const sky_radius = RADIUS;
-        const center_x = RADIUS;
-        const center_y = RADIUS;
+        // const sky_radius = RADIUS;
+        // const center_x = RADIUS;
+        // const center_y = RADIUS;
 
         let C = 8; // 降采样因子
         if (sun_horizontal_coord[0] < -18.0) {
@@ -2207,20 +2264,20 @@ function render_all(
 
 
 
-    const moon_radius = Math.round(RADIUS * 0.08);
+    const moon_radius = Math.round(RADIUS * 0.1);
 
     draw_moon(
-        frame_buffer, RADIUS*2, RADIUS*2, moon_proj_xy[0], moon_proj_xy[1],
+        frame_buffer, FB_WIDTH, FB_HEIGHT, moon_proj_xy[0], moon_proj_xy[1],
         0.8, moon_radius, phase_deg, bright_pos_deg, tilt_deg);
 
 
-    const sun_radius = Math.round(RADIUS * 0.02);
+    const sun_radius = Math.round(RADIUS * 0.01);
 
-    draw_sun(frame_buffer, RADIUS*2, RADIUS*2, sun_proj_xy[0], sun_proj_xy[1], sun_horizontal_coord[0], sun_radius);
+    draw_sun(frame_buffer, FB_WIDTH, FB_HEIGHT, sun_proj_xy[0], sun_proj_xy[1], sun_horizontal_coord[0], sun_radius);
 
     // 绘制星芒
     if (enable_star_burst && sun_horizontal_coord[0] > 0) {
-        star_burst_filter(frame_buffer, RADIUS*2, RADIUS*2, sun_proj_xy[0], sun_proj_xy[1], 0, 0.97, 160);
+        star_burst_filter(frame_buffer, FB_WIDTH, FB_HEIGHT, sun_proj_xy[0], sun_proj_xy[1], 0, 0.97, 160);
     }
 
     // 绘制恒星等其他天体
@@ -2234,9 +2291,9 @@ function render_all(
 
         const proj_xy = fisheye_project(star_ec[1], star_ec[0], RADIUS, center_x, center_y, view_alt, view_azi, f);
         const mag = Math.random() * 0.5 + mag_offset + star_item[6];
-        draw_star(frame_buffer, RADIUS*2, RADIUS*2, proj_xy[0], proj_xy[1], mag, 1, 255, 255, 255);
+        draw_star(frame_buffer, FB_WIDTH, FB_HEIGHT, proj_xy[0], proj_xy[1], mag, 1, 255, 255, 255);
         if (enable_star_name) {
-            fb_draw_textline(frame_buffer, fb_width, fb_height, STAR_NAME[i], proj_xy[0]+3, proj_xy[1]+3, 255, 255, 255);
+            fb_draw_textline(frame_buffer, fb_width, fb_height, STAR_NAME[i], proj_xy[0]+3, proj_xy[1]+3, 255, 255, 255, 1);
         }
     }
 
@@ -2264,11 +2321,11 @@ function render_all(
             const planet_proj_x = planet_proj_xy[0];
             const planet_proj_y = planet_proj_xy[1];
 
-            draw_star(frame_buffer, RADIUS*2, RADIUS*2, planet_proj_x, planet_proj_y,
+            draw_star(frame_buffer, FB_WIDTH, FB_HEIGHT, planet_proj_x, planet_proj_y,
                 0, PLANET_RADIUS[i], PLANET_COLOR_R[i], PLANET_COLOR_G[i], PLANET_COLOR_B[i]);
 
             if (enable_planet_name) {
-                fb_draw_textline(frame_buffer, fb_width, fb_height, PLANET_NAME[i], planet_proj_x+3, planet_proj_y+3, PLANET_COLOR_R[i], PLANET_COLOR_G[i], PLANET_COLOR_B[i]);
+                fb_draw_textline(frame_buffer, fb_width, fb_height, PLANET_NAME[i], planet_proj_x+3, planet_proj_y+3, PLANET_COLOR_R[i], PLANET_COLOR_G[i], PLANET_COLOR_B[i], 1);
             }
         }
     }
@@ -2280,7 +2337,7 @@ function render_all(
         for (let i = 0; i < 24; i += 2) {
             let line_width = (i === 0 || i == 12) ? 3 : 2;
             draw_celestial_circle(
-                frame_buffer, RADIUS*2, RADIUS*2,
+                frame_buffer, FB_WIDTH, FB_HEIGHT,
                 sky_radius, center_x, center_y,
                 view_alt, view_azi, f,
                 true, i, null,
@@ -2292,7 +2349,7 @@ function render_all(
         for (let i = -90; i < 90; i += 10) {
             let line_width = (i === 0) ? 3 : 2;
             draw_celestial_circle(
-                frame_buffer, RADIUS*2, RADIUS*2,
+                frame_buffer, FB_WIDTH, FB_HEIGHT,
                 sky_radius, center_x, center_y,
                 view_alt, view_azi, f,
                 false, null, i,
@@ -2305,30 +2362,30 @@ function render_all(
     // 绘制方位文字
     if (enable_horizontal_coord) {
         let lable_north = fisheye_project(0, 6, sky_radius, center_x, center_y, view_alt, view_azi, f);
-        fb_draw_textline_centered(frame_buffer, fb_width, fb_height, "北", lable_north[0], lable_north[1], 255, 0, 0);
+        fb_draw_textline_centered(frame_buffer, fb_width, fb_height, "北", lable_north[0], lable_north[1], 255, 0, 0, 1);
         let lable_east = fisheye_project(90, 6, sky_radius, center_x, center_y, view_alt, view_azi, f);
-        fb_draw_textline_centered(frame_buffer, fb_width, fb_height, "东", lable_east[0], lable_east[1], 255, 0, 0);
+        fb_draw_textline_centered(frame_buffer, fb_width, fb_height, "东", lable_east[0], lable_east[1], 255, 0, 0, 1);
         let lable_south = fisheye_project(180, 6, sky_radius, center_x, center_y, view_alt, view_azi, f);
-        fb_draw_textline_centered(frame_buffer, fb_width, fb_height, "南", lable_south[0], lable_south[1], 255, 0, 0);
+        fb_draw_textline_centered(frame_buffer, fb_width, fb_height, "南", lable_south[0], lable_south[1], 255, 0, 0, 1);
         let lable_west = fisheye_project(270, 6, sky_radius, center_x, center_y, view_alt, view_azi, f);
-        fb_draw_textline_centered(frame_buffer, fb_width, fb_height, "西", lable_west[0], lable_west[1], 255, 0, 0);
+        fb_draw_textline_centered(frame_buffer, fb_width, fb_height, "西", lable_west[0], lable_west[1], 255, 0, 0, 1);
 
         let lable_pos = fisheye_project(30, 6, sky_radius, center_x, center_y, view_alt, view_azi, f);
-        fb_draw_textline_centered(frame_buffer, fb_width, fb_height, "30", lable_pos[0], lable_pos[1], 255, 0, 0);
+        fb_draw_textline_centered(frame_buffer, fb_width, fb_height, "30", lable_pos[0], lable_pos[1], 255, 0, 0, 1);
         lable_pos = fisheye_project(60, 6, sky_radius, center_x, center_y, view_alt, view_azi, f);
-        fb_draw_textline_centered(frame_buffer, fb_width, fb_height, "60", lable_pos[0], lable_pos[1], 255, 0, 0);
+        fb_draw_textline_centered(frame_buffer, fb_width, fb_height, "60", lable_pos[0], lable_pos[1], 255, 0, 0, 1);
         lable_pos = fisheye_project(120, 6, sky_radius, center_x, center_y, view_alt, view_azi, f);
-        fb_draw_textline_centered(frame_buffer, fb_width, fb_height, "120", lable_pos[0], lable_pos[1], 255, 0, 0);
+        fb_draw_textline_centered(frame_buffer, fb_width, fb_height, "120", lable_pos[0], lable_pos[1], 255, 0, 0, 1);
         lable_pos = fisheye_project(150, 6, sky_radius, center_x, center_y, view_alt, view_azi, f);
-        fb_draw_textline_centered(frame_buffer, fb_width, fb_height, "150", lable_pos[0], lable_pos[1], 255, 0, 0);
+        fb_draw_textline_centered(frame_buffer, fb_width, fb_height, "150", lable_pos[0], lable_pos[1], 255, 0, 0, 1);
         lable_pos = fisheye_project(210, 6, sky_radius, center_x, center_y, view_alt, view_azi, f);
-        fb_draw_textline_centered(frame_buffer, fb_width, fb_height, "210", lable_pos[0], lable_pos[1], 255, 0, 0);
+        fb_draw_textline_centered(frame_buffer, fb_width, fb_height, "210", lable_pos[0], lable_pos[1], 255, 0, 0, 1);
         lable_pos = fisheye_project(240, 6, sky_radius, center_x, center_y, view_alt, view_azi, f);
-        fb_draw_textline_centered(frame_buffer, fb_width, fb_height, "240", lable_pos[0], lable_pos[1], 255, 0, 0);
+        fb_draw_textline_centered(frame_buffer, fb_width, fb_height, "240", lable_pos[0], lable_pos[1], 255, 0, 0, 1);
         lable_pos = fisheye_project(300, 6, sky_radius, center_x, center_y, view_alt, view_azi, f);
-        fb_draw_textline_centered(frame_buffer, fb_width, fb_height, "300", lable_pos[0], lable_pos[1], 255, 0, 0);
+        fb_draw_textline_centered(frame_buffer, fb_width, fb_height, "300", lable_pos[0], lable_pos[1], 255, 0, 0, 1);
         lable_pos = fisheye_project(330, 6, sky_radius, center_x, center_y, view_alt, view_azi, f);
-        fb_draw_textline_centered(frame_buffer, fb_width, fb_height, "330", lable_pos[0], lable_pos[1], 255, 0, 0);
+        fb_draw_textline_centered(frame_buffer, fb_width, fb_height, "330", lable_pos[0], lable_pos[1], 255, 0, 0, 1);
     }
 
     // 绘制地景（天空投影圆盘之外的部分）
@@ -2336,16 +2393,23 @@ function render_all(
         let fov = (0.45/90) * Math.abs(sun_horizontal_coord[0]) + 1.1;
         update_landscape(fov);
     }
-    draw_horizon(frame_buffer, RADIUS*2, RADIUS*2, sky_radius, center_x, center_y, view_alt, view_azi, f, sun_horizontal_coord[0]);
+    draw_horizon(
+        frame_buffer, FB_WIDTH, FB_HEIGHT, sky_radius, center_x, center_y, view_alt, view_azi, f, sun_horizontal_coord[0],
+        false, 200, 210, 255);
 
     // 绘制地平坐标网格
     // if (enable_horizontal_coord) {
-    //     draw_circle_outline(frame_buffer, RADIUS*2, RADIUS*2, RADIUS, RADIUS, RADIUS-1, 2, 128, 128, 128, 255);
-    //     draw_circle_outline(frame_buffer, RADIUS*2, RADIUS*2, RADIUS, RADIUS, RADIUS / 3, 1, 16, 16, 16, 255);
-    //     draw_circle_outline(frame_buffer, RADIUS*2, RADIUS*2, RADIUS, RADIUS, RADIUS / 3 * 2, 1, 16, 16, 16, 255);
-    //     draw_line(frame_buffer, RADIUS*2, RADIUS*2, RADIUS, 0, RADIUS, RADIUS*2, 1, 16, 16, 16);
-    //     draw_line(frame_buffer, RADIUS*2, RADIUS*2, 0, RADIUS, RADIUS*2, RADIUS, 1, 16, 16, 16);
+    //     draw_circle_outline(frame_buffer, FB_WIDTH, FB_HEIGHT, RADIUS, RADIUS, RADIUS-1, 2, 128, 128, 128, 255);
+    //     draw_circle_outline(frame_buffer, FB_WIDTH, FB_HEIGHT, RADIUS, RADIUS, RADIUS / 3, 1, 16, 16, 16, 255);
+    //     draw_circle_outline(frame_buffer, FB_WIDTH, FB_HEIGHT, RADIUS, RADIUS, RADIUS / 3 * 2, 1, 16, 16, 16, 255);
+    //     draw_line(frame_buffer, FB_WIDTH, FB_HEIGHT, RADIUS, 0, RADIUS, RADIUS*2, 1, 16, 16, 16);
+    //     draw_line(frame_buffer, FB_WIDTH, FB_HEIGHT, 0, RADIUS, RADIUS*2, RADIUS, 1, 16, 16, 16);
     // }
+
+
+    // fb_draw_textline(frame_buffer, fb_width, fb_height, "玲珑天象仪 V2603 (c) BD4SUR", 1, 226, 64, 64, 64, 3);
+    // let timestr = `${year}-${String(100+month).substr(-2)}-${String(100+day).substr(-2)} ${String(100+hour).substr(-2)}:${String(100+minute).substr(-2)}:${String(100+second).substr(-2)}`;
+    // fb_draw_textline(frame_buffer, fb_width, fb_height, timestr, 200, 226, 128, 128, 128, 3);
 
 }
 
@@ -2358,11 +2422,6 @@ function render_all(
 
 
 
-
-
-const sky_radius = RADIUS;
-const center_x = RADIUS;
-const center_y = RADIUS;
 
 let view_alt = 90; // 90度为地平天顶
 let view_azi = 180; // 0度为正南
@@ -2392,20 +2451,31 @@ class SkyCanvas {
     constructor(canvasId) {
         this.canvas = document.getElementById(canvasId);
         this.ctx = this.canvas.getContext('2d');
+        // 关闭图像平滑处理
+        this.ctx.imageSmoothingEnabled = false; 
+        // 兼容旧浏览器
+        this.ctx.mozImageSmoothingEnabled = false;
+        this.ctx.webkitImageSmoothingEnabled = false;
+        this.ctx.msImageSmoothingEnabled = false;
 
-        this.canvas.width = RADIUS * 2;
-        this.canvas.height = RADIUS * 2;
+        this.canvas.width = FB_WIDTH;
+        this.canvas.height = FB_HEIGHT;
 
         function adaptRatio(context) {
             var devicePixelRatio = window.devicePixelRatio || 1;
             var backingStoreRatio = context.webkitBackingStorePixelRatio || context.mozBackingStorePixelRatio || context.msBackingStorePixelRatio || context.oBackingStorePixelRatio || context.backingStorePixelRatio || 1;
             return devicePixelRatio / backingStoreRatio;
         }
-        this.RATIO = adaptRatio(this.ctx);
+        this.RATIO = 1; // adaptRatio(this.ctx);
         this.canvas.width = Math.floor(this.canvas.width * this.RATIO);
         this.canvas.height = Math.floor(this.canvas.height * this.RATIO);
-        RADIUS *= this.RATIO;
-        RADIUS = Math.floor(RADIUS);
+
+        RADIUS = Math.floor(RADIUS * this.RATIO);
+        FB_WIDTH = Math.floor(FB_WIDTH * this.RATIO);
+        FB_HEIGHT = Math.floor(FB_HEIGHT * this.RATIO);
+        center_x = Math.floor(center_x * this.RATIO);
+        center_y = Math.floor(center_y * this.RATIO);
+        sky_radius = Math.floor(sky_radius * this.RATIO);
     }
 }
 
@@ -2453,112 +2523,112 @@ function refresh_button_status() {
 
     // toggle_equatorial_coord
     if (!enable_equatorial_coord) {
-        status = `<span style="color: #aa0000;">关闭</span>`;
+        status = `<span class="switch_off">关闭</span>`;
     }
     else {
-        status = `<span style="color: #00cc00;">开启</span>`;
+        status = `<span class="switch_on">开启</span>`;
     }
     document.getElementById("eqa_status").innerHTML = status;
 
     // toggle_horizontal_coord
     if (!enable_horizontal_coord) {
-        status = `<span style="color: #aa0000;">关闭</span>`;
+        status = `<span class="switch_off">关闭</span>`;
     }
     else {
-        status = `<span style="color: #00cc00;">开启</span>`;
+        status = `<span class="switch_on">开启</span>`;
     }
     document.getElementById("hor_status").innerHTML = status;
 
     // toggle_star_burst
     if (!enable_star_burst) {
-        status = `<span style="color: #aa0000;">关闭</span>`;
+        status = `<span class="switch_off">关闭</span>`;
     }
     else {
-        status = `<span style="color: #00cc00;">开启</span>`;
+        status = `<span class="switch_on">开启</span>`;
     }
     document.getElementById("star_burst_status").innerHTML = status;
 
     // toggle_atmospheric_scattering
     if (enable_atmospheric_scattering === 0) {
-        status = `<span style="color: #aa0000;">关闭</span>`;
+        status = `<span class="switch_off">关闭</span>`;
     }
     else if (enable_atmospheric_scattering === 1) {
-        status = `<span style="color: #00cccc;">简化模型</span>`;
+        status = `<span class="switch_active">简化模型</span>`;
     }
     else if (enable_atmospheric_scattering === 2) {
-        status = `<span style="color: #00cccc;">西田模型</span>`;
+        status = `<span class="switch_active">西田模型</span>`;
     }
     document.getElementById("scattering_status").innerHTML = status;
 
     // toggle_planet
     if (!enable_planet) {
-        status = `<span style="color: #aa0000;">关闭</span>`;
+        status = `<span class="switch_off">关闭</span>`;
     }
     else {
-        status = `<span style="color: #00cc00;">开启</span>`;
+        status = `<span class="switch_on">开启</span>`;
     }
     document.getElementById("planet_status").innerHTML = status;
 
     // toggle_star_name
     if (!enable_star_name) {
-        status = `<span style="color: #aa0000;">关闭</span>`;
+        status = `<span class="switch_off">关闭</span>`;
     }
     else {
-        status = `<span style="color: #00cc00;">开启</span>`;
+        status = `<span class="switch_on">开启</span>`;
     }
     document.getElementById("star_name_status").innerHTML = status;
 
     // enable_planet_name
     if (!enable_planet_name) {
-        status = `<span style="color: #aa0000;">关闭</span>`;
+        status = `<span class="switch_off">关闭</span>`;
     }
     else {
-        status = `<span style="color: #00cc00;">开启</span>`;
+        status = `<span class="switch_on">开启</span>`;
     }
     document.getElementById("planet_name_status").innerHTML = status;
 
     // toggle_ecliptic_circle
     if (!enable_ecliptic_circle) {
-        status = `<span style="color: #aa0000;">关闭</span>`;
+        status = `<span class="switch_off">关闭</span>`;
     }
     else {
-        status = `<span style="color: #00cc00;">开启</span>`;
+        status = `<span class="switch_on">开启</span>`;
     }
     document.getElementById("ecliptic_circle_status").innerHTML = status;
 
     // toggle_realtime
     if (!enable_realtime) {
-        status = `<span style="color: #aa0000;">停用</span>`;
+        status = `<span class="switch_off">停用</span>`;
     }
     else {
-        status = `<span style="color: #00cc00;">启用</span>`;
+        status = `<span class="switch_on">启用</span>`;
     }
     document.getElementById("realtime_status").innerHTML = status;
 
     // toggle_timemachine
     if (!enable_timemachine_running) {
-        status = `<span style="color: #aa0000;">停止</span>`;
+        status = `<span class="switch_off">停止</span>`;
     }
     else {
-        status = `<span style="color: #00cc00;">运行</span>`;
+        status = `<span class="switch_on">运行</span>`;
     }
     document.getElementById("timemachine_status").innerHTML = status;
 
     // toggle_opt_bilinear
     if (!enable_opt_bilinear) {
-        status = `<span style="color: #aa0000;">关闭</span>`;
+        status = `<span class="switch_off">关闭</span>`;
     }
     else {
-        status = `<span style="color: #00cc00;">开启</span>`;
+        status = `<span class="switch_on">开启</span>`;
     }
     document.getElementById("opt_bilinear_status").innerHTML = status;
 
     // toggle_landscape
     if (landscape_index === 0) {
-        status = `<span style="color: #aa0000;">关闭</span>`;
+        status = `<span class="switch_off">关闭</span>`;
     }
     else {
-        status = `<span style="color: #00cccc;">${LANDSCAPES[landscape_index][1]}</span>`;
+        status = `<span class="switch_active">${LANDSCAPES[landscape_index][1]}</span>`;
     }
     document.getElementById("landscape_status").innerHTML = status;
 
@@ -2817,7 +2887,7 @@ window.onload = function() {
 
         render_all(
             frame_buffer, sky.canvas.width, sky.canvas.height,
-            RADIUS, RADIUS, RADIUS,
+            RADIUS, center_x, center_y,
             view_alt, view_azi, view_range,
             year, month, day, hour, minute, second, timezone, longitude, latitude);
 
