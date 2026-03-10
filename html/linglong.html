@@ -9,78 +9,121 @@ body {
     background-color: #000000;
     color: #fff;
     font-size: 14px;
-    /* touch-action: none; */
 }
 button {
     border: none;
-    background-color: #2f2f2f;
-    color: #989898;
-    padding: 3px 6px;
-    font-size: 13px;
+    background-color: #252629;
+    color: #929397;
+    padding: 3px 3px;
+    font-size: 12px;
     border-radius: 3px;
 }
 .mainCanvas {
-    image-rendering: pixelated; 
+    image-rendering: pixelated;
+    margin: 10px 0;
 }
 .status_label {
     font-size: smaller;
 }
 .switch_on {
     color: #00ff00;
+    background: #192c19;
 }
 .switch_off {
-    color: #515258;
+    color: #929397;
 }
 .switch_active {
     color: #00cccc;
+}
+.setting_buttons_container {
+    display: flex;
+    margin: 3px auto;
+    justify-content: center;
+    gap: 3px;
+    flex-wrap: wrap;
+    flex-direction: row;
+}
+.setting_button {
+    min-height: 32px;
+    min-width: 60px;
+    font-size: 11px;
+}
+.joystick_buttons_container {
+    margin: 0px auto;
+    padding: 10px;
+}
+.joystick_button {
+    color: #ffffff;
+    min-height: 32px;
+    min-width: 60px;
+    font-size: 11px;
+    box-shadow: inset 1px 1px 1px #515151ba, inset -1px -1px 1px #0000003b, .222px .222px .314px -.5px #0003, .605px .605px .856px -1px #0000002e, 1.329px 1.329px 1.88px -1.5px #00000040, 2.95px 2.95px 4.172px -2px #0000001a, 2.5px 2.5px 3px -2.5px #00000026, -.5px -.5px #0000001a;
+}
+.joystick_button:active {
+    background: #232323;
+    padding: 2px 0 0 2px;
+    color: #ffffffaa;
+    box-shadow: inset 1px 1px 3px 0px rgba(0, 0, 0, 0.5);
 }
     </style>
 </head>
 <body>
     <div class="container" style="text-align: center;">
-        <div><b>玲珑天象仪</b><br>Planetarium Linglong</div>
-        <div style="font-size: smaller;">&copy; 2011-2026 BD4SUR</div>
-        <div style="margin: 3px 0;">
-            <button id="toggle_equatorial_coord">赤道坐标<br><span class="status_label" id="eqa_status">-</span></button>
-            <button id="toggle_horizontal_coord">地平坐标<br><span class="status_label" id="hor_status">-</span></button>
-            <button id="toggle_star_burst">星芒<br><span class="status_label" id="star_burst_status">-</span></button>
-            <button id="toggle_atmospheric_scattering">大气散射<br><span class="status_label" id="scattering_status">-</span></button>
+        <div style="display: flex; align-items: baseline; justify-content: center; flex-direction: row; gap: 9px;">
+            <div style="font-size: 17px; font-weight: bold; font-family: serif; letter-spacing: 1px; color: #99ddff;">玲珑天象仪</div>
+            <div style="position: relative;background-color: #ffffff91;width: 1px;height: 18px;top: 3px;"></div>
+            <div style="font-size: 13px; font-weight: bold; font-family: Times, serif; font-style: italic;">Planetarium Linglong</div>
         </div>
-        <div style="margin: 3px 0;">
-            <button id="toggle_ecliptic_circle">黄道<br><span class="status_label" id="ecliptic_circle_status">-</span></button>
-            <button id="toggle_planet">行星<br><span class="status_label" id="planet_status">-</span></button>
-            <button id="toggle_star_name">恒星名称<br><span class="status_label" id="star_name_status">-</span></button>
-            <button id="toggle_planet_name">行星名称<br><span class="status_label" id="planet_name_status">-</span></button>
-            <button id="toggle_landscape">地景<br><span class="status_label" id="landscape_status">-</span></button>
+        <div style="font-size: 10px; margin: 10px auto; color: #ffffffaa;">V2603 &copy; 2011-2026 BD4SUR</div>
+        <div class="setting_buttons_container">
+            <button class="setting_button" id="toggle_equatorial_coord">赤道坐标</button>
+            <button class="setting_button" id="toggle_horizontal_coord">地平方位</button>
+            <button class="setting_button" id="toggle_star_burst">星芒</button>
+            <button class="setting_button" id="toggle_ecliptic_circle">黄道</button>
+            <button class="setting_button" id="toggle_planet">行星</button>
+            <button class="setting_button" id="toggle_star_name">恒星名称</button>
+            <button class="setting_button" id="toggle_planet_name">行星名称</button>
+            <button class="setting_button" id="toggle_opt_bilinear">双线性插值</button>
+            <button class="setting_button" id="toggle_atmospheric_scattering">大气散射<br><span class="status_label" id="scattering_status">-</span></button>
+            <button class="setting_button" id="toggle_landscape">地景<br><span class="status_label" id="landscape_status">-</span></button>
         </div>
 
-        <canvas class="mainCanvas" id="skyCanvas" width="320" height="240" style="width: 320px; height: 240px;"></canvas>
+        <canvas class="mainCanvas" id="skyCanvas" width="400" height="300" style="width: 100%; max-width: 400px;"></canvas>
 
-        <div id="datetime">-</div>
-        <div id="coord">Lon: <span id="longitude">-</span>° Lat: <span id="latitude">-</span>°</div>
-        <div style="margin: 3px 0;">
-            <button id="toggle_realtime">实时天象<br><span class="status_label" id="realtime_status">-</span></button>
-            <button id="toggle_timemachine">时光机<br><span class="status_label" id="timemachine_status">-</span></button>
-            <button id="toggle_opt_bilinear">双线性插值<br><span class="status_label" id="opt_bilinear_status">-</span></button>
+        <div style="font-size: 12px; font-family: monospace;" id="datetime">-</div>
+        <div style="font-size: 12px; font-family: monospace;" id="coord">Lon:<span id="longitude">-</span>° Lat:<span id="latitude">-</span>°</div>
+
+        <div class="setting_buttons_container">
+            <button class="setting_button" id="toggle_realtime">实时天象<br><span class="status_label" id="realtime_status">-</span></button>
+            <button class="setting_button" id="toggle_timemachine">时光机<br><span class="status_label" id="timemachine_status">-</span></button>
+            <button class="setting_button" id="set_time">设置时间</button>
+            <button class="setting_button" id="set_coord">设置位置</button>
         </div>
-        <table style="margin: 0px auto;">
+
+        <table class="joystick_buttons_container">
             <tr>
-                <td><button id="set_time">设置时间</button></td>
-                <td><button id="cam_pitch_up">仰</button></td>
-                <td><button id="set_coord">设置位置</button></td>
+                <td><button class="joystick_button" id="cam_roll_left">左倾</button></td>
+                <td><button class="joystick_button" id="cam_pitch_up">仰</button></td>
+                <td><button class="joystick_button" id="cam_roll_right">右倾</button></td>
             </tr>
             <tr>
-                <td><button id="cam_rot_eastward">东</button></td>
-                <td><button id="cam_reset">归中</button></td>
-                <td><button id="cam_rot_westward">西</button></td>
+                <td><button class="joystick_button" id="cam_yaw_eastward">东</button></td>
+                <td><button class="joystick_button" id="cam_reset">归中</button></td>
+                <td><button class="joystick_button" id="cam_yaw_westward">西</button></td>
             </tr>
             <tr>
-                <td><button id="cam_zoom_in">推</button></td>
-                <td><button id="cam_pitch_down">俯</button></td>
-                <td><button id="cam_zoom_out">拉</button></td>
+                <td><button class="joystick_button" id="cam_zoom_in">推近</button></td>
+                <td><button class="joystick_button" id="cam_pitch_down">俯</button></td>
+                <td><button class="joystick_button" id="cam_zoom_out">拉远</button></td>
             </tr>
         </table>
-        <div id="fps">FPS: --</div>
+
+        <div style="font-size: 12px; font-family: monospace;" id="fps">FPS: --</div>
+
+        <div style="font-size: smaller; text-align: center; max-width: 320px; margin: 0 auto; color: #aaaaaa;">
+            拖动画面可改变视角
+        </div>
+
         <div style="font-size: smaller; text-align: left; max-width: 320px; margin: 0 auto; color: #aaaaaa;">
             <p><b>主要参考文献</b></p>
             <ol>
@@ -129,6 +172,23 @@ let landscape_index = 1;
 
 
 
+
+
+let RADIUS = 150;
+let FB_WIDTH = 400;
+let FB_HEIGHT = 300;
+
+let sky_radius = RADIUS;
+let center_x = FB_WIDTH / 2;
+let center_y = FB_HEIGHT / 2;
+
+
+
+
+
+
+
+
 let moon_texture_width = 64;
 let moon_texture_height = 64;
 let moon_texture_rgba = null;
@@ -158,11 +218,12 @@ let landscape_texture_height = 600;
 let landscape_texture_rgba = null;
 let img_landscape_texture = new Image();
 const LANDSCAPES = [
-    ["", ""],
-    ["../image/H/landscape_0.jpg", "草原1"],
-    ["../image/H/landscape_1.jpg", "草原2"],
-    ["../image/H/landscape_2.jpg", "雪地"],
-    ["../image/H/landscape_3.jpg", "海洋"]
+    ["", "", 0], // 字段2为是否鱼眼，0-否，1-是
+    ["../image/H/landscape_0.jpg", "草原1", 1],
+    ["../image/H/landscape_1.jpg", "草原2", 1],
+    ["../image/H/landscape_2.jpg", "雪地", 1],
+    ["../image/H/landscape_3.jpg", "海洋", 1],
+    ["../image/H/nanjing_sat.jpg", "南京", 0],
 ];
 
 
@@ -173,13 +234,6 @@ const LANDSCAPES = [
 let counter = 0;
 let timemachine_start_time = new Date();
 
-let RADIUS = 120;
-let FB_WIDTH = 320;
-let FB_HEIGHT = 240;
-
-let sky_radius = RADIUS;
-let center_x = FB_WIDTH / 2;
-let center_y = FB_HEIGHT / 2;
 
 
 
@@ -1249,7 +1303,7 @@ function draw_horizon(
                 }
                 else {
                     // 反解此处的xyz坐标，转为地平坐标
-                    let [alt, azi, rr] = xyz_to_horizontal(hx, hy, hz);
+                    let [alt, azi, rr] = xyz_to_horizontal(-hx, -hy, hz);
                     // 再转为地面贴图上的xy坐标
                     let [tx, ty] = horizontal_to_screen_xy(-azi, -alt, 300, 300, 300); // R略小于地面贴图的半径，注意修改其中的center_x/y
 
@@ -1263,7 +1317,7 @@ function draw_horizon(
                     let scattered_b = 1.0;
                     if (enable_atmosphere_scattering) {
                         let depth = Math.sqrt(hx * hx + hy * hy) / rr;
-                        depth = Math.min(1.0, Math.pow(depth, 2.0)) * max_scattering_depth;
+                        depth = Math.min(1.0, Math.pow(depth, 3.0)) * max_scattering_depth;
                         scattered_r = (1 - depth) * r + atmo_r * depth;
                         scattered_g = (1 - depth) * g + atmo_g * depth;
                         scattered_b = (1 - depth) * b + atmo_b * depth;
@@ -2171,13 +2225,49 @@ function render_all(
     let moon_i = moon_phase(year, month, day, hour, minute, second, timezone);
     let phase_deg = normalize_angle(moon_i - 90);
 
-
+    ////////////////////
     // 大气散射
+    ////////////////////
+
+    // 用于计算地景近地大气散射的天光平均色相
+    let atmo_r = 0;
+    let atmo_g = 0;
+    let atmo_b = 0;
+
     if (enable_atmospheric_scattering > 0) {
 
-        // const sky_radius = RADIUS;
-        // const center_x = RADIUS;
-        // const center_y = RADIUS;
+
+        // 对天空半球进行采样，计算天光平均色相
+        let atmo_count = 0;
+        for (let ray_alt = 0.0; ray_alt < 30.0; ray_alt += 2.0) {
+            for (let ray_azi = 0.0; ray_azi < 360.0; ray_azi += 10.0) {
+                let _ray = horizontal_to_xyz(ray_azi, ray_alt, sky_radius);
+                let _argb = calculate_scattered_pixel(_ray, sun_vec, enable_atmospheric_scattering);
+                atmo_r += _argb[0] * 255;
+                atmo_g += _argb[1] * 255;
+                atmo_b += _argb[2] * 255;
+
+                atmo_count++;
+            }
+        }
+        atmo_r = (atmo_r / atmo_count) * 1.0;
+        atmo_g = (atmo_g / atmo_count) * 1.0;
+        atmo_b = (atmo_b / atmo_count) * 1.0;
+
+        // 调整饱和度、明度拉满
+        let hv = Math.max(atmo_r, atmo_g, atmo_b);
+        let sat = 0.8;
+        atmo_r = Math.max(1.0, sat * atmo_r + (1 - sat) * hv);
+        atmo_g = Math.max(1.0, sat * atmo_g + (1 - sat) * hv);
+        atmo_b = Math.max(1.0, sat * atmo_b + (1 - sat) * hv);
+        let _k = 255.0 / hv;
+        atmo_r = Math.min(255.0, atmo_r * _k);
+        atmo_g = Math.min(255.0, atmo_g * _k);
+        atmo_b = Math.min(255.0, atmo_b * _k);
+
+
+
+
 
         let C = 8; // 降采样因子
         if (sun_horizontal_coord[0] < -18.0) {
@@ -2389,13 +2479,13 @@ function render_all(
     }
 
     // 绘制地景（天空投影圆盘之外的部分）
-    if (landscape_index === 0) {
+    if (landscape_index === 0 || LANDSCAPES[landscape_index][2] === 0) {
         let fov = (0.45/90) * Math.abs(sun_horizontal_coord[0]) + 1.1;
         update_landscape(fov);
     }
     draw_horizon(
         frame_buffer, FB_WIDTH, FB_HEIGHT, sky_radius, center_x, center_y, view_alt, view_azi, f, sun_horizontal_coord[0],
-        false, 200, 210, 255);
+        (LANDSCAPES[landscape_index][2] === 0), atmo_r, atmo_g, atmo_b);
 
     // 绘制地平坐标网格
     // if (enable_horizontal_coord) {
@@ -2496,13 +2586,20 @@ function load_landscape_texture(idx) {
             landscape_texture_height = img_landscape_texture.height;
             const ctx = canvas.getContext('2d');
             ctx.drawImage(img_landscape_texture, 0, 0);
-            landscape_texture_rgba = ctx.getImageData(0, 0, img_landscape_texture.width, img_landscape_texture.height).data; // Uint8ClampedArray
+            landscape_global_rgba = ctx.getImageData(0, 0, img_landscape_texture.width, img_landscape_texture.height).data; // Uint8ClampedArray
+
+            if (LANDSCAPES[idx][2] === 0) {
+                to_fisheye(landscape_global_rgba, landscape_texture_rgba, landscape_texture_width, landscape_texture_height, 1.3);
+            }
+            else {
+                landscape_texture_rgba = landscape_global_rgba;
+            }
 
             // let rgb = [];
-            // for (let i = 0; i < landscape_texture_rgba.length; i+=4) {
-            //     rgb.push(landscape_texture_rgba[i]);
-            //     rgb.push(landscape_texture_rgba[i+1]);
-            //     rgb.push(landscape_texture_rgba[i+2]);
+            // for (let i = 0; i < landscape_global_rgba.length; i+=4) {
+            //     rgb.push(landscape_global_rgba[i]);
+            //     rgb.push(landscape_global_rgba[i+1]);
+            //     rgb.push(landscape_global_rgba[i+2]);
             // }
             // console.log(JSON.stringify(Array.from(rgb)));
             // console.log(rgb.length);
@@ -2522,31 +2619,37 @@ function refresh_button_status() {
     let status = null;
 
     // toggle_equatorial_coord
+    let btn = document.getElementById("toggle_equatorial_coord");
     if (!enable_equatorial_coord) {
-        status = `<span class="switch_off">关闭</span>`;
+        btn.classList.remove("switch_on");
+        btn.classList.add("switch_off");
     }
     else {
-        status = `<span class="switch_on">开启</span>`;
+        btn.classList.remove("switch_off");
+        btn.classList.add("switch_on");
     }
-    document.getElementById("eqa_status").innerHTML = status;
 
     // toggle_horizontal_coord
+    btn = document.getElementById("toggle_horizontal_coord");
     if (!enable_horizontal_coord) {
-        status = `<span class="switch_off">关闭</span>`;
+        btn.classList.remove("switch_on");
+        btn.classList.add("switch_off");
     }
     else {
-        status = `<span class="switch_on">开启</span>`;
+        btn.classList.remove("switch_off");
+        btn.classList.add("switch_on");
     }
-    document.getElementById("hor_status").innerHTML = status;
 
     // toggle_star_burst
+    btn = document.getElementById("toggle_star_burst");
     if (!enable_star_burst) {
-        status = `<span class="switch_off">关闭</span>`;
+        btn.classList.remove("switch_on");
+        btn.classList.add("switch_off");
     }
     else {
-        status = `<span class="switch_on">开启</span>`;
+        btn.classList.remove("switch_off");
+        btn.classList.add("switch_on");
     }
-    document.getElementById("star_burst_status").innerHTML = status;
 
     // toggle_atmospheric_scattering
     if (enable_atmospheric_scattering === 0) {
@@ -2560,41 +2663,74 @@ function refresh_button_status() {
     }
     document.getElementById("scattering_status").innerHTML = status;
 
-    // toggle_planet
-    if (!enable_planet) {
-        status = `<span class="switch_off">关闭</span>`;
-    }
-    else {
-        status = `<span class="switch_on">开启</span>`;
-    }
-    document.getElementById("planet_status").innerHTML = status;
 
-    // toggle_star_name
-    if (!enable_star_name) {
-        status = `<span class="switch_off">关闭</span>`;
-    }
-    else {
-        status = `<span class="switch_on">开启</span>`;
-    }
-    document.getElementById("star_name_status").innerHTML = status;
-
-    // enable_planet_name
-    if (!enable_planet_name) {
-        status = `<span class="switch_off">关闭</span>`;
-    }
-    else {
-        status = `<span class="switch_on">开启</span>`;
-    }
-    document.getElementById("planet_name_status").innerHTML = status;
 
     // toggle_ecliptic_circle
+    btn = document.getElementById("toggle_ecliptic_circle");
     if (!enable_ecliptic_circle) {
+        btn.classList.remove("switch_on");
+        btn.classList.add("switch_off");
+    }
+    else {
+        btn.classList.remove("switch_off");
+        btn.classList.add("switch_on");
+    }
+
+    // toggle_planet
+    btn = document.getElementById("toggle_planet");
+    if (!enable_planet) {
+        btn.classList.remove("switch_on");
+        btn.classList.add("switch_off");
+    }
+    else {
+        btn.classList.remove("switch_off");
+        btn.classList.add("switch_on");
+    }
+
+    // toggle_star_name
+    btn = document.getElementById("toggle_star_name");
+    if (!enable_star_name) {
+        btn.classList.remove("switch_on");
+        btn.classList.add("switch_off");
+    }
+    else {
+        btn.classList.remove("switch_off");
+        btn.classList.add("switch_on");
+    }
+
+    // enable_planet_name
+    btn = document.getElementById("toggle_planet_name");
+    if (!enable_planet_name) {
+        btn.classList.remove("switch_on");
+        btn.classList.add("switch_off");
+    }
+    else {
+        btn.classList.remove("switch_off");
+        btn.classList.add("switch_on");
+    }
+
+    // toggle_opt_bilinear
+    btn = document.getElementById("toggle_opt_bilinear");
+    if (!enable_opt_bilinear) {
+        btn.classList.remove("switch_on");
+        btn.classList.add("switch_off");
+    }
+    else {
+        btn.classList.remove("switch_off");
+        btn.classList.add("switch_on");
+    }
+
+
+    // toggle_landscape
+    if (landscape_index === 0) {
         status = `<span class="switch_off">关闭</span>`;
     }
     else {
-        status = `<span class="switch_on">开启</span>`;
+        status = `<span class="switch_active">${LANDSCAPES[landscape_index][1]}</span>`;
     }
-    document.getElementById("ecliptic_circle_status").innerHTML = status;
+    document.getElementById("landscape_status").innerHTML = status;
+
+
 
     // toggle_realtime
     if (!enable_realtime) {
@@ -2614,23 +2750,8 @@ function refresh_button_status() {
     }
     document.getElementById("timemachine_status").innerHTML = status;
 
-    // toggle_opt_bilinear
-    if (!enable_opt_bilinear) {
-        status = `<span class="switch_off">关闭</span>`;
-    }
-    else {
-        status = `<span class="switch_on">开启</span>`;
-    }
-    document.getElementById("opt_bilinear_status").innerHTML = status;
 
-    // toggle_landscape
-    if (landscape_index === 0) {
-        status = `<span class="switch_off">关闭</span>`;
-    }
-    else {
-        status = `<span class="switch_active">${LANDSCAPES[landscape_index][1]}</span>`;
-    }
-    document.getElementById("landscape_status").innerHTML = status;
+
 
 
 
@@ -2657,12 +2778,12 @@ window.onload = function() {
         if (view_alt <= -90) view_alt = -90;
         refresh_button_status();
     });
-    document.getElementById("cam_rot_eastward").addEventListener("click", function(e) {
+    document.getElementById("cam_yaw_eastward").addEventListener("click", function(e) {
         view_azi -= 10;
         if (view_azi <= 0) view_azi = 360;
         refresh_button_status();
     });
-    document.getElementById("cam_rot_westward").addEventListener("click", function(e) {
+    document.getElementById("cam_yaw_westward").addEventListener("click", function(e) {
         view_azi += 10;
         if (view_azi >= 360) view_azi = 0;
         refresh_button_status();
@@ -2883,7 +3004,8 @@ window.onload = function() {
             }
         }
 
-        document.getElementById('datetime').innerHTML = `${year}-${month}-${day} ${hour}:${minute}:${second}`;
+        let timestr = `${year}-${String(100+month).substr(-2)}-${String(100+day).substr(-2)} ${String(100+hour).substr(-2)}:${String(100+minute).substr(-2)}:${String(100+second).substr(-2)}`;
+        document.getElementById('datetime').innerHTML = timestr;
 
         render_all(
             frame_buffer, sky.canvas.width, sky.canvas.height,
