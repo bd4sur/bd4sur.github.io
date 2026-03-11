@@ -86,6 +86,7 @@ button {
             <button class="setting_button" id="toggle_opt_bilinear">双线性插值</button>
             <button class="setting_button" id="toggle_atmospheric_scattering">大气散射<br><span class="status_label" id="scattering_status">-</span></button>
             <button class="setting_button" id="toggle_landscape">地景<br><span class="status_label" id="landscape_status">-</span></button>
+            <button class="setting_button" id="toggle_cloud">体积云</button>
         </div>
 
         <canvas class="mainCanvas" id="skyCanvas" width="400" height="300" style="width: 100%; max-width: 400px;"></canvas>
@@ -169,6 +170,9 @@ let enable_opt_bilinear = true;
 
 // 地景选项：0-无地景
 let landscape_index = 1;
+
+// 是否启用体积云
+let enable_volumetric_cloud = true;
 
 
 
@@ -1156,6 +1160,387 @@ function generate_landscape(frame_buffer, fb_width, fb_height, seed = 123, scale
 
 
 
+
+// ============================================
+// 体积云渲染相关函数
+// ============================================
+
+// 体积云渲染参数
+const cloudParams = {
+    densityScale: 0.8,    // 云密度缩放
+    extinction: 0.2,      // 消光系数
+    scattering: 0.7,      // 散射系数
+    steps: 12,            // 光线步进步数
+    windSpeed: 0.008,     // 风速（云团移动速度）
+    ambientLight: 0.25    // 环境光强度（天光照明阴影侧）
+};
+
+// 体积云时间偏移（用于动画）
+let cloudTimeOffset = 0;
+
+// 定义离散的云团（2-3朵）
+// 每个云团有中心位置、半径和形状参数
+const cloudClusters = [
+    {
+        center: { x: 10, y: 10, z: 10 },  // 云团中心位置（地平坐标系）
+        radius: 5.0,                       // 水平半径
+        height: 3.0,                       // 垂直厚度
+        seed: 1234                         // 随机种子
+    },
+    {
+        center: { x: 0, y: 0, z: 20 },
+        radius: 5.0,
+        height: 4.0,
+        seed: 5678
+    },
+    {
+        center: { x: -10, y: -10, z: 10 },
+        radius: 5.0,
+        height: 5.0,
+        seed: 9012
+    }
+];
+
+// 简单的哈希函数用于生成云团内部细节
+const hash31 = (p, seed) => {
+    let x = p.x * 0.32 + seed;
+    let y = p.y * 0.43 + seed;
+    let z = p.z * 0.27 + seed;
+    let h = Math.sin(x * 12.9898 + y * 78.233 + z * 45.164) * 43758.5453;
+    return h - Math.floor(h);
+};
+
+// 三维噪声函数（简化版）
+const simpleNoise3D = (x, y, z, seed) => {
+    const X = Math.floor(x);
+    const Y = Math.floor(y);
+    const Z = Math.floor(z);
+    const fx = x - X;
+    const fy = y - Y;
+    const fz = z - Z;
+    
+    // 双线性插值
+    const h000 = hash31({x: X, y: Y, z: Z}, seed);
+    const h100 = hash31({x: X+1, y: Y, z: Z}, seed);
+    const h010 = hash31({x: X, y: Y+1, z: Z}, seed);
+    const h110 = hash31({x: X+1, y: Y+1, z: Z}, seed);
+    const h001 = hash31({x: X, y: Y, z: Z+1}, seed);
+    const h101 = hash31({x: X+1, y: Y, z: Z+1}, seed);
+    const h011 = hash31({x: X, y: Y+1, z: Z+1}, seed);
+    const h111 = hash31({x: X+1, y: Y+1, z: Z+1}, seed);
+    
+    const h00 = h000 * (1-fx) + h100 * fx;
+    const h01 = h010 * (1-fx) + h110 * fx;
+    const h10 = h001 * (1-fx) + h101 * fx;
+    const h11 = h011 * (1-fx) + h111 * fx;
+    
+    const h0 = h00 * (1-fy) + h01 * fy;
+    const h1 = h10 * (1-fy) + h11 * fy;
+    
+    return h0 * (1-fz) + h1 * fz;
+};
+
+// 云密度函数 - 生成离散的云团
+const getCloudDensity = (pos, time) => {
+    let totalDensity = 0;
+    
+    // 风向偏移（云团随风移动）
+    const windOffsetX = time * cloudParams.windSpeed * 0.5;
+    const windOffsetY = time * cloudParams.windSpeed * 0.3;
+    
+    for (const cloud of cloudClusters) {
+        // 计算云团随风移动后的中心
+        const cx = cloud.center.x + windOffsetX;
+        const cy = cloud.center.y + windOffsetY;
+        const cz = cloud.center.z;
+        
+        // 计算到云团中心的距离
+        const dx = pos[0] - cx;
+        const dy = pos[1] - cy;
+        const dz = pos[2] - cz;
+        
+        // 水平距离和垂直距离
+        const distHorizontal = Math.sqrt(dx*dx + dy*dy);
+        const distVertical = Math.abs(dz);
+        
+        // 如果在云团范围外，跳过
+        if (distHorizontal > cloud.radius || distVertical > cloud.height) continue;
+        
+        // 计算距离因子（从中心到边界逐渐衰减）
+        const hFactor = 1 - distHorizontal / cloud.radius;
+        const vFactor = 1 - distVertical / cloud.height;
+        
+        // 使用平滑曲线让云团边缘更自然
+        const smoothH = hFactor * hFactor * (3 - 2 * hFactor);
+        const smoothV = vFactor * vFactor * (3 - 2 * vFactor);
+        
+        // 基础形状密度
+        let baseDensity = smoothH * smoothV;
+        
+        // 添加内部细节噪声
+        const noiseScale = 0.05;
+        const nx = pos[0] * noiseScale;
+        const ny = pos[1] * noiseScale;
+        const nz = pos[2] * noiseScale;
+        
+        const noise1 = simpleNoise3D(nx, ny, nz, cloud.seed);
+        const noise2 = simpleNoise3D(nx * 2, ny * 2, nz * 2, cloud.seed + 1) * 0.5;
+        const noise3 = simpleNoise3D(nx * 4, ny * 4, nz * 4, cloud.seed + 2) * 0.25;
+        
+        const detailNoise = (noise1 + noise2 + noise3) / 1.75;
+        
+        // 组合基础形状和细节
+        let density = baseDensity * (0.6 + 0.4 * detailNoise);
+        
+        // 应用密度阈值，让云团内部更有层次
+        density = Math.max(0, density - 0.15) / 0.85;
+        
+        // 累加密度（云团可能重叠）
+        totalDensity = Math.max(totalDensity, density * cloudParams.densityScale);
+    }
+    
+    return Math.min(totalDensity, 1.0);
+};
+
+// 计算云的光照（返回直射光透射率，用于阴影计算）
+const computeCloudShadow = (pos, sunDir, time) => {
+    const shadowSteps = 8;
+    const shadowStepSize = 0.8;
+    let shadowTransmittance = 1.0;
+    
+    let shadowPos = [pos[0], pos[1], pos[2]];
+    
+    for (let i = 0; i < shadowSteps; i++) {
+        shadowPos[0] += sunDir[0] * shadowStepSize;
+        shadowPos[1] += sunDir[1] * shadowStepSize;
+        shadowPos[2] += sunDir[2] * shadowStepSize;
+        
+        const density = getCloudDensity(shadowPos, time);
+        if (density > 0.01) {
+            const shadowExtinction = cloudParams.extinction * 2.0;
+            shadowTransmittance *= Math.exp(-density * shadowExtinction * shadowStepSize);
+            if (shadowTransmittance < 0.01) {
+                shadowTransmittance = 0;
+                break;
+            }
+        }
+    }
+    
+    return shadowTransmittance;
+};
+
+// 计算向上方向的Ambient Trace（增加背光部细节）
+// 从位置向上步进，计算天空透射率，这样背光面不会一片黑色
+const computeAmbientTrace = (pos, time) => {
+    const ambientSteps = 6;
+    const ambientStepSize = 1.0;
+    let ambientTransmittance = 1.0;
+    
+    let tracePos = [pos[0], pos[1], pos[2]];
+    const upDir = [0, 0, 1]; // 向上方向（地平坐标系的天顶方向）
+    
+    for (let i = 0; i < ambientSteps; i++) {
+        tracePos[0] += upDir[0] * ambientStepSize;
+        tracePos[1] += upDir[1] * ambientStepSize;
+        tracePos[2] += upDir[2] * ambientStepSize;
+        
+        const density = getCloudDensity(tracePos, time);
+        if (density > 0.01) {
+            const extinction = cloudParams.extinction * 1.5;
+            ambientTransmittance *= Math.exp(-density * extinction * ambientStepSize);
+            if (ambientTransmittance < 0.05) {
+                ambientTransmittance = 0;
+                break;
+            }
+        }
+    }
+    
+    // 返回天空可见度（越接近天空，值越高）
+    return ambientTransmittance;
+};
+
+// 计算太阳光颜色（根据太阳高度）
+// 白天：白色；黄昏：黄色、橙色、红色
+const getSunlightColor = (sun_alt) => {
+    // 归一化太阳高度到 [0, 1]
+    // sun_alt: -90到90度，我们关心0到20度的过渡区
+    const t = Math.max(0, Math.min(1, sun_alt / 20));
+    
+    // 颜色插值
+    // 高太阳（白天）: (255, 255, 250) 略微暖白
+    // 低太阳（黄昏）: (255, 120, 60) 橙红色
+    const r = 255;
+    const g = Math.round(120 + (255 - 120) * t);
+    const b = Math.round(60 + (250 - 60) * t);
+    
+    return [r / 255, g / 255, b / 255];
+};
+
+// 计算天光颜色（环境光）
+const getSkylightColor = (sky_r, sky_g, sky_b) => {
+    // 将天光归一化
+    const maxVal = Math.max(sky_r, sky_g, sky_b, 1);
+    // 天光通常是蓝色调，用于照明云的阴影侧
+    return [sky_r / maxVal, sky_g / maxVal, sky_b / maxVal];
+};
+
+// 计算所有云团的整体包围盒
+function getCloudBoundingBox(time) {
+    const windOffsetX = time * cloudParams.windSpeed * 0.5;
+    const windOffsetY = time * cloudParams.windSpeed * 0.3;
+    
+    let minZ = Infinity, maxZ = -Infinity;
+    
+    for (const cloud of cloudClusters) {
+        const cz = cloud.center.z;
+        minZ = Math.min(minZ, cz - cloud.height);
+        maxZ = Math.max(maxZ, cz + cloud.height);
+    }
+    
+    return { minZ: Math.max(5, minZ), maxZ }; // 最低不低于5
+}
+
+// 体积云渲染函数
+function render_volumetric_clouds(
+    frame_buffer, fb_width, fb_height,
+    sky_radius, center_x, center_y,
+    view_alt, view_azi, f,
+    sun_alt, sun_azi, time,
+    sky_r, sky_g, sky_b
+) {
+    if (!enable_volumetric_cloud) return;
+    
+    // 计算太阳方向向量（在地平坐标系中）
+    const sun_alt_rad = to_rad(sun_alt);
+    const sun_azi_rad = to_rad(sun_azi);
+    const sunDir = [
+        Math.cos(sun_alt_rad) * Math.sin(sun_azi_rad),
+        Math.cos(sun_alt_rad) * Math.cos(sun_azi_rad),
+        Math.sin(sun_alt_rad)
+    ];
+    
+    // 如果太阳在地平线以下，减弱云的亮度
+    const sunElevationFactor = Math.max(0, Math.min(1, (sun_alt + 6) / 12));
+    // if (sunElevationFactor < 0.05) return; // 夜间不显示云
+    
+    // 获取太阳光颜色（直射光）- 随太阳高度变化
+    const sunColor = getSunlightColor(sun_alt);
+    // 获取天光颜色（环境光）- 照明阴影侧
+    const skyColor = getSkylightColor(sky_r, sky_g, sky_b);
+    
+    // 获取云团整体包围盒
+    const bbox = getCloudBoundingBox(cloudTimeOffset);
+    
+    // 遍历所有像素（不做圆形边界假设，适应任意视角）
+    for (let y = 0; y < fb_height; y++) {
+        for (let x = 0; x < fb_width; x++) {
+            // 使用fisheye_unproject获取视线方向（已经在地平坐标系中）
+            let ray_vec = fisheye_unproject(x, y, sky_radius, center_x, center_y, view_alt, view_azi, f);
+            
+            // 检查是否反解成功（如果失败会返回零向量或极小值）
+            const ray_len = Math.sqrt(ray_vec[0] * ray_vec[0] + ray_vec[1] * ray_vec[1] + ray_vec[2] * ray_vec[2]);
+            if (ray_len < 1e-10) continue;
+            
+            // 归一化视线方向
+            const rayDir = [ray_vec[0] / ray_len, ray_vec[1] / ray_len, ray_vec[2] / ray_len];
+            
+            // 只处理朝上的视线（z > 0表示在地平线以上）
+            if (rayDir[2] <= 0.01) continue;
+            
+            // 计算视线与云团整体包围盒的交点
+            const tEnter = bbox.minZ / rayDir[2];
+            const tExit = bbox.maxZ / rayDir[2];
+            
+            // 确保交点在视线正方向上
+            if (tEnter < 0 || tExit < 0 || tExit <= tEnter) continue;
+            
+            // 光线步进参数
+            let transmittance = 1.0;
+            let accumR = 0, accumG = 0, accumB = 0;
+            const stepSize = (tExit - tEnter) / cloudParams.steps;
+            
+            // 随机偏移避免条纹效应
+            const offset = Math.random() * stepSize;
+            let t = tEnter + offset;
+            
+            for (let step = 0; step < cloudParams.steps; step++) {
+                const pos = [
+                    rayDir[0] * t,
+                    rayDir[1] * t,
+                    rayDir[2] * t
+                ];
+                
+                const density = getCloudDensity(pos, time);
+                
+                if (density > 0.01) {
+                    // 计算直射光阴影
+                    const directLightShadow = computeCloudShadow(pos, sunDir, time);
+                    
+                    // 直射光照度（太阳光，随太阳高度变色）
+                    const directLight = directLightShadow * sunElevationFactor;
+                    
+                    // 计算向上Ambient Trace（增加背光部细节）
+                    // 这样即使云密度高，背光面也不会一片黑色
+                    const ambientTrace = computeAmbientTrace(pos, time);
+                    // 环境光 = 基础天光 + 向上Trace增强
+                    // ambientTrace越高（越接近天空），环境光越强
+                    const ambientLight = cloudParams.ambientLight * (0.2 + 0.8 * ambientTrace);
+                    
+                    // 散射计算
+                    const scatter = density * cloudParams.scattering;
+                    
+                    // 直射光贡献（使用太阳光颜色）
+                    const directR = scatter * directLight * sunColor[0];
+                    const directG = scatter * directLight * sunColor[1];
+                    const directB = scatter * directLight * sunColor[2];
+                    
+                    // 环境光贡献（使用天光颜色，球谐光照明背光面）
+                    const ambientR = scatter * ambientLight * skyColor[0];
+                    const ambientG = scatter * ambientLight * skyColor[1];
+                    const ambientB = scatter * ambientLight * skyColor[2];
+                    
+                    // 合并两种光照
+                    const cloudR = directR + ambientR;
+                    const cloudG = directG + ambientG;
+                    const cloudB = directB + ambientB;
+                    
+                    // 累积颜色
+                    accumR += cloudR * transmittance;
+                    accumG += cloudG * transmittance;
+                    accumB += cloudB * transmittance;
+                    
+                    // 更新透射率
+                    const attenuation = Math.exp(-cloudParams.extinction * density * stepSize);
+                    transmittance *= attenuation;
+                    
+                    // 提早终止
+                    if (transmittance < 0.01) break;
+                }
+                
+                t += stepSize;
+            }
+            
+            // 如果有云贡献，混合到帧缓冲区
+            if (accumR > 0 || accumG > 0 || accumB > 0) {
+                const idx = (y * fb_width + x) * 4;
+                
+                // 读取背景颜色
+                const bgR = frame_buffer[idx] / 255;
+                const bgG = frame_buffer[idx + 1] / 255;
+                const bgB = frame_buffer[idx + 2] / 255;
+                
+                // 混合：云颜色 + 背景色 * 透射率
+                const finalR = Math.min(1, accumR + bgR * transmittance);
+                const finalG = Math.min(1, accumG + bgG * transmittance);
+                const finalB = Math.min(1, accumB + bgB * transmittance);
+                
+                frame_buffer[idx] = Math.round(finalR * 255);
+                frame_buffer[idx + 1] = Math.round(finalG * 255);
+                frame_buffer[idx + 2] = Math.round(finalB * 255);
+            }
+        }
+    }
+}
 
 /**
  * 将正方形平面图像映射为圆形鱼眼图像
@@ -2234,6 +2619,25 @@ function render_all(
     let atmo_g = 0;
     let atmo_b = 0;
 
+    // 大气散射未启用时，使用默认天空颜色（根据太阳高度）
+    const sun_alt = sun_horizontal_coord[0];
+    if (sun_alt > 10) {
+        // 白天：蓝天
+        atmo_r = 135;
+        atmo_g = 206;
+        atmo_b = 235;
+    } else if (sun_alt > -6) {
+        // 黄昏：橙黄色调
+        atmo_r = 255;
+        atmo_g = 180;
+        atmo_b = 120;
+    } else {
+        // 夜晚：深蓝/黑色调
+        atmo_r = 20;
+        atmo_g = 30;
+        atmo_b = 60;
+    }
+
     if (enable_atmospheric_scattering > 0) {
 
 
@@ -2419,6 +2823,19 @@ function render_all(
             }
         }
     }
+
+
+    // 更新体积云时间偏移
+    // cloudTimeOffset += 1000 / 60; // 假设60fps
+
+    // 渲染体积云（在大气散射之后，天体之前）
+    render_volumetric_clouds(
+        frame_buffer, fb_width, fb_height,
+        sky_radius, center_x, center_y,
+        view_alt, view_azi, f,
+        sun_horizontal_coord[0], sun_horizontal_coord[1], cloudTimeOffset,
+        atmo_r, atmo_g, atmo_b
+    );
 
 
     // 绘制赤道坐标网格
@@ -2730,6 +3147,16 @@ function refresh_button_status() {
     }
     document.getElementById("landscape_status").innerHTML = status;
 
+    // toggle_cloud
+    btn = document.getElementById("toggle_cloud");
+    if (!enable_volumetric_cloud) {
+        btn.classList.remove("switch_on");
+        btn.classList.add("switch_off");
+    }
+    else {
+        btn.classList.remove("switch_off");
+        btn.classList.add("switch_on");
+    }
 
 
     // toggle_realtime
@@ -2868,6 +3295,11 @@ window.onload = function() {
         landscape_index++;
         if (landscape_index >= LANDSCAPES.length) landscape_index = 0;
         load_landscape_texture(landscape_index);
+        refresh_button_status();
+    });
+
+    document.getElementById("toggle_cloud").addEventListener("click", function(e) {
+        enable_volumetric_cloud = !enable_volumetric_cloud;
         refresh_button_status();
     });
 
