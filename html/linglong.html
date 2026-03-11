@@ -1183,20 +1183,20 @@ let cloudTimeOffset = 0;
 const cloudClusters = [
     {
         center: { x: 10, y: 10, z: 10 },  // 云团中心位置（地平坐标系）
-        radius: 5.0,                       // 水平半径
-        height: 3.0,                       // 垂直厚度
+        radius: 10.0,                       // 水平半径（增大以容纳更多细节）
+        height: 4.0,                       // 垂直厚度
         seed: 1234                         // 随机种子
     },
     {
         center: { x: 0, y: 0, z: 20 },
-        radius: 5.0,
-        height: 4.0,
+        radius: 16.0,
+        height: 5.0,
         seed: 5678
     },
     {
         center: { x: -10, y: -10, z: 10 },
-        radius: 5.0,
-        height: 5.0,
+        radius: 10.0,
+        height: 6.0,
         seed: 9012
     }
 ];
@@ -1274,23 +1274,27 @@ const getCloudDensity = (pos, time) => {
         const smoothH = hFactor * hFactor * (3 - 2 * hFactor);
         const smoothV = vFactor * vFactor * (3 - 2 * vFactor);
         
-        // 基础形状密度
-        let baseDensity = smoothH * smoothV;
+        // 基础形状密度（减少平滑度，保留更多粗糙边缘）
+        let baseDensity = hFactor * vFactor;
         
-        // 添加内部细节噪声
-        const noiseScale = 0.05;
+        // 添加内部细节噪声（增加频率和振幅变化以产生破碎效果）
+        const noiseScale = 0.05;  // 增加噪声频率（从0.05提高到0.25）
         const nx = pos[0] * noiseScale;
         const ny = pos[1] * noiseScale;
         const nz = pos[2] * noiseScale;
         
+        // 增加更多噪声层，高频噪声权重更大以产生破碎细节
         const noise1 = simpleNoise3D(nx, ny, nz, cloud.seed);
-        const noise2 = simpleNoise3D(nx * 2, ny * 2, nz * 2, cloud.seed + 1) * 0.5;
-        const noise3 = simpleNoise3D(nx * 4, ny * 4, nz * 4, cloud.seed + 2) * 0.25;
+        const noise2 = simpleNoise3D(nx * 2.3, ny * 2.3, nz * 2.3, cloud.seed + 1);
+        const noise3 = simpleNoise3D(nx * 5.1, ny * 5.1, nz * 5.1, cloud.seed + 2);
+        const noise4 = simpleNoise3D(nx * 10.7, ny * 10.7, nz * 10.7, cloud.seed + 3);
         
-        const detailNoise = (noise1 + noise2 + noise3) / 1.75;
+        // 分形噪声：高频成分权重更高以产生破碎、粗糙的边缘
+        const detailNoise = noise1 * 0.20 + noise2 * 0.25 + noise3 * 0.30 + noise4 * 0.25;
         
-        // 组合基础形状和细节
-        let density = baseDensity * (0.6 + 0.4 * detailNoise);
+        // 组合基础形状和细节：噪声对最终密度的影响更大
+        // 使用乘法混合让厚薄更不均匀
+        let density = baseDensity * detailNoise * 1.5;
         
         // 应用密度阈值，让云团内部更有层次
         density = Math.max(0, density - 0.15) / 0.85;
