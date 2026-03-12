@@ -1167,12 +1167,12 @@ function generate_landscape(frame_buffer, fb_width, fb_height, seed = 123, scale
 
 // 体积云渲染参数
 const cloudParams = {
-    densityScale: 0.8,    // 云密度缩放
-    extinction: 0.2,      // 消光系数
-    scattering: 0.7,      // 散射系数
-    steps: 12,            // 光线步进步数
+    densityScale: 0.6,    // 云密度缩放
+    extinction: 0.36,      // 消光系数
+    scattering: 0.72,      // 散射系数
+    steps: 16,            // 光线步进步数
     windSpeed: 0.008,     // 风速（云团移动速度）
-    ambientLight: 0.25    // 环境光强度（天光照明阴影侧）
+    ambientLight: 0.3    // 环境光强度（天光照明阴影侧）
 };
 
 // 体积云时间偏移（用于动画）
@@ -1182,20 +1182,20 @@ let cloudTimeOffset = 0;
 // 每个云团有中心位置、半径和形状参数
 const cloudClusters = [
     {
-        center: { x: 10, y: 10, z: 10 },  // 云团中心位置（地平坐标系）
+        center: { x: 20, y: 20, z: 10 },  // 云团中心位置（地平坐标系）
         radius: 10.0,                       // 水平半径（增大以容纳更多细节）
         height: 4.0,                       // 垂直厚度
         seed: 1234                         // 随机种子
     },
     {
-        center: { x: 0, y: 0, z: 20 },
+        center: { x: 20, y: -20, z: 10 },
         radius: 16.0,
         height: 5.0,
         seed: 5678
     },
     {
-        center: { x: -10, y: -10, z: 10 },
-        radius: 10.0,
+        center: { x: -20, y: -20, z: 10 },
+        radius: 16.0,
         height: 6.0,
         seed: 9012
     }
@@ -2442,7 +2442,7 @@ function scatter_model_2(ray_vec, sun_vec) {
     const H_M = 1.2;
     const R = (sunElevationDeg >= 0) ? ((3000-300) * Math.exp(-sunElevationDeg * 0.1) + 300) : ((3000-60) * Math.exp(sunElevationDeg * 0.2) + 60);
 
-    const S = 4;
+    const S = 6;
 
     // 已知三角形ABC，AB固定为(R-H)，AC固定为R，角B=α+90°，求BC关于α的表达式。
 
@@ -2518,7 +2518,7 @@ function scatter_model_2(ray_vec, sun_vec) {
     blue  = (sum_R_b * betaRayleigh[2] * rayleighPhase + sum_M_b * beta_Mie * miePhase) * oz_b;
 
     // 全局增益
-    const global_gain = 2.4;
+    const global_gain = 1.6;
 
     return [
         Math.min(1, red   * global_gain), // R
