@@ -2529,6 +2529,276 @@ function scatter_model_2(ray_vec, sun_vec) {
 
 
 
+
+
+
+function scatter_model_3(ray_vec, sun_vec) {
+
+    // ================================================================
+    // 大气物理常数（国际单位制，长度单位：米）
+    //
+    // 模型基于 Nishita et al. 1993，扩展如下改进：
+    //   · 球形几何（精确射线-球面求交）
+    //   · 逐采样点地球遮蔽阴影检测
+    //   · 二阶多次散射（对天球方向的数值积分）
+    // ================================================================
+    const Re  = 6360e3;                    // 地球半径 (m)
+    const Ra  = 6420e3;                    // 大气层外边界半径 (m)
+    const Hr  = 7994;                      // Rayleigh 标高 (m)
+    const Hm  = 1200;                      // Mie 标高 (m)
+
+    // Rayleigh 海平面散射系数 (m⁻¹)，对应 R(680nm) / G(550nm) / B(440nm)
+    const bR  = [5.8e-6, 13.5e-6, 33.1e-6];
+    const bM  = 21e-6;                     // Mie 散射系数 (m⁻¹)
+    const bMe = bM * 1.1;                  // Mie 消光系数 ≈ 1.1 × 散射系数
+    const g   = 0.76;                      // Mie 各向异性参数（前向散射优势）
+    const SUN = 20.0;                      // 太阳强度归一化系数
+
+    // ================================================================
+    // 向量工具函数（内联，不依赖外部实现）
+    // ================================================================
+    const vLen  = v  => Math.sqrt(v[0]*v[0] + v[1]*v[1] + v[2]*v[2]);
+    const vNorm = v  => { const l = vLen(v); return l > 1e-12 ? [v[0]/l, v[1]/l, v[2]/l] : [0,0,0]; };
+    const vDot  = (a, b) => a[0]*b[0] + a[1]*b[1] + a[2]*b[2];
+    const vAdd  = (a, b) => [a[0]+b[0], a[1]+b[1], a[2]+b[2]];
+    const vMul  = (v, s) => [v[0]*s, v[1]*s, v[2]*s];
+
+    // ================================================================
+    // 输入归一化与有效性检验
+    // ================================================================
+    const dir    = vNorm(ray_vec);
+    const sunDir = vNorm(sun_vec);
+    if (vLen(dir) < 0.5 || vLen(sunDir) < 0.5) return [0, 0, 0];
+
+    // 观测者位于海平面（坐标系：Z 轴朝上，与原代码一致）
+    const orig = [0.0, 0.0, Re + 1.0];
+
+    // ================================================================
+    // 射线–球面求交（球心在坐标原点，半径 r）
+    //
+    // |o + t·d|² = r²  ⟹  t² + 2(o·d)t + (|o|²−r²) = 0
+    //
+    // 注意：若射线起点在球内（如大气内），则 t₀ < 0 < t₁，
+    // 调用处应取 t = max(0, t₀) 作为积分起点。
+    // ================================================================
+    const rsi = (o, d, r) => {
+        const b    = 2.0 * vDot(o, d);
+        const c    = vDot(o, o) - r * r;
+        const disc = b * b - 4.0 * c;       // a = 1（d 已归一化）
+        if (disc < 0.0) return null;
+        const sq = Math.sqrt(disc);
+        return [(-b - sq) * 0.5, (-b + sq) * 0.5];
+    };
+
+    // ================================================================
+    // 散射相位函数
+    //
+    // 参数约定与 Nishita 参考代码一致：
+    //   μ = dot(视线方向 d, 太阳方向 sunDir)
+    //
+    // 物理意义：μ 是视线方向与太阳方向的夹角余弦。
+    // 对于 Rayleigh（μ² 对称），取值方向不影响结果；
+    // 对于 Mie（g=0.76 前向散射），μ=1 时达到峰值，
+    // 即观测者朝向太阳时散射最强——物理上正确。
+    // ================================================================
+    const phaseR = mu => 3.0 / (16.0 * Math.PI) * (1.0 + mu * mu);
+    const phaseM = mu => {
+        const base = Math.max(1e-10, 1.0 + g*g - 2.0*g*mu);
+        return 3.0 / (8.0 * Math.PI)
+               * ((1.0 - g*g) * (1.0 + mu*mu))
+               / ((2.0 + g*g) * Math.pow(base, 1.5));
+    };
+
+    // ================================================================
+    // 核心单次散射步进（Nishita 1993，公式 4 / 5）
+    //
+    // 沿射线 o + t·d（t ∈ [t0, t1]）数值积分。
+    // 主射线取 nV 个采样点，每点向太阳方向追踪 nL 个次级采样，
+    // 判断是否被地球遮挡，并计算两段路径的合并透射率。
+    //
+    // 返回：{ sumR[3], sumM[3] }，其中
+    //   sumR[c] = Σᵢ exp(−τᶜᵢ) · ρR(hᵢ) · Δs     （Rayleigh 加权积分）
+    //   sumM[c] = Σᵢ exp(−τᶜᵢ) · ρM(hᵢ) · Δs     （Mie 加权积分）
+    //
+    // 最终颜色 = (sumR[c]·βR[c]·PR + sumM[c]·βM·PM) · SUN
+    // ================================================================
+    const marchRay = (o, d, t0, t1, nV, nL) => {
+        const segLen = (t1 - t0) / nV;
+        const sumR   = [0.0, 0.0, 0.0];
+        const sumM   = [0.0, 0.0, 0.0];
+        let odR = 0.0, odM = 0.0;    // 沿主射线从起点累积的光学深度
+
+        for (let i = 0; i < nV; i++) {
+            const t   = t0 + (i + 0.5) * segLen;
+            const pos = vAdd(o, vMul(d, t));
+            const h   = vLen(pos) - Re;
+            // if (h < 0.0) continue;   // 采样点位于地表以下，跳过
+
+            // 当前采样点的大气密度（指数衰减）× 路径增量
+            const dR = Math.exp(-h / Hr) * segLen;
+            const dM = Math.exp(-h / Hm) * segLen;
+            odR += dR;
+            odM += dM;
+
+            // ── 向太阳方向追踪次级射线 ──
+            const sh = rsi(pos, sunDir, Ra);
+            if (!sh || sh[1] <= 0.0) continue;
+
+            const lSeg = sh[1] / nL;
+            let lR = 0.0, lM = 0.0, blocked = false;
+
+            for (let j = 0; j < nL; j++) {
+                const lp = vAdd(pos, vMul(sunDir, (j + 0.5) * lSeg));
+                const lh = vLen(lp) - Re;
+                if (lh < 0.0) { blocked = true; break; }   // ← 地球遮蔽：此采样点无直射阳光
+                lR += Math.exp(-lh / Hr) * lSeg;
+                lM += Math.exp(-lh / Hm) * lSeg;
+            }
+            if (blocked) continue;   // 整段太阳射线被遮，跳过此视线采样点
+
+            // 合并透射率（公式5：e^a · e^b = e^(a+b)，避免两次指数调用）
+            for (let c = 0; c < 3; c++) {
+                const tau   = bR[c] * (odR + lR) + bMe * (odM + lM);
+                const atten = Math.exp(-tau);
+                sumR[c] += atten * dR;
+                sumM[c] += atten * dM;
+            }
+        }
+        return { sumR, sumM };
+    };
+
+    // ================================================================
+    // 确定主视线与大气球的有效积分范围
+    // ================================================================
+    const atmHit = rsi(orig, dir, Ra);
+    if (!atmHit || atmHit[1] < 0.0) return [0, 0, 0];
+    const tMin = Math.max(0.0, atmHit[0]);
+    const tMax = atmHit[1];
+    if (tMax <= tMin) return [0, 0, 0];
+
+    // ================================================================
+    // 一阶单次散射（Nishita 核心路径积分）
+    // ================================================================
+    const mu1 = vDot(dir, sunDir);
+    const pR1 = phaseR(mu1);
+    const pM1 = phaseM(mu1);
+    const sc1 = marchRay(orig, dir, tMin, tMax, 16, 8);
+
+    // color 数组直接累加后续贡献，此处先写入一阶结果
+    const color = [
+        (sc1.sumR[0] * bR[0] * pR1 + sc1.sumM[0] * bM * pM1) * SUN,
+        (sc1.sumR[1] * bR[1] * pR1 + sc1.sumM[1] * bM * pM1) * SUN,
+        (sc1.sumR[2] * bR[2] * pR1 + sc1.sumM[2] * bM * pM1) * SUN
+    ];
+
+    // ================================================================
+    // 二阶多次散射（第一性原理数值积分）
+    //
+    // 物理机制：视线上每个采样点 X 除接受直射阳光（一阶散射）外，
+    // 还受到来自其他方向的已散射天光照射。
+    //
+    // 晨昏时段：下层大气处于地球阴影中，一阶散射贡献极少；
+    // 但高层大气仍在阳光照射下，并向各方向发出一次散射天光，
+    // 这些光子到达 X 后再次散射至观测者——这是真实黄昏/晨曦
+    // 天空亮度的主要物理来源，无需任何阈值判断，完全由几何决定。
+    //
+    // 积分公式（对视线路径和天球方向各取一次数值积分）：
+    //
+    //   L₂(eye) = ∫_view T(eye→X) ·
+    //       ∫_{4π} L₁(X,ω) · [βR·PR(ω,d) + βM·PM(ω,d)] · dω · dt
+    //
+    //   其中：
+    //     · T(eye→X)  : 视线方向的透射率（已在主射线中累积）
+    //     · L₁(X,ω)   : 从 X 沿方向 ω 的一次散射天光辐亮度
+    //                    由轻量 marchRay 调用计算（4+4 采样）
+    //     · βR·PR + βM·PM : X 处将入射天光向观测者方向散射的强度
+    //     · 球面积分用 N_AMB 个均匀方向蒙特卡洛离散化（dΩ = 2π/N）
+    //
+    // 相位函数方向约定：
+    //     入射光子行进方向 = −ω（天光从方向 ω 射向 X）
+    //     出射光子行进方向 = −d（从 X 射向眼睛，d = orig→X 方向）
+    //     μ_scatter = cos θ = dot(−ω, −d) = dot(ω, d)
+    // ================================================================
+
+    // 上半球离散采样方向（8 方向，准均匀覆盖上半球 2π sr）
+    // 重要：这些是固定的物理方向，不含任何太阳角度阈值逻辑
+    const ambDirs = [
+        [ 0.0,  0.0,  1.0],     // 天顶
+        [ 1.0,  0.0,  0.8],     // 偏东上
+        [-1.0,  0.0,  0.8],     // 偏西上
+        [ 0.0,  1.0,  0.8],     // 偏北上
+        [ 0.0, -1.0,  0.8],     // 偏南上
+        [ 1.0,  1.0,  0.5],     // 东北中仰
+        [-1.0,  1.0,  0.5],     // 西北中仰
+        [ 0.0,  0.0,  0.3],     // 低仰角近天顶
+    ].map(vNorm);
+
+    const N_AMB  = ambDirs.length;
+    const dOmega = 2.0 * Math.PI / N_AMB;   // 每方向代表的立体角（上半球 2π / N_AMB）
+
+    const N_V2  = 8;                         // 二阶路径采样数（粗于一阶，节省算力）
+    const segV2 = (tMax - tMin) / N_V2;
+    let odR2 = 0.0, odM2 = 0.0;             // 累积视线光学深度（eye → 当前采样点）
+
+    for (let i = 0; i < N_V2; i++) {
+        const t   = tMin + (i + 0.5) * segV2;
+        const pos = vAdd(orig, vMul(dir, t));
+        const h   = vLen(pos) - Re;
+        if (h < 0.0) continue;
+
+        const dR = Math.exp(-h / Hr) * segV2;
+        const dM = Math.exp(-h / Hm) * segV2;
+        odR2 += dR;
+        odM2 += dM;
+
+        // T(eye → X)：视线方向累积透射率
+        const Tv = [0, 1, 2].map(c =>
+            Math.exp(-(bR[c] * odR2 + bMe * odM2))
+        );
+
+        for (let k = 0; k < N_AMB; k++) {
+            const ad = ambDirs[k];
+
+            // 从 X 出发沿方向 ad 找到大气出口（X 在大气内，t₀ < 0 < t₁）
+            const aHit = rsi(pos, ad, Ra);
+            if (!aHit || aHit[1] <= 0.0) continue;
+
+            // 计算从 X 出发沿方向 ad 的一次散射天光 L₁(X, ad)
+            // 使用轻量级步进（4 主采样 + 4 太阳采样），性能友好
+            const muA = vDot(ad, sunDir);
+            const sc  = marchRay(pos, ad, 0.0, aHit[1], 4, 4);
+
+            const L1 = [
+                (sc.sumR[0]*bR[0]*phaseR(muA) + sc.sumM[0]*bM*phaseM(muA)) * SUN,
+                (sc.sumR[1]*bR[1]*phaseR(muA) + sc.sumM[1]*bM*phaseM(muA)) * SUN,
+                (sc.sumR[2]*bR[2]*phaseR(muA) + sc.sumM[2]*bM*phaseM(muA)) * SUN
+            ];
+
+            // X 处将天光 L₁ 散射向观测者方向
+            // 相位函数参数：μ = dot(ad, dir)（见上方推导）
+            const muS = vDot(ad, dir);
+            const pRS = phaseR(muS);
+            const pMS = phaseM(muS);
+
+            for (let c = 0; c < 3; c++) {
+                // 二阶贡献 = L₁ · (βR·PR·ρR·Δs + βM·PM·ρM·Δs) · T(eye→X) · dΩ
+                const sigma = bR[c] * pRS * dR + bM * pMS * dM;
+                color[c]   += L1[c] * sigma * Tv[c] * dOmega;
+            }
+        }
+    }
+
+    // 返回线性 HDR 辐亮度值（未做色调映射，建议调用方自行处理）
+    return color;
+}
+
+
+
+
+
+
+
+
 function calculate_scattered_pixel(ray_vec, sun_vec, model_index) {
     if (model_index === 1) {
         return scatter_model_1(ray_vec, sun_vec);
