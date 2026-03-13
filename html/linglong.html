@@ -2506,8 +2506,8 @@ function scatter_model_2(ray_vec, sun_vec) {
     const oz_factor = 0.16;
     const ozone_absorption = [
         0.005,  // Red   (650nm) — 弱吸收
-        0.040,  // Green (550nm) — 中等吸收
-        0.025   // Blue  (450nm) — 比绿光略弱（实际臭氧在~600nm最强，但简化模型）
+        0.030,  // Green (550nm) — 中等吸收
+        0.010   // Blue  (450nm) — 比绿光略弱（实际臭氧在~600nm最强，但简化模型）
     ];
     const oz_r = Math.exp(-ozone_absorption[0] * Lsun * oz_factor);
     const oz_g = Math.exp(-ozone_absorption[1] * Lsun * oz_factor);
@@ -2518,7 +2518,7 @@ function scatter_model_2(ray_vec, sun_vec) {
     blue  = (sum_R_b * betaRayleigh[2] * rayleighPhase + sum_M_b * beta_Mie * miePhase) * oz_b;
 
     // 全局增益
-    const global_gain = 1.6;
+    const global_gain = (4.0-1.8) * Math.exp(-(sunElevationDeg / 3) * (sunElevationDeg / 3)) + 1.8;
 
     return [
         Math.min(1, red   * global_gain), // R
