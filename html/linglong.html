@@ -21,6 +21,7 @@ button {
 .mainCanvas {
     image-rendering: pixelated;
     margin: 10px 0;
+    border-radius: 5px;
 }
 .status_label {
     font-size: smaller;
@@ -81,12 +82,12 @@ button {
             <button class="setting_button" id="toggle_star_burst">星芒</button>
             <button class="setting_button" id="toggle_ecliptic_circle">黄道</button>
             <button class="setting_button" id="toggle_planet">行星</button>
-            <button class="setting_button" id="toggle_star_name">恒星名称</button>
-            <button class="setting_button" id="toggle_planet_name">行星名称</button>
+            <button class="setting_button" id="toggle_star_name">天体名称</button>
+            <button class="setting_button" id="toggle_planet_name" style="display: none;">行星名称</button>
             <button class="setting_button" id="toggle_opt_bilinear">双线性插值</button>
+            <button class="setting_button" id="toggle_cloud">体积云</button>
             <button class="setting_button" id="toggle_atmospheric_scattering">大气散射<br><span class="status_label" id="scattering_status">-</span></button>
             <button class="setting_button" id="toggle_landscape">地景<br><span class="status_label" id="landscape_status">-</span></button>
-            <button class="setting_button" id="toggle_cloud">体积云</button>
         </div>
 
         <canvas class="mainCanvas" id="skyCanvas" width="400" height="300" style="width: 100%; max-width: 400px;"></canvas>
@@ -118,6 +119,8 @@ button {
                 <td><button class="joystick_button" id="cam_zoom_out">拉远</button></td>
             </tr>
         </table>
+
+        <div style="font-size: 12px; font-family: monospace;" id="view_dir">Pitch:<span id="view_pitch">-</span>° Yaw:<span id="view_yaw">-</span>° Roll:<span id="view_roll">-</span>° Range:<span id="view_range">-</span></div>
 
         <div style="font-size: 12px; font-family: monospace;" id="fps">FPS: --</div>
 
@@ -2578,8 +2581,14 @@ function scatter_model_3(ray_vec, sun_vec) {
     // 观测者位于海平面（坐标系：Z 轴朝上，与原代码一致）
     const orig = [0.0, 0.0, Re + 1.0];
 
+    // 太阳仰角
     const sunElevation = Math.asin(Math.max(-1, Math.min(1, sunDir[2]))); // [-π/2, π/2]
     const sunElevationDeg = sunElevation * 180 / Math.PI;
+
+    // 观察者视线的仰角、天顶角
+    const viewZenith = Math.acos(Math.max(0, Math.min(1, dir[2])));
+    const viewZenithDeg = viewZenith * 180 / Math.PI;
+    const viewElevationDeg = 90 - viewZenithDeg;
 
     // ================================================================
     // 射线–球面求交（球心在坐标原点，半径 r）
@@ -2763,7 +2772,7 @@ function scatter_model_3(ray_vec, sun_vec) {
     const segV2 = (tMax - tMin) / N_V2;
     let odR2 = 0.0, odM2 = 0.0;             // 累积视线光学深度（eye → 当前采样点）
 
-    const global_gain = (16-4) * Math.exp(- (sunElevationDeg / 10) * (sunElevationDeg / 10)) + 4;
+    const global_gain = (16-2) * Math.exp(- (sunElevationDeg / 10) * (sunElevationDeg / 10)) + 2;
 
     for (let i = 0; i < N_V2; i++) {
         const t   = tMin + (i + 0.5) * segV2;
@@ -2813,8 +2822,116 @@ function scatter_model_3(ray_vec, sun_vec) {
         }
     }
 
-    // // 臭氧吸收
-    const ozone_absorption = [0.005, 0.040, 0.025];
+
+
+    // ================================================================
+    // 夜天光（Airglow / Nightglow）
+    //
+    // 物理机制：
+    //   中间层顶（mesopause）附近 85–105 km 的光化学发光，
+    //   主要辐射组分：
+    //     · O(¹S) 绿线 557.7 nm  ── 原子氧三体复合，峰值 ~90–100 km
+    //     · OH Meinel 振动带      ── 羟基弛豫，~87 km（贡献红通道）
+    //     · O₂ Herzberg / 大气带 ── 分子氧发光，~85–100 km（红通道）
+    //     · Na D 线 589 nm       ── 钠原子共振辐射（绿/红通道）
+    //
+    //   发光层密度剖面建模为高斯函数，中心 h_ag = 90 km，
+    //   标准差 sig_ag = 12 km（半峰全宽约 28 km）。
+    //
+    // van Rhijn 效应（自动体现）：
+    //   斜视线穿越球壳路径长度约为天顶的 1/sin(仰角) 倍，
+    //   地平线方向亮度约为天顶的 4–5×（van Rhijn 增亮部分被
+    //   大气消光抵消后的净效果）。
+    //   本实现通过高斯剖面的路径积分自然体现，无需显式修正系数。
+    //
+    //   采样密度设计：积分范围始终覆盖 ±3.5σ 的高度跨度，
+    //   路径步长随仰角等比缩放，换算为高度步长 = 7σ/N_AG ≈ 3.5 km
+    //   ≈ σ/3.4，与仰角无关，保证各角度精度一致。
+    //
+    // 大气消光（Rozenberg 球形 Chapman 函数近似）：
+    //
+    //   τ(θ₀) ≈ β · H / √(sin²θ₀ + 2H/Rₑ)
+    //
+    //   · θ₀ 为仰角，sin θ₀ = dir[2]（z 轴朝上约定）
+    //   · 仰角 90°（天顶）退化为平大气结果 τ₀ = β·H  ✓
+    //   · 仰角 0°（地平线）给出有限值 τ = β·√(H·Rₑ/2)，
+    //     消除平大气 1/cosθ 奇点  ✓
+    //   · 相对严格 Chapman 函数误差 < 5%（仰角 > 1°）
+    //
+    // 白天压制：
+    //   日散射天空约 10⁹–10¹⁰ Rayleigh；夜天光合计约 500–1000 R。
+    //   前者约强 10⁷ 倍，自然压制，无需任何人工阈值。
+    //
+    // 强度定标说明：
+    //   物理量级为 AIRGLOW_SCALE ≈ 2e-12（相对本模型 SUN=20 定标）。
+    //   此处上调至 1.8e-7（约 10⁵× 物理值）以在常规色调映射下可见。
+    //   如使用 HDR 渲染并手动控制夜景曝光，建议降低至 1e-9 ~ 1e-10。
+    // ================================================================
+/*
+    // --- 发光层参数 ---
+    const h_ag    = 90e3;                          // 发光中心高度 (m)
+    const sig_ag  = 12e3;                          // 发光层厚度标准差 (m)
+    const agInnerR = Re + h_ag - 3.5 * sig_ag;    // 积分内边界球半径（h ≈ 48 km）
+    const agOuterR = Re + h_ag + 3.5 * sig_ag;    // 积分外边界球半径（h ≈ 132 km）
+
+    // --- 光谱权重（对应 R=680nm / G=550nm / B=440nm 通道） ---
+    //   G（550nm）：O(¹S) 557.7nm 主导（最亮单一组分）
+    //   R（680nm）：OH Meinel 带 + O₂ 带（宽带，贡献显著）
+    //   B（440nm）：极弱（Ca⁺ 等离子线为主）
+    const ag_spec = [0.30, 1.00, 0.10];
+
+    // --- 强度标度 ---
+    // 调整此值可控制夜天光可见度：
+    //   · 物理精确（HDR + 夜景曝光）: ~2e-12
+    //   · 渲染演示（常规 tonemapping）: ~1.8e-7（当前值）
+    const AIRGLOW_SCALE = 1.8e-7;
+
+    // --- Rozenberg 球形 Chapman 函数 ---
+    // 夜天光光子从 ~90 km 穿越整层大气到达观测者，主要消光在低层大气
+    const sinElev_ag  = Math.max(dir[2], 1e-4);   // 仰角正弦（dir[2] = sin(仰角)）
+    const chapR_denom = Math.sqrt(sinElev_ag * sinElev_ag + 2.0 * Hr / Re);
+    const chapM_denom = Math.sqrt(sinElev_ag * sinElev_ag + 2.0 * Hm / Re);
+
+    // 各通道大气透射率（观测者 ↔ 夜天光层，Rayleigh + Mie 消光）
+    const agTrans = [0, 1, 2].map(c => {
+        const tau = bR[c] * Hr / chapR_denom + bMe * Hm / chapM_denom;
+        return Math.exp(-tau);
+    });
+
+    // --- 沿视线数值积分夜天光发光层 ---
+    // 观测者在 agInnerR（h ≈ 48 km）球内，
+    // agHitInner[1] 为视线穿出 48 km 球壳的时刻（发光层入口）
+    const agHitInner = rsi(orig, dir, agInnerR);
+    const agHitOuter = rsi(orig, dir, agOuterR);
+
+    if (agHitOuter && agHitOuter[1] > 0) {
+        const ag_t0 = (agHitInner && agHitInner[1] > 0) ? agHitInner[1] : 0.0;
+        const ag_t1 = agHitOuter[1];
+
+        const N_AG  = 24;
+        const agSeg = (ag_t1 - ag_t0) / N_AG;
+
+        for (let i = 0; i < N_AG; i++) {
+            const t   = ag_t0 + (i + 0.5) * agSeg;
+            const pos = vAdd(orig, vMul(dir, t));
+            const h   = vLen(pos) - Re;
+            if (h < 0) continue;
+
+            // 高斯发光密度 × 路径增量
+            // van Rhijn 效应体现于此：低仰角 agSeg 更大，积分自然增大
+            const dh     = h - h_ag;
+            const emitDt = Math.exp(-0.5 * (dh / sig_ag) * (dh / sig_ag)) * agSeg;
+
+            // 累加各通道：发光量 × 大气透射率 × 光谱权重 × 强度
+            for (let c = 0; c < 3; c++) {
+                color[c] += ag_spec[c] * emitDt * agTrans[c] * AIRGLOW_SCALE;
+            }
+        }
+    }
+*/
+
+    // 臭氧吸收
+    const ozone_absorption = [0.005, 0.030, 0.010];
     const oz_scale = 80;
     color[0] *= Math.exp(-ozone_absorption[0] * ((tMax - tMin) / Ra) * oz_scale);
     color[1] *= Math.exp(-ozone_absorption[1] * ((tMax - tMin) / Ra) * oz_scale);
@@ -2827,16 +2944,21 @@ function scatter_model_3(ray_vec, sun_vec) {
     // color[1] *= Math.exp(-ozTau[1] * airmass);
     // color[2] *= Math.exp(-ozTau[2] * airmass);
 
+    // HDR
+    const hdr_mapping = (x)=> {
+        const e = 0.2;
+        return (Math.sqrt(1+e)/2) * (Math.sqrt((1+x)*(1+x)+e) - Math.sqrt((1-x)*(1-x)+e));
+    };
 
+    color[0] = hdr_mapping(color[0]);
+    color[1] = hdr_mapping(color[1]);
+    color[2] = hdr_mapping(color[2]);
 
-    // const hdr_mapping = (x)=> {
-    //     const e = 0.1;
-    //     return (Math.sqrt(1+e)/2) * (Math.sqrt((1+x)*(1+x)+e) - Math.sqrt((1-x)*(1-x)+e));
-    // };
-
-    // color[0] = hdr_mapping(color[0]);
-    // color[1] = hdr_mapping(color[1]);
-    // color[2] = hdr_mapping(color[2]);
+    // 拍脑袋：夜天光
+    const night_light_scale = 1 - viewElevationDeg / 90;
+    color[0] += 0.05 * night_light_scale;
+    color[1] += 0.08 * night_light_scale;
+    color[2] += 0.10 * night_light_scale;
 
     // 返回线性 HDR 辐亮度值（未做色调映射，建议调用方自行处理）
     return color;
@@ -3145,7 +3267,8 @@ function render_all(
             draw_star(frame_buffer, FB_WIDTH, FB_HEIGHT, planet_proj_x, planet_proj_y,
                 0, PLANET_RADIUS[i], PLANET_COLOR_R[i], PLANET_COLOR_G[i], PLANET_COLOR_B[i]);
 
-            if (enable_planet_name) {
+            // if (enable_planet_name) {
+            if (enable_star_name) {
                 fb_draw_textline(frame_buffer, fb_width, fb_height, PLANET_NAME[i], planet_proj_x+3, planet_proj_y+3, PLANET_COLOR_R[i], PLANET_COLOR_G[i], PLANET_COLOR_B[i], 1);
             }
         }
@@ -3220,6 +3343,7 @@ function render_all(
         fb_draw_textline_centered(frame_buffer, fb_width, fb_height, "300", lable_pos[0], lable_pos[1], 255, 0, 0, 1);
         lable_pos = fisheye_project(330, 6, sky_radius, center_x, center_y, view_alt, view_azi, f);
         fb_draw_textline_centered(frame_buffer, fb_width, fb_height, "330", lable_pos[0], lable_pos[1], 255, 0, 0, 1);
+
     }
 
     // 绘制地景（天空投影圆盘之外的部分）
@@ -3259,6 +3383,7 @@ function render_all(
 
 let view_alt = 90; // 90度为地平天顶
 let view_azi = 180; // 0度为正南
+let view_tilt = 0;
 let view_range = 1.0;
 
 let longitude = 119.0;
@@ -3515,6 +3640,13 @@ function refresh_button_status() {
     document.getElementById("longitude").innerHTML = String(longitude);
     document.getElementById("latitude").innerHTML = String(latitude);
 
+
+
+    document.getElementById("view_pitch").innerHTML = String(Math.round((view_alt <= 90 && view_alt >= -90) ? view_alt : (180-view_alt)));
+    document.getElementById("view_yaw").innerHTML = String(Math.round(view_azi));
+    document.getElementById("view_roll").innerHTML = String(Math.round(view_tilt));
+    document.getElementById("view_range").innerHTML = String(view_range.toFixed(1));
+
 }
 
 
@@ -3711,6 +3843,11 @@ window.onload = function() {
         let hc = xyz_to_horizontal(xyz[0], xyz[1], xyz[2]);
         last_point_alt = hc[0];
         last_point_azi = hc[1];
+
+        document.getElementById("view_pitch").innerHTML = String(Math.round((view_alt <= 90 && view_alt >= -90) ? view_alt : (180-view_alt)));
+        document.getElementById("view_yaw").innerHTML = String(Math.round(view_azi));
+        document.getElementById("view_roll").innerHTML = String(Math.round(view_tilt));
+        document.getElementById("view_range").innerHTML = String(view_range.toFixed(1));
     }
 
     // 停止绘制
