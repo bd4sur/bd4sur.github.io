@@ -3837,32 +3837,45 @@ window.onload = function() {
         refresh_button_status();
     });
 
-    document.getElementById('skyCanvas').addEventListener('click', () => {
-        if (typeof DeviceOrientationEvent !== 'undefined' && typeof DeviceOrientationEvent.requestPermission === 'function') {
-            DeviceOrientationEvent.requestPermission()
-            .then(state => {
-                if (state === 'granted') {
-                window.addEventListener('deviceorientation', handleOrientation);
-                } else {
-                alert('权限被拒绝');
-                }
-            })
-            .catch(console.error);
-        } else {
-            window.addEventListener('deviceorientation', handleOrientation);
-        }
-    });
 
-    window.addEventListener('deviceorientation', (event) => {
-        if (enable_gyro === true) {
-            const { alpha, beta, gamma } = event;
-            view_alt = beta - 90;
-            view_azi = 360 - alpha;
-            view_roll = gamma;
-        }
-    });
+    // window.addEventListener('deviceorientation', (event) => {
+    //     if (enable_gyro === true) {
+    //         const { alpha, beta, gamma } = event;
+    //         view_alt = beta - 90;
+    //         view_azi = 360 - alpha;
+    //         view_roll = gamma;
+    //     }
+    // });
 
+    // 功能检测
+    if ('OrientationSensor' in window) {
+        const sensor = new AbsoluteOrientationSensor({
+            frequency: 60,
+            referenceFrame: 'device'
+        });
 
+        sensor.addEventListener('reading', () => {
+            // 直接获取四元数 [x, y, z, w]
+            const quaternion = sensor.quaternion;
+            console.log('四元数:', quaternion);
+
+            // 可选：转换为欧拉角
+            const euler = quaternionToEuler(quaternion);
+            document.getElementById("view_dir").innerHTML = String(eular);
+            console.log('欧拉角:', euler);
+        });
+
+        sensor.addEventListener("error", (error) => {
+            if (event.error.name === "NotReadableError") {
+                console.log("Sensor is not available.");
+                document.getElementById("view_dir").innerHTML = "NotReadableError: Sensor is not available.";
+            }
+        });
+
+        sensor.start();
+    } else {
+        console.warn('OrientationSensor 不支持，使用降级方案');
+    }
 
 
 
