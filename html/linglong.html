@@ -3406,11 +3406,13 @@ function render_all(
 
 
 
-
+let init_alpha = null;
+let init_beta = null;
+let init_gamma = null;
 
 let view_alt = 90; // 90度为地平天顶
 let view_azi = 180; // 0度为正南
-let view_roll = 10;
+let view_roll = 0;
 let view_range = 1.0;
 
 let longitude = 119.0;
@@ -3838,56 +3840,108 @@ window.onload = function() {
     });
 
 
-    // window.addEventListener('deviceorientation', (event) => {
-    //     if (enable_gyro === true) {
-    //         const { alpha, beta, gamma } = event;
-    //         view_alt = beta - 90;
-    //         view_azi = 360 - alpha;
-    //         view_roll = gamma;
-    //     }
-    // });
+
+
+    // 改进环架锁问题
+    // https://stackoverflow.com/a/75897568 Posted by Oddwarg
+
+    function getRotationMatrix( alpha, beta, gamma ) {
+        const degtorad = Math.PI / 180; // Degree-to-Radian conversion
+        var cX = Math.cos( beta  * degtorad );
+        var cY = Math.cos( gamma * degtorad );
+        var cZ = Math.cos( alpha * degtorad );
+        var sX = Math.sin( beta  * degtorad );
+        var sY = Math.sin( gamma * degtorad );
+        var sZ = Math.sin( alpha * degtorad );
+
+        var m11 = cZ * cY - sZ * sX * sY;
+        var m12 = - cX * sZ;
+        var m13 = cY * sZ * sX + cZ * sY;
+
+        var m21 = cY * sZ + cZ * sX * sY;
+        var m22 = cZ * cX;
+        var m23 = sZ * sY - cZ * cY * sX;
+
+        var m31 = - cX * sY;
+        var m32 = sX;
+        var m33 = cX * cY;
+
+        return [
+            m13, m11, m12,
+            m23, m21, m22,
+            m33, m31, m32
+        ];
+    }
+
+    function getEulerAngles( matrix ) {
+        var radtodeg = 180 / Math.PI; // Radian-to-Degree conversion
+        var sy = Math.sqrt(matrix[0] * matrix[0] +  matrix[3] * matrix[3] );
+    
+        var singular = sy < 1e-6; // If
+    
+        if (!singular) {
+            var x = Math.atan2(matrix[7] , matrix[8]);
+            var y = Math.atan2(-matrix[6], sy);
+            var z = Math.atan2(matrix[3], matrix[0]);
+        } else {
+            var x = Math.atan2(-matrix[5], matrix[4]);
+            var y = Math.atan2(-matrix[6], sy);
+            var z = 0;
+        }
+        return [radtodeg * x, radtodeg * y, radtodeg * z];
+    }
+
+
+    window.addEventListener('deviceorientation', (event) => {
+        if (enable_gyro === true) {
+            const { alpha, beta, gamma } = event;
+
+            rotation = getEulerAngles(getRotationMatrix(alpha, beta, gamma));
+
+            view_alt = -rotation[1];
+            view_azi = 360 - rotation[2];
+            view_roll = -rotation[0];
+
+            // view_alt = beta;
+            // view_azi = 360 - alpha;
+            // view_roll = gamma;
+        }
+    });
 
     // 功能检测
-    if ('OrientationSensor' in window) {
-        const sensor = new AbsoluteOrientationSensor({
-            frequency: 60,
-            referenceFrame: 'device'
-        });
+    // if ('OrientationSensor' in window) {
+    //     const sensor = new AbsoluteOrientationSensor({
+    //         frequency: 60,
+    //         referenceFrame: 'device'
+    //     });
 
-        document.getElementById("view_dir").innerHTML = "Sensor";
+    //     document.getElementById("view_dir").innerHTML = "Sensor";
 
-        sensor.addEventListener('reading', () => {
-            // 直接获取四元数 [x, y, z, w]
-            const quaternion = sensor.quaternion;
-            console.log('四元数:', quaternion);
+    //     sensor.addEventListener('reading', () => {
+    //         // 直接获取四元数 [x, y, z, w]
+    //         const quaternion = sensor.quaternion;
+    //         document.getElementById("view_dir").innerHTML = String(quaternion);
+    //         console.log('四元数:', quaternion);
 
-            // 可选：转换为欧拉角
-            const euler = quaternionToEuler(quaternion);
-            document.getElementById("view_dir").innerHTML = String(eular);
-            console.log('欧拉角:', euler);
-        });
+    //         // 可选：转换为欧拉角
+    //         const euler = quaternionToEuler(quaternion);
+    //         document.getElementById("view_dir").innerHTML = String(eular);
+    //         console.log('欧拉角:', euler);
+    //     });
 
-        sensor.addEventListener("error", (error) => {
-            if (event.error.name === "NotReadableError") {
-                console.log("Sensor is not available.");
-                document.getElementById("view_dir").innerHTML = "NotReadableError: Sensor is not available.";
-            }
-        });
+    //     sensor.addEventListener("error", (error) => {
+    //         if (event.error.name === "NotReadableError") {
+    //             console.log("Sensor is not available.");
+    //             document.getElementById("view_dir").innerHTML = "NotReadableError: Sensor is not available.";
+    //         }
+    //     });
 
-        sensor.start();
-    }
-    else {
-        document.getElementById("view_dir").innerHTML = "OrientationSensor 不支持，使用降级方案";
-        console.warn('OrientationSensor 不支持，使用降级方案');
-        window.addEventListener('deviceorientation', (event) => {
-            if (enable_gyro === true) {
-                const { alpha, beta, gamma } = event;
-                view_alt = beta - 90;
-                view_azi = 360 - alpha;
-                view_roll = gamma;
-            }
-        });
-    }
+    //     sensor.start();
+    // }
+    // else {
+    //     document.getElementById("view_dir").innerHTML = "OrientationSensor 不支持，使用降级方案";
+    //     console.warn('OrientationSensor 不支持，使用降级方案');
+    // }
 
 
 
