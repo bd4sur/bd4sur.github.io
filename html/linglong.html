@@ -3854,6 +3854,8 @@ window.onload = function() {
             referenceFrame: 'device'
         });
 
+        document.getElementById("view_dir").innerHTML = "Sensor";
+
         sensor.addEventListener('reading', () => {
             // 直接获取四元数 [x, y, z, w]
             const quaternion = sensor.quaternion;
@@ -3873,8 +3875,18 @@ window.onload = function() {
         });
 
         sensor.start();
-    } else {
+    }
+    else {
+        document.getElementById("view_dir").innerHTML = "OrientationSensor 不支持，使用降级方案";
         console.warn('OrientationSensor 不支持，使用降级方案');
+        window.addEventListener('deviceorientation', (event) => {
+            if (enable_gyro === true) {
+                const { alpha, beta, gamma } = event;
+                view_alt = beta - 90;
+                view_azi = 360 - alpha;
+                view_roll = gamma;
+            }
+        });
     }
 
 
