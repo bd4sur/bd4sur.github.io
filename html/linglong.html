@@ -3898,8 +3898,8 @@ window.onload = function() {
 
             rotation = getEulerAngles(getRotationMatrix(alpha, beta, gamma));
 
-            view_alt = -rotation[1];
-            view_azi = 360 - rotation[2];
+            view_alt = rotation[1];
+            view_azi = normalize_angle(270 - rotation[2]);
             view_roll = -rotation[0];
 
             // view_alt = beta;
