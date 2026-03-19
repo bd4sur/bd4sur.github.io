@@ -3471,6 +3471,16 @@ let init_gamma = null;
 let view_alt = 90; // 90度为地平天顶
 let view_azi = 180; // 0度为正南
 let view_roll = 0;
+
+// 陀螺仪目标值（用于平滑滤波）
+let target_view_alt = 90;
+let target_view_azi = 180;
+let target_view_roll = 0;
+
+// 平滑系数：0-1之间，越大越平滑但延迟越大，越小响应越快但越不平滑
+const GYRO_SMOOTH_ALPHA = 0.15;
+
+
 let view_range = 1.0;
 
 let longitude = 119.0;
@@ -4015,6 +4025,25 @@ window.onload = function() {
     });
 */
 
+    // 角度平滑插值函数，处理0/360度环绕问题
+    function lerp_angle(current, target, alpha) {
+        // 计算最短路径的差值
+        let diff = target - current;
+        while (diff > 180) diff -= 360;
+        while (diff < -180) diff += 360;
+        // 执行插值
+        let result = current + diff * alpha;
+        // 归一化到[0, 360)
+        while (result < 0) result += 360;
+        while (result >= 360) result -= 360;
+        return result;
+    }
+
+    // 线性插值函数
+    function lerp(current, target, alpha) {
+        return current + (target - current) * alpha;
+    }
+
     /**
      * 将四元数转换为 ZXY 欧拉角（对应 DeviceOrientation 的 alpha/beta/gamma）
      * 通过旋转矩阵中间步骤避免 pitch = ±90° 时的万向锁
@@ -4095,9 +4124,10 @@ window.onload = function() {
 
                 let rotation = getEulerAngles(getRotationMatrix(alpha, beta, gamma));
 
-                view_alt = rotation[1];
-                view_azi = normalize_angle(270 - rotation[2]);
-                view_roll = rotation[0];
+                // 更新目标值，而非直接更新view变量
+                target_view_alt = rotation[1];
+                target_view_azi = normalize_angle(270 - rotation[2]);
+                target_view_roll = rotation[0];
 
                 refresh_button_status();
             }
@@ -4195,6 +4225,13 @@ window.onload = function() {
     let fps = 0;
 
     function draw() {
+        // 平滑滤波：将view变量向目标值过渡
+        if (enable_gyro) {
+            view_alt = lerp(view_alt, target_view_alt, GYRO_SMOOTH_ALPHA);
+            view_azi = lerp_angle(view_azi, target_view_azi, GYRO_SMOOTH_ALPHA);
+            view_roll = lerp_angle(view_roll, target_view_roll, GYRO_SMOOTH_ALPHA);
+        }
+
         // 每帧重绘
         frame_buffer.fill(0);
         for (let i = 3; i < sky.canvas.width * sky.canvas.height * 4; i+=4) {
