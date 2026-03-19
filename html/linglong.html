@@ -4015,24 +4015,68 @@ window.onload = function() {
     });
 */
 
-    function quaternionToEuler(q) {
-        const [x, y, z, w] = q;
-        const yaw = Math.atan2(
-            2 * (w * z + x * y),
-            1 - 2 * (y * y + z * z)
-        );
-        const roll = Math.asin(
-            Math.max(-1, Math.min(1, 2 * (w * y - z * x)))
-        );
-        const pitch = Math.atan2(
-            2 * (w * x + y * z),
-            1 - 2 * (x * x + y * y)
-        );
-        const toDegrees = rad => rad * (180 / Math.PI);
+    /**
+     * 将四元数转换为 ZXY 欧拉角（对应 DeviceOrientation 的 alpha/beta/gamma）
+     * 通过旋转矩阵中间步骤避免 pitch = ±90° 时的万向锁
+     *
+     * @param {number[]} quaternion - [qx, qy, qz, qw]（AbsoluteOrientationSensor 格式）
+     * @returns {{ yaw: number, pitch: number, roll: number }}
+     *   yaw   → alpha  ∈ [0°, 360°)   绕 Z 轴（方位角）
+     *   pitch → beta   ∈ [-90°, 90°]  绕 X 轴（前后倾斜）
+     *   roll  → gamma  ∈ (-180°, 180°] 绕 Y 轴（左右倾斜）
+     */
+    function quaternionToEuler(quaternion) {
+        const [qx, qy, qz, qw] = quaternion;
+        const radtodeg = 180 / Math.PI;
+
+        // ── 第一步：四元数 → 3×3 旋转矩阵 ──────────────────────────────
+        // 旋转约定：R = Rz(yaw) * Rx(pitch) * Ry(roll)
+        const R00 = 1 - 2 * (qy * qy + qz * qz);
+        const R01 = 2 * (qx * qy - qw * qz);
+        // R02 = 2*(qx*qz + qw*qy);   // 本提取方法未用到
+        const R10 = 2 * (qx * qy + qw * qz);
+        const R11 = 1 - 2 * (qx * qx + qz * qz);
+        // R12 = 2*(qy*qz - qw*qx);   // 本提取方法未用到
+        const R20 = 2 * (qx * qz - qw * qy);
+        const R21 = 2 * (qy * qz + qw * qx);
+        const R22 = 1 - 2 * (qx * qx + qy * qy);
+
+        // ── 第二步：从旋转矩阵提取 ZXY 欧拉角 ──────────────────────────
+        //
+        // R[2][1] = sin(pitch)  → 由此求 pitch
+        // R[2][0] = -cos(pitch)*sin(roll)
+        // R[2][2] =  cos(pitch)*cos(roll)
+        // R[0][1] = -cos(pitch)*sin(yaw)
+        // R[1][1] =  cos(pitch)*cos(yaw)
+
+        // 钳制到 [-1, 1]，防止浮点误差导致 asin 返回 NaN
+        const sinPitch = Math.max(-1, Math.min(1, R21));
+        const pitch    = Math.asin(sinPitch);
+        const cosPitch = Math.cos(pitch);
+
+        let yaw, roll;
+
+        if (Math.abs(cosPitch) > 1e-6) {
+            // ── 正常情况：无万向锁 ──────────────────────────────────────
+            roll = Math.atan2(-R20, R22);
+            yaw  = Math.atan2(-R01, R11);
+        } else {
+            // ── 万向锁：pitch ≈ ±90° ────────────────────────────────────
+            // cos(pitch) ≈ 0 时，yaw 与 roll 耦合，无法独立求解
+            // 约定 roll = 0，通过矩阵残余项恢复 yaw
+            roll = 0;
+            yaw  = Math.atan2(R10, R00);
+        }
+
+        // ── 第三步：角度单位换算及范围归一化 ────────────────────────────
+        // yaw 归一化到 [0°, 360°)，与 DeviceOrientation.alpha 对齐
+        let yawDeg = yaw * radtodeg;
+        if (yawDeg < 0) yawDeg += 360;
+
         return {
-            yaw: 360 + toDegrees(yaw),  // 0 ~ 360
-            roll: toDegrees(roll),      // -90 ~ +90
-            pitch: toDegrees(pitch)     // -180 ~ +180
+            yaw:   yawDeg,              // alpha: 方位角 [0°, 360°)
+            pitch: pitch * radtodeg,    // beta:  俯仰角 [-90°, 90°]
+            roll:  roll  * radtodeg,    // gamma: 横滚角 (-180°, 180°]
         };
     }
 
