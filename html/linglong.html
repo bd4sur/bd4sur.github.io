@@ -124,7 +124,7 @@ button {
 
         <div style="font-size: 12px; font-family: monospace;" id="view_dir">Pitch:<span id="view_pitch">-</span>° Yaw:<span id="view_yaw">-</span>° Roll:<span id="view_roll">-</span>° Range:<span id="view_range">-</span></div>
 
-        <div style="font-size: 12px; font-family: monospace;" id="fps">FPS: --</div>
+        <div style="font-size: 12px; font-family: monospace;">FPS:<span id="fps">--</span><span id="is_abs_euler"></span></div>
 
         <div style="font-size: smaller; text-align: center; max-width: 320px; margin: 0 auto; color: #aaaaaa;">
             拖动画面可改变视角
@@ -4007,6 +4007,10 @@ window.onload = function() {
             // view_alt = beta;
             // view_azi = 360 - alpha;
             // view_roll = gamma;
+
+            document.getElementById("is_abs_euler").innerHTML = ` | isAbsOrient:${event.absolute}`;
+
+            refresh_button_status();
         }
     });
 
@@ -4147,7 +4151,7 @@ window.onload = function() {
         const now = performance.now();
         if (now - lastTime >= 500) { // 每隔多少毫秒统计一次
             fps = Math.round((frameCount * 1000) / (now - lastTime));
-            document.getElementById('fps').textContent = `FPS: ${fps}`;
+            document.getElementById('fps').textContent = `${fps}`;
             frameCount = 0;
             lastTime = now;
         }
