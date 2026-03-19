@@ -124,7 +124,7 @@ button {
 
         <div style="font-size: 12px; font-family: monospace;" id="view_dir">Pitch:<span id="view_pitch">-</span>° Yaw:<span id="view_yaw">-</span>° Roll:<span id="view_roll">-</span>° Range:<span id="view_range">-</span></div>
 
-        <div style="font-size: 12px; font-family: monospace;">FPS:<span id="fps">--</span><span id="euler"></span></div>
+        <div style="font-size: 12px; font-family: monospace;">FPS:<span id="fps">--</span></div>
 
         <div style="font-size: smaller; text-align: center; max-width: 320px; margin: 0 auto; color: #aaaaaa;">
             拖动画面可改变视角
@@ -4080,23 +4080,27 @@ window.onload = function() {
         };
     }
 
+
     if ('AbsoluteOrientationSensor' in window) {
-        const sensor = new AbsoluteOrientationSensor({ frequency: 60 });
+        const sensor = new AbsoluteOrientationSensor({ frequency: 30, referenceFrame: 'device' });
 
         sensor.addEventListener('reading', () => {
-            const euler = quaternionToEuler(sensor.quaternion);
 
-            let alpha = euler.yaw;
-            let beta = euler.pitch;
-            let gamma = euler.roll;
+            if (enable_gyro === true) {
+                const euler = quaternionToEuler(sensor.quaternion);
 
-            let rotation = getEulerAngles(getRotationMatrix(alpha, beta, gamma));
+                let alpha = euler.yaw;
+                let beta = euler.pitch;
+                let gamma = euler.roll;
 
-            view_alt = rotation[1];
-            view_azi = normalize_angle(270 - rotation[2]);
-            view_roll = rotation[0];
+                let rotation = getEulerAngles(getRotationMatrix(alpha, beta, gamma));
 
-            document.getElementById("euler").innerHTML = ` | euler:${JSON.stringify(euler)}`;
+                view_alt = rotation[1];
+                view_azi = normalize_angle(270 - rotation[2]);
+                view_roll = rotation[0];
+
+                refresh_button_status();
+            }
         });
 
         sensor.start();
