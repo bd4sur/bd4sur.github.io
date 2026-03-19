@@ -2977,7 +2977,7 @@ function scatter_model_3(ray_vec, sun_vec) {
 */
 
     // 臭氧吸收
-    const ozone_absorption = [0.005, 0.030, 0.010];
+    const ozone_absorption = [0.005, 0.040, 0.010];
     const oz_scale = 80;
     color[0] *= Math.exp(-ozone_absorption[0] * ((tMax - tMin) / Ra) * oz_scale);
     color[1] *= Math.exp(-ozone_absorption[1] * ((tMax - tMin) / Ra) * oz_scale);
