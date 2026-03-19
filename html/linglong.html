@@ -4048,11 +4048,11 @@ window.onload = function() {
 
             let rotation = getEulerAngles(getRotationMatrix(alpha, beta, gamma));
 
-            view_alt = rotation[1];
-            view_azi = normalize_angle(-rotation[2]);
-            view_roll = rotation[0];
+            view_alt = rotation[0];
+            view_azi = normalize_angle(270 - rotation[2]);
+            view_roll = rotation[1];
 
-            document.getElementById("quaternion").innerHTML = ` | euler:${euler}`;
+            document.getElementById("euler").innerHTML = ` | euler:${euler}`;
         });
 
         sensor.start();
