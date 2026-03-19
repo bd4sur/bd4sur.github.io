@@ -124,7 +124,7 @@ button {
 
         <div style="font-size: 12px; font-family: monospace;" id="view_dir">Pitch:<span id="view_pitch">-</span>° Yaw:<span id="view_yaw">-</span>° Roll:<span id="view_roll">-</span>° Range:<span id="view_range">-</span></div>
 
-        <div style="font-size: 12px; font-family: monospace;">FPS:<span id="fps">--</span><span id="is_abs_euler"></span><span id="quaternion"></span></div>
+        <div style="font-size: 12px; font-family: monospace;">FPS:<span id="fps">--</span><span id="euler"></span></div>
 
         <div style="font-size: smaller; text-align: center; max-width: 320px; margin: 0 auto; color: #aaaaaa;">
             拖动画面可改变视角
@@ -3993,12 +3993,12 @@ window.onload = function() {
         return [radtodeg * x, radtodeg * y, radtodeg * z];
     }
 
-
+/*
     window.addEventListener('deviceorientation', (event) => {
         if (enable_gyro === true) {
             const { alpha, beta, gamma } = event;
 
-            rotation = getEulerAngles(getRotationMatrix(alpha, beta, gamma));
+            let rotation = getEulerAngles(getRotationMatrix(alpha, beta, gamma));
 
             view_alt = rotation[1];
             view_azi = normalize_angle(-rotation[2]);
@@ -4008,21 +4008,53 @@ window.onload = function() {
             // view_azi = 360 - alpha;
             // view_roll = gamma;
 
-            document.getElementById("is_abs_euler").innerHTML = ` | isAbsOrient:${event.absolute}`;
+            // document.getElementById("is_abs_euler").innerHTML = ` | isAbsOrient:${event.absolute}`;
 
             refresh_button_status();
         }
     });
+*/
 
+    function quaternionToEuler(q) {
+        const [x, y, z, w] = q;
+        const yaw = Math.atan2(
+            2 * (w * z + x * y),
+            1 - 2 * (y * y + z * z)
+        );
+        const pitch = Math.asin(
+            Math.max(-1, Math.min(1, 2 * (w * y - z * x)))
+        );
+        const roll = Math.atan2(
+            2 * (w * x + y * z),
+            1 - 2 * (x * x + y * y)
+        );
+        const toDegrees = rad => rad * (180 / Math.PI);
+        return {
+            yaw: toDegrees(yaw),
+            pitch: toDegrees(pitch),
+            roll: toDegrees(roll)
+        };
+    }
 
     if ('AbsoluteOrientationSensor' in window) {
         const sensor = new AbsoluteOrientationSensor({ frequency: 60 });
-        
+
         sensor.addEventListener('reading', () => {
-            const q = sensor.quaternion;
-            document.getElementById("quaternion").innerHTML = ` | quaternion:${q}`;
+            const euler = quaternionToEuler(sensor.quaternion);
+
+            let alpha = euler.yaw;
+            let beta = euler.pitch;
+            let gamma = euler.roll;
+
+            let rotation = getEulerAngles(getRotationMatrix(alpha, beta, gamma));
+
+            view_alt = rotation[1];
+            view_azi = normalize_angle(-rotation[2]);
+            view_roll = rotation[0];
+
+            document.getElementById("quaternion").innerHTML = ` | euler:${euler}`;
         });
-        
+
         sensor.start();
     }
 
