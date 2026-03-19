@@ -124,7 +124,7 @@ button {
 
         <div style="font-size: 12px; font-family: monospace;" id="view_dir">Pitch:<span id="view_pitch">-</span>° Yaw:<span id="view_yaw">-</span>° Roll:<span id="view_roll">-</span>° Range:<span id="view_range">-</span></div>
 
-        <div style="font-size: 12px; font-family: monospace;">FPS:<span id="fps">--</span><span id="is_abs_euler"></span></div>
+        <div style="font-size: 12px; font-family: monospace;">FPS:<span id="fps">--</span><span id="is_abs_euler"></span><span id="quaternion"></span></div>
 
         <div style="font-size: smaller; text-align: center; max-width: 320px; margin: 0 auto; color: #aaaaaa;">
             拖动画面可改变视角
@@ -4001,7 +4001,7 @@ window.onload = function() {
             rotation = getEulerAngles(getRotationMatrix(alpha, beta, gamma));
 
             view_alt = rotation[1];
-            view_azi = normalize_angle(270 - rotation[2]);
+            view_azi = normalize_angle(-rotation[2]);
             view_roll = rotation[0];
 
             // view_alt = beta;
@@ -4015,6 +4015,16 @@ window.onload = function() {
     });
 
 
+    if ('AbsoluteOrientationSensor' in window) {
+        const sensor = new AbsoluteOrientationSensor({ frequency: 60 });
+        
+        sensor.addEventListener('reading', () => {
+            const q = sensor.quaternion;
+            document.getElementById("quaternion").innerHTML = ` | quaternion:${q}`;
+        });
+        
+        sensor.start();
+    }
 
 
     const sky = new SkyCanvas('skyCanvas');
