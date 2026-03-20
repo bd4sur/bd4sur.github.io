@@ -229,9 +229,13 @@ img_moon_texture.onload = () => {
 
 
 
-let landscape_global_width  = 600;
-let landscape_global_height = 600;
+let landscape_global_width  = 0;
+let landscape_global_height = 0;
 let landscape_global_rgba = new Uint8ClampedArray(landscape_global_width * landscape_global_height * 4);
+
+let landscape_local_width  = 600;
+let landscape_local_height = 600;
+let landscape_local_rgba = new Uint8ClampedArray(landscape_local_width * landscape_local_height * 4);
 
 let landscape_texture_width = 600;
 let landscape_texture_height = 600;
@@ -239,15 +243,17 @@ let landscape_texture_rgba = null;
 let img_landscape_texture = new Image();
 const LANDSCAPES = [
     ["", "", 0], // 字段2为是否鱼眼，0-否，1-是
-    ["../image/H/landscape_0.jpg", "草原1", 1],
-    ["../image/H/landscape_1.jpg", "草原2", 1],
-    ["../image/H/landscape_2.jpg", "雪地", 1],
-    ["../image/H/landscape_3.jpg", "海洋", 1],
-    ["../image/H/nanjing_sat.jpg", "南京", 0],
+    ["../image/H/landscape_0.jpg", "草原1", 1, 600, 600],
+    ["../image/H/landscape_1.jpg", "草原2", 1, 600, 600],
+    ["../image/H/landscape_2.jpg", "雪地", 1, 600, 600],
+    ["../image/H/landscape_3.jpg", "海洋", 1, 600, 600],
+    ["../image/H/nanjing_sat_1800.jpg", "南京", 0, 1800, 1800],
 ];
 
 
-
+// 地景平移相关
+let ground_x_norm = 0;
+let ground_y_norm = 0;
 
 
 
@@ -1293,7 +1299,7 @@ function generate_landscape(frame_buffer, fb_width, fb_height, seed = 123, scale
     // --- 5. 主循环：填充像素 ---
     for (let y = 0; y < fb_height; y++) {
         for (let x = 0; x < fb_width; x++) {
-            const h = getHeight(x, y) * 2 - 0.1;
+            const h = getHeight(x, y) * 3 - 0.1;
             const [r, g, b] = getColor(h);
             
             const index = (y * fb_width + x) * 4;
@@ -1735,7 +1741,7 @@ function to_fisheye(inputBuffer, outputBuffer, width, height, fovFactor = 1.3) {
             
             // 双线性插值获取颜色
             const color = bilinearSample(inputBuffer, srcX, srcY, width, height);
-            
+
             // 写入输出像素
             const outIdx = (y * width + x) * 4;
             outputBuffer[outIdx] = color[0];
@@ -1827,7 +1833,7 @@ function draw_horizon(
                     // 反解此处的xyz坐标，转为地平坐标
                     let [alt, azi, rr] = xyz_to_horizontal(-hx, -hy, hz);
                     // 再转为地面贴图上的xy坐标
-                    let [tx, ty] = horizontal_to_screen_xy(-azi, -alt, 300, 300, 300); // R略小于地面贴图的半径，注意修改其中的center_x/y
+                    let [tx, ty] = horizontal_to_screen_xy(-azi, -alt, landscape_texture_width/2, landscape_texture_width/2, landscape_texture_height/2); // R略小于地面贴图的半径，注意修改其中的center_x/y
 
                     let r = getPixel(landscape_texture_rgba, Math.floor(tx), Math.floor(ty), 0);
                     let g = getPixel(landscape_texture_rgba, Math.floor(tx), Math.floor(ty), 1);
@@ -3508,8 +3514,25 @@ function render_all(
 
     // 绘制地景（天空投影圆盘之外的部分）
     if (landscape_index === 0 || LANDSCAPES[landscape_index][2] === 0) {
-        let fov = (0.45/90) * Math.abs(sun_alt) + 1.1;
-        update_landscape(fov);
+        // let fov = (0.45/90) * Math.abs(sun_alt) + 1.1;
+        // let t = new Date().getTime() / 1000 % 600;
+        let dx = Math.sin(-to_rad(view_azi)) * 0.001;
+        let dy = Math.cos(-to_rad(view_azi)) * 0.001;
+        ground_x_norm += dx;
+        ground_y_norm += dy;
+        if (ground_x_norm < 0) {
+            ground_x_norm = 1 - (ground_x_norm % 1);
+        }
+        else if (ground_x_norm > 1) {
+            ground_x_norm = ground_x_norm % 1;
+        }
+        if (ground_y_norm < 0) {
+            ground_y_norm = 1 - (ground_y_norm % 1);
+        }
+        else if (ground_y_norm > 1) {
+            ground_y_norm = ground_y_norm % 1;
+        }
+        update_landscape(ground_x_norm, ground_y_norm, 0.5, 1.3);
     }
     draw_horizon(
         frame_buffer, FB_WIDTH, FB_HEIGHT, sky_radius, center_x, center_y, view_alt, view_azi, view_roll, f, sun_alt,
@@ -3621,35 +3644,178 @@ class SkyCanvas {
 
 
 
+
+
+
+
+
+
+
+/**
+ * 从framebuffer_input中截取矩形区域并双线性插值放大到framebuffer_output
+ * 
+ * @param {Uint8ClampedArray} framebuffer_input - 输入图像数据（源，RGBA格式）
+ * @param {number} input_width - 输入图像宽度（像素）
+ * @param {number} input_height - 输入图像高度（像素）
+ * @param {Uint8ClampedArray} framebuffer_output - 输出图像数据（目标，RGBA格式）
+ * @param {number} output_width - 输出图像宽度（像素）
+ * @param {number} output_height - 输出图像高度（像素）
+ * @param {number} x - 截取区域中心x坐标（像素，浮点，相对于输入图像左上角）
+ * @param {number} y - 截取区域中心y坐标（像素，浮点，相对于输入图像左上角）
+ * @param {number} w - 截取区域宽度（像素，浮点）
+ * @param {number} h - 截取区域高度（像素，浮点）
+ * 
+ * @note: 
+ * - 如果 w:h 与 output_width:output_height 比例不同，会强行拉伸适应目标比例
+ * - 使用双线性插值，边缘会自动钳制避免越界
+ * - Uint8ClampedArray 会自动将计算结果钳制到 [0, 255]
+ */
+function clip_and_resize(framebuffer_input, input_width, input_height, framebuffer_output, output_width, output_height, x, y, w, h) {
+    // ===== 参数校验 =====
+    if (w <= 0 || h <= 0 || input_width <= 0 || input_height <= 0 || output_width <= 0 || output_height <= 0) {
+        framebuffer_output.fill(0);
+        return;
+    }
+
+    // ===== 1. 计算以(x,y)为中心的源矩形边界（浮点坐标） =====
+    const src_left = x - w / 2;
+    const src_right = x + w / 2;
+    const src_top = y - h / 2;
+    const src_bottom = y + h / 2;
+
+    // ===== 2. 裁剪到输入图像的有效范围 [0, input_width) × [0, input_height) =====
+    const crop_left = Math.max(0, Math.floor(src_left));
+    const crop_right = Math.min(input_width, Math.ceil(src_right));
+    const crop_top = Math.max(0, Math.floor(src_top));
+    const crop_bottom = Math.min(input_height, Math.ceil(src_bottom));
+    
+    const crop_w = crop_right - crop_left;
+    const crop_h = crop_bottom - crop_top;
+    
+    // 如果裁剪后区域无效，清空输出并返回
+    if (crop_w <= 0 || crop_h <= 0) {
+        framebuffer_output.fill(0);
+        return;
+    }
+
+    // ===== 3. 预计算映射参数 =====
+    // 输出像素 (ox, oy) -> 源区域浮点坐标 (sx, sy)
+    // sx = crop_left + ox * (crop_w / output_width)
+    // sy = crop_top + oy * (crop_h / output_height)
+    // 注意：crop_w/output_width 与 crop_h/output_height 独立计算 → 实现"强行拉伸适应比例"
+    const scale_x = crop_w / output_width;
+    const scale_y = crop_h / output_height;
+
+    // ===== 4. 遍历输出图像，双线性插值 =====
+    for (let oy = 0; oy < output_height; oy++) {
+        // 预计算当前行的源坐标和权重
+        const sy = crop_top + oy * scale_y;
+        const sy0 = Math.floor(sy);
+        const sy1 = Math.min(sy0 + 1, crop_bottom - 1);  // 钳制：避免越界
+        const dy = sy - sy0;
+        const dy0 = 1 - dy, dy1 = dy;  // y方向权重
+        
+        // 预计算行基址，减少乘法（使用 input_width 计算输入图像的行偏移）
+        const row0_base = sy0 * input_width * 4;
+        const row1_base = sy1 * input_width * 4;
+        
+        for (let ox = 0; ox < output_width; ox++) {
+            // 计算当前列的源坐标和权重
+            const sx = crop_left + ox * scale_x;
+            const sx0 = Math.floor(sx);
+            const sx1 = Math.min(sx0 + 1, crop_right - 1);  // 钳制：避免越界
+            const dx = sx - sx0;
+            const dx0 = 1 - dx, dx1 = dx;  // x方向权重
+            
+            // 双线性插值的4个权重
+            const w00 = dx0 * dy0;  // 左上 (sx0, sy0)
+            const w10 = dx1 * dy0;  // 右上 (sx1, sy0)
+            const w01 = dx0 * dy1;  // 左下 (sx0, sy1)
+            const w11 = dx1 * dy1;  // 右下 (sx1, sy1)
+            
+            // 计算4个采样点的字节索引（RGBA，每像素4字节）
+            const col0 = sx0 * 4, col1 = sx1 * 4;
+            const i00 = row0_base + col0;  // 左上
+            const i10 = row0_base + col1;  // 右上
+            const i01 = row1_base + col0;  // 左下
+            const i11 = row1_base + col1;  // 右下
+            
+            // 输出像素索引（使用 output_width）
+            const out_idx = (oy * output_width + ox) * 4;
+            
+            // ===== 对RGBA四通道分别插值 =====
+            // Uint8ClampedArray 会自动将结果钳制到 [0, 255]
+            framebuffer_output[out_idx + 0] = 
+                w00 * framebuffer_input[i00 + 0] +
+                w10 * framebuffer_input[i10 + 0] +
+                w01 * framebuffer_input[i01 + 0] +
+                w11 * framebuffer_input[i11 + 0];  // R
+                
+            framebuffer_output[out_idx + 1] = 
+                w00 * framebuffer_input[i00 + 1] +
+                w10 * framebuffer_input[i10 + 1] +
+                w01 * framebuffer_input[i01 + 1] +
+                w11 * framebuffer_input[i11 + 1];  // G
+                
+            framebuffer_output[out_idx + 2] = 
+                w00 * framebuffer_input[i00 + 2] +
+                w10 * framebuffer_input[i10 + 2] +
+                w01 * framebuffer_input[i01 + 2] +
+                w11 * framebuffer_input[i11 + 2];  // B
+                
+            framebuffer_output[out_idx + 3] = 
+                w00 * framebuffer_input[i00 + 3] +
+                w10 * framebuffer_input[i10 + 3] +
+                w01 * framebuffer_input[i01 + 3] +
+                w11 * framebuffer_input[i11 + 3];  // A
+        }
+    }
+}
+
+
 function load_landscape_texture(idx) {
     if (idx === 0) {
         generate_landscape(landscape_global_rgba, landscape_global_width, landscape_global_height, Math.random(), 0.02, 6);
-        to_fisheye(landscape_global_rgba, landscape_texture_rgba, landscape_texture_width, landscape_texture_height, 1.3);
+        clip_and_resize(
+            landscape_global_rgba, landscape_global_width, landscape_global_height,
+            landscape_local_rgba, landscape_local_width, landscape_local_height,
+            0, 0, 200, 200);
+        to_fisheye(landscape_local_rgba, landscape_texture_rgba, landscape_texture_width, landscape_texture_height, 1.3);
     }
     else {
+        let width  = LANDSCAPES[idx][3];
+        let height = LANDSCAPES[idx][4];
         img_landscape_texture.src = LANDSCAPES[idx][0];
         img_landscape_texture.onload = () => {
             const canvas = document.createElement('canvas');
             canvas.width = img_landscape_texture.width;
             canvas.height = img_landscape_texture.height;
-            landscape_texture_width = img_landscape_texture.width;
-            landscape_texture_height = img_landscape_texture.height;
+            landscape_global_width = img_landscape_texture.width;
+            landscape_global_height = img_landscape_texture.height;
             const ctx = canvas.getContext('2d');
             ctx.drawImage(img_landscape_texture, 0, 0);
             landscape_global_rgba = ctx.getImageData(0, 0, img_landscape_texture.width, img_landscape_texture.height).data; // Uint8ClampedArray
 
+            clip_and_resize(
+                landscape_global_rgba, landscape_global_width, landscape_global_height,
+                landscape_local_rgba, landscape_local_width, landscape_local_height,
+                landscape_global_width/2, landscape_global_height/2, landscape_global_width, landscape_global_height);
+
+            landscape_texture_width = landscape_local_width;
+            landscape_texture_height = landscape_local_height;
+
             if (LANDSCAPES[idx][2] === 0) {
-                to_fisheye(landscape_global_rgba, landscape_texture_rgba, landscape_texture_width, landscape_texture_height, 1.3);
+                to_fisheye(landscape_local_rgba, landscape_texture_rgba, landscape_texture_width, landscape_texture_height, 1.3);
             }
             else {
-                landscape_texture_rgba = landscape_global_rgba;
+                landscape_texture_rgba = landscape_local_rgba;
             }
 
             // let rgb = [];
-            // for (let i = 0; i < landscape_global_rgba.length; i+=4) {
-            //     rgb.push(landscape_global_rgba[i]);
-            //     rgb.push(landscape_global_rgba[i+1]);
-            //     rgb.push(landscape_global_rgba[i+2]);
+            // for (let i = 0; i < landscape_texture_rgba.length; i+=4) {
+            //     rgb.push(landscape_texture_rgba[i]);
+            //     rgb.push(landscape_texture_rgba[i+1]);
+            //     rgb.push(landscape_texture_rgba[i+2]);
             // }
             // console.log(JSON.stringify(Array.from(rgb)));
             // console.log(rgb.length);
@@ -3659,8 +3825,20 @@ function load_landscape_texture(idx) {
 
 
 
-function update_landscape(fov) {
-    to_fisheye(landscape_global_rgba, landscape_texture_rgba, landscape_texture_width, landscape_texture_height, fov);
+function update_landscape(x_norm, y_norm, zoom, fov) {
+    let x = (x_norm * landscape_global_width);
+    let y = (y_norm * landscape_global_height);
+    let w = (zoom * landscape_global_width);
+    let h = (zoom * landscape_global_height);
+    clip_and_resize(
+        landscape_global_rgba, landscape_global_width, landscape_global_height,
+        landscape_local_rgba, landscape_local_width, landscape_local_height,
+        x, y, w, h);
+    landscape_texture_width = landscape_local_width;
+    landscape_texture_height = landscape_local_height;
+
+    // landscape_texture_rgba = landscape_local_rgba;
+    to_fisheye(landscape_local_rgba, landscape_texture_rgba, landscape_texture_width, landscape_texture_height, fov);
 }
 
 
