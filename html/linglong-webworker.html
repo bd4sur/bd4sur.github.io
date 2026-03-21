@@ -86,14 +86,13 @@ a {
             <button class="setting_button" id="toggle_horizontal_coord">地平方位</button>
             <button class="setting_button" id="toggle_star_burst">星芒</button>
             <button class="setting_button" id="toggle_ecliptic_circle">黄道</button>
-            <button class="setting_button" id="toggle_planet" style="display: none;">行星</button>
+            <button class="setting_button" id="toggle_planet">行星</button>
             <button class="setting_button" id="toggle_star_name">天体名称</button>
             <button class="setting_button" id="toggle_planet_name" style="display: none;">行星名称</button>
             <button class="setting_button" id="toggle_opt_bilinear">双线性插值</button>
             <button class="setting_button" id="toggle_cloud">体积云</button>
             <button class="setting_button" id="toggle_gyro">重力感应</button>
             <button class="setting_button" id="toggle_att_indicator">姿态指示</button>
-            <button class="setting_button" id="toggle_webgl">GPU渲染</button>
             <button class="setting_button" id="toggle_atmospheric_scattering">大气散射<br><span class="status_label" id="scattering_status">-</span></button>
             <button class="setting_button" id="toggle_landscape">地景<br><span class="status_label" id="landscape_status">-</span></button>
         </div>
@@ -152,6 +151,582 @@ a {
     <script src="../script/eph.js"></script>
     <script>
 
+// ============================================
+// Web Worker 并行化大气散射渲染
+// ============================================
+
+// Worker 代码（内联方式，使用 Blob URL）
+const ATMOSPHERE_WORKER_CODE = `
+// Worker 内部工具函数
+const to_rad = deg => deg * Math.PI / 180;
+const to_deg = rad => rad * 180 / Math.PI;
+
+function cross(a, b) {
+    return [a[1]*b[2]-a[2]*b[1], a[2]*b[0]-a[0]*b[2], a[0]*b[1]-a[1]*b[0]];
+}
+function dot(a, b) { return a[0]*b[0] + a[1]*b[1] + a[2]*b[2]; }
+function scale(v, n) { return [v[0]*n, v[1]*n, v[2]*n]; }
+function add(a, b) { return [a[0]+b[0], a[1]+b[1], a[2]+b[2]]; }
+function sub(a, b) { return [a[0]-b[0], a[1]-b[1], a[2]-b[2]]; }
+function norm(v) {
+    const len = Math.hypot(v[0], v[1], v[2]);
+    return len < 1e-20 ? [0,0,0] : [v[0]/len, v[1]/len, v[2]/len];
+}
+
+// 地平天球→笛卡尔坐标
+function horizontal_to_xyz(azimuth_deg, altitude_deg, radius) {
+    const alt_rad = altitude_deg * Math.PI / 180;
+    const azi_rad = azimuth_deg * Math.PI / 180;
+    const r_xy = radius * Math.cos(alt_rad);
+    return [r_xy * Math.sin(azi_rad), r_xy * Math.cos(azi_rad), radius * Math.sin(alt_rad)];
+}
+
+// fisheye_unproject 简化版（Worker内使用）
+function fisheye_unproject_worker(scr_x, scr_y, R, center_x, center_y, view_alt, view_azi, view_roll, f) {
+    const dx = center_x - scr_x;
+    const dy = center_y - scr_y;
+    const r = Math.hypot(dx, dy);
+    
+    let phi_prime = 0.0;
+    if (r >= 1e-6) {
+        phi_prime = Math.atan2(dx, dy);
+    }
+    
+    const theta = (Math.PI / 2) * (r / (R * f));
+    let pxy = Math.sin(theta);
+    let p_prime = [pxy * Math.sin(phi_prime), pxy * Math.cos(phi_prime), Math.cos(theta)];
+    
+    let V_alt_rad = to_rad(view_alt);
+    let V_azi_rad = to_rad(view_azi);
+    
+    let v = [Math.cos(V_alt_rad) * Math.sin(V_azi_rad), Math.cos(V_alt_rad) * Math.cos(V_azi_rad), Math.sin(V_alt_rad)];
+    
+    let dot_vz = v[2];
+    let y_prime = norm([-dot_vz * v[0], -dot_vz * v[1], 1.0 - dot_vz * v[2]]);
+    let x_prime = norm(cross(y_prime, v));
+    
+    let roll_rad = to_rad(view_roll);
+    let cos_roll = Math.cos(roll_rad);
+    let sin_roll = Math.sin(roll_rad);
+    let x_prime_rot = sub(scale(x_prime, cos_roll), scale(y_prime, sin_roll));
+    let y_prime_rot = add(scale(x_prime, sin_roll), scale(y_prime, cos_roll));
+    
+    let px = x_prime_rot[0] * p_prime[0] + y_prime_rot[0] * p_prime[1] + v[0] * p_prime[2];
+    let py = x_prime_rot[1] * p_prime[0] + y_prime_rot[1] * p_prime[1] + v[1] * p_prime[2];
+    let pz = x_prime_rot[2] * p_prime[0] + y_prime_rot[2] * p_prime[1] + v[2] * p_prime[2];
+    
+    return scale(norm([px, py, pz]), R);
+}
+
+// ============================================
+// 散射模型（从主代码复制）
+// ============================================
+
+function scatter_model_1(ray_vec, sun_vec) {
+    let red = 0, green = 0, blue = 0;
+    const ray_length = Math.hypot(ray_vec[0], ray_vec[1], ray_vec[2]);
+    if (ray_length === 0) return [0,0,0];
+    const ray_norm = [ray_vec[0]/ray_length, ray_vec[1]/ray_length, ray_vec[2]/ray_length];
+    
+    const sun_vec_radius = Math.hypot(sun_vec[0], sun_vec[1], sun_vec[2]);
+    if (sun_vec_radius === 0) return [0,0,0];
+    const sun_norm = [sun_vec[0]/sun_vec_radius, sun_vec[1]/sun_vec_radius, sun_vec[2]/sun_vec_radius];
+    
+    const sunElevation = Math.asin(Math.max(-1, Math.min(1, sun_norm[2])));
+    const sunElevationDeg = sunElevation * 180 / Math.PI;
+    const sunZenith = Math.PI / 2 - sunElevation;
+    const sunZenithDeg = sunZenith * 180 / Math.PI;
+    let sunAirMass = sunElevationDeg >= 0 ? 1.0 / (Math.cos(sunZenith) + 0.50572 * Math.pow(96.07995 - sunZenithDeg, -1.6364)) : 40;
+    
+    const viewZenith = Math.acos(Math.max(0, Math.min(1, ray_norm[2])));
+    const viewZenithDeg = viewZenith * 180 / Math.PI;
+    const viewElevationDeg = 90 - viewZenithDeg;
+    let viewAirMass = viewElevationDeg >= 0 ? 1.0 / (Math.cos(viewZenith) + 0.50572 * Math.pow(96.07995 - viewZenithDeg, -1.6364)) : 40;
+    
+    const cosTheta = ray_norm[0]*sun_norm[0] + ray_norm[1]*sun_norm[1] + ray_norm[2]*sun_norm[2];
+    const mie_g = 0.9;
+    const miePhase = Math.pow(1 + mie_g*mie_g - 2*mie_g*cosTheta, -1.5);
+    const rayleighPhase = (1 + cosTheta*cosTheta) / 4 * 3;
+    
+    const H = 8.5;
+    const mu = Math.max(0.01, ray_norm[2]);
+    const densityFactor = Math.exp(-mu / H);
+    
+    const wavelengths = [680, 550, 450];
+    const rayleighBetaBase = 0.3;
+    const referenceWavelength = wavelengths[1];
+    const betaRayleigh = wavelengths.map(wl => {
+        const ratio = referenceWavelength / wl;
+        return rayleighBetaBase * ratio * ratio * ratio * ratio;
+    });
+    
+    const mie_beta_base = 0.001;
+    const mie_beta_max = 0.1;
+    const effectiveMieBeta = Math.min(mie_beta_max, mie_beta_base * viewAirMass);
+    
+    const intensities = [0,0,0];
+    for (let i = 0; i < 3; i++) {
+        const rayleighContrib = betaRayleigh[i] * rayleighPhase;
+        const mieContrib = effectiveMieBeta * miePhase;
+        const totalBeta = betaRayleigh[i] + effectiveMieBeta;
+        let attn_scale = sunElevationDeg >= 0 ? Math.exp(-Math.pow(sunElevationDeg/20, 4)) + 0.01 : 1;
+        let attenuation = Math.exp(-totalBeta * viewAirMass * attn_scale);
+        const totalScattering = (rayleighContrib + mieContrib) * attenuation * densityFactor;
+        const ozone_absorption = [0.005, 0.040, 0.025];
+        const ozoneTransmittance = Math.exp(-ozone_absorption[i] * sunAirMass * 0.8);
+        intensities[i] = totalScattering * ozoneTransmittance;
+    }
+    
+    red = intensities[0];
+    green = intensities[1];
+    blue = intensities[2];
+    
+    const night_attn = sunElevationDeg >= 0 ? 1.0 : Math.max(0, Math.exp(0.016 * sunElevationDeg));
+    red *= night_attn;
+    green *= night_attn;
+    blue *= night_attn;
+    
+    const global_gain = 2.0;
+    return [Math.min(1, red*global_gain), Math.min(1, green*global_gain), Math.min(1, blue*global_gain)];
+}
+
+function scatter_model_2(ray_vec, sun_vec) {
+    let red = 0, green = 0, blue = 0;
+    const ray_length = Math.hypot(ray_vec[0], ray_vec[1], ray_vec[2]);
+    if (ray_length === 0) return [0,0,0];
+    const ray_norm = [ray_vec[0]/ray_length, ray_vec[1]/ray_length, ray_vec[2]/ray_length];
+    
+    const sun_vec_radius = Math.hypot(sun_vec[0], sun_vec[1], sun_vec[2]);
+    if (sun_vec_radius === 0) return [0,0,0];
+    const sun_norm = [sun_vec[0]/sun_vec_radius, sun_vec[1]/sun_vec_radius, sun_vec[2]/sun_vec_radius];
+    
+    const sunElevation = Math.asin(Math.max(-1, Math.min(1, sun_norm[2])));
+    const sunElevationDeg = sunElevation * 180 / Math.PI;
+    
+    const viewZenith = Math.acos(Math.max(0, Math.min(1, ray_norm[2])));
+    const viewZenithDeg = viewZenith * 180 / Math.PI;
+    const viewElevationDeg = 90 - viewZenithDeg;
+    
+    const cosTheta = dot(ray_norm, sun_norm);
+    const g = 0.7;
+    const miePhase = 3.0/(8.0*Math.PI) * ((1.0-g*g)*(1+cosTheta*cosTheta))/((2.0+g*g)*Math.pow(1.0+g*g-2.0*g*cosTheta, 1.5));
+    const rayleighPhase = (1 + cosTheta*cosTheta) / 4 * 3;
+    
+    const wavelengths = [680, 550, 450];
+    const rayleighBetaBase = 0.04;
+    const referenceWavelength = wavelengths[1];
+    const betaRayleigh = wavelengths.map(wl => {
+        const ratio = referenceWavelength / wl;
+        return rayleighBetaBase * ratio * ratio * ratio * ratio;
+    });
+    
+    const beta_Mie = 0.05;
+    const H = 8.0, H_R = 8.0, H_M = 1.2;
+    const R = sunElevationDeg >= 0 ? (3000-300)*Math.exp(-sunElevationDeg*0.1)+300 : (3000-60)*Math.exp(sunElevationDeg*0.2)+60;
+    const S = 6;
+    
+    const view_alt = viewElevationDeg >= 90 ? (180-viewElevationDeg) : viewElevationDeg;
+    const cos_view_alt = Math.cos(to_rad(view_alt));
+    const sin_view_alt = Math.sin(to_rad(view_alt));
+    const Lray = Math.sqrt(R*R - (R-H)*(R-H)*cos_view_alt*cos_view_alt) - (R-H)*sin_view_alt;
+    
+    const sun_alt = sunElevationDeg >= 90 ? (180-sunElevationDeg) : sunElevationDeg;
+    const cos_sun_alt = Math.cos(to_rad(sun_alt));
+    const sin_sun_alt = Math.sin(to_rad(sun_alt));
+    const Lsun = Math.sqrt(R*R - (R-H)*(R-H)*cos_sun_alt*cos_sun_alt) - (R-H)*sin_sun_alt;
+    
+    let sum_R = [0,0,0], sum_M = [0,0,0];
+    let depth_R = 0, depth_M = 0;
+    
+    for (let i = 0; i < S; i++) {
+        let t = i / S;
+        let L_t = t * Lray;
+        let dl = L_t / S;
+        let h_R_t = t * H_R;
+        let h_M_t = t * H_M;
+        let density_R_t = Math.exp(-h_R_t / H_R);
+        let density_M_t = Math.exp(-h_M_t / H_M);
+        
+        depth_R += density_R_t * dl;
+        depth_M += density_M_t * dl;
+        
+        let depth_sun_R = 0, depth_sun_M = 0;
+        let Lsun_t = (1-t) * Lsun;
+        let dlsun = Lsun_t / S;
+        
+        for (let j = 0; j < S; j++) {
+            let n = j / S;
+            let hsun_R = h_R_t + n * (1-t) * H_R;
+            let hsun_M = h_M_t + n * (1-t) * H_M;
+            let density_sun_R = Math.exp(-hsun_R / H_R);
+            let density_sun_M = Math.exp(-hsun_M / H_M);
+            depth_sun_R += density_sun_R * dlsun;
+            depth_sun_M += density_sun_M * dlsun;
+        }
+        
+        for (let c = 0; c < 3; c++) {
+            let tau = betaRayleigh[c] * (depth_sun_R + depth_R) + beta_Mie * (depth_sun_M + depth_M) * 1.1;
+            let attn = Math.exp(-tau);
+            sum_R[c] += attn * depth_R;
+            sum_M[c] += attn * depth_M;
+        }
+    }
+    
+    const Ra = 6420e3; // 大气层外边界半径 (m)
+    const ozone_absorption = [0.005, 0.030, 0.010];
+    const oz_scale = 80;
+    const oz = ozone_absorption.map((oz, i) => Math.exp(-oz * (Lsun/Ra) * oz_scale));
+    
+    red = (sum_R[0]*betaRayleigh[0]*rayleighPhase + sum_M[0]*beta_Mie*miePhase) * oz[0];
+    green = (sum_R[1]*betaRayleigh[1]*rayleighPhase + sum_M[1]*beta_Mie*miePhase) * oz[1];
+    blue = (sum_R[2]*betaRayleigh[2]*rayleighPhase + sum_M[2]*beta_Mie*miePhase) * oz[2];
+    
+    const global_gain = (4.0-1.8)*Math.exp(-(sunElevationDeg/3)*(sunElevationDeg/3)) + 1.8;
+    return [Math.min(1, red*global_gain), Math.min(1, green*global_gain), Math.min(1, blue*global_gain)];
+}
+
+function scatter_model_3(ray_vec, sun_vec) {
+    const Re = 6360e3, Ra = 6420e3, Hr = 7994, Hm = 1200;
+    const bR = [5.8e-6, 13.5e-6, 33.1e-6];
+    const bM = 16e-6, bMe = bM * 0.1, g = 0.76, SUN = 20.0;
+    
+    const vLen = v => Math.hypot(v[0], v[1], v[2]);
+    const vNorm = v => { const l = vLen(v); return l > 1e-12 ? [v[0]/l, v[1]/l, v[2]/l] : [0,0,0]; };
+    const vDot = (a,b) => a[0]*b[0] + a[1]*b[1] + a[2]*b[2];
+    const vAdd = (a,b) => [a[0]+b[0], a[1]+b[1], a[2]+b[2]];
+    const vMul = (v,s) => [v[0]*s, v[1]*s, v[2]*s];
+    
+    let ray_vec_processed = ray_vec[2] < 0 ? [ray_vec[0], ray_vec[1], -ray_vec[2]] : ray_vec;
+    const dir = vNorm(ray_vec_processed);
+    const sunDir = vNorm(sun_vec);
+    if (vLen(dir) < 0.5 || vLen(sunDir) < 0.5) return [0,0,0];
+    
+    const orig = [0.0, 0.0, Re + 1.0];
+    const sunElevation = Math.asin(Math.max(-1, Math.min(1, sunDir[2])));
+    const sunElevationDeg = sunElevation * 180 / Math.PI;
+    const viewZenith = Math.acos(Math.max(0, Math.min(1, dir[2])));
+    const viewZenithDeg = viewZenith * 180 / Math.PI;
+    const viewElevationDeg = 90 - viewZenithDeg;
+    
+    const rsi = (o, d, r) => {
+        const b = 2.0 * vDot(o, d);
+        const c = vDot(o, o) - r * r;
+        const disc = b * b - 4.0 * c;
+        if (disc < 0.0) return null;
+        const sq = Math.sqrt(disc);
+        return [(-b - sq) * 0.5, (-b + sq) * 0.5];
+    };
+    
+    const phaseR = mu => 3.0/(16.0*Math.PI) * (1.0 + mu*mu);
+    const phaseM = mu => {
+        const base = Math.max(1e-10, 1.0 + g*g - 2.0*g*mu);
+        return 3.0/(8.0*Math.PI) * ((1.0-g*g)*(1.0+mu*mu))/((2.0+g*g)*Math.pow(base, 1.5));
+    };
+    
+    const marchRay = (o, d, t0, t1, nV, nL) => {
+        const segLen = (t1 - t0) / nV;
+        const sumR = [0.0, 0.0, 0.0], sumM = [0.0, 0.0, 0.0];
+        let odR = 0.0, odM = 0.0;
+        
+        for (let i = 0; i < nV; i++) {
+            const t = t0 + (i + 0.5) * segLen;
+            const pos = vAdd(o, vMul(d, t));
+            const h = vLen(pos) - Re;
+            
+            const dR = Math.exp(-h / Hr) * segLen;
+            const dM = Math.exp(-h / Hm) * segLen;
+            odR += dR;
+            odM += dM;
+            
+            const sh = rsi(pos, sunDir, Ra);
+            if (!sh || sh[1] <= 0.0) continue;
+            
+            const lSeg = sh[1] / nL;
+            let lR = 0.0, lM = 0.0, blocked = false;
+            
+            for (let j = 0; j < nL; j++) {
+                const lp = vAdd(pos, vMul(sunDir, (j + 0.5) * lSeg));
+                const lh = vLen(lp) - Re;
+                if (lh < 0.0) { blocked = true; break; }
+                lR += Math.exp(-lh / Hr) * lSeg;
+                lM += Math.exp(-lh / Hm) * lSeg;
+            }
+            if (blocked) continue;
+            
+            for (let c = 0; c < 3; c++) {
+                let tau = bR[c] * (odR + lR) + bMe * (odM + lM);
+                const atten = Math.exp(-tau);
+                sumR[c] += atten * dR;
+                sumM[c] += atten * dM;
+            }
+        }
+        return { sumR, sumM };
+    };
+    
+    const atmHit = rsi(orig, dir, Ra);
+    if (!atmHit || atmHit[1] < 0.0) return [0,0,0];
+    let tMin = Math.max(0.0, atmHit[0]);
+    let tMax = atmHit[1];
+    
+    const earthHit = rsi(orig, dir, Re);
+    if (earthHit && earthHit[0] > 1.0) {
+        tMax = Math.min(tMax, earthHit[0]);
+    }
+    if (tMax <= tMin) return [0,0,0];
+    
+    const mu1 = vDot(dir, sunDir);
+    const pR1 = phaseR(mu1);
+    const pM1 = phaseM(mu1);
+    const sc1 = marchRay(orig, dir, tMin, tMax, 64, 2);
+    
+    const color = [
+        (sc1.sumR[0]*bR[0]*pR1 + sc1.sumM[0]*bM*pM1) * SUN,
+        (sc1.sumR[1]*bR[1]*pR1 + sc1.sumM[1]*bM*pM1) * SUN,
+        (sc1.sumR[2]*bR[2]*pR1 + sc1.sumM[2]*bM*pM1) * SUN
+    ];
+    
+    const ambDirs = [[0,0,1],[1,0,0.5],[-1,0,0.5],[0,1,0.5],[0,-1,0.5],[1,1,0.5],[-1,1,0.5],[1,-1,0.5],[-1,-1,0.5]].map(vNorm);
+    const N_AMB = ambDirs.length;
+    const dOmega = 2.0 * Math.PI / N_AMB;
+    const N_V2 = 6;
+    const segV2 = (tMax - tMin) / N_V2;
+    let odR2 = 0.0, odM2 = 0.0;
+    const global_gain = (16-2)*Math.exp(-(sunElevationDeg/10)*(sunElevationDeg/10)) + 2;
+    
+    for (let i = 0; i < N_V2; i++) {
+        const t = tMin + (i + 0.5) * segV2;
+        const pos = vAdd(orig, vMul(dir, t));
+        const h = vLen(pos) - Re;
+        if (h < 0.0) continue;
+        
+        const dR = Math.exp(-h / Hr) * segV2;
+        const dM = Math.exp(-h / Hm) * segV2;
+        odR2 += dR;
+        odM2 += dM;
+        
+        const Tv = [0,1,2].map(c => Math.exp(-(bR[c]*odR2 + bMe*odM2)));
+        
+        for (let k = 0; k < N_AMB; k++) {
+            const ad = ambDirs[k];
+            const aHit = rsi(pos, ad, Ra);
+            if (!aHit || aHit[1] <= 0.0) continue;
+            
+            const muA = vDot(ad, sunDir);
+            const sc = marchRay(pos, ad, 0.0, aHit[1], 3, 3);
+            
+            const L1 = [
+                (sc.sumR[0]*bR[0]*phaseR(muA) + sc.sumM[0]*bM*phaseM(muA)) * SUN,
+                (sc.sumR[1]*bR[1]*phaseR(muA) + sc.sumM[1]*bM*phaseM(muA)) * SUN,
+                (sc.sumR[2]*bR[2]*phaseR(muA) + sc.sumM[2]*bM*phaseM(muA)) * SUN
+            ];
+            
+            const muS = vDot(ad, dir);
+            const pRS = phaseR(muS);
+            const pMS = phaseM(muS);
+            
+            for (let c = 0; c < 3; c++) {
+                const sigma = bR[c] * pRS * dR + bM * pMS * dM;
+                color[c] += L1[c] * sigma * Tv[c] * dOmega * global_gain;
+            }
+        }
+    }
+    
+    const ozone_absorption = [0.005, 0.040, 0.010];
+    const oz_scale = 80;
+    color[0] *= Math.exp(-ozone_absorption[0] * ((tMax-tMin)/Ra) * oz_scale);
+    color[1] *= Math.exp(-ozone_absorption[1] * ((tMax-tMin)/Ra) * oz_scale);
+    color[2] *= Math.exp(-ozone_absorption[2] * ((tMax-tMin)/Ra) * oz_scale);
+    
+    const hdr_mapping = x => {
+        const e = 0.2;
+        return (Math.sqrt(1+e)/2) * (Math.sqrt((1+x)*(1+x)+e) - Math.sqrt((1-x)*(1-x)+e));
+    };
+    
+    color[0] = hdr_mapping(color[0]);
+    color[1] = hdr_mapping(color[1]);
+    color[2] = hdr_mapping(color[2]);
+    
+    const night_light_scale = 1 - viewElevationDeg / 90;
+    color[0] += 0.05 * night_light_scale;
+    color[1] += 0.08 * night_light_scale;
+    color[2] += 0.10 * night_light_scale;
+    
+    return color;
+}
+
+function calculate_scattered_pixel(ray_vec, sun_vec, model_index) {
+    if (model_index === 1) return scatter_model_1(ray_vec, sun_vec);
+    else if (model_index === 2) return scatter_model_2(ray_vec, sun_vec);
+    else if (model_index === 3) return scatter_model_3(ray_vec, sun_vec);
+    return [0,0,0];
+}
+
+// Worker 消息处理
+self.onmessage = function(e) {
+    const { type, taskId, payload } = e.data;
+    
+    if (type === 'computeRows') {
+        const {
+            startY, endY, fb_width, fb_height,
+            sky_radius, center_x, center_y,
+            view_alt, view_azi, view_roll, f, C,
+            sun_vec, model_index, enable_opt_bilinear
+        } = payload;
+        
+        const rowData = [];
+        
+        for (let y = startY; y < endY; y += C) {
+            for (let x = 0; x < fb_width; x += C) {
+                const ray_vec = fisheye_unproject_worker(x, y, sky_radius, center_x, center_y, view_alt, view_azi, view_roll, f);
+                const ssp = calculate_scattered_pixel(ray_vec, sun_vec, model_index);
+                
+                if (enable_opt_bilinear) {
+                    rowData.push({ x, y, r: ssp[0]*255, g: ssp[1]*255, b: ssp[2]*255, C });
+                } else {
+                    for (let i = 0; i < C; i++) {
+                        for (let j = 0; j < C; j++) {
+                            rowData.push({ x: x+j, y: y+i, r: ssp[0]*255, g: ssp[1]*255, b: ssp[2]*255, C: 1 });
+                        }
+                    }
+                }
+            }
+        }
+        
+        self.postMessage({ type: 'rowsComplete', taskId, payload: { rowData, startY, endY } });
+    }
+    else if (type === 'computeSamples') {
+        const { samples, sun_vec, model_index } = payload;
+        const results = [];
+        
+        for (const sample of samples) {
+            const ray_vec = horizontal_to_xyz(sample.azi, sample.alt, sample.radius);
+            const result = calculate_scattered_pixel(ray_vec, sun_vec, model_index);
+            results.push({ index: sample.index, r: result[0], g: result[1], b: result[2] });
+        }
+        
+        self.postMessage({ type: 'samplesComplete', taskId, payload: { results } });
+    }
+};
+`;
+
+// Worker 管理器类
+class AtmosphereWorkerManager {
+    constructor(numWorkers = navigator.hardwareConcurrency || 4) {
+        this.numWorkers = Math.min(numWorkers, 128);
+        this.workers = [];
+        this.pendingTasks = new Map();
+        this.taskId = 0;
+        this.isInitialized = false;
+    }
+
+    init() {
+        if (this.isInitialized) return;
+        
+        const blob = new Blob([ATMOSPHERE_WORKER_CODE], { type: 'application/javascript' });
+        const workerUrl = URL.createObjectURL(blob);
+        
+        for (let i = 0; i < this.numWorkers; i++) {
+            const worker = new Worker(workerUrl);
+            worker.onmessage = (e) => this.handleMessage(e);
+            worker.onerror = (err) => console.error('Worker error:', err);
+            this.workers.push(worker);
+        }
+        
+        this.isInitialized = true;
+    }
+
+    handleMessage(e) {
+        const { type, taskId, payload } = e.data;
+        
+        if (type === 'rowsComplete' || type === 'samplesComplete') {
+            const task = this.pendingTasks.get(taskId);
+            if (task) {
+                task.resolve(payload);
+                this.pendingTasks.delete(taskId);
+            }
+        }
+    }
+
+    async computeRows(params) {
+        this.init();
+        
+        const { fb_height, C } = params;
+        const rowStep = Math.ceil(fb_height / C / this.numWorkers) * C;
+        
+        const promises = [];
+        for (let i = 0; i < this.numWorkers; i++) {
+            const startY = i * rowStep;
+            const endY = Math.min((i + 1) * rowStep, fb_height);
+            
+            if (startY >= fb_height) break;
+            
+            const taskId = ++this.taskId;
+            const worker = this.workers[i % this.workers.length];
+            
+            const promise = new Promise((resolve) => {
+                this.pendingTasks.set(taskId, { resolve });
+            });
+            promises.push(promise);
+            
+            worker.postMessage({
+                type: 'computeRows',
+                taskId,
+                payload: { ...params, startY, endY }
+            });
+        }
+        
+        return Promise.all(promises);
+    }
+
+    async computeSamples(params) {
+        this.init();
+        
+        const { samples } = params;
+        const samplePerWorker = Math.ceil(samples.length / this.numWorkers);
+        
+        const promises = [];
+        for (let i = 0; i < this.numWorkers; i++) {
+            const startIdx = i * samplePerWorker;
+            const endIdx = Math.min((i + 1) * samplePerWorker, samples.length);
+            
+            if (startIdx >= samples.length) break;
+            
+            const taskId = ++this.taskId;
+            const worker = this.workers[i % this.workers.length];
+            const workerSamples = samples.slice(startIdx, endIdx);
+            
+            const promise = new Promise((resolve) => {
+                this.pendingTasks.set(taskId, { resolve });
+            });
+            promises.push(promise);
+            
+            worker.postMessage({
+                type: 'computeSamples',
+                taskId,
+                payload: { ...params, samples: workerSamples }
+            });
+        }
+        
+        return Promise.all(promises);
+    }
+
+    terminate() {
+        for (const worker of this.workers) {
+            worker.terminate();
+        }
+        this.workers = [];
+        this.isInitialized = false;
+        this.pendingTasks.clear();
+    }
+}
+
+// 全局 Worker 管理器实例
+const atmosphereWorkerManager = new AtmosphereWorkerManager();
+
+// ============================================
+// 原代码开始
+// ============================================
+
 
 
 const USE_FISHEYE_PROJECTION = true; // 是否使用鱼眼投影（否则使用XY投影）
@@ -179,7 +754,7 @@ let enable_realtime = true;
 let enable_timemachine_running = false;
 
 // 是否启用双线性插值
-let enable_opt_bilinear = false;
+let enable_opt_bilinear = true;
 
 // 地景选项：0-无地景
 let landscape_index = 1;
@@ -192,9 +767,6 @@ let enable_gyro = false;
 
 // 是否启用姿态仪标记
 let enable_att_indicator = false;
-
-// 是否启用GPU渲染
-let enable_webgl = true;
 
 
 
@@ -1546,8 +2118,7 @@ function getCloudBoundingBox(time) {
 }
 
 // 体积云渲染函数
-// CPU 体积云渲染（回退方案）
-function render_volumetric_clouds_cpu(
+function render_volumetric_clouds(
     frame_buffer, fb_width, fb_height,
     sky_radius, center_x, center_y,
     view_alt, view_azi, view_roll, f,
@@ -1555,6 +2126,8 @@ function render_volumetric_clouds_cpu(
     sky_r, sky_g, sky_b,
     sunlight_r, sunlight_g, sunlight_b
 ) {
+    if (!enable_volumetric_cloud) return;
+    
     // 计算太阳方向向量（在地平坐标系中）
     const sun_alt_rad = to_rad(sun_alt);
     const sun_azi_rad = to_rad(sun_azi);
@@ -1566,6 +2139,7 @@ function render_volumetric_clouds_cpu(
     
     // 如果太阳在地平线以下，减弱云的亮度
     const sunElevationFactor = Math.max(0, Math.min(1, (sun_alt + 6) / 12));
+    // if (sunElevationFactor < 0.05) return; // 夜间不显示云
     
     // 获取太阳光颜色（直射光）- 随太阳高度变化
     const sunColor = getNormalizedColor(sunlight_r, sunlight_g, sunlight_b);
@@ -1684,77 +2258,6 @@ function render_volumetric_clouds_cpu(
             }
         }
     }
-}
-
-// 体积云渲染函数（WebGL 版本，自动回退到 CPU）
-function render_volumetric_clouds(
-    frame_buffer, fb_width, fb_height,
-    sky_radius, center_x, center_y,
-    view_alt, view_azi, view_roll, f,
-    sun_alt, sun_azi, time,
-    sky_r, sky_g, sky_b,
-    sunlight_r, sunlight_g, sunlight_b
-) {
-    if (!enable_volumetric_cloud) return;
-    
-    // 尝试使用 WebGL 加速渲染
-    const useWebGL = initVolumetricCloudWebGL();
-    
-    if (enable_webgl && useWebGL) {
-        // 使用 WebGL 渲染体积云
-        const bbox = getCloudBoundingBox(time);
-        
-        // 归一化颜色
-        const maxSun = Math.max(sunlight_r, sunlight_g, sunlight_b, 1);
-        const maxSky = Math.max(sky_r, sky_g, sky_b, 1);
-        
-        const webglParams = {
-            fb_width: fb_width,
-            fb_height: fb_height,
-            sky_radius: sky_radius,
-            center_x: center_x,
-            center_y: center_y,
-            view_alt: -view_alt,
-            view_azi: view_azi,
-            view_roll: -view_roll,
-            f: f,
-            sun_alt: sun_alt,
-            sun_azi: sun_azi,
-            time: time,
-            density_scale: cloudParams.densityScale,
-            extinction: cloudParams.extinction,
-            scattering: cloudParams.scattering,
-            steps: cloudParams.steps,
-            wind_speed: cloudParams.windSpeed,
-            ambient_light: cloudParams.ambientLight,
-            sun_color: [sunlight_r / maxSun, sunlight_g / maxSun, sunlight_b / maxSun],
-            sky_color: [sky_r / maxSky, sky_g / maxSky, sky_b / maxSky],
-            cloud_bbox_min: bbox.minZ,
-            cloud_bbox_max: bbox.maxZ,
-            cloud_clusters: cloudClusters
-        };
-        
-        const gl_pixels = VolumetricCloudWebGL.render(webglParams, frame_buffer);
-        
-        if (gl_pixels) {
-            // 将 WebGL 渲染结果复制回帧缓冲区
-            for (let i = 0; i < fb_width * fb_height * 4; i++) {
-                frame_buffer[i] = gl_pixels[i];
-            }
-            return;
-        }
-        // WebGL 渲染失败，回退到 CPU 渲染
-    }
-    
-    // 使用 CPU 渲染（原有的 JavaScript 实现作为回退）
-    render_volumetric_clouds_cpu(
-        frame_buffer, fb_width, fb_height,
-        sky_radius, center_x, center_y,
-        view_alt, view_azi, view_roll, f,
-        sun_alt, sun_azi, time,
-        sky_r, sky_g, sky_b,
-        sunlight_r, sunlight_g, sunlight_b
-    );
 }
 
 /**
@@ -3179,1454 +3682,6 @@ function scatter_model_3(ray_vec, sun_vec) {
 
 
 
-// ============================================
-// WebGL 体积云渲染器
-// ============================================
-
-const VolumetricCloudWebGL = {
-    gl: null,
-    program: null,
-    positionBuffer: null,
-    texture: null,
-    framebuffer: null,
-    uniforms: {},
-    
-    // 初始化 WebGL
-    init: function() {
-        const canvas = document.createElement('canvas');
-        canvas.width = FB_WIDTH;
-        canvas.height = FB_HEIGHT;
-        
-        this.gl = canvas.getContext('webgl', {
-            preserveDrawingBuffer: true,
-            alpha: false,
-            antialias: false,
-            depth: false,
-            stencil: false
-        });
-        
-        if (!this.gl) {
-            console.warn('WebGL not supported for volumetric clouds');
-            return false;
-        }
-        
-        const gl = this.gl;
-        
-        // 创建着色器程序
-        const vsSource = this.vertexShaderSource;
-        const fsSource = this.fragmentShaderSource;
-        
-        const vertexShader = this.compileShader(gl.VERTEX_SHADER, vsSource);
-        const fragmentShader = this.compileShader(gl.FRAGMENT_SHADER, fsSource);
-        
-        if (!vertexShader || !fragmentShader) {
-            console.warn('Volumetric cloud shader compilation failed');
-            return false;
-        }
-        
-        this.program = gl.createProgram();
-        gl.attachShader(this.program, vertexShader);
-        gl.attachShader(this.program, fragmentShader);
-        gl.linkProgram(this.program);
-        
-        if (!gl.getProgramParameter(this.program, gl.LINK_STATUS)) {
-            console.warn('Volumetric cloud shader program linking failed:', gl.getProgramInfoLog(this.program));
-            return false;
-        }
-        
-        gl.useProgram(this.program);
-        
-        // 设置顶点缓冲区（全屏四边形）
-        this.positionBuffer = gl.createBuffer();
-        gl.bindBuffer(gl.ARRAY_BUFFER, this.positionBuffer);
-        gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([
-            -1.0, -1.0,
-             1.0, -1.0,
-            -1.0,  1.0,
-            -1.0,  1.0,
-             1.0, -1.0,
-             1.0,  1.0
-        ]), gl.STATIC_DRAW);
-        
-        // 获取 attribute 和 uniform 位置
-        const positionLocation = gl.getAttribLocation(this.program, 'a_position');
-        gl.enableVertexAttribArray(positionLocation);
-        gl.vertexAttribPointer(positionLocation, 2, gl.FLOAT, false, 0, 0);
-        
-        this.uniforms = {
-            u_fb_width: gl.getUniformLocation(this.program, 'u_fb_width'),
-            u_fb_height: gl.getUniformLocation(this.program, 'u_fb_height'),
-            u_sky_radius: gl.getUniformLocation(this.program, 'u_sky_radius'),
-            u_center_x: gl.getUniformLocation(this.program, 'u_center_x'),
-            u_center_y: gl.getUniformLocation(this.program, 'u_center_y'),
-            u_view_alt: gl.getUniformLocation(this.program, 'u_view_alt'),
-            u_view_azi: gl.getUniformLocation(this.program, 'u_view_azi'),
-            u_view_roll: gl.getUniformLocation(this.program, 'u_view_roll'),
-            u_f: gl.getUniformLocation(this.program, 'u_f'),
-            u_sun_alt: gl.getUniformLocation(this.program, 'u_sun_alt'),
-            u_sun_azi: gl.getUniformLocation(this.program, 'u_sun_azi'),
-            u_time: gl.getUniformLocation(this.program, 'u_time'),
-            u_density_scale: gl.getUniformLocation(this.program, 'u_density_scale'),
-            u_extinction: gl.getUniformLocation(this.program, 'u_extinction'),
-            u_scattering: gl.getUniformLocation(this.program, 'u_scattering'),
-            u_steps: gl.getUniformLocation(this.program, 'u_steps'),
-            u_wind_speed: gl.getUniformLocation(this.program, 'u_wind_speed'),
-            u_ambient_light: gl.getUniformLocation(this.program, 'u_ambient_light'),
-            u_sun_color: gl.getUniformLocation(this.program, 'u_sun_color'),
-            u_sky_color: gl.getUniformLocation(this.program, 'u_sky_color'),
-            u_cloud_bbox_min: gl.getUniformLocation(this.program, 'u_cloud_bbox_min'),
-            u_cloud_bbox_max: gl.getUniformLocation(this.program, 'u_cloud_bbox_max'),
-            u_cloud_clusters: gl.getUniformLocation(this.program, 'u_cloud_clusters'),
-            u_cloud_params: gl.getUniformLocation(this.program, 'u_cloud_params'),
-            u_background_texture: gl.getUniformLocation(this.program, 'u_background_texture')
-        };
-        
-        // 创建输出纹理和帧缓冲区
-        this.texture = gl.createTexture();
-        gl.bindTexture(gl.TEXTURE_2D, this.texture);
-        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
-        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
-        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
-        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
-        
-        this.framebuffer = gl.createFramebuffer();
-        gl.bindFramebuffer(gl.FRAMEBUFFER, this.framebuffer);
-        gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, this.texture, 0);
-        
-        gl.bindFramebuffer(gl.FRAMEBUFFER, null);
-        
-        console.log('WebGL volumetric clouds initialized');
-        return true;
-    },
-    
-    compileShader: function(type, source) {
-        const gl = this.gl;
-        const shader = gl.createShader(type);
-        gl.shaderSource(shader, source);
-        gl.compileShader(shader);
-        
-        if (!gl.getShaderParameter(shader, gl.COMPILE_STATUS)) {
-            console.error('Volumetric cloud shader compile error:', gl.getShaderInfoLog(shader));
-            gl.deleteShader(shader);
-            return null;
-        }
-        return shader;
-    },
-    
-    // 顶点着色器
-    vertexShaderSource: `
-        attribute vec2 a_position;
-        varying vec2 v_texCoord;
-        void main() {
-            v_texCoord = a_position * 0.5 + 0.5;
-            gl_Position = vec4(a_position, 0.0, 1.0);
-        }
-    `,
-    
-    // 片段着色器 - 体积云渲染
-    fragmentShaderSource: `
-        precision highp float;
-        
-        varying vec2 v_texCoord;
-        
-        uniform float u_fb_width;
-        uniform float u_fb_height;
-        uniform float u_sky_radius;
-        uniform float u_center_x;
-        uniform float u_center_y;
-        uniform float u_view_alt;
-        uniform float u_view_azi;
-        uniform float u_view_roll;
-        uniform float u_f;
-        uniform float u_sun_alt;
-        uniform float u_sun_azi;
-        uniform float u_time;
-        uniform float u_density_scale;
-        uniform float u_extinction;
-        uniform float u_scattering;
-        uniform int u_steps;
-        uniform float u_wind_speed;
-        uniform float u_ambient_light;
-        uniform vec3 u_sun_color;
-        uniform vec3 u_sky_color;
-        uniform float u_cloud_bbox_min;
-        uniform float u_cloud_bbox_max;
-        uniform sampler2D u_background_texture;
-        
-        // 云团数据：x, y, z, radius
-        uniform vec4 u_cloud_clusters[3];
-        // 云团数据：height, seed, 0, 0
-        uniform vec4 u_cloud_params[3];
-        
-        const float PI = 3.14159265359;
-        const float DEG_TO_RAD = 0.01745329252;
-        
-        // 向量工具函数
-        vec3 vNorm(vec3 v) { 
-            float l = length(v);
-            return l > 1e-12 ? v / l : vec3(0.0);
-        }
-        
-        // 哈希函数
-        float hash31(vec3 p, float seed) {
-            float x = p.x * 0.32 + seed;
-            float y = p.y * 0.43 + seed;
-            float z = p.z * 0.27 + seed;
-            float h = sin(x * 12.9898 + y * 78.233 + z * 45.164) * 43758.5453;
-            return h - floor(h);
-        }
-        
-        // 3D噪声函数
-        float simpleNoise3D(vec3 pos, float seed) {
-            vec3 i = floor(pos);
-            vec3 f = fract(pos);
-            
-            // 平滑插值 (对每个分量分别计算)
-            vec3 u = f * f * f * (f * (f * 6.0 - 15.0) + 10.0);
-            
-            float h000 = hash31(i + vec3(0.0, 0.0, 0.0), seed);
-            float h100 = hash31(i + vec3(1.0, 0.0, 0.0), seed);
-            float h010 = hash31(i + vec3(0.0, 1.0, 0.0), seed);
-            float h110 = hash31(i + vec3(1.0, 1.0, 0.0), seed);
-            float h001 = hash31(i + vec3(0.0, 0.0, 1.0), seed);
-            float h101 = hash31(i + vec3(1.0, 0.0, 1.0), seed);
-            float h011 = hash31(i + vec3(0.0, 1.0, 1.0), seed);
-            float h111 = hash31(i + vec3(1.0, 1.0, 1.0), seed);
-            
-            float h00 = mix(h000, h100, u.x);
-            float h01 = mix(h010, h110, u.x);
-            float h10 = mix(h001, h101, u.x);
-            float h11 = mix(h011, h111, u.x);
-            
-            float h0 = mix(h00, h01, u.y);
-            float h1 = mix(h10, h11, u.y);
-            
-            return mix(h0, h1, u.z);
-        }
-        
-        // 鱼眼投影反解：屏幕坐标 -> 3D方向向量
-        vec3 fisheye_unproject(vec2 scr_pos) {
-            float dx = u_center_x - scr_pos.x;
-            float dy = u_center_y - scr_pos.y;
-            float r = sqrt(dx * dx + dy * dy);
-            
-            if (r < 1e-10) {
-                float V_alt_rad = u_view_alt * DEG_TO_RAD;
-                float V_azi_rad = u_view_azi * DEG_TO_RAD;
-                return vec3(
-                    cos(V_alt_rad) * sin(V_azi_rad),
-                    cos(V_alt_rad) * cos(V_azi_rad),
-                    sin(V_alt_rad)
-                );
-            }
-            
-            float theta = r * PI / (2.0 * u_f * u_sky_radius);
-            theta = clamp(theta, 0.0, PI);
-            float phi = atan(dx, dy);
-            
-            float pxy = sin(theta);
-            float pz = cos(theta);
-            
-            vec3 p_prime = vec3(
-                pxy * sin(phi),
-                pxy * cos(phi),
-                pz
-            );
-            
-            float V_alt_rad = u_view_alt * DEG_TO_RAD;
-            float V_azi_rad = u_view_azi * DEG_TO_RAD;
-            vec3 v = vec3(
-                cos(V_alt_rad) * sin(V_azi_rad),
-                cos(V_alt_rad) * cos(V_azi_rad),
-                sin(V_alt_rad)
-            );
-            
-            float dot_vz = v.z;
-            vec3 y_prime = normalize(vec3(-dot_vz * v.x, -dot_vz * v.y, 1.0 - dot_vz * v.z));
-            vec3 x_prime = normalize(cross(y_prime, v));
-            
-            float roll = u_view_roll * DEG_TO_RAD;
-            float cos_r = cos(roll);
-            float sin_r = sin(roll);
-            vec3 x_rot = x_prime * cos_r - y_prime * sin_r;
-            vec3 y_rot = x_prime * sin_r + y_prime * cos_r;
-            
-            vec3 result = x_rot * p_prime.x + y_rot * p_prime.y + v * p_prime.z;
-            return normalize(result);
-        }
-        
-        // 云密度函数
-        float getCloudDensity(vec3 pos, float time) {
-            float totalDensity = 0.0;
-            
-            float windOffsetX = time * u_wind_speed * 0.5;
-            float windOffsetY = time * u_wind_speed * 0.3;
-            
-            for (int i = 0; i < 3; i++) {
-                vec4 cloud = u_cloud_clusters[i];
-                vec4 params = u_cloud_params[i];
-                float cx = cloud.x + windOffsetX;
-                float cy = cloud.y + windOffsetY;
-                float cz = cloud.z;
-                float radius = cloud.w;
-                float height = params.x;
-                float seed = params.y;
-                
-                float dx = pos.x - cx;
-                float dy = pos.y - cy;
-                float dz = pos.z - cz;
-                
-                float distHorizontal = sqrt(dx * dx + dy * dy);
-                float distVertical = abs(dz);
-                
-                if (distHorizontal > radius || distVertical > height) continue;
-                
-                float hFactor = 1.0 - distHorizontal / radius;
-                float vFactor = 1.0 - distVertical / height;
-                
-                float smoothH = hFactor * hFactor * (3.0 - 2.0 * hFactor);
-                float smoothV = vFactor * vFactor * (3.0 - 2.0 * vFactor);
-                
-                float baseDensity = hFactor * vFactor;
-                
-                float noiseScale = 0.25;
-                float nx = pos.x * noiseScale;
-                float ny = pos.y * noiseScale;
-                float nz = pos.z * noiseScale;
-                
-                float noise1 = simpleNoise3D(vec3(nx, ny, nz), seed);
-                float noise2 = simpleNoise3D(vec3(nx * 2.3, ny * 2.3, nz * 2.3), seed + 1.0);
-                float noise3 = simpleNoise3D(vec3(nx * 5.1, ny * 5.1, nz * 5.1), seed + 2.0);
-                float noise4 = simpleNoise3D(vec3(nx * 10.7, ny * 10.7, nz * 10.7), seed + 3.0);
-                
-                float detailNoise = noise1 * 0.20 + noise2 * 0.25 + noise3 * 0.30 + noise4 * 0.25;
-                
-                float density = baseDensity * detailNoise * 1.5;
-                density = max(0.0, density - 0.15) / 0.85;
-                
-                totalDensity = max(totalDensity, density * u_density_scale);
-            }
-            
-            return min(totalDensity, 1.0);
-        }
-        
-        // 计算云阴影（透射率）
-        float computeCloudShadow(vec3 pos, vec3 sunDir, float time) {
-            const int shadowSteps = 6;
-            float shadowStepSize = 0.8;
-            float shadowTransmittance = 1.0;
-            
-            vec3 shadowPos = pos;
-            
-            for (int i = 0; i < shadowSteps; i++) {
-                shadowPos += sunDir * shadowStepSize;
-                float density = getCloudDensity(shadowPos, time);
-                if (density > 0.01) {
-                    float shadowExtinction = u_extinction * 2.0;
-                    shadowTransmittance *= exp(-density * shadowExtinction * shadowStepSize);
-                    if (shadowTransmittance < 0.01) {
-                        shadowTransmittance = 0.0;
-                        break;
-                    }
-                }
-            }
-            
-            return shadowTransmittance;
-        }
-        
-        // 计算环境光追踪
-        float computeAmbientTrace(vec3 pos, float time) {
-            const int ambientSteps = 4;
-            float ambientStepSize = 1.0;
-            float ambientTransmittance = 1.0;
-            
-            vec3 tracePos = pos;
-            vec3 upDir = vec3(0.0, 0.0, 1.0);
-            
-            for (int i = 0; i < ambientSteps; i++) {
-                tracePos += upDir * ambientStepSize;
-                float density = getCloudDensity(tracePos, time);
-                if (density > 0.01) {
-                    float extinction = u_extinction * 1.5;
-                    ambientTransmittance *= exp(-density * extinction * ambientStepSize);
-                    if (ambientTransmittance < 0.05) {
-                        ambientTransmittance = 0.0;
-                        break;
-                    }
-                }
-            }
-            
-            return ambientTransmittance;
-        }
-        
-        void main() {
-            vec2 scr_pos = vec2(v_texCoord.x * u_fb_width, v_texCoord.y * u_fb_height);
-            
-            // 读取背景颜色
-            vec4 bgColor = texture2D(u_background_texture, v_texCoord);
-            
-            // 获取视线方向
-            vec3 rayDir = fisheye_unproject(scr_pos);
-            
-            // 只处理朝上的视线
-            if (rayDir.z <= 0.01) {
-                gl_FragColor = bgColor;
-                return;
-            }
-            
-            // 太阳方向
-            float sun_alt_rad = u_sun_alt * DEG_TO_RAD;
-            float sun_azi_rad = u_sun_azi * DEG_TO_RAD;
-            vec3 sunDir = vec3(
-                cos(sun_alt_rad) * sin(sun_azi_rad),
-                cos(sun_alt_rad) * cos(sun_azi_rad),
-                sin(sun_alt_rad)
-            );
-            
-            // 太阳高度因子
-            float sunElevationFactor = clamp((u_sun_alt + 6.0) / 12.0, 0.0, 1.0);
-            
-            // 计算与云团包围盒的交点
-            float tEnter = u_cloud_bbox_min / rayDir.z;
-            float tExit = u_cloud_bbox_max / rayDir.z;
-            
-            if (tEnter < 0.0 || tExit < 0.0 || tExit <= tEnter) {
-                gl_FragColor = bgColor;
-                return;
-            }
-            
-            // 光线步进
-            float transmittance = 1.0;
-            vec3 accumColor = vec3(0.0);
-            float stepSize = (tExit - tEnter) / float(u_steps);
-            float offset = fract(sin(dot(scr_pos, vec2(12.9898, 78.233))) * 43758.5453) * stepSize;
-            float t = tEnter + offset;
-            
-            for (int step = 0; step < 32; step++) {
-                if (step >= u_steps) break;
-                
-                vec3 pos = rayDir * t;
-                float density = getCloudDensity(pos, u_time);
-                
-                if (density > 0.01) {
-                    // 直射光阴影
-                    float directLightShadow = computeCloudShadow(pos, sunDir, u_time);
-                    float directLight = directLightShadow * sunElevationFactor;
-                    
-                    // 环境光
-                    float ambientTrace = computeAmbientTrace(pos, u_time);
-                    float ambientLight = u_ambient_light * (0.2 + 0.8 * ambientTrace);
-                    
-                    // 散射
-                    float scatter = density * u_scattering;
-                    
-                    // 直射光贡献
-                    vec3 directContrib = vec3(scatter * directLight) * u_sun_color;
-                    // 环境光贡献
-                    vec3 ambientContrib = vec3(scatter * ambientLight) * u_sky_color;
-                    
-                    vec3 cloudColor = directContrib + ambientContrib;
-                    
-                    // 累积颜色
-                    accumColor += cloudColor * transmittance;
-                    
-                    // 更新透射率
-                    float attenuation = exp(-u_extinction * density * stepSize);
-                    transmittance *= attenuation;
-                    
-                    // 提早终止
-                    if (transmittance < 0.01) break;
-                }
-                
-                t += stepSize;
-            }
-            
-            // 混合云和背景
-            vec3 finalColor = accumColor + bgColor.rgb * transmittance;
-            finalColor = clamp(finalColor, 0.0, 1.0);
-            
-            gl_FragColor = vec4(finalColor, 1.0);
-        }
-    `,
-    
-    // 渲染体积云
-    render: function(params, backgroundData) {
-        const gl = this.gl;
-        if (!gl || !this.program) return null;
-        
-        const { fb_width, fb_height, sky_radius, center_x, center_y, 
-                view_alt, view_azi, view_roll, f, sun_alt, sun_azi, time,
-                density_scale, extinction, scattering, steps, wind_speed, ambient_light,
-                sun_color, sky_color, cloud_bbox_min, cloud_bbox_max, cloud_clusters } = params;
-        
-        // 调整 canvas 和纹理大小
-        const canvas = gl.canvas;
-        canvas.width = fb_width;
-        canvas.height = fb_height;
-        gl.viewport(0, 0, fb_width, fb_height);
-        
-        // 更新输出纹理
-        gl.bindTexture(gl.TEXTURE_2D, this.texture);
-        gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, fb_width, fb_height, 0, gl.RGBA, gl.UNSIGNED_BYTE, null);
-        
-        // 创建背景纹理
-        const bgTexture = gl.createTexture();
-        gl.activeTexture(gl.TEXTURE0);
-        gl.bindTexture(gl.TEXTURE_2D, bgTexture);
-        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
-        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
-        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
-        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
-        gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, fb_width, fb_height, 0, gl.RGBA, gl.UNSIGNED_BYTE, backgroundData);
-        
-        gl.bindFramebuffer(gl.FRAMEBUFFER, this.framebuffer);
-        
-        // 设置 uniform 值
-        gl.uniform1f(this.uniforms.u_fb_width, fb_width);
-        gl.uniform1f(this.uniforms.u_fb_height, fb_height);
-        gl.uniform1f(this.uniforms.u_sky_radius, sky_radius);
-        gl.uniform1f(this.uniforms.u_center_x, center_x);
-        gl.uniform1f(this.uniforms.u_center_y, center_y);
-        gl.uniform1f(this.uniforms.u_view_alt, -view_alt);
-        gl.uniform1f(this.uniforms.u_view_azi, view_azi);
-        gl.uniform1f(this.uniforms.u_view_roll, -view_roll);
-        gl.uniform1f(this.uniforms.u_f, f);
-        gl.uniform1f(this.uniforms.u_sun_alt, sun_alt);
-        gl.uniform1f(this.uniforms.u_sun_azi, sun_azi);
-        gl.uniform1f(this.uniforms.u_time, time);
-        gl.uniform1f(this.uniforms.u_density_scale, density_scale);
-        gl.uniform1f(this.uniforms.u_extinction, extinction);
-        gl.uniform1f(this.uniforms.u_scattering, scattering);
-        gl.uniform1i(this.uniforms.u_steps, steps);
-        gl.uniform1f(this.uniforms.u_wind_speed, wind_speed);
-        gl.uniform1f(this.uniforms.u_ambient_light, ambient_light);
-        gl.uniform3f(this.uniforms.u_sun_color, sun_color[0], sun_color[1], sun_color[2]);
-        gl.uniform3f(this.uniforms.u_sky_color, sky_color[0], sky_color[1], sky_color[2]);
-        gl.uniform1f(this.uniforms.u_cloud_bbox_min, cloud_bbox_min);
-        gl.uniform1f(this.uniforms.u_cloud_bbox_max, cloud_bbox_max);
-        gl.uniform1i(this.uniforms.u_background_texture, 0);
-        
-        // 设置云团数据
-        for (let i = 0; i < 3; i++) {
-            const cluster = cloud_clusters[i];
-            gl.uniform4f(gl.getUniformLocation(this.program, `u_cloud_clusters[${i}]`), 
-                cluster.center.x, cluster.center.y, cluster.center.z, cluster.radius);
-            gl.uniform4f(gl.getUniformLocation(this.program, `u_cloud_params[${i}]`), 
-                cluster.height, cluster.seed, 0.0, 0.0);
-        }
-        
-        // 绘制全屏四边形
-        gl.drawArrays(gl.TRIANGLES, 0, 6);
-        
-        // 读取像素数据
-        const pixels = new Uint8Array(fb_width * fb_height * 4);
-        gl.readPixels(0, 0, fb_width, fb_height, gl.RGBA, gl.UNSIGNED_BYTE, pixels);
-        
-        gl.bindFramebuffer(gl.FRAMEBUFFER, null);
-        
-        // 清理
-        gl.deleteTexture(bgTexture);
-        
-        return pixels;
-    }
-};
-
-// 初始化体积云 WebGL
-let volumetricCloudWebGLInitialized = false;
-function initVolumetricCloudWebGL() {
-    if (!volumetricCloudWebGLInitialized) {
-        volumetricCloudWebGLInitialized = true;
-        return VolumetricCloudWebGL.init();
-    }
-    return VolumetricCloudWebGL.gl !== null;
-}
-
-
-
-// ============================================
-// WebGL 大气散射渲染器
-// ============================================
-
-const AtmosphericScatteringWebGL = {
-    gl: null,
-    program: null,
-    positionBuffer: null,
-    texture: null,
-    framebuffer: null,
-    
-    // 着色器 Uniform 位置
-    uniforms: {},
-    
-    // 初始化 WebGL
-    init: function() {
-        const canvas = document.createElement('canvas');
-        canvas.width = FB_WIDTH;
-        canvas.height = FB_HEIGHT;
-        
-        this.gl = canvas.getContext('webgl', {
-            preserveDrawingBuffer: true,
-            alpha: false,
-            antialias: false,
-            depth: false,
-            stencil: false
-        });
-        
-        if (!this.gl) {
-            console.warn('WebGL not supported, falling back to CPU rendering');
-            return false;
-        }
-        
-        const gl = this.gl;
-        
-        // 创建着色器程序
-        const vsSource = this.vertexShaderSource;
-        const fsSource = this.fragmentShaderSource;
-        
-        const vertexShader = this.compileShader(gl.VERTEX_SHADER, vsSource);
-        const fragmentShader = this.compileShader(gl.FRAGMENT_SHADER, fsSource);
-        
-        if (!vertexShader || !fragmentShader) {
-            console.warn('Shader compilation failed');
-            return false;
-        }
-        
-        this.program = gl.createProgram();
-        gl.attachShader(this.program, vertexShader);
-        gl.attachShader(this.program, fragmentShader);
-        gl.linkProgram(this.program);
-        
-        if (!gl.getProgramParameter(this.program, gl.LINK_STATUS)) {
-            console.warn('Shader program linking failed:', gl.getProgramInfoLog(this.program));
-            return false;
-        }
-        
-        gl.useProgram(this.program);
-        
-        // 设置顶点缓冲区（全屏四边形）
-        this.positionBuffer = gl.createBuffer();
-        gl.bindBuffer(gl.ARRAY_BUFFER, this.positionBuffer);
-        gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([
-            -1.0, -1.0,
-             1.0, -1.0,
-            -1.0,  1.0,
-            -1.0,  1.0,
-             1.0, -1.0,
-             1.0,  1.0
-        ]), gl.STATIC_DRAW);
-        
-        // 获取 attribute 和 uniform 位置
-        const positionLocation = gl.getAttribLocation(this.program, 'a_position');
-        gl.enableVertexAttribArray(positionLocation);
-        gl.vertexAttribPointer(positionLocation, 2, gl.FLOAT, false, 0, 0);
-        
-        this.uniforms = {
-            u_fb_width: gl.getUniformLocation(this.program, 'u_fb_width'),
-            u_fb_height: gl.getUniformLocation(this.program, 'u_fb_height'),
-            u_sky_radius: gl.getUniformLocation(this.program, 'u_sky_radius'),
-            u_center_x: gl.getUniformLocation(this.program, 'u_center_x'),
-            u_center_y: gl.getUniformLocation(this.program, 'u_center_y'),
-            u_view_alt: gl.getUniformLocation(this.program, 'u_view_alt'),
-            u_view_azi: gl.getUniformLocation(this.program, 'u_view_azi'),
-            u_view_roll: gl.getUniformLocation(this.program, 'u_view_roll'),
-            u_f: gl.getUniformLocation(this.program, 'u_f'),
-            u_sun_alt: gl.getUniformLocation(this.program, 'u_sun_alt'),
-            u_sun_azi: gl.getUniformLocation(this.program, 'u_sun_azi'),
-            u_model_index: gl.getUniformLocation(this.program, 'u_model_index')
-        };
-        
-        // 创建输出纹理和帧缓冲区
-        this.texture = gl.createTexture();
-        gl.bindTexture(gl.TEXTURE_2D, this.texture);
-        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
-        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
-        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
-        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
-        
-        this.framebuffer = gl.createFramebuffer();
-        gl.bindFramebuffer(gl.FRAMEBUFFER, this.framebuffer);
-        gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, this.texture, 0);
-        
-        gl.bindFramebuffer(gl.FRAMEBUFFER, null);
-        
-        console.log('WebGL atmospheric scattering initialized');
-        return true;
-    },
-    
-    compileShader: function(type, source) {
-        const gl = this.gl;
-        const shader = gl.createShader(type);
-        gl.shaderSource(shader, source);
-        gl.compileShader(shader);
-        
-        if (!gl.getShaderParameter(shader, gl.COMPILE_STATUS)) {
-            console.error('Shader compile error:', gl.getShaderInfoLog(shader));
-            gl.deleteShader(shader);
-            return null;
-        }
-        return shader;
-    },
-    
-    // 顶点着色器
-    vertexShaderSource: `
-        attribute vec2 a_position;
-        varying vec2 v_texCoord;
-        void main() {
-            v_texCoord = a_position * 0.5 + 0.5;
-            gl_Position = vec4(a_position, 0.0, 1.0);
-        }
-    `,
-    
-    // 片段着色器 - 大气散射计算
-    fragmentShaderSource: `
-        precision highp float;
-        
-        varying vec2 v_texCoord;
-        
-        uniform float u_fb_width;
-        uniform float u_fb_height;
-        uniform float u_sky_radius;
-        uniform float u_center_x;
-        uniform float u_center_y;
-        uniform float u_view_alt;
-        uniform float u_view_azi;
-        uniform float u_view_roll;
-        uniform float u_f;
-        uniform float u_sun_alt;
-        uniform float u_sun_azi;
-        uniform int u_model_index;
-        
-        const float PI = 3.14159265359;
-        const float DEG_TO_RAD = 0.01745329252;
-        
-        // 向量工具函数
-        float vDot(vec3 a, vec3 b) { return dot(a, b); }
-        vec3 vAdd(vec3 a, vec3 b) { return a + b; }
-        vec3 vMul(vec3 v, float s) { return v * s; }
-        float vLen(vec3 v) { return length(v); }
-        vec3 vNorm(vec3 v) { 
-            float l = vLen(v);
-            return l > 1e-12 ? v / l : vec3(0.0);
-        }
-        
-        // 鱼眼投影反解：屏幕坐标 -> 3D方向向量
-        vec3 fisheye_unproject(vec2 scr_pos) {
-            float dx = u_center_x - scr_pos.x;
-            float dy = u_center_y - scr_pos.y;
-            float r = sqrt(dx * dx + dy * dy);
-            
-            // 注意：与JavaScript实现保持一致，不在屏幕坐标阶段应用滚转
-            // 滚转只在构建旋转矩阵时应用一次
-            
-            if (r < 1e-10) {
-                // 中心点 - 视线方向
-                float V_alt_rad = u_view_alt * DEG_TO_RAD;
-                float V_azi_rad = u_view_azi * DEG_TO_RAD;
-                return vec3(
-                    cos(V_alt_rad) * sin(V_azi_rad),
-                    cos(V_alt_rad) * cos(V_azi_rad),
-                    sin(V_alt_rad)
-                );
-            }
-            
-            float theta = r * PI / (2.0 * u_f * u_sky_radius);
-            theta = clamp(theta, 0.0, PI);
-            // 重要：phi 需要取负号，因为投影中使用了 phi_v = -atan2(vx, vy)
-            // 通过反推，phi = -atan2(dx, dy) = atan(dx, -dy)
-            float phi = atan(dx, -dy);
-            
-            float pxy = sin(theta);
-            float pz = cos(theta);
-            
-            vec3 p_prime = vec3(
-                pxy * sin(phi),
-                pxy * cos(phi),
-                pz
-            );
-            
-            // 构建视线向量 v
-            float V_alt_rad = u_view_alt * DEG_TO_RAD;
-            float V_azi_rad = u_view_azi * DEG_TO_RAD;
-            vec3 v = vec3(
-                cos(V_alt_rad) * sin(V_azi_rad),
-                cos(V_alt_rad) * cos(V_azi_rad),
-                sin(V_alt_rad)
-            );
-            
-            // 构建 y' 轴
-            float dot_vz = v.z;
-            vec3 y_prime = normalize(vec3(-dot_vz * v.x, -dot_vz * v.y, 1.0 - dot_vz * v.z));
-            
-            // 构建 x' 轴
-            vec3 x_prime = normalize(cross(y_prime, v));
-            
-            // 应用滚转
-            float roll = u_view_roll * DEG_TO_RAD;
-            float cos_r = cos(roll);
-            float sin_r = sin(roll);
-            vec3 x_rot = x_prime * cos_r - y_prime * sin_r;
-            vec3 y_rot = x_prime * sin_r + y_prime * cos_r;
-            
-            // 转换到地平坐标
-            vec3 result = x_rot * p_prime.x + y_rot * p_prime.y + v * p_prime.z;
-            return normalize(result);
-        }
-        
-        // ============================================
-        // 散射模型 1：简化模型
-        // ============================================
-        vec3 scatter_model_1(vec3 ray_dir, vec3 sun_dir) {
-            float sunElevation = asin(clamp(sun_dir.z, -1.0, 1.0));
-            float sunElevationDeg = sunElevation * 180.0 / PI;
-            float sunZenith = PI / 2.0 - sunElevation;
-            float sunZenithDeg = sunZenith * 180.0 / PI;
-            
-            float sunAirMass;
-            if (sunElevationDeg >= 0.0) {
-                sunAirMass = 1.0 / (cos(sunZenith) + 0.50572 * pow(96.07995 - sunZenithDeg, -1.6364));
-            } else {
-                sunAirMass = 40.0;
-            }
-            
-            float viewZenith = acos(clamp(ray_dir.z, 0.0, 1.0));
-            float viewZenithDeg = viewZenith * 180.0 / PI;
-            float viewElevationDeg = 90.0 - viewZenithDeg;
-            
-            float viewAirMass;
-            if (viewElevationDeg >= 0.0) {
-                viewAirMass = 1.0 / (cos(viewZenith) + 0.50572 * pow(96.07995 - viewZenithDeg, -1.6364));
-            } else {
-                viewAirMass = 40.0;
-            }
-            
-            float cosTheta = dot(ray_dir, sun_dir);
-            
-            // 米氏散射相函数
-            float mie_g = 0.9;
-            float miePhase = pow(1.0 + mie_g * mie_g - 2.0 * mie_g * cosTheta, -1.5);
-            
-            // 瑞利散射相函数
-            float rayleighPhase = (1.0 + cosTheta * cosTheta) * 0.75;
-            
-            // 大气密度因子
-            float H = 8.5;
-            float mu = max(0.01, ray_dir.z);
-            float densityFactor = exp(-mu / H);
-            
-            // 瑞利散射系数
-            vec3 wavelengths = vec3(680.0, 550.0, 450.0);
-            float referenceWavelength = wavelengths[1];
-            vec3 betaRayleigh;
-            for (int i = 0; i < 3; i++) {
-                float wl = referenceWavelength / wavelengths[i];
-                float wlwl = wl * wl;
-                betaRayleigh[i] = 0.3 * wlwl * wlwl;
-            }
-            
-            // 米氏散射系数
-            float mie_beta_base = 0.001;
-            float mie_beta_max = 0.1;
-            float effectiveMieBeta = min(mie_beta_max, mie_beta_base * viewAirMass);
-            
-            vec3 intensities;
-            for (int i = 0; i < 3; i++) {
-                float rayleighContrib = betaRayleigh[i] * rayleighPhase;
-                float mieContrib = effectiveMieBeta * miePhase;
-                float totalBeta = betaRayleigh[i] + effectiveMieBeta;
-                
-                float attn_scale = (sunElevationDeg >= 0.0) ? exp(-pow((sunElevationDeg / 20.0), 4.0)) + 0.01 : 1.0;
-                float attenuation = exp(-totalBeta * viewAirMass * attn_scale);
-                float totalScattering = (rayleighContrib + mieContrib) * attenuation * densityFactor;
-                
-                vec3 ozone_absorption = vec3(0.005, 0.040, 0.025);
-                float ozoneTransmittance = exp(-ozone_absorption[i] * sunAirMass * 0.8);
-                intensities[i] = totalScattering * ozoneTransmittance;
-            }
-            
-            vec3 color = intensities;
-            
-            // 夜间衰减
-            float night_attn = (sunElevationDeg >= 0.0) ? 1.0 : max(0.0, exp(0.016 * sunElevationDeg));
-            color *= night_attn;
-            
-            // 全局增益
-            color *= 2.0;
-            
-            return clamp(color, 0.0, 1.0);
-        }
-        
-        // ============================================
-        // 散射模型 2：Nishita 一次散射
-        // ============================================
-        vec3 scatter_model_2(vec3 ray_dir, vec3 sun_dir) {
-            ray_dir.z = -ray_dir.z;
-
-            float sunElevation = asin(clamp(sun_dir.z, -1.0, 1.0));
-            float sunElevationDeg = sunElevation * 180.0 / PI;
-            
-            float viewZenith = acos(clamp(ray_dir.z, 0.0, 1.0));
-            float viewZenithDeg = viewZenith * 180.0 / PI;
-            float viewElevationDeg = 90.0 - viewZenithDeg;
-            
-            float cosTheta = dot(ray_dir, sun_dir);
-            
-            // 米氏散射相函数
-            float g = 0.7;
-            float g2 = g * g;
-            float miePhase = (3.0 / (8.0 * PI)) * ((1.0 - g2) * (1.0 + cosTheta * cosTheta)) / ((2.0 + g2) * pow(1.0 + g2 - 2.0 * g * cosTheta, 1.5));
-            
-            // 瑞利散射相函数
-            float rayleighPhase = (1.0 + cosTheta * cosTheta) * 0.75;
-            
-            // 瑞利散射系数
-            vec3 wavelengths = vec3(680.0, 550.0, 450.0);
-            float referenceWavelength = wavelengths[1];
-            vec3 betaRayleigh;
-            for (int i = 0; i < 3; i++) {
-                float wl = referenceWavelength / wavelengths[i];
-                float wlwl = wl * wl;
-                betaRayleigh[i] = 0.04 * wlwl * wlwl;
-            }
-            
-            float beta_Mie = 0.05;
-            float H = 8.0;
-            float H_R = 8.0;
-            float H_M = 1.2;
-            
-            float R_atm = (sunElevationDeg >= 0.0) ? ((3000.0 - 300.0) * exp(-sunElevationDeg * 0.1) + 300.0) : ((3000.0 - 60.0) * exp(sunElevationDeg * 0.2) + 60.0);
-            
-            int S = 6;
-            
-            float view_alt = (viewElevationDeg >= 90.0) ? (180.0 - viewElevationDeg) : viewElevationDeg;
-            float cos_view_alt = cos(view_alt * DEG_TO_RAD);
-            float sin_view_alt = sin(view_alt * DEG_TO_RAD);
-            float Lray = sqrt(R_atm * R_atm - (R_atm - H) * (R_atm - H) * cos_view_alt * cos_view_alt) - (R_atm - H) * sin_view_alt;
-            
-            float sun_alt = (sunElevationDeg >= 90.0) ? (180.0 - sunElevationDeg) : sunElevationDeg;
-            float cos_sun_alt = cos(sun_alt * DEG_TO_RAD);
-            float sin_sun_alt = sin(sun_alt * DEG_TO_RAD);
-            float Lsun = sqrt(R_atm * R_atm - (R_atm - H) * (R_atm - H) * cos_sun_alt * cos_sun_alt) - (R_atm - H) * sin_sun_alt;
-            
-            vec3 sum_R = vec3(0.0);
-            vec3 sum_M = vec3(0.0);
-            float depth_R = 0.0;
-            float depth_M = 0.0;
-            
-            for (int i = 0; i < 6; i++) {
-                float t = float(i) / 6.0;
-                
-                float L_t = t * Lray;
-                float dl = L_t / 6.0;
-                float h_R_t = t * H_R;
-                float h_M_t = t * H_M;
-                float density_R_t = exp(-h_R_t / H_R);
-                float density_M_t = exp(-h_M_t / H_M);
-                
-                depth_R += density_R_t * dl;
-                depth_M += density_M_t * dl;
-                
-                float depth_sun_R = 0.0;
-                float depth_sun_M = 0.0;
-                
-                float Lsun_t = (1.0 - t) * Lsun;
-                float dlsun = Lsun_t / 6.0;
-                
-                for (int j = 0; j < 6; j++) {
-                    float n = float(j) / 6.0;
-                    float hsun_R = h_R_t + n * (1.0 - t) * H_R;
-                    float hsun_M = h_M_t + n * (1.0 - t) * H_M;
-                    float density_sun_R = exp(-hsun_R / H_R);
-                    float density_sun_M = exp(-hsun_M / H_M);
-                    depth_sun_R += density_sun_R * dlsun;
-                    depth_sun_M += density_sun_M * dlsun;
-                }
-                
-                vec3 tau = betaRayleigh * (depth_sun_R + depth_R) + beta_Mie * (depth_sun_M + depth_M) * 1.1;
-                vec3 attn = exp(-tau);
-                
-                sum_R += attn * depth_R;
-                sum_M += attn * depth_M;
-            }
-            
-            vec3 ozone_absorption = vec3(0.005, 0.030, 0.010);
-            float oz_scale = 80.0;
-            vec3 oz = exp(-ozone_absorption * (Lsun / R_atm) * oz_scale);
-            
-            vec3 color;
-            color.r = (sum_R.r * betaRayleigh.r * rayleighPhase + sum_M.r * beta_Mie * miePhase) * oz.r;
-            color.g = (sum_R.g * betaRayleigh.g * rayleighPhase + sum_M.g * beta_Mie * miePhase) * oz.g;
-            color.b = (sum_R.b * betaRayleigh.b * rayleighPhase + sum_M.b * beta_Mie * miePhase) * oz.b;
-            
-            float global_gain = (4.0 - 1.8) * exp(-pow((sunElevationDeg / 3.0), 2.0)) + 1.8;
-            color *= global_gain;
-            
-            return clamp(color, 0.0, 1.0);
-        }
-        
-        // ============================================
-        // 散射模型 3：Nishita 二次散射
-        // ============================================
-        
-        // 瑞利散射相位函数
-        float phaseR_model3(float mu) {
-            return (3.0 / (16.0 * PI)) * (1.0 + mu * mu);
-        }
-        
-        // 米氏散射相位函数
-        float phaseM_model3(float mu) {
-            float g_mie = 0.76;
-            float base = max(1e-10, 1.0 + g_mie * g_mie - 2.0 * g_mie * mu);
-            return (3.0 / (8.0 * PI)) * ((1.0 - g_mie * g_mie) * (1.0 + mu * mu)) / ((2.0 + g_mie * g_mie) * pow(base, 1.5));
-        }
-        
-        // 射线-球面求交
-        vec2 rsi_model3(vec3 o, vec3 d, float r) {
-            float b = 2.0 * dot(o, d);
-            float c = dot(o, o) - r * r;
-            float disc = b * b - 4.0 * c;
-            if (disc < 0.0) return vec2(-1.0, -1.0);
-            float sq = sqrt(disc);
-            return vec2((-b - sq) * 0.5, (-b + sq) * 0.5);
-        }
-        
-        // HDR 映射
-        float hdr_mapping_model3(float x) {
-            float e = 0.2;
-            return (sqrt(1.0 + e) / 2.0) * (sqrt((1.0 + x) * (1.0 + x) + e) - sqrt((1.0 - x) * (1.0 - x) + e));
-        }
-        
-        vec3 scatter_model_3(vec3 ray_dir, vec3 sun_dir) {
-            // 大气物理常数
-            float Re = 6360e3;
-            float Ra = 6420e3;
-            float Hr = 7994.0;
-            float Hm = 1200.0;
-            
-            // 瑞利散射系数
-            vec3 bR = vec3(5.8e-6, 13.5e-6, 33.1e-6);
-            float bM = 16e-6;
-            float bMe = bM * 0.1;
-            float SUN = 20.0;
-            
-            vec3 dir = ray_dir;
-            if (dir.z < 0.0) dir.z = -dir.z;
-            dir = normalize(dir);
-            
-            vec3 sunDir = normalize(sun_dir);
-            
-            // 太阳仰角
-            float sunElevation = asin(clamp(sunDir.z, -1.0, 1.0));
-            float sunElevationDeg = sunElevation * 180.0 / PI;
-            
-            // 观察者视线的仰角
-            float viewZenith = acos(clamp(dir.z, 0.0, 1.0));
-            float viewZenithDeg = viewZenith * 180.0 / PI;
-            float viewElevationDeg = 90.0 - viewZenithDeg;
-            
-            // 射线-球面求交
-            vec3 orig = vec3(0.0, 0.0, Re + 1.0);
-            
-            // 确定主视线与大气球的有效积分范围
-            vec2 atmHit = rsi_model3(orig, dir, Ra);
-            if (atmHit.y < 0.0) return vec3(0.0);
-            
-            float tMin = max(0.0, atmHit.x);
-            float tMax = atmHit.y;
-            
-            vec2 earthHit = rsi_model3(orig, dir, Re);
-            if (earthHit.x > 1.0) {
-                tMax = min(tMax, earthHit.x);
-            }
-            
-            if (tMax <= tMin) return vec3(0.0);
-            
-            // 简化版的 marchRay - 单次散射（内联展开）
-            float segLen = (tMax - tMin) / 64.0;
-            vec3 sumR = vec3(0.0);
-            vec3 sumM = vec3(0.0);
-            float odR = 0.0, odM = 0.0;
-            
-            for (int i = 0; i < 64; i++) {
-                float t = tMin + (float(i) + 0.5) * segLen;
-                vec3 pos = orig + dir * t;
-                float h = length(pos) - Re;
-                
-                float dR = exp(-h / Hr) * segLen;
-                float dM = exp(-h / Hm) * segLen;
-                odR += dR;
-                odM += dM;
-                
-                // 向太阳方向追踪次级射线
-                vec2 sh = rsi_model3(pos, sunDir, Ra);
-                if (sh.y <= 0.0) continue;
-                
-                float lSeg = sh.y / 4.0;
-                float lR = 0.0, lM = 0.0;
-                bool blocked = false;
-                
-                for (int j = 0; j < 4; j++) {
-                    float t_sun = (float(j) + 0.5) * lSeg;
-                    vec3 lp = pos + sunDir * t_sun;
-                    float lh = length(lp) - Re;
-                    if (lh < 0.0) { blocked = true; break; }
-                    lR += exp(-lh / Hr) * lSeg;
-                    lM += exp(-lh / Hm) * lSeg;
-                }
-                if (blocked) continue;
-                
-                float tau_r = bR.r * (odR + lR) + bMe * (odM + lM);
-                float tau_g = bR.g * (odR + lR) + bMe * (odM + lM);
-                float tau_b = bR.b * (odR + lR) + bMe * (odM + lM);
-                
-                sumR.r += exp(-tau_r) * dR;
-                sumR.g += exp(-tau_g) * dR;
-                sumR.b += exp(-tau_b) * dR;
-                sumM.r += exp(-tau_r) * dM;
-                sumM.g += exp(-tau_g) * dM;
-                sumM.b += exp(-tau_b) * dM;
-            }
-            
-            // 单次散射
-            float mu1 = dot(dir, sunDir);
-            float pR1 = phaseR_model3(mu1);
-            float pM1 = phaseM_model3(mu1);
-            
-            vec3 color;
-            color.r = (sumR.r * bR.r * pR1 + sumM.r * bM * pM1) * SUN;
-            color.g = (sumR.g * bR.g * pR1 + sumM.g * bM * pM1) * SUN;
-            color.b = (sumR.b * bR.b * pR1 + sumM.b * bM * pM1) * SUN;
-            
-            // ============================================
-            // 二次散射（多次散射近似）
-            // ============================================
-            // 上半球离散采样方向（8方向，准均匀覆盖上半球 2π sr）
-            vec3 ambDirs[9];
-            ambDirs[0] = vec3(0.0, 0.0, 1.0);                    // 天顶
-            ambDirs[1] = normalize(vec3(1.0, 0.0, 0.5));        // 偏东上
-            ambDirs[2] = normalize(vec3(-1.0, 0.0, 0.5));       // 偏西上
-            ambDirs[3] = normalize(vec3(0.0, 1.0, 0.5));        // 偏北上
-            ambDirs[4] = normalize(vec3(0.0, -1.0, 0.5));       // 偏南上
-            ambDirs[5] = normalize(vec3(1.0, 1.0, 0.5));        // 东北
-            ambDirs[6] = normalize(vec3(-1.0, 1.0, 0.5));       // 西北
-            ambDirs[7] = normalize(vec3(1.0, -1.0, 0.5));       // 东南
-            ambDirs[7] = normalize(vec3(1.0, -1.0, 0.5));       // 西南
-            
-            const int N_AMB = 9;
-            float dOmega = 2.0 * PI / float(N_AMB);
-            
-            const int N_V2 = 6;
-            float segV2 = (tMax - tMin) / float(N_V2);
-            float odR2 = 0.0, odM2 = 0.0;
-            
-            float global_gain = (16.0 - 2.0) * exp(-(sunElevationDeg / 10.0) * (sunElevationDeg / 10.0)) + 2.0;
-            
-            for (int i = 0; i < N_V2; i++) {
-                float t2 = tMin + (float(i) + 0.5) * segV2;
-                vec3 pos2 = orig + dir * t2;
-                float h2 = length(pos2) - Re;
-                if (h2 < 0.0) continue;
-                
-                float dR2 = exp(-h2 / Hr) * segV2;
-                float dM2 = exp(-h2 / Hm) * segV2;
-                odR2 += dR2;
-                odM2 += dM2;
-                
-                // T(eye -> X)：视线方向累积透射率
-                float Tv_r = exp(-(bR.r * odR2 + bMe * odM2));
-                float Tv_g = exp(-(bR.g * odR2 + bMe * odM2));
-                float Tv_b = exp(-(bR.b * odR2 + bMe * odM2));
-                
-                for (int k = 0; k < N_AMB; k++) {
-                    vec3 ad = ambDirs[k];
-                    
-                    // 从 X 出发沿方向 ad 找到大气出口
-                    vec2 aHit = rsi_model3(pos2, ad, Ra);
-                    if (aHit.y <= 0.0) continue;
-                    
-                    // 轻量级 marchRay - 沿方向 ad 的一次散射计算（6+6采样）
-                    float segLenAd = aHit.y / 6.0;
-                    vec3 sumR_ad = vec3(0.0);
-                    vec3 sumM_ad = vec3(0.0);
-                    float odR_ad = 0.0, odM_ad = 0.0;
-                    
-                    for (int ia = 0; ia < 6; ia++) {
-                        float t_ad = (float(ia) + 0.5) * segLenAd;
-                        vec3 pos_ad = pos2 + ad * t_ad;
-                        float h_ad = length(pos_ad) - Re;
-                        
-                        float dR_ad = exp(-h_ad / Hr) * segLenAd;
-                        float dM_ad = exp(-h_ad / Hm) * segLenAd;
-                        odR_ad += dR_ad;
-                        odM_ad += dM_ad;
-                        
-                        // 向太阳方向追踪
-                        vec2 sh_ad = rsi_model3(pos_ad, sunDir, Ra);
-                        if (sh_ad.y <= 0.0) continue;
-                        
-                        float lSeg_ad = sh_ad.y / 6.0;
-                        float lR_ad = 0.0, lM_ad = 0.0;
-                        bool blocked_ad = false;
-                        
-                        for (int ja = 0; ja < 6; ja++) {
-                            float t_sun_ad = (float(ja) + 0.5) * lSeg_ad;
-                            vec3 lp_ad = pos_ad + sunDir * t_sun_ad;
-                            float lh_ad = length(lp_ad) - Re;
-                            if (lh_ad < 0.0) { blocked_ad = true; break; }
-                            lR_ad += exp(-lh_ad / Hr) * lSeg_ad;
-                            lM_ad += exp(-lh_ad / Hm) * lSeg_ad;
-                        }
-                        if (blocked_ad) continue;
-                        
-                        float tau_r_ad = bR.r * (odR_ad + lR_ad) + bMe * (odM_ad + lM_ad);
-                        float tau_g_ad = bR.g * (odR_ad + lR_ad) + bMe * (odM_ad + lM_ad);
-                        float tau_b_ad = bR.b * (odR_ad + lR_ad) + bMe * (odM_ad + lM_ad);
-                        
-                        sumR_ad.r += exp(-tau_r_ad) * dR_ad;
-                        sumR_ad.g += exp(-tau_g_ad) * dR_ad;
-                        sumR_ad.b += exp(-tau_b_ad) * dR_ad;
-                        sumM_ad.r += exp(-tau_r_ad) * dM_ad;
-                        sumM_ad.g += exp(-tau_g_ad) * dM_ad;
-                        sumM_ad.b += exp(-tau_b_ad) * dM_ad;
-                    }
-                    
-                    // 计算沿方向 ad 的一次散射天光 L1
-                    float muA = dot(ad, sunDir);
-                    float pR_ad = phaseR_model3(muA);
-                    float pM_ad = phaseM_model3(muA);
-                    
-                    vec3 L1;
-                    L1.r = (sumR_ad.r * bR.r * pR_ad + sumM_ad.r * bM * pM_ad) * SUN;
-                    L1.g = (sumR_ad.g * bR.g * pR_ad + sumM_ad.g * bM * pM_ad) * SUN;
-                    L1.b = (sumR_ad.b * bR.b * pR_ad + sumM_ad.b * bM * pM_ad) * SUN;
-                    
-                    // X 处将天光 L1 散射向观测者方向
-                    float muS = dot(ad, dir);
-                    float pRS = phaseR_model3(muS);
-                    float pMS = phaseM_model3(muS);
-                    
-                    // 二阶贡献 = L1 · (βR·PR·ρR·Δs + βM·PM·ρM·Δs) · T(eye->X) · dΩ
-                    float sigma_r = bR.r * pRS * dR2 + bM * pMS * dM2;
-                    float sigma_g = bR.g * pRS * dR2 + bM * pMS * dM2;
-                    float sigma_b = bR.b * pRS * dR2 + bM * pMS * dM2;
-                    
-                    color.r += L1.r * sigma_r * Tv_r * dOmega * global_gain;
-                    color.g += L1.g * sigma_g * Tv_g * dOmega * global_gain;
-                    color.b += L1.b * sigma_b * Tv_b * dOmega * global_gain;
-                }
-            }
-            
-            // 臭氧吸收
-            vec3 ozone_absorption = vec3(0.005, 0.040, 0.010);
-            float oz_scale = 80.0;
-            float oz_factor = ((tMax - tMin) / Ra) * oz_scale;
-            color.r *= exp(-ozone_absorption.r * oz_factor);
-            color.g *= exp(-ozone_absorption.g * oz_factor);
-            color.b *= exp(-ozone_absorption.b * oz_factor);
-            
-            // HDR 映射
-            color.r = hdr_mapping_model3(color.r);
-            color.g = hdr_mapping_model3(color.g);
-            color.b = hdr_mapping_model3(color.b);
-            
-            // 夜天光
-            float night_light_scale = 1.0 - viewElevationDeg / 90.0;
-            color.r += 0.05 * night_light_scale;
-            color.g += 0.08 * night_light_scale;
-            color.b += 0.10 * night_light_scale;
-            
-            return clamp(color, 0.0, 1.0);
-        }
-        
-        void main() {
-            vec2 scr_pos = vec2(v_texCoord.x * u_fb_width, v_texCoord.y * u_fb_height);
-            
-            // 获取视线方向
-            vec3 ray_dir = fisheye_unproject(scr_pos);
-            
-            // 太阳方向
-            float sun_alt_rad = u_sun_alt * DEG_TO_RAD;
-            float sun_azi_rad = u_sun_azi * DEG_TO_RAD;
-            vec3 sun_dir = vec3(
-                cos(sun_alt_rad) * sin(sun_azi_rad),
-                cos(sun_alt_rad) * cos(sun_azi_rad),
-                sin(sun_alt_rad)
-            );
-            
-            vec3 color;
-            if (u_model_index == 1) {
-                color = scatter_model_1(ray_dir, sun_dir);
-            } else if (u_model_index == 2) {
-                color = scatter_model_2(ray_dir, sun_dir);
-            } else if (u_model_index == 3) {
-                color = scatter_model_3(ray_dir, sun_dir);
-            } else {
-                color = vec3(0.0);
-            }
-            
-            gl_FragColor = vec4(color, 1.0);
-        }
-    `,
-    
-    // 渲染大气散射到缓冲区
-    render: function(params) {
-        const gl = this.gl;
-        if (!gl || !this.program) return null;
-        
-        const { fb_width, fb_height, sky_radius, center_x, center_y, 
-                view_alt, view_azi, view_roll, f, sun_alt, sun_azi, model_index } = params;
-        
-        // 调整 canvas 和纹理大小
-        const canvas = gl.canvas;
-        // if (canvas.width !== fb_width || canvas.height !== fb_height) {
-            canvas.width = fb_width;
-            canvas.height = fb_height;
-            gl.viewport(0, 0, fb_width, fb_height);
-            
-            gl.bindTexture(gl.TEXTURE_2D, this.texture);
-            gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, fb_width, fb_height, 0, gl.RGBA, gl.UNSIGNED_BYTE, null);
-        // }
-        
-        gl.bindFramebuffer(gl.FRAMEBUFFER, this.framebuffer);
-        
-        // 设置 uniform 值
-        gl.uniform1f(this.uniforms.u_fb_width, fb_width);
-        gl.uniform1f(this.uniforms.u_fb_height, fb_height);
-        gl.uniform1f(this.uniforms.u_sky_radius, sky_radius);
-        gl.uniform1f(this.uniforms.u_center_x, center_x);
-        gl.uniform1f(this.uniforms.u_center_y, center_y);
-        gl.uniform1f(this.uniforms.u_view_alt, view_alt);
-        gl.uniform1f(this.uniforms.u_view_azi, view_azi);
-        gl.uniform1f(this.uniforms.u_view_roll, view_roll);
-        gl.uniform1f(this.uniforms.u_f, f);
-        gl.uniform1f(this.uniforms.u_sun_alt, sun_alt);
-        gl.uniform1f(this.uniforms.u_sun_azi, sun_azi);
-        gl.uniform1i(this.uniforms.u_model_index, model_index);
-        
-        // 绘制全屏四边形
-        gl.drawArrays(gl.TRIANGLES, 0, 6);
-        
-        // 读取像素数据
-        const pixels = new Uint8Array(fb_width * fb_height * 4);
-        gl.readPixels(0, 0, fb_width, fb_height, gl.RGBA, gl.UNSIGNED_BYTE, pixels);
-        
-        gl.bindFramebuffer(gl.FRAMEBUFFER, null);
-        
-        return pixels;
-    },
-    
-    // 渲染降采样版本
-    renderDownsampled: function(params, downsampleFactor) {
-        const gl = this.gl;
-        if (!gl || !this.program) return null;
-        
-        const ds_width = Math.ceil(params.fb_width / downsampleFactor);
-        const ds_height = Math.ceil(params.fb_height / downsampleFactor);
-        
-        // 临时调整参数
-        const ds_params = Object.assign({}, params, {
-            fb_width: ds_width,
-            fb_height: ds_height,
-            sky_radius: params.sky_radius / downsampleFactor,
-            center_x: params.center_x / downsampleFactor,
-            center_y: params.center_y / downsampleFactor
-        });
-        
-        const ds_pixels = this.render(ds_params);
-        if (!ds_pixels) return null;
-        
-        // 上采样回原始分辨率，使用双线性插值
-        const result = new Uint8Array(params.fb_width * params.fb_height * 4);
-        const C = downsampleFactor;
-        const fb_width = params.fb_width;
-        const fb_height = params.fb_height;
-        
-        // 双线性插值以缓解块效应
-        for (let y = 0; y < fb_height; y += C) {
-            for (let x = 0; x < fb_width; x += C) {
-                // 计算四个角点的索引（降采样图像中的坐标）
-                const ds_x = Math.floor(x / C);
-                const ds_y = Math.floor(y / C);
-                
-                const ds_x1 = Math.min(ds_width - 1, ds_x);
-                const ds_y1 = Math.min(ds_height - 1, ds_y);
-                const ds_x2 = Math.min(ds_width - 1, ds_x + 1);
-                const ds_y2 = Math.min(ds_height - 1, ds_y + 1);
-                
-                const idx_11 = (ds_y1 * ds_width + ds_x1) * 4;
-                const idx_12 = (ds_y1 * ds_width + ds_x2) * 4;
-                const idx_21 = (ds_y2 * ds_width + ds_x1) * 4;
-                const idx_22 = (ds_y2 * ds_width + ds_x2) * 4;
-                
-                let r11 = ds_pixels[idx_11] ?? 0; 
-                let r12 = ds_pixels[idx_12] ?? 0; 
-                let r21 = ds_pixels[idx_21] ?? 0; 
-                let r22 = ds_pixels[idx_22] ?? 0;
-                
-                let g11 = ds_pixels[idx_11 + 1] ?? 0; 
-                let g12 = ds_pixels[idx_12 + 1] ?? 0; 
-                let g21 = ds_pixels[idx_21 + 1] ?? 0; 
-                let g22 = ds_pixels[idx_22 + 1] ?? 0;
-                
-                let b11 = ds_pixels[idx_11 + 2] ?? 0; 
-                let b12 = ds_pixels[idx_12 + 2] ?? 0; 
-                let b21 = ds_pixels[idx_21 + 2] ?? 0; 
-                let b22 = ds_pixels[idx_22 + 2] ?? 0;
-                
-                // 检查并处理黑边
-                if (r11 + b11 + g11 === 0) {
-                    if (r22 + b22 + g22 !== 0) { r11 = r22; g11 = g22; b11 = b22; }
-                    else if (r12 + b12 + g12 !== 0) { r11 = r12; g11 = g12; b11 = b12; }
-                    else if (r21 + b21 + g21 !== 0) { r11 = r21; g11 = g21; b11 = b21; }
-                }
-                if (r12 + b12 + g12 === 0) {
-                    if (r22 + b22 + g22 !== 0) { r12 = r22; g12 = g22; b12 = b22; }
-                    else if (r11 + b11 + g11 !== 0) { r12 = r11; g12 = g11; b12 = b11; }
-                    else if (r21 + b21 + g21 !== 0) { r12 = r21; g12 = g21; b12 = b21; }
-                }
-                if (r21 + b21 + g21 === 0) {
-                    if (r22 + b22 + g22 !== 0) { r21 = r22; g21 = g22; b21 = b22; }
-                    else if (r11 + b11 + g11 !== 0) { r21 = r11; g21 = g11; b21 = b11; }
-                    else if (r12 + b12 + g12 !== 0) { r21 = r12; g21 = g12; b21 = b12; }
-                }
-                if (r22 + b22 + g22 === 0) {
-                    if (r21 + b21 + g21 !== 0) { r22 = r21; g22 = g21; b22 = b21; }
-                    else if (r11 + b11 + g11 !== 0) { r22 = r11; g22 = g11; b22 = b11; }
-                    else if (r12 + b12 + g12 !== 0) { r22 = r12; g22 = g12; b22 = b12; }
-                }
-                
-                // 对当前 C x C 块内的每个像素进行双线性插值
-                for (let i = 0; i < C; i++) {
-                    for (let j = 0; j < C; j++) {
-                        const dst_x = x + j;
-                        const dst_y = y + i;
-                        if (dst_x >= fb_width || dst_y >= fb_height) continue;
-                        
-                        const dst_idx = (dst_y * fb_width + dst_x) * 4;
-                        const v = i / C;
-                        const u = j / C;
-                        
-                        result[dst_idx + 0] = Math.round((1 - u) * (1 - v) * r11 + u * (1 - v) * r12 + (1 - u) * v * r21 + u * v * r22);
-                        result[dst_idx + 1] = Math.round((1 - u) * (1 - v) * g11 + u * (1 - v) * g12 + (1 - u) * v * g21 + u * v * g22);
-                        result[dst_idx + 2] = Math.round((1 - u) * (1 - v) * b11 + u * (1 - v) * b12 + (1 - u) * v * b21 + u * v * b22);
-                        result[dst_idx + 3] = 255;
-                    }
-                }
-            }
-        }
-        
-        return result;
-    }
-};
-
-// 初始化 WebGL（在页面加载时）
-let webglInitialized = false;
-function initAtmosphericScatteringWebGL() {
-    if (!webglInitialized) {
-        webglInitialized = true;
-        return AtmosphericScatteringWebGL.init();
-    }
-    return AtmosphericScatteringWebGL.gl !== null;
-}
-
 function calculate_scattered_pixel(ray_vec, sun_vec, model_index) {
     if (model_index === 1) {
         return scatter_model_1(ray_vec, sun_vec);
@@ -4647,7 +3702,7 @@ function calculate_scattered_pixel(ray_vec, sun_vec, model_index) {
 
 
 // 渲染整个天空
-function render_all(
+async function render_all(
     frame_buffer, fb_width, fb_height,
     sky_radius, center_x, center_y,
     view_alt, view_azi, view_roll, f,
@@ -4742,250 +3797,162 @@ function render_all(
     }
 
     if (enable_atmospheric_scattering > 0) {
-        // 尝试使用 WebGL 加速渲染
-        const useWebGL = initAtmosphericScatteringWebGL();
-        
-        if (enable_webgl && useWebGL) {
-            // 使用 WebGL 渲染大气散射
-            let C = 8; // 降采样因子
-            if (sun_alt < -18.0) {
-                C = (enable_opt_bilinear) ? 16 : 8;
+
+        // ===== 使用 Web Worker 并行计算天光采样 =====
+        const skySamples = [];
+        let sampleIndex = 0;
+        for (let ray_alt = 0.0; ray_alt < 30.0; ray_alt += 2.0) {
+            for (let ray_azi = 0.0; ray_azi < 360.0; ray_azi += 10.0) {
+                skySamples.push({ index: sampleIndex++, alt: ray_alt, azi: ray_azi, radius: sky_radius });
             }
-            else {
-                C = (enable_opt_bilinear) ? 8 : 2;
-            }
-            
-            const webglParams = {
-                fb_width: fb_width,
-                fb_height: fb_height,
-                sky_radius: sky_radius,
-                center_x: center_x,
-                center_y: center_y,
-                view_alt: -view_alt,
-                view_azi: view_azi,
-                view_roll: -view_roll,
-                f: f,
-                sun_alt: sun_alt,
-                sun_azi: sun_azi,
-                model_index: enable_atmospheric_scattering
-            };
-            
-            let gl_pixels;
-            if (enable_opt_bilinear && C > 1) {
-                gl_pixels = AtmosphericScatteringWebGL.renderDownsampled(webglParams, C);
-            } else {
-                gl_pixels = AtmosphericScatteringWebGL.render(webglParams);
-            }
-            
-            if (gl_pixels) {
-                // 将 WebGL 渲染结果复制到帧缓冲区
-                for (let i = 0; i < fb_width * fb_height * 4; i += 4) {
-                    frame_buffer[i] = gl_pixels[i];
-                    frame_buffer[i + 1] = gl_pixels[i + 1];
-                    frame_buffer[i + 2] = gl_pixels[i + 2];
-                    frame_buffer[i + 3] = 255;
-                }
-                
-                // 计算天光平均色相（从 WebGL 渲染结果采样）
-                let atmo_count = 0;
-                for (let y = 0; y < fb_height; y += 8) {
-                    for (let x = 0; x < fb_width; x += 8) {
-                        const idx = (y * fb_width + x) * 4;
-                        atmo_r += frame_buffer[idx];
-                        atmo_g += frame_buffer[idx + 1];
-                        atmo_b += frame_buffer[idx + 2];
-                        atmo_count++;
-                    }
-                }
-                atmo_r = (atmo_r / atmo_count);
-                atmo_g = (atmo_g / atmo_count);
-                atmo_b = (atmo_b / atmo_count);
-                
-                // 调整饱和度、明度
-                let hv = Math.max(atmo_r, atmo_g, atmo_b);
-                let sat = 0.8;
-                atmo_r = Math.max(1.0, sat * atmo_r + (1 - sat) * hv);
-                atmo_g = Math.max(1.0, sat * atmo_g + (1 - sat) * hv);
-                atmo_b = Math.max(1.0, sat * atmo_b + (1 - sat) * hv);
-                let _k = 255.0 / Math.max(hv, 1);
-                atmo_r = Math.min(255.0, atmo_r * _k);
-                atmo_g = Math.min(255.0, atmo_g * _k);
-                atmo_b = Math.min(255.0, atmo_b * _k);
-                
-                // 计算日光平均色相（从太阳附近采样）
-                // 使用太阳位置计算屏幕坐标附近的像素
-                let sun_screen_x = Math.round(sun_proj_xy[0]);
-                let sun_screen_y = Math.round(sun_proj_xy[1]);
-                let sunlight_count = 0;
-                const sample_radius = 30;
-                for (let dy = -sample_radius; dy <= sample_radius; dy += 5) {
-                    for (let dx = -sample_radius; dx <= sample_radius; dx += 5) {
-                        let sx = sun_screen_x + dx;
-                        let sy = sun_screen_y + dy;
-                        if (sx >= 0 && sx < fb_width && sy >= 0 && sy < fb_height) {
-                            const idx = (sy * fb_width + sx) * 4;
-                            sunlight_r += frame_buffer[idx];
-                            sunlight_g += frame_buffer[idx + 1];
-                            sunlight_b += frame_buffer[idx + 2];
-                            sunlight_count++;
-                        }
-                    }
-                }
-                if (sunlight_count > 0) {
-                    sunlight_r = (sunlight_r / sunlight_count);
-                    sunlight_g = (sunlight_g / sunlight_count);
-                    sunlight_b = (sunlight_b / sunlight_count);
-                    
-                    let hv2 = Math.max(sunlight_r, sunlight_g, sunlight_b);
-                    let sat2 = 0.8;
-                    sunlight_r = Math.max(1.0, sat2 * sunlight_r + (1 - sat2) * hv2);
-                    sunlight_g = Math.max(1.0, sat2 * sunlight_g + (1 - sat2) * hv2);
-                    sunlight_b = Math.max(1.0, sat2 * sunlight_b + (1 - sat2) * hv2);
-                    let _k2 = 255.0 / Math.max(hv2, 1);
-                    sunlight_r = Math.min(255.0, sunlight_r * _k2);
-                    sunlight_g = Math.min(255.0, sunlight_g * _k2);
-                    sunlight_b = Math.min(255.0, sunlight_b * _k2);
-                }
-            } else {
-                // WebGL 渲染失败，回退到 CPU 渲染
-                useCPURendering();
-            }
-        } else {
-            // 使用 CPU 渲染（保留原有的 JavaScript 实现作为回退）
-            useCPURendering();
         }
-        
-        function useCPURendering() {
-            // 对天空半球进行采样，计算天光平均色相
-            let atmo_count = 0;
-            for (let ray_alt = 0.0; ray_alt < 30.0; ray_alt += 2.0) {
-                for (let ray_azi = 0.0; ray_azi < 360.0; ray_azi += 10.0) {
-                    let _ray = horizontal_to_xyz(ray_azi, ray_alt, sky_radius);
-                    let _argb = calculate_scattered_pixel(_ray, sun_vec, enable_atmospheric_scattering);
-                    atmo_r += _argb[0] * 255;
-                    atmo_g += _argb[1] * 255;
-                    atmo_b += _argb[2] * 255;
 
-                    atmo_count++;
+        const skyResults = await atmosphereWorkerManager.computeSamples({
+            samples: skySamples,
+            sun_vec: sun_vec,
+            model_index: enable_atmospheric_scattering
+        });
+
+        // 合并天光采样结果
+        let atmo_count = 0;
+        for (const result of skyResults) {
+            for (const sample of result.results) {
+                atmo_r += sample.r * 255;
+                atmo_g += sample.g * 255;
+                atmo_b += sample.b * 255;
+                atmo_count++;
+            }
+        }
+        atmo_r = (atmo_r / atmo_count) * 1.0;
+        atmo_g = (atmo_g / atmo_count) * 1.0;
+        atmo_b = (atmo_b / atmo_count) * 1.0;
+
+        // 调整饱和度、明度拉满
+        let hv = Math.max(atmo_r, atmo_g, atmo_b);
+        let sat = 0.8;
+        atmo_r = Math.max(1.0, sat * atmo_r + (1 - sat) * hv);
+        atmo_g = Math.max(1.0, sat * atmo_g + (1 - sat) * hv);
+        atmo_b = Math.max(1.0, sat * atmo_b + (1 - sat) * hv);
+        let _k = 255.0 / hv;
+        atmo_r = Math.min(255.0, atmo_r * _k);
+        atmo_g = Math.min(255.0, atmo_g * _k);
+        atmo_b = Math.min(255.0, atmo_b * _k);
+
+
+        // ===== 使用 Web Worker 并行计算日光采样 =====
+        const sunSamples = [];
+        sampleIndex = 0;
+        for (let ray_alt = sun_alt - 20; ray_alt < sun_alt + 20; ray_alt += 2.0) {
+            for (let ray_azi = sun_azi - 30; ray_azi < sun_azi + 30; ray_azi += 5.0) {
+                sunSamples.push({ index: sampleIndex++, alt: ray_alt, azi: normalize_angle(ray_azi), radius: sky_radius });
+            }
+        }
+
+        const sunResults = await atmosphereWorkerManager.computeSamples({
+            samples: sunSamples,
+            sun_vec: sun_vec,
+            model_index: enable_atmospheric_scattering
+        });
+
+        // 合并日光采样结果
+        let sunlight_count = 0;
+        for (const result of sunResults) {
+            for (const sample of result.results) {
+                sunlight_r += sample.r * 255;
+                sunlight_g += sample.g * 255;
+                sunlight_b += sample.b * 255;
+                sunlight_count++;
+            }
+        }
+        sunlight_r = (sunlight_r / sunlight_count) * 1.0;
+        sunlight_g = (sunlight_g / sunlight_count) * 1.0;
+        sunlight_b = (sunlight_b / sunlight_count) * 1.0;
+
+        // 调整饱和度、明度拉满
+        let hv2 = Math.max(sunlight_r, sunlight_g, sunlight_b);
+        let sat2 = 0.8;
+        sunlight_r = Math.max(1.0, sat2 * sunlight_r + (1 - sat2) * hv2);
+        sunlight_g = Math.max(1.0, sat2 * sunlight_g + (1 - sat2) * hv2);
+        sunlight_b = Math.max(1.0, sat2 * sunlight_b + (1 - sat2) * hv2);
+        let _k2 = 255.0 / hv2;
+        sunlight_r = Math.min(255.0, sunlight_r * _k2);
+        sunlight_g = Math.min(255.0, sunlight_g * _k2);
+        sunlight_b = Math.min(255.0, sunlight_b * _k2);
+
+
+        // ===== 使用 Web Worker 并行渲染天空像素 =====
+        let C = 8; // 降采样因子
+        if (sun_alt < -18.0) {
+            C = (enable_opt_bilinear) ? 16 : 8;
+        }
+        else {
+            C = (enable_opt_bilinear) ? 8 : 2;
+        }
+
+        const rowResults = await atmosphereWorkerManager.computeRows({
+            fb_width, fb_height,
+            sky_radius, center_x, center_y,
+            view_alt, view_azi, view_roll, f, C,
+            sun_vec,
+            model_index: enable_atmospheric_scattering,
+            enable_opt_bilinear
+        });
+
+        // 合并 Worker 渲染结果到帧缓冲区
+        for (const result of rowResults) {
+            for (const pixel of result.rowData) {
+                if (pixel.C === 1) {
+                    set_pixel(frame_buffer, fb_width, fb_height, pixel.x, pixel.y, pixel.r, pixel.g, pixel.b);
+                } else {
+                    set_pixel(frame_buffer, fb_width, fb_height, pixel.x, pixel.y, pixel.r, pixel.g, pixel.b);
                 }
             }
-            atmo_r = (atmo_r / atmo_count) * 1.0;
-            atmo_g = (atmo_g / atmo_count) * 1.0;
-            atmo_b = (atmo_b / atmo_count) * 1.0;
+        }
 
-            // 调整饱和度、明度拉满
-            let hv = Math.max(atmo_r, atmo_g, atmo_b);
-            let sat = 0.8;
-            atmo_r = Math.max(1.0, sat * atmo_r + (1 - sat) * hv);
-            atmo_g = Math.max(1.0, sat * atmo_g + (1 - sat) * hv);
-            atmo_b = Math.max(1.0, sat * atmo_b + (1 - sat) * hv);
-            let _k = 255.0 / hv;
-            atmo_r = Math.min(255.0, atmo_r * _k);
-            atmo_g = Math.min(255.0, atmo_g * _k);
-            atmo_b = Math.min(255.0, atmo_b * _k);
-
-            // 对太阳附近的天空进行采样，计算日光平均色相
-            let sunlight_count = 0;
-            for (let ray_alt = sun_alt - 20; ray_alt < sun_alt + 20; ray_alt += 2.0) {
-                for (let ray_azi = sun_azi - 30; ray_azi < sun_azi + 30; ray_azi += 5.0) {
-                    let _ray = horizontal_to_xyz(normalize_angle(ray_azi), ray_alt, sky_radius);
-                    let _argb = calculate_scattered_pixel(_ray, sun_vec, enable_atmospheric_scattering);
-                    sunlight_r += _argb[0] * 255;
-                    sunlight_g += _argb[1] * 255;
-                    sunlight_b += _argb[2] * 255;
-
-                    sunlight_count++;
-                }
-            }
-            sunlight_r = (sunlight_r / sunlight_count) * 1.0;
-            sunlight_g = (sunlight_g / sunlight_count) * 1.0;
-            sunlight_b = (sunlight_b / sunlight_count) * 1.0;
-
-            // 调整饱和度、明度拉满
-            let hv2 = Math.max(sunlight_r, sunlight_g, sunlight_b);
-            let sat2 = 0.8;
-            sunlight_r = Math.max(1.0, sat2 * sunlight_r + (1 - sat2) * hv2);
-            sunlight_g = Math.max(1.0, sat2 * sunlight_g + (1 - sat2) * hv2);
-            sunlight_b = Math.max(1.0, sat2 * sunlight_b + (1 - sat2) * hv2);
-            let _k2 = 255.0 / hv2;
-            sunlight_r = Math.min(255.0, sunlight_r * _k2);
-            sunlight_g = Math.min(255.0, sunlight_g * _k2);
-            sunlight_b = Math.min(255.0, sunlight_b * _k2);
-
-            let C = 8; // 降采样因子
-            if (sun_alt < -18.0) {
-                C = (enable_opt_bilinear) ? 16 : 8;
-            }
-            else {
-                C = (enable_opt_bilinear) ? 8 : 2;
-            }
-
+        if (enable_opt_bilinear) {
+            // 双线性插值以缓解块效应
             for (let y = 0; y < fb_height; y+=C) {
                 for (let x = 0; x < fb_width; x+=C) {
 
-                    // 观察者到该像素的方向向量（从屏幕坐标系转回地平天球的笛卡尔坐标系）
-                    let ray_vec = fisheye_unproject(x, y, sky_radius, center_x, center_y, view_alt, view_azi, view_roll, f);
-                    const ssp = calculate_scattered_pixel(ray_vec, sun_vec, enable_atmospheric_scattering);
+                    let idx_11 = ((y+0) * fb_width + (x+0)) * 4;
+                    let idx_12 = ((y+0) * fb_width + (x+C)) * 4;
+                    let idx_21 = ((y+C) * fb_width + (x+0)) * 4;
+                    let idx_22 = ((y+C) * fb_width + (x+C)) * 4;
 
-                    if (enable_opt_bilinear) {
-                        set_pixel(frame_buffer, fb_width, fb_height, (x+0), (y+0), ssp[0]*255, ssp[1]*255, ssp[2]*255);
+                    let r11 = frame_buffer[idx_11 + 0] ?? 0; let r12 = frame_buffer[idx_12 + 0] ?? 0; let r21 = frame_buffer[idx_21 + 0] ?? 0; let r22 = frame_buffer[idx_22 + 0] ?? 0;
+                    let g11 = frame_buffer[idx_11 + 1] ?? 0; let g12 = frame_buffer[idx_12 + 1] ?? 0; let g21 = frame_buffer[idx_21 + 1] ?? 0; let g22 = frame_buffer[idx_22 + 1] ?? 0;
+                    let b11 = frame_buffer[idx_11 + 2] ?? 0; let b12 = frame_buffer[idx_12 + 2] ?? 0; let b21 = frame_buffer[idx_21 + 2] ?? 0; let b22 = frame_buffer[idx_22 + 2] ?? 0;
+
+                    // 检查并处理黑边
+                    if (r11+b11+g11 === 0) {
+                        if      (r22+b22+g22 != 0) { r11 = r22; g11 = g22; b11 = b22; }
+                        else if (r12+b12+g12 != 0) { r11 = r12; g11 = g12; b11 = b12; }
+                        else if (r21+b21+g21 != 0) { r11 = r21; g11 = g21; b11 = b21; }
                     }
-                    else {
-                        for (let i = 0; i < C; i++) {
-                            for (let j = 0; j < C; j++) {
-                                set_pixel(frame_buffer, fb_width, fb_height, (x+j), (y+i), ssp[0]*255, ssp[1]*255, ssp[2]*255);
-                            }
-                        }
+                    if (r12+b12+g12 === 0) {
+                        if      (r22+b22+g22 != 0) { r12 = r22; g12 = g22; b12 = b22; }
+                        else if (r11+b11+g11 != 0) { r12 = r11; g12 = g11; b12 = b11; }
+                        else if (r21+b21+g21 != 0) { r12 = r21; g12 = g21; b12 = b21; }
                     }
-                }
-            }
+                    if (r21+b21+g21 === 0) {
+                        if      (r22+b22+g22 != 0) { r21 = r22; g21 = g22; b21 = b22; }
+                        else if (r11+b11+g11 != 0) { r21 = r11; g21 = g11; b21 = b11; }
+                        else if (r12+b12+g12 != 0) { r21 = r12; g21 = g12; b21 = b12; }
+                    }
+                    if (r22+b22+g22 === 0) {
+                        if      (r21+b21+g21 != 0) { r22 = r21; g22 = g21; b22 = b21; }
+                        else if (r11+b11+g11 != 0) { r22 = r11; g22 = g11; b22 = b11; }
+                        else if (r12+b12+g12 != 0) { r22 = r12; g22 = g12; b22 = b12; }
+                    }
 
-            if (enable_opt_bilinear) {
-
-                // 双线性插值以缓解块效应
-                for (let y = 0; y < fb_height; y+=C) {
-                    for (let x = 0; x < fb_width; x+=C) {
-
-                        let idx_11 = ((y+0) * fb_width + (x+0)) * 4;
-                        let idx_12 = ((y+0) * fb_width + (x+C)) * 4;
-                        let idx_21 = ((y+C) * fb_width + (x+0)) * 4;
-                        let idx_22 = ((y+C) * fb_width + (x+C)) * 4;
-
-                        let r11 = frame_buffer[idx_11 + 0] ?? 0; let r12 = frame_buffer[idx_12 + 0] ?? 0; let r21 = frame_buffer[idx_21 + 0] ?? 0; let r22 = frame_buffer[idx_22 + 0] ?? 0;
-                        let g11 = frame_buffer[idx_11 + 1] ?? 0; let g12 = frame_buffer[idx_12 + 1] ?? 0; let g21 = frame_buffer[idx_21 + 1] ?? 0; let g22 = frame_buffer[idx_22 + 1] ?? 0;
-                        let b11 = frame_buffer[idx_11 + 2] ?? 0; let b12 = frame_buffer[idx_12 + 2] ?? 0; let b21 = frame_buffer[idx_21 + 2] ?? 0; let b22 = frame_buffer[idx_22 + 2] ?? 0;
-
-                        // 检查并处理黑边
-                        if (r11+b11+g11 === 0) {
-                            if      (r22+b22+g22 != 0) { r11 = r22; g11 = g22; b11 = b22; }
-                            else if (r12+b12+g12 != 0) { r11 = r12; g11 = g12; b11 = b12; }
-                            else if (r21+b21+g21 != 0) { r11 = r21; g11 = g21; b11 = b21; }
-                        }
-                        if (r12+b12+g12 === 0) {
-                            if      (r22+b22+g22 != 0) { r12 = r22; g12 = g22; b12 = b22; }
-                            else if (r11+b11+g11 != 0) { r12 = r11; g12 = g11; b12 = b11; }
-                            else if (r21+b21+g21 != 0) { r12 = r21; g12 = g21; b12 = b21; }
-                        }
-                        if (r21+b21+g21 === 0) {
-                            if      (r22+b22+g22 != 0) { r21 = r22; g21 = g22; b21 = b22; }
-                            else if (r11+b11+g11 != 0) { r21 = r11; g21 = g11; b21 = b11; }
-                            else if (r12+b12+g12 != 0) { r21 = r12; g21 = g12; b21 = b12; }
-                        }
-                        if (r22+b22+g22 === 0) {
-                            if      (r21+b21+g21 != 0) { r22 = r21; g22 = g21; b22 = b21; }
-                            else if (r11+b11+g11 != 0) { r22 = r11; g22 = g11; b22 = b11; }
-                            else if (r12+b12+g12 != 0) { r22 = r12; g22 = g12; b22 = b12; }
-                        }
-
-                        for (let i = 0; i < C; i++) {
-                            for (let j = 0; j < C; j++) {
-                                let idx = ((y+i) * fb_width + (x+j)) * 4;
-                                let v = i/C;
-                                let u = j/C;
-                                frame_buffer[idx + 0] = (1-u)*(1-v)*r11 + u*(1-v)*r12 + (1-u)*v*r21 + u*v*r22;
-                                frame_buffer[idx + 1] = (1-u)*(1-v)*g11 + u*(1-v)*g12 + (1-u)*v*g21 + u*v*g22;
-                                frame_buffer[idx + 2] = (1-u)*(1-v)*b11 + u*(1-v)*b12 + (1-u)*v*b21 + u*v*b22;
-                            }
+                    for (let i = 0; i < C; i++) {
+                        for (let j = 0; j < C; j++) {
+                            let idx = ((y+i) * fb_width + (x+j)) * 4;
+                            let v = i/C;
+                            let u = j/C;
+                            frame_buffer[idx + 0] = (1-u)*(1-v)*r11 + u*(1-v)*r12 + (1-u)*v*r21 + u*v*r22;
+                            frame_buffer[idx + 1] = (1-u)*(1-v)*g11 + u*(1-v)*g12 + (1-u)*v*g21 + u*v*g22;
+                            frame_buffer[idx + 2] = (1-u)*(1-v)*b11 + u*(1-v)*b12 + (1-u)*v*b21 + u*v*b22;
                         }
                     }
                 }
@@ -5618,17 +4585,6 @@ function refresh_button_status() {
         btn.classList.add("switch_on");
     }
 
-    // toggle_webgl
-    btn = document.getElementById("toggle_webgl");
-    if (!enable_webgl) {
-        btn.classList.remove("switch_on");
-        btn.classList.add("switch_off");
-    }
-    else {
-        btn.classList.remove("switch_off");
-        btn.classList.add("switch_on");
-    }
-
 
     // toggle_realtime
     if (!enable_realtime) {
@@ -5826,14 +4782,6 @@ window.onload = function() {
 
     document.getElementById("toggle_att_indicator").addEventListener("click", function(e) {
         enable_att_indicator = !enable_att_indicator;
-        refresh_button_status();
-    });
-
-    document.getElementById("toggle_webgl").addEventListener("click", function(e) {
-        enable_webgl = !enable_webgl;
-        if (enable_webgl === false) {
-            enable_opt_bilinear = true; // CPU渲染时，默认启用双线性滤波
-        }
         refresh_button_status();
     });
 
@@ -6129,7 +5077,19 @@ window.onload = function() {
     let lastTime = performance.now();
     let fps = 0;
 
-    function draw() {
+    let isRendering = false;
+    let renderPending = false;
+
+    async function draw() {
+        // 防止帧堆积：如果上一帧还在渲染，标记为待处理并跳过
+        if (isRendering) {
+            renderPending = true;
+            requestAnimationFrame(draw);
+            return;
+        }
+
+        isRendering = true;
+
         // 平滑滤波：将view变量向目标值过渡
         if (enable_gyro) {
             view_alt = lerp(view_alt, target_view_alt, GYRO_SMOOTH_ALPHA);
@@ -6170,25 +5130,37 @@ window.onload = function() {
         let timestr = `${year}-${String(100+month).substr(-2)}-${String(100+day).substr(-2)} ${String(100+hour).substr(-2)}:${String(100+minute).substr(-2)}:${String(100+second).substr(-2)}`;
         document.getElementById('datetime').innerHTML = timestr;
 
-        render_all(
-            frame_buffer, sky.canvas.width, sky.canvas.height,
-            RADIUS, center_x, center_y,
-            view_alt, view_azi, view_roll, view_range,
-            year, month, day, hour, minute, second, timezone, longitude, latitude);
+        try {
+            await render_all(
+                frame_buffer, sky.canvas.width, sky.canvas.height,
+                RADIUS, center_x, center_y,
+                view_alt, view_azi, view_roll, view_range,
+                year, month, day, hour, minute, second, timezone, longitude, latitude);
 
-        sky.ctx.putImageData(imageData, 0, 0);
+            sky.ctx.putImageData(imageData, 0, 0);
+        } catch (err) {
+            console.error('Render error:', err);
+        }
 
-        // 计算FPS计算
+        isRendering = false;
+
+        // 计算FPS
         frameCount++;
         const now = performance.now();
-        if (now - lastTime >= 500) { // 每隔多少毫秒统计一次
+        if (now - lastTime >= 500) {
             fps = Math.round((frameCount * 1000) / (now - lastTime));
             document.getElementById('fps').textContent = `${fps}`;
             frameCount = 0;
             lastTime = now;
         }
 
-        requestAnimationFrame(draw);
+        // 如果有待处理的渲染请求，继续渲染；否则正常循环
+        if (renderPending) {
+            renderPending = false;
+            requestAnimationFrame(draw);
+        } else {
+            requestAnimationFrame(draw);
+        }
     }
 
     draw();
