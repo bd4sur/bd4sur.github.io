@@ -3358,9 +3358,16 @@ const VolumetricCloudWebGL = {
         // 云团数据：height, seed, 0, 0
         uniform vec4 u_cloud_params[3];
         
-        const float PI = 3.14159265359;
-        const float DEG_TO_RAD = 0.01745329252;
-        
+        const float PI = 3.14159265358979323846;
+
+        float to_deg(float rad) {
+            return rad * (180.0 / PI);
+        }
+
+        float to_rad(float deg) {
+            return deg * (PI / 180.0);
+        }
+
         // 向量工具函数
         vec3 vNorm(vec3 v) { 
             float l = length(v);
@@ -3410,47 +3417,62 @@ const VolumetricCloudWebGL = {
             float dy = u_center_y - scr_pos.y;
             float r = sqrt(dx * dx + dy * dy);
             
-            if (r < 1e-10) {
-                float V_alt_rad = u_view_alt * DEG_TO_RAD;
-                float V_azi_rad = u_view_azi * DEG_TO_RAD;
-                return vec3(
-                    cos(V_alt_rad) * sin(V_azi_rad),
-                    cos(V_alt_rad) * cos(V_azi_rad),
-                    sin(V_alt_rad)
-                );
+            float phi_prime = 0.0;
+            
+            if (r < 1e-6) {
+                phi_prime = 0.0;
+            }
+            else {
+                phi_prime = atan(dx, dy); // NOTE 此处不同
             }
             
             float theta = r * PI / (2.0 * u_f * u_sky_radius);
             theta = clamp(theta, 0.0, PI);
-            float phi = atan(dx, dy);
-            
             float pxy = sin(theta);
-            float pz = cos(theta);
-            
             vec3 p_prime = vec3(
-                pxy * sin(phi),
-                pxy * cos(phi),
-                pz
+                pxy * sin(phi_prime),
+                pxy * cos(phi_prime),
+                cos(theta)
             );
             
-            float V_alt_rad = u_view_alt * DEG_TO_RAD;
-            float V_azi_rad = u_view_azi * DEG_TO_RAD;
+            // 构建视线向量 v
+            float view_alt = u_view_alt;
+            float view_azi = u_view_azi;
+            if (abs(view_alt + 90.0) < 1e-5) {
+                view_alt = -89.999;
+            }
+            else if (abs(view_alt - 90.0) < 1e-5) {
+                view_alt = 89.999;
+            }
+            if (abs(view_azi) < 1e-5) {
+                view_azi = 0.001;
+            }
+            else if (abs(view_azi - 360.0) < 1e-5) {
+                view_azi = 359.999;
+            }
+            float V_alt_rad = to_rad(view_alt);
+            float V_azi_rad = to_rad(view_azi);
             vec3 v = vec3(
                 cos(V_alt_rad) * sin(V_azi_rad),
                 cos(V_alt_rad) * cos(V_azi_rad),
                 sin(V_alt_rad)
             );
             
+            // 构建 y' 轴
             float dot_vz = v.z;
             vec3 y_prime = normalize(vec3(-dot_vz * v.x, -dot_vz * v.y, 1.0 - dot_vz * v.z));
+            
+            // 构建 x' 轴
             vec3 x_prime = normalize(cross(y_prime, v));
             
-            float roll = u_view_roll * DEG_TO_RAD;
+            // 应用滚转
+            float roll = to_rad(u_view_roll);
             float cos_r = cos(roll);
             float sin_r = sin(roll);
             vec3 x_rot = x_prime * cos_r - y_prime * sin_r;
             vec3 y_rot = x_prime * sin_r + y_prime * cos_r;
             
+            // 转换到地平坐标
             vec3 result = x_rot * p_prime.x + y_rot * p_prime.y + v * p_prime.z;
             return normalize(result);
         }
@@ -3575,8 +3597,8 @@ const VolumetricCloudWebGL = {
             }
             
             // 太阳方向
-            float sun_alt_rad = u_sun_alt * DEG_TO_RAD;
-            float sun_azi_rad = u_sun_azi * DEG_TO_RAD;
+            float sun_alt_rad = to_rad(u_sun_alt);
+            float sun_azi_rad = to_rad(u_sun_azi);
             vec3 sunDir = vec3(
                 cos(sun_alt_rad) * sin(sun_azi_rad),
                 cos(sun_alt_rad) * cos(sun_azi_rad),
@@ -3895,9 +3917,8 @@ const AtmosphericScatteringWebGL = {
         uniform float u_sun_azi;
         uniform int u_model_index;
         
-        const float PI = 3.14159265359;
-        const float DEG_TO_RAD = 0.01745329252;
-        
+        const float PI = 3.14159265358979323846;
+
         // 向量工具函数
         float vDot(vec3 a, vec3 b) { return dot(a, b); }
         vec3 vAdd(vec3 a, vec3 b) { return a + b; }
@@ -3907,45 +3928,56 @@ const AtmosphericScatteringWebGL = {
             float l = vLen(v);
             return l > 1e-12 ? v / l : vec3(0.0);
         }
-        
+
+        float to_deg(float rad) {
+            return rad * (180.0 / PI);
+        }
+
+        float to_rad(float deg) {
+            return deg * (PI / 180.0);
+        }
+
         // 鱼眼投影反解：屏幕坐标 -> 3D方向向量
         vec3 fisheye_unproject(vec2 scr_pos) {
             float dx = u_center_x - scr_pos.x;
             float dy = u_center_y - scr_pos.y;
             float r = sqrt(dx * dx + dy * dy);
             
-            // 注意：与JavaScript实现保持一致，不在屏幕坐标阶段应用滚转
-            // 滚转只在构建旋转矩阵时应用一次
+            float phi_prime = 0.0;
             
-            if (r < 1e-10) {
-                // 中心点 - 视线方向
-                float V_alt_rad = u_view_alt * DEG_TO_RAD;
-                float V_azi_rad = u_view_azi * DEG_TO_RAD;
-                return vec3(
-                    cos(V_alt_rad) * sin(V_azi_rad),
-                    cos(V_alt_rad) * cos(V_azi_rad),
-                    sin(V_alt_rad)
-                );
+            if (r < 1e-6) {
+                phi_prime = 0.0;
+            }
+            else {
+                phi_prime = atan(dx, -dy);
             }
             
             float theta = r * PI / (2.0 * u_f * u_sky_radius);
             theta = clamp(theta, 0.0, PI);
-            // 重要：phi 需要取负号，因为投影中使用了 phi_v = -atan2(vx, vy)
-            // 通过反推，phi = -atan2(dx, dy) = atan(dx, -dy)
-            float phi = atan(dx, -dy);
-            
             float pxy = sin(theta);
-            float pz = cos(theta);
-            
             vec3 p_prime = vec3(
-                pxy * sin(phi),
-                pxy * cos(phi),
-                pz
+                pxy * sin(phi_prime),
+                pxy * cos(phi_prime),
+                cos(theta)
             );
             
             // 构建视线向量 v
-            float V_alt_rad = u_view_alt * DEG_TO_RAD;
-            float V_azi_rad = u_view_azi * DEG_TO_RAD;
+            float view_alt = u_view_alt;
+            float view_azi = u_view_azi;
+            if (abs(view_alt + 90.0) < 1e-5) {
+                view_alt = -89.999;
+            }
+            else if (abs(view_alt - 90.0) < 1e-5) {
+                view_alt = 89.999;
+            }
+            if (abs(view_azi) < 1e-5) {
+                view_azi = 0.001;
+            }
+            else if (abs(view_azi - 360.0) < 1e-5) {
+                view_azi = 359.999;
+            }
+            float V_alt_rad = to_rad(view_alt);
+            float V_azi_rad = to_rad(view_azi);
             vec3 v = vec3(
                 cos(V_alt_rad) * sin(V_azi_rad),
                 cos(V_alt_rad) * cos(V_azi_rad),
@@ -3960,7 +3992,7 @@ const AtmosphericScatteringWebGL = {
             vec3 x_prime = normalize(cross(y_prime, v));
             
             // 应用滚转
-            float roll = u_view_roll * DEG_TO_RAD;
+            float roll = to_rad(u_view_roll);
             float cos_r = cos(roll);
             float sin_r = sin(roll);
             vec3 x_rot = x_prime * cos_r - y_prime * sin_r;
@@ -4097,13 +4129,13 @@ const AtmosphericScatteringWebGL = {
             int S = 6;
             
             float view_alt = (viewElevationDeg >= 90.0) ? (180.0 - viewElevationDeg) : viewElevationDeg;
-            float cos_view_alt = cos(view_alt * DEG_TO_RAD);
-            float sin_view_alt = sin(view_alt * DEG_TO_RAD);
+            float cos_view_alt = cos(to_rad(view_alt));
+            float sin_view_alt = sin(to_rad(view_alt));
             float Lray = sqrt(R_atm * R_atm - (R_atm - H) * (R_atm - H) * cos_view_alt * cos_view_alt) - (R_atm - H) * sin_view_alt;
             
             float sun_alt = (sunElevationDeg >= 90.0) ? (180.0 - sunElevationDeg) : sunElevationDeg;
-            float cos_sun_alt = cos(sun_alt * DEG_TO_RAD);
-            float sin_sun_alt = sin(sun_alt * DEG_TO_RAD);
+            float cos_sun_alt = cos(to_rad(sun_alt));
+            float sin_sun_alt = sin(to_rad(sun_alt));
             float Lsun = sqrt(R_atm * R_atm - (R_atm - H) * (R_atm - H) * cos_sun_alt * cos_sun_alt) - (R_atm - H) * sin_sun_alt;
             
             vec3 sum_R = vec3(0.0);
@@ -4443,8 +4475,8 @@ const AtmosphericScatteringWebGL = {
             vec3 ray_dir = fisheye_unproject(scr_pos);
             
             // 太阳方向
-            float sun_alt_rad = u_sun_alt * DEG_TO_RAD;
-            float sun_azi_rad = u_sun_azi * DEG_TO_RAD;
+            float sun_alt_rad = to_rad(u_sun_alt);
+            float sun_azi_rad = to_rad(u_sun_azi);
             vec3 sun_dir = vec3(
                 cos(sun_alt_rad) * sin(sun_azi_rad),
                 cos(sun_alt_rad) * cos(sun_azi_rad),
@@ -6166,6 +6198,8 @@ window.onload = function() {
                 counter += 120000;
             }
         }
+
+        hour = 12;
 
         let timestr = `${year}-${String(100+month).substr(-2)}-${String(100+day).substr(-2)} ${String(100+hour).substr(-2)}:${String(100+minute).substr(-2)}:${String(100+second).substr(-2)}`;
         document.getElementById('datetime').innerHTML = timestr;
