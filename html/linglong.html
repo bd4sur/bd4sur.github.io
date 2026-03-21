@@ -239,7 +239,7 @@ let landscape_local_rgba = new Uint8ClampedArray(landscape_local_width * landsca
 
 let landscape_texture_width = 600;
 let landscape_texture_height = 600;
-let landscape_texture_rgba = null;
+let landscape_texture_rgba = new Uint8ClampedArray(landscape_texture_width * landscape_texture_height * 4);;
 let img_landscape_texture = new Image();
 const LANDSCAPES = [
     ["", "", 0], // 字段2为是否鱼眼，0-否，1-是
@@ -3808,7 +3808,7 @@ function load_landscape_texture(idx) {
                 to_fisheye(landscape_local_rgba, landscape_texture_rgba, landscape_texture_width, landscape_texture_height, 1.3);
             }
             else {
-                landscape_texture_rgba = landscape_local_rgba;
+                landscape_texture_rgba.set(landscape_local_rgba);
             }
 
             // let rgb = [];
@@ -3837,7 +3837,6 @@ function update_landscape(x_norm, y_norm, zoom, fov) {
     landscape_texture_width = landscape_local_width;
     landscape_texture_height = landscape_local_height;
 
-    // landscape_texture_rgba = landscape_local_rgba;
     to_fisheye(landscape_local_rgba, landscape_texture_rgba, landscape_texture_width, landscape_texture_height, fov);
 }
 
