@@ -3289,9 +3289,19 @@ const VolumetricCloudWebGL = {
         gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
         gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
         
+        // 关键修复：立即分配纹理存储，否则帧缓冲区不完整
+        gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, FB_WIDTH, FB_HEIGHT, 0, gl.RGBA, gl.UNSIGNED_BYTE, null);
+        
         this.framebuffer = gl.createFramebuffer();
         gl.bindFramebuffer(gl.FRAMEBUFFER, this.framebuffer);
         gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, this.texture, 0);
+        
+        // 验证帧缓冲区完整性
+        const status = gl.checkFramebufferStatus(gl.FRAMEBUFFER);
+        if (status !== gl.FRAMEBUFFER_COMPLETE) {
+            console.error('Volumetric cloud framebuffer incomplete:', status);
+            return false;
+        }
         
         gl.bindFramebuffer(gl.FRAMEBUFFER, null);
         
@@ -3691,6 +3701,18 @@ const VolumetricCloudWebGL = {
         gl.bindTexture(gl.TEXTURE_2D, this.texture);
         gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, fb_width, fb_height, 0, gl.RGBA, gl.UNSIGNED_BYTE, null);
         
+        // 关键修复：重新附加纹理到帧缓冲区（某些移动驱动需要）
+        gl.bindFramebuffer(gl.FRAMEBUFFER, this.framebuffer);
+        gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, this.texture, 0);
+        
+        // 验证帧缓冲区完整性
+        const fbStatus = gl.checkFramebufferStatus(gl.FRAMEBUFFER);
+        if (fbStatus !== gl.FRAMEBUFFER_COMPLETE) {
+            console.error('Volumetric cloud framebuffer incomplete in render:', fbStatus);
+            gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+            return null;
+        }
+        
         // 创建背景纹理
         const bgTexture = gl.createTexture();
         gl.activeTexture(gl.TEXTURE0);
@@ -3864,9 +3886,19 @@ const AtmosphericScatteringWebGL = {
         gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
         gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
         
+        // 关键修复：立即分配纹理存储，否则帧缓冲区不完整
+        gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, FB_WIDTH, FB_HEIGHT, 0, gl.RGBA, gl.UNSIGNED_BYTE, null);
+        
         this.framebuffer = gl.createFramebuffer();
         gl.bindFramebuffer(gl.FRAMEBUFFER, this.framebuffer);
         gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, this.texture, 0);
+        
+        // 验证帧缓冲区完整性
+        const status = gl.checkFramebufferStatus(gl.FRAMEBUFFER);
+        if (status !== gl.FRAMEBUFFER_COMPLETE) {
+            console.error('Atmospheric scattering framebuffer incomplete:', status);
+            return false;
+        }
         
         gl.bindFramebuffer(gl.FRAMEBUFFER, null);
         
@@ -4517,7 +4549,17 @@ const AtmosphericScatteringWebGL = {
             gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, fb_width, fb_height, 0, gl.RGBA, gl.UNSIGNED_BYTE, null);
         // }
         
+        // 关键修复：重新附加纹理到帧缓冲区（某些移动驱动需要）
         gl.bindFramebuffer(gl.FRAMEBUFFER, this.framebuffer);
+        gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, this.texture, 0);
+        
+        // 验证帧缓冲区完整性
+        const fbStatus = gl.checkFramebufferStatus(gl.FRAMEBUFFER);
+        if (fbStatus !== gl.FRAMEBUFFER_COMPLETE) {
+            console.error('Atmospheric scattering framebuffer incomplete in render:', fbStatus);
+            gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+            return null;
+        }
         
         // 设置 uniform 值
         gl.uniform1f(this.uniforms.u_fb_width, fb_width);
@@ -6198,8 +6240,6 @@ window.onload = function() {
                 counter += 120000;
             }
         }
-
-        hour = 12;
 
         let timestr = `${year}-${String(100+month).substr(-2)}-${String(100+day).substr(-2)} ${String(100+hour).substr(-2)}:${String(100+minute).substr(-2)}:${String(100+second).substr(-2)}`;
         document.getElementById('datetime').innerHTML = timestr;
