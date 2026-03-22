@@ -101,6 +101,7 @@ a {
         <canvas class="mainCanvas" id="skyCanvas" width="400" height="300" style="width: 100%; max-width: 400px;"></canvas>
 
         <div style="font-size: 12px; font-family: monospace;" id="datetime">-</div>
+        <div style="font-size: 12px; font-family: monospace; color: #ddcc88;" id="lunar_date">-</div>
         <div style="font-size: 12px; font-family: monospace;" id="coord">Lon:<span id="longitude">-</span>° Lat:<span id="latitude">-</span>°</div>
 
         <div class="setting_buttons_container">
@@ -150,6 +151,7 @@ a {
     <script src="../script/glyph.js"></script>
     <script src="../script/vsop87c_milli.js"></script>
     <script src="../script/eph.js"></script>
+    <script src="../script/lunar_calendar.js"></script>
     <script>
 
 
@@ -6243,6 +6245,16 @@ window.onload = function() {
 
         let timestr = `${year}-${String(100+month).substr(-2)}-${String(100+day).substr(-2)} ${String(100+hour).substr(-2)}:${String(100+minute).substr(-2)}:${String(100+second).substr(-2)}`;
         document.getElementById('datetime').innerHTML = timestr;
+
+        // 计算并显示农历日期
+        try {
+            let lunar = LunarCalendar.calculate(year, month, day, hour, minute, second, timezone);
+            if (lunar) {
+                document.getElementById('lunar_date').textContent = lunar.full_display;
+            }
+        } catch (e) {
+            console.error("农历计算错误:", e);
+        }
 
         render_all(
             frame_buffer, sky.canvas.width, sky.canvas.height,
