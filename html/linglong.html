@@ -9,6 +9,8 @@ body {
     background-color: #000000;
     color: #fff;
     font-size: 14px;
+    margin: 0;
+    padding: 0;
 }
 button {
     border: none;
@@ -45,7 +47,8 @@ a {
     align-items: center;
     justify-content: center;
     font-size: 11px;
-    border: 1px solid #fff;
+    /* border: 1px solid #fff; */
+    background-color: #141516;
     border-radius: 6px;
     padding: 5px 10px;
     margin: 2px 2px;
@@ -98,12 +101,12 @@ a {
     </style>
 </head>
 <body>
-    <div class="container" style="text-align: center;">
-        <div style="display: flex; align-items: baseline; justify-content: center; flex-direction: row; gap: 9px;">
-            <div style="font-size: 17px; font-weight: bold; font-family: serif; letter-spacing: 1px; color: #99ddff;">玲珑天象仪</div>
-            <div style="position: relative;background-color: #ffffff91;width: 1px;height: 18px;top: 3px;"></div>
-            <div style="font-size: 13px; font-weight: bold; font-family: Times, serif; font-style: italic;">Planetarium Linglong</div>
-        </div>
+    <div style="display: flex; align-items: baseline; justify-content: center; flex-direction: row; gap: 9px; padding: 8px 0 4px 0;">
+        <div style="font-size: 17px; font-weight: bold; font-family: serif; letter-spacing: 1px; color: #99ddff;">玲珑天象仪</div>
+        <div style="position: relative;background-color: #ffffff91;width: 1px;height: 18px;top: 3px;"></div>
+        <div style="font-size: 13px; font-weight: bold; font-family: Times, serif; font-style: italic;">Planetarium Linglong</div>
+    </div>
+    <div class="container" style="text-align: center; padding: 0 10px 0 10px;">
         <div style="font-size: 10px; margin: 10px auto; color: #ffffffaa;">V2603 &copy; 2011-2026 <a href="https://bd4sur.com" target="_blank">BD4SUR</a></div>
         <div class="setting_buttons_container">
             <button class="setting_button" id="toggle_equatorial_coord">赤道坐标</button>
@@ -125,26 +128,28 @@ a {
         <canvas class="mainCanvas" id="skyCanvas" width="400" height="300" style="width: 100%; max-width: 400px;"></canvas>
 
         <div class="info_box_container">
-            <div class="info_box" id="set_time">
-                <div id="info_date">2026-03-22</div>
-                <div id="info_time">12:34</div>
-            </div>
-            <div class="info_box">
-                <div id="info_nongli_nian">丙午马年</div>
-                <div id="info_nongli_yueri">二月初四</div>
-            </div>
             <div class="info_box" id="set_coord">
                 <div id="info_latitude">-</div>
                 <div id="info_longitude">-</div>
             </div>
+            <div class="info_box" id="set_time">
+                <div id="info_date">-</div>
+                <div id="info_time">-</div>
+            </div>
             <div class="info_box">
-                <div>FPS: <span id="info_fps">-</span></div>
+                <div id="info_nongli_nian">-</div>
+                <div id="info_nongli_yueri">-</div>
+            </div>
+            <div class="info_box">
+                <div>帧率 <span id="info_fps">-</span> fps</div>
             </div>
         </div>
 
         <div class="setting_buttons_container" id="timemachine_controller">
-            <button class="setting_button" id="toggle_realtime">实时天象<br><span class="status_label" id="realtime_status">-</span></button>
-            <button class="setting_button" id="toggle_timemachine">时光机<br><span class="status_label" id="timemachine_status">-</span></button>
+            <button class="setting_button" id="toggle_timemachine_backward">◀快退</button>
+            <button class="setting_button" id="toggle_timemachine_now">实时</button>
+            <button class="setting_button" id="toggle_timemachine_pause">暂停/运行</button>
+            <button class="setting_button" id="toggle_timemachine_forward">快进▶</button>
         </div>
 
         <table class="joystick_buttons_container">
@@ -167,18 +172,13 @@ a {
 
         <div style="font-size: 12px; font-family: monospace;" id="view_dir">Pitch:<span id="view_pitch">-</span>° Yaw:<span id="view_yaw">-</span>° Roll:<span id="view_roll">-</span>° Range:<span id="view_range">-</span></div>
 
-        <div style="font-size: smaller; text-align: center; max-width: 320px; margin: 0 auto; color: #aaaaaa;">
-            <div onclick="alert('玲珑仪使用说明\n🔹时间日期均为北京时间(UTC+8)。\n🔹农历日期系由星历算法解算而得，未必准确。\n🔹拖动屏幕改变视角。\n🔹点击“重力感应”按钮，启用姿态传感器。\n🔹姿态角的精度取决于设备，未必准确。\n🔹GPU渲染未必可用，取决于设备。\n🔹二次散射计算量较大，速度较慢。\n🔹体积云渲染非常慢，请按需启用。');">
+        <div style="display: flex; max-width: 320px; flex-direction: row; justify-content: center; margin: 10px auto;">
+            <div style="font-size: 11px; text-align: center; background: #252629; width: fit-content; border-radius: 100px; padding: 3px 10px; margin: 0 3px;" onclick="alert('玲珑仪使用说明\n🔹时间日期均为北京时间(UTC+8)。\n🔹农历日期系由星历算法解算而得，未必准确。\n🔹拖动屏幕改变视角。\n🔹点击“重力感应”按钮，启用姿态传感器。\n🔹姿态角的精度取决于设备，未必准确。\n🔹GPU渲染未必可用，取决于设备。\n🔹二次散射计算量较大，速度较慢。\n🔹体积云渲染非常慢，请按需启用。');">
                 ℹ️使用说明
             </div>
-        </div>
-
-        <div style="font-size: smaller; text-align: left; max-width: 320px; margin: 0 auto; color: #aaaaaa;">
-            <p><b>主要参考文献</b></p>
-            <ol>
-                <li>Nishita T, et al. <b>Display of The Earth Taking into Account Atmospheric Scattering</b>. 1993.</li>
-                <li>Meeus J. <b>Astronomical Algorithms (Second Edition)</b>. 1998.</li>
-            </ol>
+            <div style="font-size: 11px; text-align: center; background: #252629; width: fit-content; border-radius: 100px; padding: 3px 10px; margin: 0 3px;" onclick="alert('主要参考文献\n🔹Nishita T, et al. Display of The Earth Taking into Account Atmospheric Scattering. 1993.\n🔹Meeus J. Astronomical Algorithms (Second Edition). 1998.');">
+                📚参考文献
+            </div>
         </div>
     </div>
 
@@ -213,6 +213,14 @@ let enable_ecliptic_circle = false;
 let enable_realtime = true;
 // 时光机状态（以尽可能快的速度渲染并绘制）
 let enable_timemachine_running = false;
+// 时光机方向：'forward' 快进, 'backward' 快退, null 未启动
+let timemachine_direction = null;
+// 时光机是否暂停
+let timemachine_paused = false;
+// 当前显示的时间（用于时光机模式下）
+let timemachine_current_time = new Date();
+// 记录上一次运行的模式：'realtime', 'forward', 'backward'
+let last_running_mode = 'realtime';
 
 // 是否启用双线性插值
 let enable_opt_bilinear = false;
@@ -297,8 +305,9 @@ let ground_y_norm = 0;
 
 
 
-let counter = 0;
 let timemachine_start_time = new Date();
+// 时光机时间倍速（毫秒/帧）
+const TIMEMACHINE_SPEED = 120000;
 
 
 
@@ -5338,6 +5347,10 @@ function render_all(
         draw_rectangle(frame_buffer, fb_width, fb_height, (center_x + 10), center_y - 2, 50, 4, 255, 255, 0, 1);
         draw_rectangle(frame_buffer, fb_width, fb_height, (center_x + 10), center_y - 2, 4, 10, 255, 255, 0, 1);
         draw_rectangle(frame_buffer, fb_width, fb_height, (center_x - 1), center_y - 1, 2, 2, 255, 255, 0, 1);
+
+        fb_draw_textline_centered(frame_buffer, fb_width, fb_height,
+            `Pitch:${String(Math.round((view_alt <= 90 && view_alt >= -90) ? view_alt : (180-view_alt)))}   Yaw:${String(Math.round(view_azi))}   Roll:${String(Math.round(view_roll))}   Range:${String(view_range.toFixed(1))}`,
+            fb_width/2, fb_height-8, 255, 255, 255, 1);
     }
 
 
@@ -5374,8 +5387,8 @@ const GYRO_SMOOTH_ALPHA = 0.5;
 
 let view_range = 1.0;
 
-let longitude = 119.0;
-let latitude = 31.0;
+let longitude = 118.79166667;
+let latitude = 31.97083333;
 let timezone = 8.0;
 
 let second = 0;
@@ -5628,6 +5641,17 @@ function update_landscape(x_norm, y_norm, zoom, fov) {
 
 
 
+
+
+
+function refresh_view_angle() {
+    document.getElementById("view_pitch").textContent = String(Math.round((view_alt <= 90 && view_alt >= -90) ? view_alt : (180-view_alt)));
+    document.getElementById("view_yaw").textContent = String(Math.round(view_azi));
+    document.getElementById("view_roll").textContent = String(Math.round(view_roll));
+    document.getElementById("view_range").textContent = String(view_range.toFixed(1));
+}
+
+
 function refresh_button_status() {
     let status = null;
 
@@ -5791,23 +5815,18 @@ function refresh_button_status() {
     }
 
 
-    // toggle_realtime
-    if (!enable_realtime) {
-        status = `<span class="switch_off">停用</span>`;
+    // toggle_timemachine_pause
+    btn = document.getElementById("toggle_timemachine_pause");
+    if (timemachine_paused) {
+        btn.classList.remove("switch_on");
+        btn.classList.add("switch_off");
+        btn.innerHTML = `已暂停<br><span style="font-size: smaller;">点击运行</span>`;
     }
     else {
-        status = `<span class="switch_on">启用</span>`;
+        btn.classList.remove("switch_off");
+        btn.classList.add("switch_on");
+        btn.innerHTML = `运行中<br><span style="font-size: smaller;">点击暂停</span>`;
     }
-    document.getElementById("realtime_status").innerHTML = status;
-
-    // toggle_timemachine
-    if (!enable_timemachine_running) {
-        status = `<span class="switch_off">停止</span>`;
-    }
-    else {
-        status = `<span class="switch_on">运行</span>`;
-    }
-    document.getElementById("timemachine_status").innerHTML = status;
 
 
 
@@ -5818,10 +5837,7 @@ function refresh_button_status() {
 
 
 
-    document.getElementById("view_pitch").textContent = String(Math.round((view_alt <= 90 && view_alt >= -90) ? view_alt : (180-view_alt)));
-    document.getElementById("view_yaw").textContent = String(Math.round(view_azi));
-    document.getElementById("view_roll").textContent = String(Math.round(view_roll));
-    document.getElementById("view_range").textContent = String(view_range.toFixed(1));
+    refresh_view_angle();
 
 }
 
@@ -5942,25 +5958,91 @@ window.onload = function() {
         refresh_button_status();
     });
 
-    document.getElementById("toggle_timemachine").addEventListener("click", function(e) {
+    // 快退按钮
+    document.getElementById("toggle_timemachine_backward").addEventListener("click", function(e) {
         nongli = null;
+        // 如果当前是实时模式，先记录当前时间
         if (enable_realtime) {
-            timemachine_start_time = new Date();
+            timemachine_current_time = new Date();
         }
-        if (enable_timemachine_running) {
-            timemachine_start_time = new Date();
-            enable_timemachine_running = false;
-        }
-        else {
+        // 如果当前不是快退模式，切换到快退模式
+        if (enable_realtime || timemachine_direction !== 'backward') {
+            enable_realtime = false;
             enable_timemachine_running = true;
+            timemachine_direction = 'backward';
+            timemachine_paused = false;
+            last_running_mode = 'backward';
         }
-        enable_realtime = false;
+        // 如果已经是快退模式，不做任何改变（保持快退）
         refresh_button_status();
     });
 
-    document.getElementById("toggle_realtime").addEventListener("click", function(e) {
+    // 快进按钮
+    document.getElementById("toggle_timemachine_forward").addEventListener("click", function(e) {
         nongli = null;
-        enable_realtime = !enable_realtime;
+        // 如果当前是实时模式，先记录当前时间
+        if (enable_realtime) {
+            timemachine_current_time = new Date();
+        }
+        // 如果当前不是快进模式，切换到快进模式
+        if (enable_realtime || timemachine_direction !== 'forward') {
+            enable_realtime = false;
+            enable_timemachine_running = true;
+            timemachine_direction = 'forward';
+            timemachine_paused = false;
+            last_running_mode = 'forward';
+        }
+        // 如果已经是快进模式，不做任何改变（保持快进）
+        refresh_button_status();
+    });
+
+    // 暂停/运行按钮
+    document.getElementById("toggle_timemachine_pause").addEventListener("click", function(e) {
+        nongli = null;
+        if (timemachine_paused) {
+            // 当前处于暂停状态，根据last_running_mode恢复运行
+            timemachine_paused = false;
+            if (last_running_mode === 'realtime') {
+                enable_realtime = true;
+                enable_timemachine_running = false;
+                timemachine_direction = null;
+            }
+            else {
+                // 恢复快进或快退
+                enable_realtime = false;
+                enable_timemachine_running = true;
+                timemachine_direction = last_running_mode;
+            }
+        }
+        else {
+            // 当前处于运行状态（实时或快进/快退），点击后暂停
+            // 先记录当前运行模式
+            if (enable_realtime) {
+                last_running_mode = 'realtime';
+                // 冻结当前时间
+                timemachine_current_time = new Date();
+            }
+            else if (enable_timemachine_running && timemachine_direction) {
+                last_running_mode = timemachine_direction;
+            }
+            // 停止运行
+            enable_realtime = false;
+            enable_timemachine_running = false;
+            timemachine_paused = true;
+        }
+        refresh_button_status();
+    });
+
+    // 回到现在按钮
+    document.getElementById("toggle_timemachine_now").addEventListener("click", function(e) {
+        nongli = null;
+        // 切换到实时模式
+        enable_realtime = true;
+        enable_timemachine_running = false;
+        timemachine_direction = null;
+        timemachine_paused = false;
+        last_running_mode = 'realtime';
+        timemachine_current_time = new Date();
         refresh_button_status();
     });
 
@@ -6004,12 +6086,17 @@ window.onload = function() {
         nongli = null;
         enable_realtime = false;
         enable_timemachine_running = false;
+        timemachine_direction = null;
+        timemachine_paused = false;
+        last_running_mode = 'realtime';
         year = Number(prompt(`输入年份`));
         month = Number(prompt(`输入月份`));
         day = Number(prompt(`输入日期`));
         hour = Number(prompt(`输入时`));
         minute = Number(prompt(`输入分`));
         second = 0;
+        // 同步timemachine_current_time
+        timemachine_current_time = new Date(year, month - 1, day, hour, minute, second);
         refresh_button_status();
     });
 
@@ -6265,10 +6352,7 @@ window.onload = function() {
         last_point_alt = hc[0];
         last_point_azi = hc[1];
 
-        document.getElementById("view_pitch").textContent = String(Math.round((view_alt <= 90 && view_alt >= -90) ? view_alt : (180-view_alt)));
-        document.getElementById("view_yaw").textContent = String(Math.round(view_azi));
-        document.getElementById("view_roll").textContent = String(Math.round(view_roll));
-        document.getElementById("view_range").textContent = String(view_range.toFixed(1));
+        refresh_view_angle();
     }
 
     // 停止绘制
@@ -6315,19 +6399,30 @@ window.onload = function() {
             second = current_date.getSeconds();
             minute = current_date.getMinutes();
             hour = current_date.getHours();
+            // 同步timemachine_current_time
+            timemachine_current_time = new Date(current_date.getTime());
         }
         else {
-            if (enable_timemachine_running) {
-                const new_date = new Date();
-                new_date.setTime(timemachine_start_time.getTime() + counter);
-                day = new_date.getDate();
-                month = new_date.getMonth() + 1;
-                year = new_date.getFullYear();
-                second = 0;
-                minute = new_date.getMinutes();
-                hour = new_date.getHours();
-
-                counter += 120000;
+            if (enable_timemachine_running && timemachine_direction) {
+                // 根据方向更新时间
+                const timeDelta = (timemachine_direction === 'forward') ? TIMEMACHINE_SPEED : -TIMEMACHINE_SPEED;
+                timemachine_current_time.setTime(timemachine_current_time.getTime() + timeDelta);
+                timemachine_current_time.setSeconds(0); // 设为0以便触发农历更新
+                day = timemachine_current_time.getDate();
+                month = timemachine_current_time.getMonth() + 1;
+                year = timemachine_current_time.getFullYear();
+                second = timemachine_current_time.getSeconds();
+                minute = timemachine_current_time.getMinutes();
+                hour = timemachine_current_time.getHours();
+            }
+            else if (timemachine_paused) {
+                // 暂停状态，保持当前时间不变
+                day = timemachine_current_time.getDate();
+                month = timemachine_current_time.getMonth() + 1;
+                year = timemachine_current_time.getFullYear();
+                second = timemachine_current_time.getSeconds();
+                minute = timemachine_current_time.getMinutes();
+                hour = timemachine_current_time.getHours();
             }
         }
 
