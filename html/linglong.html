@@ -172,6 +172,25 @@ a {
 
         <div style="font-size: 12px; font-family: monospace;" id="view_dir">Pitch:<span id="view_pitch">-</span>° Yaw:<span id="view_yaw">-</span>° Roll:<span id="view_roll">-</span>° Range:<span id="view_range">-</span></div>
 
+        <!-- 择吉信息显示框 -->
+        <div class="almanac_container" id="almanac_info" style="display: flex; max-width: 400px; margin: 10px auto; padding: 10px; background: #141516; border-radius: 6px; flex-direction: column;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                <div style="font-size: 13px; font-weight: bold; color: #ffcc66;">基于《钦定协纪辨方书》的择吉算法(alpha)</div>
+                <div id="almanac_overall" style="font-size: 12px; padding: 2px 8px; border-radius: 4px; background: #333;">-</div>
+            </div>
+            <div style="display: flex; justify-content: space-around; font-size: 11px; margin-bottom: 8px;">
+                <div>建除：<span id="almanac_jianchu" style="color: #66ccff;">-</span></div>
+                <div>宿值：<span id="almanac_xiu" style="color: #66ccff;">-</span></div>
+                <div>十二神：<span id="almanac_shen" style="color: #66ccff;">-</span></div>
+            </div>
+            <div style="font-size: 10px; color: #88cc88; margin-bottom: 4px;">
+                宜：<span id="almanac_yi">-</span>
+            </div>
+            <div style="font-size: 10px; color: #cc8888;">
+                忌：<span id="almanac_ji">-</span>
+            </div>
+        </div>
+
         <div style="display: flex; max-width: 320px; flex-direction: row; justify-content: center; margin: 10px auto;">
             <div style="font-size: 11px; text-align: center; background: #252629; width: fit-content; border-radius: 100px; padding: 3px 10px; margin: 0 3px;" onclick="alert('玲珑仪使用说明\n🔹时间日期均为北京时间(UTC+8)。\n🔹农历日期系由星历算法解算而得，未必准确。\n🔹拖动屏幕改变视角。\n🔹点击“重力感应”按钮，启用姿态传感器。\n🔹姿态角的精度取决于设备，未必准确。\n🔹GPU渲染未必可用，取决于设备。\n🔹二次散射计算量较大，速度较慢。\n🔹体积云渲染非常慢，请按需启用。');">
                 ℹ️使用说明
@@ -186,6 +205,7 @@ a {
     <script src="../script/vsop87c_milli.js"></script>
     <script src="../script/eph.js"></script>
     <script src="../script/lunar_calendar.js"></script>
+    <script src="../script/almanac.js"></script>
     <script>
 
 
@@ -6582,6 +6602,50 @@ window.onload = function() {
                 let nongli_riqi = nongli.full_display.split(" ");
                 document.getElementById('info_nongli_nian').textContent = nongli_riqi[0];
                 document.getElementById('info_nongli_yueri').textContent = nongli_riqi[1];
+
+                // 计算择吉信息
+                let almanac = Almanac.calculate(nongli, year, month, day);
+                if (almanac) {
+                    document.getElementById('almanac_jianchu').textContent = almanac.jianchu;
+                    document.getElementById('almanac_xiu').textContent = almanac.xiu;
+                    document.getElementById('almanac_shen').textContent = almanac.shen;
+                    
+                    // 吉凶总评
+                    let overallEl = document.getElementById('almanac_overall');
+                    overallEl.textContent = almanac.luck.overall;
+                    if (almanac.luck.score >= 2) {
+                        overallEl.style.background = '#2d5016';
+                        overallEl.style.color = '#88ff88';
+                    } else if (almanac.luck.score >= 0) {
+                        overallEl.style.background = '#4a4a1a';
+                        overallEl.style.color = '#ffff88';
+                    } else if (almanac.luck.score >= -1) {
+                        overallEl.style.background = '#4a3a1a';
+                        overallEl.style.color = '#ffcc88';
+                    } else {
+                        overallEl.style.background = '#4a1a1a';
+                        overallEl.style.color = '#ff8888';
+                    }
+                    
+                    // 宜忌事项（根据宜忌等第处理后的结果）
+                    let yiText = almanac.yi.slice(0, 8).join('、');
+                    let jiText = almanac.ji.slice(0, 8).join('、');
+                    document.getElementById('almanac_yi').textContent = yiText || '无';
+                    document.getElementById('almanac_ji').textContent = jiText || '无';
+                    
+                    // 显示吉神凶神（简化）
+                    if (almanac.goodGodName.length > 0 || almanac.badGodName.length > 0) {
+                        let godsInfo = '';
+                        if (almanac.goodGodName.length > 0) {
+                            godsInfo += '吉:' + almanac.goodGodName.slice(0, 3).join('、');
+                        }
+                        if (almanac.badGodName.length > 0) {
+                            if (godsInfo) godsInfo += ' ';
+                            godsInfo += '凶:' + almanac.badGodName.slice(0, 3).join('、');
+                        }
+                        // 可以在界面上添加显示吉神凶神的元素
+                    }
+                }
             }
         }
 
