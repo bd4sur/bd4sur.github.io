@@ -28,6 +28,30 @@ a {
     margin: 10px 0;
     border-radius: 5px;
 }
+
+.info_box_container {
+    display: flex;
+    align-items: stretch;
+    flex-direction: row;
+    flex-wrap: nowrap;
+    justify-content: center;
+    width: 100%;
+    max-width: 400px;
+    margin: 0 auto 12px auto;
+}
+.info_box {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    font-size: 11px;
+    border: 1px solid #fff;
+    border-radius: 6px;
+    padding: 5px 10px;
+    margin: 2px 2px;
+    width: 100%;
+}
+
 .status_label {
     font-size: smaller;
 }
@@ -100,15 +124,27 @@ a {
 
         <canvas class="mainCanvas" id="skyCanvas" width="400" height="300" style="width: 100%; max-width: 400px;"></canvas>
 
-        <div style="font-size: 12px; font-family: monospace;" id="datetime">-</div>
-        <div style="font-size: 12px; font-family: monospace; color: #ddcc88;" id="lunar_date">-</div>
-        <div style="font-size: 12px; font-family: monospace;" id="coord">Lon:<span id="longitude">-</span>° Lat:<span id="latitude">-</span>°</div>
+        <div class="info_box_container">
+            <div class="info_box" id="set_time">
+                <div id="info_date">2026-03-22</div>
+                <div id="info_time">12:34</div>
+            </div>
+            <div class="info_box">
+                <div id="info_nongli_nian">丙午马年</div>
+                <div id="info_nongli_yueri">二月初四</div>
+            </div>
+            <div class="info_box" id="set_coord">
+                <div id="info_latitude">-</div>
+                <div id="info_longitude">-</div>
+            </div>
+            <div class="info_box">
+                <div>FPS: <span id="info_fps">-</span></div>
+            </div>
+        </div>
 
-        <div class="setting_buttons_container">
+        <div class="setting_buttons_container" id="timemachine_controller">
             <button class="setting_button" id="toggle_realtime">实时天象<br><span class="status_label" id="realtime_status">-</span></button>
             <button class="setting_button" id="toggle_timemachine">时光机<br><span class="status_label" id="timemachine_status">-</span></button>
-            <button class="setting_button" id="set_time">设置时间</button>
-            <button class="setting_button" id="set_coord">设置位置</button>
         </div>
 
         <table class="joystick_buttons_container">
@@ -131,10 +167,8 @@ a {
 
         <div style="font-size: 12px; font-family: monospace;" id="view_dir">Pitch:<span id="view_pitch">-</span>° Yaw:<span id="view_yaw">-</span>° Roll:<span id="view_roll">-</span>° Range:<span id="view_range">-</span></div>
 
-        <div style="font-size: 12px; font-family: monospace;">FPS:<span id="fps">--</span></div>
-
         <div style="font-size: smaller; text-align: center; max-width: 320px; margin: 0 auto; color: #aaaaaa;">
-            <div onclick="alert('玲珑仪使用说明\n🔹拖动屏幕改变视角。\n🔹点击“重力感应”按钮，启用姿态传感器。\n🔹姿态角的精度取决于设备，未必准确。\n🔹二次散射计算量较大，速度较慢。\n🔹体积云渲染非常慢，请按需启用。');">
+            <div onclick="alert('玲珑仪使用说明\n🔹时间日期均为北京时间(UTC+8)。\n🔹农历日期系由星历算法解算而得，未必准确。\n🔹拖动屏幕改变视角。\n🔹点击“重力感应”按钮，启用姿态传感器。\n🔹姿态角的精度取决于设备，未必准确。\n🔹GPU渲染未必可用，取决于设备。\n🔹二次散射计算量较大，速度较慢。\n🔹体积云渲染非常慢，请按需启用。');">
                 ℹ️使用说明
             </div>
         </div>
@@ -421,6 +455,55 @@ function dec_dms_to_decimal(d, m, s) {
     const decimal = sign * (absD + m / 60 + s / 3600);
     return decimal;
 }
+
+// 将十进制小数的经度和纬度转换成度分秒形式的字符串
+function decimal_to_dms(decimal, is_longitude) {
+    const isNegative = decimal < 0;
+    const absValue = Math.abs(decimal);
+
+    // 计算度
+    let degrees = Math.floor(absValue);
+
+    // 计算分
+    let minutesDecimal = (absValue - degrees) * 60;
+    let minutes = Math.floor(minutesDecimal);
+
+    // 计算秒
+    let seconds = Math.round((minutesDecimal - minutes) * 60);
+
+    // 处理秒进位
+    if (seconds >= 60) {
+        seconds = 0;
+        minutes += 1;
+    }
+
+    // 处理分进位
+    if (minutes >= 60) {
+        minutes = 0;
+        degrees += 1;
+    }
+
+    // 格式化度分秒为两位整数
+    const degStr = String(degrees).padStart(2, '0');
+    const minStr = String(minutes).padStart(2, '0');
+    const secStr = String(seconds).padStart(2, '0');
+
+    // 确定方向后缀
+    let direction = '';
+    if (decimal > 0) {
+        direction = (is_longitude) ? 'E' : 'N'; // 纬度为正表示北纬，经度为正表示东经，由调用方决定含义
+    } else if (decimal < 0) {
+        direction = (is_longitude) ? 'W' : 'S'; // 纬度为负表示南纬，经度为负表示西经
+    }
+
+    return `${degStr}°${minStr}'${secStr}"${direction}`;
+}
+
+
+
+
+
+
 
 // 地平天球的球坐标系→地平天球的笛卡尔坐标系
 function horizontal_to_xyz(azimuth_deg, altitude_deg, radius) {
@@ -5303,6 +5386,8 @@ let day = 11;
 let month = 2;
 let year = 2026;
 
+let nongli = null;
+
 
 let isDrawing = false;
 let last_point_alt = 0;
@@ -5728,16 +5813,15 @@ function refresh_button_status() {
 
 
 
-
-    document.getElementById("longitude").innerHTML = String(longitude);
-    document.getElementById("latitude").innerHTML = String(latitude);
-
+    document.getElementById("info_longitude").textContent = decimal_to_dms(longitude, true);
+    document.getElementById("info_latitude").textContent = decimal_to_dms(latitude, false);
 
 
-    document.getElementById("view_pitch").innerHTML = String(Math.round((view_alt <= 90 && view_alt >= -90) ? view_alt : (180-view_alt)));
-    document.getElementById("view_yaw").innerHTML = String(Math.round(view_azi));
-    document.getElementById("view_roll").innerHTML = String(Math.round(view_roll));
-    document.getElementById("view_range").innerHTML = String(view_range.toFixed(1));
+
+    document.getElementById("view_pitch").textContent = String(Math.round((view_alt <= 90 && view_alt >= -90) ? view_alt : (180-view_alt)));
+    document.getElementById("view_yaw").textContent = String(Math.round(view_azi));
+    document.getElementById("view_roll").textContent = String(Math.round(view_roll));
+    document.getElementById("view_range").textContent = String(view_range.toFixed(1));
 
 }
 
@@ -5859,6 +5943,7 @@ window.onload = function() {
     });
 
     document.getElementById("toggle_timemachine").addEventListener("click", function(e) {
+        nongli = null;
         if (enable_realtime) {
             timemachine_start_time = new Date();
         }
@@ -5874,6 +5959,7 @@ window.onload = function() {
     });
 
     document.getElementById("toggle_realtime").addEventListener("click", function(e) {
+        nongli = null;
         enable_realtime = !enable_realtime;
         refresh_button_status();
     });
@@ -5915,6 +6001,7 @@ window.onload = function() {
 
 
     document.getElementById("set_time").addEventListener("click", function(e) {
+        nongli = null;
         enable_realtime = false;
         enable_timemachine_running = false;
         year = Number(prompt(`输入年份`));
@@ -5927,6 +6014,7 @@ window.onload = function() {
     });
 
     document.getElementById("set_coord").addEventListener("click", function(e) {
+        nongli = null;
         longitude = Number(prompt(`输入经度（十进制，东为正）`));
         latitude = Number(prompt(`输入纬度（十进制，北为正）`));
         refresh_button_status();
@@ -6177,10 +6265,10 @@ window.onload = function() {
         last_point_alt = hc[0];
         last_point_azi = hc[1];
 
-        document.getElementById("view_pitch").innerHTML = String(Math.round((view_alt <= 90 && view_alt >= -90) ? view_alt : (180-view_alt)));
-        document.getElementById("view_yaw").innerHTML = String(Math.round(view_azi));
-        document.getElementById("view_roll").innerHTML = String(Math.round(view_roll));
-        document.getElementById("view_range").innerHTML = String(view_range.toFixed(1));
+        document.getElementById("view_pitch").textContent = String(Math.round((view_alt <= 90 && view_alt >= -90) ? view_alt : (180-view_alt)));
+        document.getElementById("view_yaw").textContent = String(Math.round(view_azi));
+        document.getElementById("view_roll").textContent = String(Math.round(view_roll));
+        document.getElementById("view_range").textContent = String(view_range.toFixed(1));
     }
 
     // 停止绘制
@@ -6235,7 +6323,7 @@ window.onload = function() {
                 day = new_date.getDate();
                 month = new_date.getMonth() + 1;
                 year = new_date.getFullYear();
-                second = new_date.getSeconds();
+                second = 0;
                 minute = new_date.getMinutes();
                 hour = new_date.getHours();
 
@@ -6243,18 +6331,22 @@ window.onload = function() {
             }
         }
 
-        let timestr = `${year}-${String(100+month).substr(-2)}-${String(100+day).substr(-2)} ${String(100+hour).substr(-2)}:${String(100+minute).substr(-2)}:${String(100+second).substr(-2)}`;
-        document.getElementById('datetime').innerHTML = timestr;
+        let datestr = `${year}-${String(100+month).substr(-2)}-${String(100+day).substr(-2)}`;
+        let timestr = `${String(100+hour).substr(-2)}:${String(100+minute).substr(-2)}:${String(100+second).substr(-2)}`;
+        document.getElementById('info_date').innerHTML = datestr;
+        document.getElementById('info_time').innerHTML = timestr;
 
-        // 计算并显示农历日期
-        try {
-            let lunar = LunarCalendar.calculate(year, month, day, hour, minute, second, timezone);
-            if (lunar) {
-                document.getElementById('lunar_date').textContent = lunar.full_display;
+
+        // 计算并显示农历日期（只在时间切换时计算，避免频繁调用）
+        if (nongli === null || second === 0) {
+            nongli = LunarCalendar.calculate(year, month, day, hour, minute, second, timezone);
+            if (nongli) {
+                let nongli_riqi = nongli.full_display.split(" ");
+                document.getElementById('info_nongli_nian').textContent = nongli_riqi[0];
+                document.getElementById('info_nongli_yueri').textContent = nongli_riqi[1];
             }
-        } catch (e) {
-            console.error("农历计算错误:", e);
         }
+
 
         render_all(
             frame_buffer, sky.canvas.width, sky.canvas.height,
@@ -6269,7 +6361,7 @@ window.onload = function() {
         const now = performance.now();
         if (now - lastTime >= 500) { // 每隔多少毫秒统计一次
             fps = Math.round((frameCount * 1000) / (now - lastTime));
-            document.getElementById('fps').textContent = `${fps}`;
+            document.getElementById('info_fps').textContent = `${fps}`;
             frameCount = 0;
             lastTime = now;
         }
