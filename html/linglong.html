@@ -173,21 +173,29 @@ a {
         <div style="font-size: 12px; font-family: monospace;" id="view_dir">Pitch:<span id="view_pitch">-</span>° Yaw:<span id="view_yaw">-</span>° Roll:<span id="view_roll">-</span>° Range:<span id="view_range">-</span></div>
 
         <!-- 择吉信息显示框 -->
-        <div class="almanac_container" id="almanac_info" style="display: flex; max-width: 400px; margin: 10px auto; padding: 10px; background: #141516; border-radius: 6px; flex-direction: column;">
-            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
-                <div style="font-size: 13px; font-weight: bold; color: #ffcc66;">基于《钦定协纪辨方书》的择吉算法(alpha)</div>
+        <div class="almanac_container" id="almanac_info" style="display: flex; max-width: 400px; margin: 10px auto; padding: 3px; background: #141516; border-radius: 6px; flex-direction: column;">
+            <!-- <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                <div style="font-size: 12px; font-weight: bold; color: #ffffff;">基于《钦定协纪辨方书》的择吉算法</div>
+            </div> -->
+            <!-- 八字、星座、宿值、建除、十二神、当日吉凶 -->
+            <div style="display: flex; justify-content: space-between; align-items: center; font-size: 11px; margin-bottom: 3px; padding: 6px; background: #1a1a1a; border-radius: 4px;">
+                <div><span id="almanac_bazi" style="color: #ffaa66; font-weight: bold;">-</span> | <span id="almanac_zodiac" style="color: #66ccff;">-</span> | <span id="almanac_xiu" style="color: #66ccff;">-</span> | <span id="almanac_jianchu" style="color: #66ccff;">-</span> | <span id="almanac_shen" style="color: #66ccff;">-</span></div>
                 <div id="almanac_overall" style="font-size: 12px; padding: 2px 8px; border-radius: 4px; background: #333;">-</div>
             </div>
-            <div style="display: flex; justify-content: space-around; font-size: 11px; margin-bottom: 8px;">
-                <div>建除：<span id="almanac_jianchu" style="color: #66ccff;">-</span></div>
-                <div>宿值：<span id="almanac_xiu" style="color: #66ccff;">-</span></div>
-                <div>十二神：<span id="almanac_shen" style="color: #66ccff;">-</span></div>
+            <!-- 宜忌 -->
+            <div style="font-size: 10px; margin-bottom: 3px; padding: 4px 6px; background: #1a1a1a; border-radius: 4px; text-align: left; white-space: nowrap; overflow: auto;">
+                <div><span style="color: #99eb99; font-weight: bold;">宜</span>：<span id="almanac_yi">-</span></div>
+                <div><span style="color: #ffacc7; font-weight: bold;">忌</span>：<span id="almanac_ji">-</span></div>
             </div>
-            <div style="font-size: 10px; color: #88cc88; margin-bottom: 4px;">
-                宜：<span id="almanac_yi">-</span>
-            </div>
-            <div style="font-size: 10px; color: #cc8888;">
-                忌：<span id="almanac_ji">-</span>
+            <!-- 九宫飞星、胎神、时辰吉凶、吉神方位 -->
+            <div style="display: flex; flex-direction: row; align-items: center; justify-content: space-between; font-size: 10px; padding: 4px 6px; background: #1a1a1a; border-radius: 4px;">
+                <div style="display: flex; flex-direction: column; align-items: flex-start; color: #e2e5ef;">
+                    <div><span style="color: #e2e5ef; font-weight: bold;">九宫飞星</span>：<span id="almanac_flystar">-</span></div>
+                    <div><span style="color: #e2e5ef; font-weight: bold;">胎神</span>：<span id="almanac_fetal">-</span></div>
+                    <div><span style="color: #e2e5ef; font-weight: bold;">彭祖百忌</span>：<span id="almanac_peng">-</span></div>
+                    <div><span style="color: #e2e5ef; font-weight: bold;">时辰吉凶</span>：<span id="almanac_hourluck">-</span></div>
+                </div>
+                <div><span id="almanac_directions" style="color: #aaff88;">-</span></div>
             </div>
         </div>
 
@@ -195,7 +203,7 @@ a {
             <div style="font-size: 11px; text-align: center; background: #252629; width: fit-content; border-radius: 100px; padding: 3px 10px; margin: 0 3px;" onclick="alert('玲珑仪使用说明\n🔹时间日期均为北京时间(UTC+8)。\n🔹农历日期系由星历算法解算而得，未必准确。\n🔹拖动屏幕改变视角。\n🔹点击“重力感应”按钮，启用姿态传感器。\n🔹姿态角的精度取决于设备，未必准确。\n🔹GPU渲染未必可用，取决于设备。\n🔹二次散射计算量较大，速度较慢。\n🔹体积云渲染非常慢，请按需启用。');">
                 ℹ️使用说明
             </div>
-            <div style="font-size: 11px; text-align: center; background: #252629; width: fit-content; border-radius: 100px; padding: 3px 10px; margin: 0 3px;" onclick="alert('主要参考文献\n🔹Nishita T, et al. Display of The Earth Taking into Account Atmospheric Scattering. 1993.\n🔹Meeus J. Astronomical Algorithms (Second Edition). 1998.');">
+            <div style="font-size: 11px; text-align: center; background: #252629; width: fit-content; border-radius: 100px; padding: 3px 10px; margin: 0 3px;" onclick="alert('主要参考文献\n🔹Nishita T, et al. Display of The Earth Taking into Account Atmospheric Scattering. 1993.\n🔹Meeus J. Astronomical Algorithms (Second Edition). 1998.\n🔹清代《钦定协纪辨方书》的Python实现：https://github.com/OPN48/cnlunar/tree/master');">
                 📚参考文献
             </div>
         </div>
@@ -357,6 +365,7 @@ const STARS = [
     [18, 36, 55.2,     38, 46, 59.8,   0.03], // 织女一（天琴座α）
     [19, 50, 46.6,      8, 52, 10.9,   0.76], // 河鼓二（天鹰座α）
     [ 0.0, 42.0, 43.6,     41.0, 16.0, 15.7,   3.40], // M31
+    [ 5.0, 35.0,  8.3,      9.0, 56.0,  3.0,   3.54], // 觜宿一
     [ 5.0, 55.0, 11.4,      7.0, 24.0, 22.2,   0.42], // 参宿四
     [ 5.0, 25.0,  8.8,      6.0, 20.0, 55.1,   1.64], // 参宿五
     [ 5.0, 40.0, 46.6,     -1.0, 56.0, 38.7,   1.77], // 参宿一
@@ -445,7 +454,7 @@ const STARS = [
 const STAR_NAME = [
     "北极星", "天枢", "天璇", "天玑", "天权", "玉衡", "开阳", "摇光",
     "天狼", "大角", "织女一", "河鼓二", "M31",
-    "参宿四", "参宿五", "参宿一", "参宿二", "参宿三", "参宿六", "参宿七", "伐三", "昴宿星团",
+    "觜宿一", "参宿四", "参宿五", "参宿一", "参宿二", "参宿三", "参宿六", "参宿七", "伐三", "昴宿星团",
     "老人", "南门二", "五车二", "南河三", "水委一", "马腹一", "毕宿五", "心宿二", "角宿一", "北河三", "北落师门", "十字架三",
     "天津四", "十字架二", "轩辕十四", "斗宿四", "娄宿三",
 ];
@@ -6604,11 +6613,34 @@ window.onload = function() {
                 document.getElementById('info_nongli_yueri').textContent = nongli_riqi[1];
 
                 // 计算择吉信息
-                let almanac = Almanac.calculate(nongli, year, month, day);
+                let almanac = Almanac.calculate(nongli, year, month, day, hour);
                 if (almanac) {
+                    // 八字
+                    document.getElementById('almanac_bazi').textContent = almanac.baZi.display;
+                    // 星座
+                    document.getElementById('almanac_zodiac').textContent = almanac.starZodiac;
+                    // 建除、宿值、十二神
                     document.getElementById('almanac_jianchu').textContent = almanac.jianchu;
                     document.getElementById('almanac_xiu').textContent = almanac.xiu;
                     document.getElementById('almanac_shen').textContent = almanac.shen;
+                    // 九宫飞星
+                    document.getElementById('almanac_flystar').textContent = almanac.flyStar9;
+                    // 胎神
+                    document.getElementById('almanac_fetal').textContent = almanac.fetalGod;
+                    // 吉神方位
+                    document.getElementById('almanac_directions').innerHTML = almanac.luckyDirections.join('<br>');
+                    // 彭祖百忌
+                    document.getElementById('almanac_peng').textContent = almanac.pengTaboo.display;
+                    // 时辰吉凶
+                    let hourLuckText = '';
+                    for (let i = 0; i < 12; i++) {
+                        let hourName = ['子', '丑', '寅', '卯', '辰', '巳', '午', '未', '申', '酉', '戌', '亥'][i];
+                        let luck = almanac.twoHourLucky[i];
+                        hourLuckText += `<span style="color: ${(luck === '吉') ? '#99eb99' : '#ffacc7' };">`+ hourName + '</span>';
+                        if (i < 11) hourLuckText += ' ';
+                        // if (i === 5) hourLuckText += '<br>';
+                    }
+                    document.getElementById('almanac_hourluck').innerHTML = hourLuckText;
                     
                     // 吉凶总评
                     let overallEl = document.getElementById('almanac_overall');
@@ -6627,24 +6659,11 @@ window.onload = function() {
                         overallEl.style.color = '#ff8888';
                     }
                     
-                    // 宜忌事项（根据宜忌等第处理后的结果）
+                    // 宜忌事项
                     let yiText = almanac.yi.slice(0, 8).join('、');
                     let jiText = almanac.ji.slice(0, 8).join('、');
                     document.getElementById('almanac_yi').textContent = yiText || '无';
                     document.getElementById('almanac_ji').textContent = jiText || '无';
-                    
-                    // 显示吉神凶神（简化）
-                    if (almanac.goodGodName.length > 0 || almanac.badGodName.length > 0) {
-                        let godsInfo = '';
-                        if (almanac.goodGodName.length > 0) {
-                            godsInfo += '吉:' + almanac.goodGodName.slice(0, 3).join('、');
-                        }
-                        if (almanac.badGodName.length > 0) {
-                            if (godsInfo) godsInfo += ' ';
-                            godsInfo += '凶:' + almanac.badGodName.slice(0, 3).join('、');
-                        }
-                        // 可以在界面上添加显示吉神凶神的元素
-                    }
                 }
             }
         }

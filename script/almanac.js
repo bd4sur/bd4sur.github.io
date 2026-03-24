@@ -1,15 +1,14 @@
 /*
  * 择吉计算 - 基于《钦定协纪辨方书》的吉凶宜忌算法
  * 
- * 核心算法参考 https://github.com/OPN48/cnlunar
- * 包含：宜忌等第表、吉神凶神查找表、十二建除、二十八宿、黄黑道十二神等
+ * 核心算法基于 https://github.com/OPN48/cnlunar
+ * 包含：宜忌等第表、吉神凶神查找表、十二建除、二十八宿、黄黑道十二神、八字、星座等
  * 
- * (c) BD4SUR 2026
  */
 
 const Almanac = (function() {
 
-    // ==================== 常量定义 ====================
+    // ==================== 常量定义（严格照搬 lunar.py）====================
 
     // 天干
     const TIAN_GAN = ["甲", "乙", "丙", "丁", "戊", "己", "庚", "辛", "壬", "癸"];
@@ -27,115 +26,111 @@ const Almanac = (function() {
         "甲寅", "乙卯", "丙辰", "丁巳", "戊午", "己未", "庚申", "辛酉", "壬戌", "癸亥"
     ];
 
+    // 天干五行
+    const HEAVENLY_STEMS_5ELEMENTS = ['木', '木', '火', '火', '土', '土', '金', '金', '水', '水'];
+    
+    // 地支五行
+    const EARTHLY_BRANCHES_5ELEMENTS = ['水', '土', '木', '木', '土', '火', '火', '土', '金', '金', '土', '水'];
+
+    // 纳音五行（30个，对应六十甲子每对）
+    const NAYIN_5ELEMENTS = [
+        '海中金', '炉中火', '大林木', '路旁土', '剑锋金', '山头火', '涧下水', '城头土', '白蜡金', '杨柳木',
+        '井泉水', '屋上土', '霹雳火', '松柏木', '长流水', '砂中金', '山下火', '平地木', '壁上土', '金箔金',
+        '覆灯火', '天河水', '大驿土', '钗钏金', '桑柘木', '大溪水', '砂中土', '天上火', '石榴木', '大海水'
+    ];
+
+
     // 十二建除
     const TWELVE_JIANCHU = ["建", "除", "满", "平", "定", "执", "破", "危", "成", "收", "开", "闭"];
 
-    // 十二建除与月份地支的对应宜忌（来自《钦定协纪辨方书》卷十一）
-    // officerThings[建除名] = [宜事数组, 忌事数组]
-    const OFFICER_THINGS = {
-        "建": [
-            ["施恩", "招贤", "举正直", "上官", "临政", "出行", "训 horses", "教牛马"],
-            ["开仓", "出货财"]
-        ],
-        "除": [
-            ["祭祀", "祈福", "求嗣", "上册", "上表章", "颁诏", "覃恩", "施恩", "招贤", "举正直", "恤孤茕", "宣政事", "雪冤", "庆赐", "宴会", 
-             "出行", "安抚边境", "选将", "出师", "上官", "临政", "结婚姻", "纳采", "嫁娶", "进人口", "搬移", "解除", "沐浴", "整容", 
-             "剃头", "整手足甲", "求医疗病", "裁制", "营建", "修宫室", "缮城郭", "筑堤防", "修造", "竖柱上梁", "修仓库", "鼓铸", 
-             "经络", "酝酿", "开市", "立券交易", "纳财", "开仓", "修置产室", "开渠", "穿井", "安碓硙", "塞穴", "补垣", "修饰垣墙", 
-             "平治道涂", "破屋坏垣", "伐木", "栽种", "牧养", "纳畜", "破土", "安葬", "启攒"],
-            ["畋猎", "取鱼"]
-        ],
-        "满": [
-            ["祭祀", "祈福", "求嗣", "上册", "上表章", "颁诏", "覃恩", "施恩", "招贤", "举正直", "恤孤茕", "宣政事", "雪冤", "庆赐", "宴会"],
-            ["赴任", "上官", "结婚姻", "纳采", "嫁娶", "进人口", "求医疗病", "营建", "修宫室", "缮城郭", "筑堤防", "修造", "竖柱上梁", 
-             "修仓库", "开市", "立券交易", "纳财", "开仓", "经络", "酝酿", "破屋坏垣", "伐木", "栽种", "牧养", "纳畜", "安葬", "启攒", 
-             "移徙"]
-        ],
-        "平": [
-            ["祭祀", "祈福", "求嗣", "上册", "上表章", "颁诏", "覃恩", "施恩", "招贤", "举正直", "恤孤茕", "宣政事", "雪冤", "庆赐", "宴会", 
-             "出行", "安抚边境", "选将", "出师", "上官", "临政", "结婚姻", "纳采", "嫁娶", "进人口", "搬移", "解除", "求医疗病", "裁制", 
-             "营建", "修宫室", "缮城郭", "筑堤防", "修造", "竖柱上梁", "修仓库", "鼓铸", "经络", "酝酿", "开市", "立券交易", "纳财", "开仓", 
-             "修置产室", "开渠", "穿井", "安碓硙", "塞穴", "补垣", "修饰垣墙", "平治道涂", "破屋坏垣", "伐木", "栽种", "牧养", "纳畜", "破土", 
-             "安葬", "启攒"],
-            ["畋猎", "取鱼"]
-        ],
-        "定": [
-            ["祭祀", "祈福", "求嗣", "上册", "上表章", "颁诏", "覃恩", "施恩", "招贤", "举正直", "恤孤茕", "宣政事", "雪冤", "庆赐", "宴会", 
-             "出行", "安抚边境", "选将", "出师", "上官", "临政", "结婚姻", "纳采", "嫁娶", "进人口", "搬移", "解除", "沐浴", "整容", 
-             "剃头", "整手足甲", "裁制", "营建", "修宫室", "缮城郭", "筑堤防", "修造", "竖柱上梁", "修仓库", "鼓铸", "经络", "酝酿", 
-             "立券交易", "纳财", "开仓", "修置产室", "开渠", "穿井", "安碓硙", "塞穴", "补垣", "修饰垣墙", "平治道涂", "破屋坏垣", "伐木", 
-             "栽种", "牧养", "纳畜", "破土", "安葬", "启攒"],
-            ["畋猎", "取鱼", "词讼"]
-        ],
-        "执": [
-            ["祭祀", "祈福", "求嗣", "上册", "上表章", "颁诏", "覃恩", "施恩", "招贤", "举正直", "恤孤茕", "宣政事", "雪冤", "庆赐", "宴会", 
-             "安抚边境", "选将", "出师", "上官", "临政", "结婚姻", "纳采", "嫁娶", "进人口", "解除", "沐浴", "整容", "剃头", "整手足甲", 
-             "求医疗病", "裁制", "营建", "修宫室", "缮城郭", "筑堤防", "修造", "竖柱上梁", "修仓库", "鼓铸", "经络", "酝酿", "立券交易", 
-             "纳财", "开仓", "修置产室", "开渠", "穿井", "安碓硙", "塞穴", "补垣", "修饰垣墙", "平治道涂", "破屋坏垣", "伐木", "栽种", 
-             "牧养", "纳畜", "破土", "安葬", "启攒"],
-            ["畋猎", "取鱼", "出行", "搬移"]
-        ],
-        "破": [
-            ["破屋坏垣", "沐浴", "整容", "剃头", "整手足甲", "求医疗病"],
-            ["祈福", "求嗣", "上册", "上表章", "颁诏", "覃恩", "施恩", "招贤", "举正直", "宣政事", "布政事", "庆赐", "宴会", "冠带", "出行", 
-             "安抚边境", "选将", "出师", "上官", "临政", "结婚姻", "纳采", "嫁娶", "进人口", "搬移", "安床", "解除", "求医疗病", "裁制", 
-             "营建", "修宫室", "缮城郭", "筑堤防", "修造", "竖柱上梁", "修仓库", "鼓铸", "经络", "酝酿", "开市", "立券交易", "纳财", "开仓", 
-             "修置产室", "开渠", "穿井", "安碓硙", "塞穴", "补垣", "修饰垣墙", "平治道涂", "栽种", "牧养", "纳畜", "破土", "安葬", "启攒"]
-        ],
-        "危": [
-            ["祭祀", "祈福", "求嗣", "上册", "上表章", "颁诏", "覃恩", "施恩", "招贤", "举正直", "恤孤茕", "宣政事", "雪冤", "庆赐", "宴会", 
-             "安抚边境", "选将", "出师", "上官", "临政", "结婚姻", "纳采", "嫁娶", "进人口", "搬移", "解除", "沐浴", "整容", "剃头", 
-             "整手足甲", "求医疗病", "裁制", "营建", "修宫室", "缮城郭", "筑堤防", "修造", "竖柱上梁", "修仓库", "鼓铸", "经络", "酝酿", 
-             "立券交易", "纳财", "开仓", "修置产室", "开渠", "穿井", "安碓硙", "塞穴", "补垣", "修饰垣墙", "平治道涂", "破屋坏垣", "伐木", 
-             "栽种", "牧养", "纳畜", "破土", "安葬", "启攒"],
-            ["畋猎", "取鱼", "出行"]
-        ],
-        "成": [
-            ["祭祀", "祈福", "求嗣", "上册", "上表章", "颁诏", "覃恩", "施恩", "招贤", "举正直", "恤孤茕", "宣政事", "雪冤", "庆赐", "宴会", 
-             "出行", "安抚边境", "选将", "出师", "上官", "临政", "结婚姻", "纳采", "嫁娶", "进人口", "搬移", "安床", "解除", "沐浴", "整容", 
-             "剃头", "整手足甲", "求医疗病", "裁制", "营建", "修宫室", "缮城郭", "筑堤防", "修造", "竖柱上梁", "修仓库", "鼓铸", "经络", "酝酿", 
-             "开市", "立券交易", "纳财", "开仓", "修置产室", "开渠", "穿井", "安碓硙", "塞穴", "补垣", "修饰垣墙", "平治道涂", "破屋坏垣", "伐木", 
-             "栽种", "牧养", "纳畜", "破土", "安葬", "启攒"],
-            ["词讼"]
-        ],
-        "收": [
-            ["祭祀", "祈福", "求嗣", "上册", "上表章", "覃恩", "施恩", "招贤", "举正直", "恤孤茕", "宣政事", "雪冤", "庆赐", "宴会", "安抚边境", 
-             "上官", "临政", "结婚姻", "纳采", "嫁娶", "进人口", "解除", "沐浴", "整容", "剃头", "整手足甲", "求医疗病", "裁制", "修仓库", 
-             "经络", "酝酿", "纳财", "开仓", "塞穴", "补垣", "修饰垣墙", "牧养", "纳畜", "安葬", "启攒"],
-            ["出行", "冠带", "安床", "修置产室", "开渠", "穿井", "安碓硙", "破屋坏垣", "伐木", "栽种", "破土"]
-        ],
-        "开": [
-            ["祭祀", "祈福", "求嗣", "上册", "上表章", "颁诏", "覃恩", "施恩", "招贤", "举正直", "恤孤茕", "宣政事", "雪冤", "庆赐", "宴会", 
-             "出行", "安抚边境", "选将", "出师", "上官", "临政", "结婚姻", "纳采", "嫁娶", "进人口", "搬移", "解除", "沐浴", "整容", "剃头", 
-             "整手足甲", "求医疗病", "裁制", "营建", "修宫室", "缮城郭", "筑堤防", "修造", "竖柱上梁", "修仓库", "鼓铸", "经络", "酝酿", "开市", 
-             "立券交易", "纳财", "开仓", "修置产室", "开渠", "穿井", "安碓硙", "塞穴", "补垣", "修饰垣墙", "平治道涂", "破屋坏垣", "伐木", 
-             "栽种", "牧养", "纳畜", "启攒"],
-            ["破土", "安葬", "捕捉", "畋猎", "取鱼"]
-        ],
-        "闭": [
-            ["祭祀", "祈福", "求嗣", "覃恩", "施恩", "招贤", "举正直", "恤孤茕", "庆赐", "宴会", "筑堤防", "塞穴", "补垣", "修饰垣墙", "平治道涂"],
-            ["上册", "上表章", "颁诏", "宣政事", "出行", "安抚边境", "选将", "出师", "上官", "临政", "结婚姻", "纳采", "嫁娶", "进人口", 
-             "搬移", "解除", "求医疗病", "营建", "修宫室", "缮城郭", "修造", "竖柱上梁", "修仓库", "鼓铸", "经络", "酝酿", "开市", "立券交易", 
-             "纳财", "开仓", "修置产室", "开渠", "穿井", "安碓硙", "破屋坏垣", "伐木", "栽种", "牧养", "纳畜", "破土", "安葬", "启攒"]
-        ]
-    };
+    // 二十四节气名称
+    const SOLAR_TERMS_NAME_LIST = [
+        "小寒", "大寒",
+        "立春", "雨水", "惊蛰", "春分", "清明", "谷雨",
+        "立夏", "小满", "芒种", "夏至", "小暑", "大暑",
+        "立秋", "处暑", "白露", "秋分", "寒露", "霜降",
+        "立冬", "小雪", "大雪", "冬至"
+    ];
+    
+    // 节气与黄经度数对应（从冬至开始，每15度一个节气）
+    // 冬至=270度，小寒=285度，大寒=300度，立春=315度...
+    const SOLAR_TERMS_LONGITUDE = [285, 300, 315, 330, 345, 0, 15, 30, 45, 60, 75, 90, 105, 120, 135, 150, 165, 180, 195, 210, 225, 240, 255, 270];
 
-    // 二十八宿
+
+
+    // 二十八宿（带五行属性）
     const TWENTY_EIGHT_XIU = [
-        "角", "亢", "氐", "房", "心", "尾", "箕",           // 东方青龙
-        "斗", "牛", "女", "虚", "危", "室", "壁",           // 北方玄武
-        "奎", "娄", "胃", "昴", "毕", "觜", "参",           // 西方白虎
-        "井", "鬼", "柳", "星", "张", "翼", "轸"            // 南方朱雀
+        '角木蛟', '亢金龙', '氐土貉', '房日兔', '心月狐', '尾火虎', '箕水豹',
+        '斗木獬', '牛金牛', '女土蝠', '虚日鼠', '危月燕', '室火猪', '壁水貐',
+        '奎木狼', '娄金狗', '胃土雉', '昴日鸡', '毕月乌', '觜火猴', '参水猿',
+        '井木犴', '鬼金羊', '柳土獐', '星日马', '张月鹿', '翼火蛇', '轸水蚓'
     ];
 
     // 十二神（黄黑道十二神）
     const TWELVE_SHEN = ["青龙", "明堂", "天刑", "朱雀", "金匮", "天德", "白虎", "玉堂", "天牢", "玄武", "司命", "勾陈"];
 
+    // 十二时辰
+    const TWELVE_HOURS = ["子", "丑", "寅", "卯", "辰", "巳", "午", "未", "申", "酉", "戌", "亥"];
+
+    // 方向列表
+    const DIRECTION_LIST = ['正北', '东北', '正东', '东南', '正南', '西南', '正西', '西北'];
+    
+    // 八卦
+    const CHINESE_8_TRIGRAMS = '坎艮震巽离坤兑乾';
+
+    // 日天干推算每日吉神方位（照搬 lunar.py）
+    const LUCKY_GOD_DIRECTION = '艮乾坤离巽艮乾坤离巽';
+    const WEALTH_GOD_DIRECTION = '艮艮坤坤坎坎震震离离';
+    const MASCOT_GOD_DIRECTION = '坎坤乾巽艮坎坤乾巽艮';
+    const SUN_NOBLE_DIRECTION = '坤坤兑乾艮坎离艮震巽';
+    const MOON_NOBLE_DIRECTION = '艮坎乾兑坤坤艮离巽震';
+
+    // 每日胎神（60个，对应六十甲子）
+    const FETAL_GOD_LIST = [
+        '碓磨门外东南', '碓磨厕外东南', '厨灶炉外正南', '仓库门外正南', '房床厕外正南', '占门床外正南', 
+        '占碓磨外正南', '厨灶厕外西南', '仓库炉外西南', '房床门外西南', '门碓栖外西南', '碓磨床外西南',
+        '厨灶碓外西南', '仓库厕外西南', '房床厕外正南', '房床炉外正西', '碓磨栖外正西', '厨灶床外正西', 
+        '仓库碓外西北', '房床厕外西北', '占门炉外西北', '碓磨门外西北', '厨灶栖外西北', '仓库床外西北',
+        '房床碓外正北', '占门厕外正北', '碓磨炉外正北', '厨灶门外正北', '仓库栖外正北', '占房床房内北', 
+        '占门碓房内北', '碓磨门房内北', '厨灶炉房内北', '仓库门房内北', '房床栖房内中', '占门床房内中',
+        '占碓磨房内南', '厨灶厕房内南', '仓库炉房内南', '房床门房内南', '门鸡栖房内东', '碓磨床房内东', 
+        '厨灶碓房内东', '仓库厕房内东', '房床炉房内东', '占大门外东北', '碓磨栖外东北', '厨灶床外东北',
+        '仓库碓外东北', '房床厕外东北', '占门炉外东北', '碓磨门外正东', '厨灶栖外正东', '仓库床外正东', 
+        '房床碓外正东', '占门厕外正东', '碓磨炉外东南', '仓库栖外东南', '占房床外东南', '占门碓外东南'
+    ];
+
+    // 时辰吉凶表（60个十六进制数，对应六十甲子日）
+    const TWO_HOUR_LUCKY_TIME_LIST = [
+        0x2d3, 0xcb4, 0x32d, 0x4cb, 0xd32, 0xb4c, 0x2d3, 0xcb4, 0x32d, 0x4cb, 0xd22, 0xb5c,
+        0x2d3, 0xcb4, 0x32d, 0x4cb, 0xd3a, 0xb4d, 0x2d3, 0xcb4, 0x32d, 0x4cb, 0xd32, 0xb4c,
+        0x2d3, 0xcb5, 0x32d, 0x4cb, 0xd32, 0xb4c, 0x2d3, 0xcb4, 0x32d, 0x4cb, 0xd32, 0xb4c,
+        0x2d3, 0xcb4, 0x32d, 0x4db, 0xd32, 0xb5c, 0x2d7, 0xcb4, 0x32d, 0x4cb, 0xd32, 0xb5c,
+        0x2d3, 0xcb4, 0x32d, 0x4cb, 0xd32, 0xb4c, 0x2d3, 0xcb4, 0x30d, 0x4cb, 0xd32, 0xb4c
+    ];
+
+    // 星座名称
+    const STAR_ZODIAC_NAME = ['摩羯座', '水瓶座', '双鱼座', '白羊座', '金牛座', '双子座', 
+                              '巨蟹座', '狮子座', '处女座', '天秤座', '天蝎座', '射手座'];
+    
+    // 星座日期分界（月, 日）
+    const STAR_ZODIAC_DATE = [[1, 20], [2, 19], [3, 21], [4, 21], [5, 21], [6, 22], 
+                              [7, 23], [8, 23], [9, 23], [10, 23], [11, 23], [12, 23]];
+
+    // 彭祖百忌
+    const PENG_TABOO_LIST = [
+        '甲不开仓 财物耗散', '乙不栽植 千株不长', '丙不修灶 必见灾殃', '丁不剃头 头必生疮',
+        '戊不受田 田主不祥', '己不破券 二比并亡', '庚不经络 织机虚张', '辛不合酱 主人不尝',
+        '壬不泱水 更难提防', '癸不词讼 理弱敌强', '子不问卜 自惹祸殃', '丑不冠带 主不还乡',
+        '寅不祭祀 神鬼不尝', '卯不穿井 水泉不香', '辰不哭泣 必主重丧', '巳不远行 财物伏藏',
+        '午不苫盖 屋主更张', '未不服药 毒气入肠', '申不安床 鬼祟入房', '酉不会客 醉坐颠狂',
+        '戌不吃犬 作怪上床', '亥不嫁娶 不利新郎'
+    ];
+
     // 季节
     const SEASONS = ["春", "夏", "秋", "冬"];
     
     // 孟仲季月类型
-    const MONTH_TYPE = ["孟", "仲", "季"];  // 0=孟月, 1=仲月, 2=季月
+    const MONTH_TYPE = ["孟", "仲", "季"];
 
     // ==================== 辅助函数 ====================
 
@@ -151,39 +146,227 @@ const Almanac = (function() {
         return SIXTY_JIAZI.indexOf(ganzhi);
     }
 
-    // 计算日期差（天数）
-    function getDaysDiff(year1, month1, day1, year2, month2, day2) {
-        const d1 = new Date(year1, month1 - 1, day1);
-        const d2 = new Date(year2, month2 - 1, day2);
-        return Math.floor((d2 - d1) / (24 * 60 * 60 * 1000));
-    }
-
-    // 数组去重
     function uniqueArray(arr) {
         return [...new Set(arr)];
     }
 
-    // 数组添加元素（去重）
     function addToArray(arr, items) {
         return uniqueArray([...arr, ...items]);
     }
 
-    // 数组移除元素
     function removeFromArray(arr, items) {
         return arr.filter(item => !items.includes(item));
     }
 
-    // 检查字符串是否包含子串
-    function containsAny(str, substrings) {
-        return substrings.some(sub => str.includes(sub));
+    // ==================== 节气计算 ====================
+    // 注：以下函数依赖 eph.js 中提供的函数
+    // - julian_day(year, month, day, hour, minute, second, timezone_offset)
+    // - calculate_solar_ecliptic_coordinates(jd) 返回 [黄经, 黄纬, 距离]
+    
+    /**
+     * 使用牛顿迭代法精确计算节气时刻
+     * 调用 eph.js 中的 calculate_solar_ecliptic_coordinates 函数
+     * @param {number} year - 年份
+     * @param {number} termIndex - 节气序号（0-23）
+     * @returns {Date} 节气日期时间（北京时间）
+     */
+    function calcSolarTerm(year, termIndex) {
+        const targetLon = SOLAR_TERMS_LONGITUDE[termIndex];
+        
+        // 计算该节气的大致日期（基于平均间隔15.2184天）
+        // 小寒通常在1月5-7日，以此为基准
+        const approxDayOfYear = termIndex * 15.2184 + 5;
+        const approxMonth = Math.floor(approxDayOfYear / 30.44) + 1;
+        const approxDay = Math.floor(approxDayOfYear % 30.44) + 1;
+        
+        // 使用 eph.js 的 julian_day 计算儒略日（UTC+8时区）
+        let jd = julian_day(year, approxMonth, approxDay, 12, 0, 0, 8);
+        
+        // 牛顿迭代法精确求解
+        for (let i = 0; i < 10; i++) {
+            const sunLon = calculate_solar_ecliptic_coordinates(jd)[0];
+            const diff = ((sunLon - targetLon + 180) % 360 + 360) % 360 - 180;
+            if (Math.abs(diff) < 0.0001) break;
+            // 太阳每天移动约0.9856度
+            jd -= diff / 0.9856;
+        }
+        
+        // 将儒略日转换回日期
+        // Julian Day to Gregorian Date
+        const jd_plus = jd + 0.5;
+        const Z = Math.floor(jd_plus);
+        const F = jd_plus - Z;
+        const A = Z < 2299161 ? Z : Math.floor((Z - 1867216.25) / 36524.25) + 1;
+        const B = Z + A - Math.floor(A / 4) + 1525;
+        const C = Math.floor((B - 122.1) / 365.25);
+        const D = Math.floor(365.25 * C);
+        const E = Math.floor((B - D) / 30.6001);
+        
+        const day = B - D - Math.floor(30.6001 * E);
+        const month = E < 14 ? E - 1 : E - 13;
+        const y = month > 2 ? C - 4716 : C - 4715;
+        
+        // 计算时分秒（UTC+8）
+        const hour = Math.floor(F * 24 + 8) % 24;
+        
+        return new Date(y, month - 1, day, hour);
+    }
+    
+    /**
+     * 获取指定年份的所有节气日期列表
+     * 移植自 lunar.py 的 getSolarTermsDateList 方法
+     * @param {number} year - 年份
+     * @returns {Array} 节气日期列表，格式为 [[月,日], [月,日], ...]
+     */
+    function getSolarTermsDateList(year) {
+        const solarTermsDateList = [];
+        for (let i = 0; i < 24; i++) {
+            const date = calcSolarTerm(year, i);
+            solarTermsDateList.push([date.getMonth() + 1, date.getDate()]);
+        }
+        return solarTermsDateList;
+    }
+    
+    /**
+     * 计算 nextSolarNum（下一节气的序号）
+     * 移植自 lunar.py 的 getNextNum 方法
+     * @param {Array} findDate - [月, 日]
+     * @param {Array} solarTermsDateList - 节气日期列表
+     * @returns {number} 下一节气序号（0-23）
+     */
+    function getNextSolarNum(findDate, solarTermsDateList) {
+        let count = 0;
+        for (let i = 0; i < solarTermsDateList.length; i++) {
+            const term = solarTermsDateList[i];
+            if (term[0] < findDate[0] || (term[0] === findDate[0] && term[1] <= findDate[1])) {
+                count++;
+            } else {
+                break;
+            }
+        }
+        return count % 24;
+    }
+    
+    /**
+     * 获取当天的节气信息
+     * 移植自 lunar.py 的 get_todaySolarTerms 方法
+     * @param {number} year - 年份
+     * @param {number} month - 月份
+     * @param {number} day - 日
+     * @returns {Object} 节气信息对象
+     */
+    function getTodaySolarTerms(year, month, day) {
+        const solarTermsDateList = getSolarTermsDateList(year);
+        const findDate = [month, day];
+        const nextSolarNum = getNextSolarNum(findDate, solarTermsDateList);
+        
+        // 检查当天是否是节气
+        let todaySolarTerm = "无";
+        let todaySolarTermIndex = -1;
+        for (let i = 0; i < solarTermsDateList.length; i++) {
+            if (solarTermsDateList[i][0] === month && solarTermsDateList[i][1] === day) {
+                todaySolarTerm = SOLAR_TERMS_NAME_LIST[i];
+                todaySolarTermIndex = i;
+                break;
+            }
+        }
+        
+        // 次年节气（如果当前日期在当年最后一个节气之后）
+        let nextYear = year;
+        let nextYearTerms = solarTermsDateList;
+        const lastTerm = solarTermsDateList[solarTermsDateList.length - 1];
+        if (month > lastTerm[0] || (month === lastTerm[0] && day >= lastTerm[1])) {
+            nextYear = year + 1;
+            nextYearTerms = getSolarTermsDateList(nextYear);
+        }
+        
+        const nextSolarTerm = SOLAR_TERMS_NAME_LIST[nextSolarNum];
+        const nextSolarTermDate = nextYearTerms[nextSolarNum];
+        
+        return {
+            todaySolarTerm: todaySolarTerm,
+            todaySolarTermIndex: todaySolarTermIndex,
+            nextSolarTerm: nextSolarTerm,
+            nextSolarTermDate: nextSolarTermDate,
+            nextSolarTermYear: nextYear,
+            nextSolarNum: nextSolarNum,
+            thisYearSolarTermsDateList: solarTermsDateList
+        };
     }
 
-    // ==================== 核心计算函数 ====================
+    // ==================== 八字计算 ====================
 
-    /**
-     * 计算十二建除
-     * 正月建寅，二月建卯，以此类推
-     */
+    function calculate8Char(year, month, day, hour, lunarDate) {
+        const yearGan = lunarDate.year_ganzhi[0];
+        const yearZhi = lunarDate.year_ganzhi[1];
+        const monthGan = lunarDate.month_ganzhi[0];
+        const monthZhi = lunarDate.month_ganzhi[1];
+        const dayGan = lunarDate.day_ganzhi[0];
+        const dayZhi = lunarDate.day_ganzhi[1];
+        
+        let hourZhiIndex;
+        if (hour >= 23 || hour < 1) hourZhiIndex = 0;
+        else if (hour < 3) hourZhiIndex = 1;
+        else if (hour < 5) hourZhiIndex = 2;
+        else if (hour < 7) hourZhiIndex = 3;
+        else if (hour < 9) hourZhiIndex = 4;
+        else if (hour < 11) hourZhiIndex = 5;
+        else if (hour < 13) hourZhiIndex = 6;
+        else if (hour < 15) hourZhiIndex = 7;
+        else if (hour < 17) hourZhiIndex = 8;
+        else if (hour < 19) hourZhiIndex = 9;
+        else if (hour < 21) hourZhiIndex = 10;
+        else hourZhiIndex = 11;
+        
+        const hourZhi = DI_ZHI[hourZhiIndex];
+        
+        const dayGanIndex = getGanIndex(dayGan);
+        let hourGanStart;
+        if (dayGanIndex === 0 || dayGanIndex === 5) hourGanStart = 0;
+        else if (dayGanIndex === 1 || dayGanIndex === 6) hourGanStart = 2;
+        else if (dayGanIndex === 2 || dayGanIndex === 7) hourGanStart = 4;
+        else if (dayGanIndex === 3 || dayGanIndex === 8) hourGanStart = 6;
+        else hourGanStart = 8;
+        
+        const hourGan = TIAN_GAN[(hourGanStart + hourZhiIndex) % 10];
+        const hourGanzhi = hourGan + hourZhi;
+        
+        return {
+            year: { gan: yearGan, zhi: yearZhi, ganzhi: yearGan + yearZhi },
+            month: { gan: monthGan, zhi: monthZhi, ganzhi: monthGan + monthZhi },
+            day: { gan: dayGan, zhi: dayZhi, ganzhi: dayGan + dayZhi },
+            hour: { gan: hourGan, zhi: hourZhi, ganzhi: hourGanzhi },
+            display: `${yearGan}${yearZhi} ${monthGan}${monthZhi} ${dayGan}${dayZhi} ${hourGan}${hourZhi}`,
+            shortDisplay: `${yearGan}${yearZhi}年 ${monthGan}${monthZhi}月 ${dayGan}${dayZhi}日 ${hourGan}${hourZhi}时`
+        };
+    }
+
+    function getTwoHour8CharList(dayGanzhi) {
+        const dayIndex = getGanzhiIndex(dayGanzhi);
+        const begin = (dayIndex * 12) % 60;
+        const result = [];
+        for (let i = 0; i < 13; i++) {
+            result.push(SIXTY_JIAZI[(begin + i) % 60]);
+        }
+        return result;
+    }
+
+    // ==================== 星座计算 ====================
+
+    function calculateStarZodiac(month, day) {
+        let count = 0;
+        for (let i = 0; i < STAR_ZODIAC_DATE.length; i++) {
+            const [m, d] = STAR_ZODIAC_DATE[i];
+            if (month < m || (month === m && day < d)) {
+                break;
+            }
+            count++;
+        }
+        return STAR_ZODIAC_NAME[count % 12];
+    }
+
+    // ==================== 十二建除 ====================
+
     function calculateJianchu(monthZhi, dayZhi) {
         const monthIdx = getZhiIndex(monthZhi);
         const dayIdx = getZhiIndex(dayZhi);
@@ -192,29 +375,18 @@ const Almanac = (function() {
         return TWELVE_JIANCHU[offset];
     }
 
-    /**
-     * 计算二十八宿
-     * 移植自 cal.py: the28StarsList[apart.days % 28]
-     * 
-     * 注：二十八宿的值日计算存在多种流派，cal.py使用2019-01-17为基准日
-     * 如果计算结果与实际农历查询不符，可能需要调整基准日或列表顺序
-     */
+    // ==================== 二十八宿 ====================
+    // 注意：输入是公历年月日
     function calculateXiu(year, month, day) {
-        // 使用与 cal.py 相同的基准日：2019-01-17
         const baseDate = new Date(2019, 0, 17);
         const currentDate = new Date(year, month - 1, day);
         const diffDays = Math.floor((currentDate - baseDate) / (24 * 60 * 60 * 1000));
-        
-        // 确保正数取模
         const idx = ((diffDays % 28) + 28) % 28;
-        
         return TWENTY_EIGHT_XIU[idx];
     }
 
-    /**
-     * 计算十二神（黄黑道十二神）
-     * 青龙定位口诀：子午寻申位，丑未戌上亲；寅申居子中，卯酉起于寅；辰戌龙位上，巳亥午中寻
-     */
+    // ==================== 十二神 ====================
+
     function calculateRiShen(monthZhi, dayZhi) {
         const monthIdx = getZhiIndex(monthZhi);
         const dayIdx = getZhiIndex(dayZhi);
@@ -226,10 +398,94 @@ const Almanac = (function() {
         return TWELVE_SHEN[offset];
     }
 
-    /**
-     * 获取月份类型（孟、仲、季）
-     * 根据月支判断：寅巳申亥为孟月，卯午酉子为仲月，辰未戌丑为季月
-     */
+    // ==================== 九宫飞星 ====================
+
+    function calculate9FlyStar(year, month, day) {
+        const baseDate = new Date(2019, 0, 17);
+        const currentDate = new Date(year, month - 1, day);
+        const apartNum = Math.floor((currentDate - baseDate) / (24 * 60 * 60 * 1000));
+        const startNumList = [7, 3, 5, 6, 8, 1, 2, 4, 9];
+        const flyStarList = startNumList.map(i => String((i - 1 - apartNum) % 9 + 1));
+        return flyStarList.join('');
+    }
+
+    // ==================== 吉神方位 ====================
+
+    function calculateLuckyGodsDirection(dayGan) {
+        const todayNum = getGanIndex(dayGan);
+        return [
+            '喜神' + DIRECTION_LIST[CHINESE_8_TRIGRAMS.indexOf(LUCKY_GOD_DIRECTION[todayNum])],
+            '财神' + DIRECTION_LIST[CHINESE_8_TRIGRAMS.indexOf(WEALTH_GOD_DIRECTION[todayNum])],
+            '福神' + DIRECTION_LIST[CHINESE_8_TRIGRAMS.indexOf(MASCOT_GOD_DIRECTION[todayNum])],
+            '阳贵' + DIRECTION_LIST[CHINESE_8_TRIGRAMS.indexOf(SUN_NOBLE_DIRECTION[todayNum])],
+            '阴贵' + DIRECTION_LIST[CHINESE_8_TRIGRAMS.indexOf(MOON_NOBLE_DIRECTION[todayNum])]
+        ];
+    }
+
+    // ==================== 胎神 ====================
+
+    function calculateFetalGod(dayGanzhi) {
+        return FETAL_GOD_LIST[getGanzhiIndex(dayGanzhi)];
+    }
+
+    // ==================== 时辰吉凶 ====================
+
+    function calculateTwoHourLuckyList(dayGanzhi) {
+        function tmp2List(tmp) {
+            return Array.from({length: 12}, (_, i) => {
+                return (tmp & (2 ** (11 - i))) > 0 ? '凶' : '吉';
+            });
+        }
+        
+        const todayNum = getGanzhiIndex(dayGanzhi);
+        const tomorrowNum = (todayNum + 1) % 60;
+        const outputList = [...tmp2List(TWO_HOUR_LUCKY_TIME_LIST[todayNum]), 
+                           ...tmp2List(TWO_HOUR_LUCKY_TIME_LIST[tomorrowNum])];
+        return outputList.slice(0, 13);
+    }
+
+    // ==================== 当日五行 ====================
+
+    function calculateToday5Elements(dayGanzhi, today28Star, today12DayOfficer) {
+        const nayinIndex = Math.floor(getGanzhiIndex(dayGanzhi) / 2);
+        const nayin = NAYIN_5ELEMENTS[nayinIndex];
+        const dayGan = dayGanzhi[0];
+        const dayZhi = dayGanzhi[1];
+        const dayHeavenNum = getGanIndex(dayGan);
+        const dayEarthNum = getZhiIndex(dayZhi);
+        
+        return {
+            tiangan: { name: dayGan, element: HEAVENLY_STEMS_5ELEMENTS[dayHeavenNum] },
+            dizhi: { name: dayZhi, element: EARTHLY_BRANCHES_5ELEMENTS[dayEarthNum] },
+            nayin: { name: nayin, element: nayin.slice(-1) },
+            xiu: today28Star,
+            jianchu: today12DayOfficer,
+            display: [
+                '天干', dayGan, '属' + HEAVENLY_STEMS_5ELEMENTS[dayHeavenNum],
+                '地支', dayZhi, '属' + EARTHLY_BRANCHES_5ELEMENTS[dayEarthNum],
+                '纳音', nayin, '属' + nayin.slice(-1),
+                '廿八宿', today28Star[0], '宿',
+                '十二神', today12DayOfficer, '日'
+            ]
+        };
+    }
+
+    // ==================== 彭祖百忌 ====================
+
+    function calculatePengTaboo(dayGanzhi) {
+        const dayGan = dayGanzhi[0];
+        const dayZhi = dayGanzhi[1];
+        const dayHeavenNum = getGanIndex(dayGan);
+        const dayEarthNum = getZhiIndex(dayZhi);
+        return {
+            gan: PENG_TABOO_LIST[dayHeavenNum],
+            zhi: PENG_TABOO_LIST[dayEarthNum + 10],
+            display: PENG_TABOO_LIST[dayHeavenNum] + '，' + PENG_TABOO_LIST[dayEarthNum + 10]
+        };
+    }
+
+    // ==================== 季节和月类型 ====================
+
     function getMonthType(monthZhi) {
         const monthIdx = getZhiIndex(monthZhi);
         // 孟月：寅(2)、巳(5)、申(8)、亥(11)
@@ -253,1194 +509,11 @@ const Almanac = (function() {
         return seasons[monthIdx];
     }
 
-    // ==================== 吉神凶神查找表 ====================
-
-    /**
-     * 获取吉神凶神及宜忌事项
-     * 完整移植自 cal.py 的 get_AngelDemon 方法
-     */
-    function getAngelDemon(lunarDate, solarYear, solarMonth, solarDay, nextSolarNum, phaseOfMoon) {
-        const yearGan = lunarDate.year_ganzhi[0];
-        const yearZhi = lunarDate.year_ganzhi[1];
-        const monthGan = lunarDate.month_ganzhi[0];
-        const monthZhi = lunarDate.month_ganzhi[1];
-        const dayGan = lunarDate.day_ganzhi[0];
-        const dayZhi = lunarDate.day_ganzhi[1];
-        const ganzhi = dayGan + dayZhi;
-        
-        const yhn = getGanIndex(yearGan);  // 年干序号
-        const yen = getZhiIndex(yearZhi);  // 年支序号
-        const mhn = getGanIndex(monthGan);  // 月干序号
-        const men = getZhiIndex(monthZhi);  // 月支序号（核心参数）
-        const dhn = getGanIndex(dayGan);    // 日干序号
-        const den = getZhiIndex(dayZhi);    // 日支序号
-        const dhen = getGanzhiIndex(ganzhi); // 日干支序号
-        
-        // 季节数 (0=春, 1=夏, 2=秋, 3=冬)
-        const sn = getSeason(monthZhi);
-        
-        // 孟仲季月类型
-        const monthType = getMonthType(monthZhi);
-        
-        // 农历月日
-        const lmn = lunarDate.month;
-        const ldn = lunarDate.day;
-        
-        let goodGodName = [];
-        let badGodName = [];
-        let goodThing = [];
-        let badThing = [];
-
-        // ===== 基础十二建除宜忌 =====
-        const jianchu = calculateJianchu(monthZhi, dayZhi);
-        goodThing = [...OFFICER_THINGS[jianchu][0]];
-        badThing = [...OFFICER_THINGS[jianchu][1]];
-
-        // ===== 日干支特定宜忌 =====
-        // 日干支特定宜忌（来自《钦定协纪辨方书》卷十一拆解）
-        const day8CharThing = {
-            "甲": [["宴集"], ["开仓"]],
-            "乙": [[], ["栽种"]],
-            "丙": [["修造"], []],
-            "丁": [[], []],
-            "戊": [["修造"], []],
-            "己": [["修造"], []],
-            "庚": [[], []],
-            "辛": [["修造"], []],
-            "壬": [["修造"], ["开渠"]],
-            "癸": [[], []],
-            "子": [["宴集"], []],
-            "丑": [["修造"], []],
-            "寅": [["宴集", "祈祷"], []],
-            "卯": [[], ["穿井", "栽种"]],
-            "辰": [["宴集"], []],
-            "巳": [[], ["出行"]],
-            "午": [["宴集"], []],
-            "未": [["修造"], []],
-            "申": [[], []],
-            "酉": [[], ["宴集", "栽种"]],
-            "戌": [["宴集"], []],
-            "亥": [[], ["嫁娶"]]
-        };
-        
-        // 应用日干支特定宜忌
-        if (day8CharThing[dayGan]) {
-            goodThing = addToArray(goodThing, day8CharThing[dayGan][0]);
-            badThing = addToArray(badThing, day8CharThing[dayGan][1]);
-        }
-        if (day8CharThing[dayZhi]) {
-            goodThing = addToArray(goodThing, day8CharThing[dayZhi][0]);
-            badThing = addToArray(badThing, day8CharThing[dayZhi][1]);
-        }
-
-        // ===== 卷十一拆解规则 =====
-        // 雨水后立夏前执日、危日、收日 宜 取鱼
-        if (nextSolarNum >= 4 && nextSolarNum < 9 && ["执", "危", "收"].includes(jianchu)) {
-            goodThing = addToArray(goodThing, ["取鱼"]);
-        }
-        // 霜降后立春前执日、危日、收日 宜 畋猎
-        if ((nextSolarNum >= 20 && nextSolarNum < 24) || (nextSolarNum >= 0 && nextSolarNum < 3)) {
-            if (["执", "危", "收"].includes(jianchu)) {
-                goodThing = addToArray(goodThing, ["畋猎"]);
-            }
-        }
-        // 立冬后立春前危日 午日 申日 宜 伐木
-        if (((nextSolarNum >= 21 && nextSolarNum < 24) || (nextSolarNum >= 0 && nextSolarNum < 3)) && 
-            (jianchu === "危" || ["午", "申"].includes(dayZhi))) {
-            goodThing = addToArray(goodThing, ["伐木"]);
-        }
-        // 每月一日 六日 十五 十九日 二十一日 二十三日 忌 整手足甲
-        if ([1, 6, 15, 19, 21, 23].includes(ldn)) {
-            badThing = addToArray(badThing, ["整手足甲"]);
-        }
-        // 每月十二日 十五日 忌 整容剃头
-        if ([12, 15].includes(ldn)) {
-            badThing = addToArray(badThing, ["整容", "剃头"]);
-        }
-        // 每月十五日 朔弦望月 忌 求医疗病
-        if (ldn === 15 || phaseOfMoon !== "") {
-            badThing = addToArray(badThing, ["求医疗病"]);
-        }
-
-        // ===== 吉神判断（完整移植自 cal.py） =====
-        
-        // 岁德：甲庚丙壬戊（年干）
-        if ("甲庚丙壬戊甲庚丙壬戊"[yhn] === dayGan) {
-            goodGodName.push("岁德");
-            goodThing = addToArray(goodThing, ["修造"]);
-        }
-        
-        // 岁德合：己乙辛丁癸（年干）
-        if ("己乙辛丁癸己乙辛丁癸"[yhn] === dayGan) {
-            goodGodName.push("岁德合");
-            goodThing = addToArray(goodThing, ["修造"]);
-        }
-        
-        // 月德：壬庚丙甲壬庚丙甲壬庚丙甲（月支）
-        if ("壬庚丙甲壬庚丙甲壬庚丙甲"[men] === dayGan) {
-            goodGodName.push("月德");
-            goodThing = addToArray(goodThing, ["祭祀", "祈福", "求嗣", "上册", "上表章", "颁诏", "覃恩", "施恩", "招贤", "举正直", 
-                "恤孤茕", "宣政事", "雪冤", "庆赐", "宴会", "出行", "安抚边境", "选将", "出师", "上官", 
-                "临政", "结婚姻", "纳采", "嫁娶", "搬移", "解除", "求医疗病", "裁制", "营建", "缮城郭", 
-                "修造", "竖柱上梁", "修仓库", "栽种", "牧养", "纳畜", "安葬"]);
-            badThing = addToArray(badThing, ["畋猎", "取鱼"]);
-        }
-        
-        // 月德合：丁乙辛己丁乙辛己丁乙辛己（月支）
-        if ("丁乙辛己丁乙辛己丁乙辛己"[men] === dayGan) {
-            goodGodName.push("月德合");
-            goodThing = addToArray(goodThing, ["祭祀", "祈福", "求嗣", "上册", "上表章", "颁诏", "覃恩", "施恩", "招贤", "举正直", 
-                "恤孤茕", "宣政事", "雪冤", "庆赐", "宴会", "出行", "安抚边境", "选将", "出师", "上官", 
-                "临政", "结婚姻", "纳采", "嫁娶", "搬移", "解除", "求医疗病", "裁制", "营建", "缮城郭", 
-                "修造", "竖柱上梁", "修仓库", "栽种", "牧养", "纳畜", "安葬"]);
-            badThing = addToArray(badThing, ["畋猎", "取鱼"]);
-        }
-        
-        // 天德、天德合（复杂判断，需考虑孟仲季月）
-        // 正丁三壬四辛同，五亥六甲七癸逢；八寅九丙十居乙，子巳丑庚卯申中
-        const tianDeTable = ["巳", "庚", "丁", "申", "壬", "辛", "亥", "甲", "癸", "寅", "丙", "乙"];
-        const tianDeHeTable = ["", "乙", "壬", "", "丁", "丙", "", "己", "戊", "", "辛", "庚"];
-        
-        // 仲月（1）：天德看日干，天德合看日干
-        // 孟月季月（0,2）：天德看日支，天德合看日支
-        const tianDeDay = monthType === 1 ? dayGan : dayZhi;
-        if (tianDeTable[men] === tianDeDay) {
-            goodGodName.push("天德");
-            goodThing = addToArray(goodThing, ["祭祀", "祈福", "求嗣", "上册", "上表章", "颁诏", "覃恩", "施恩", "招贤", "举正直",
-                "恤孤茕", "宣政事", "雪冤", "庆赐", "宴会", "出行", "安抚边境", "选将", "出师", "上官",
-                "临政", "结婚姻", "纳采", "嫁娶", "搬移", "解除", "求医疗病", "裁制", "营建", "缮城郭",
-                "修造", "竖柱上梁", "修仓库", "栽种", "牧养", "纳畜", "安葬"]);
-            badThing = addToArray(badThing, ["畋猎", "取鱼"]);
-        }
-        if (tianDeHeTable[men] && tianDeHeTable[men] === dayGan) {
-            goodGodName.push("天德合");
-            goodThing = addToArray(goodThing, ["祭祀", "祈福", "求嗣", "上册", "上表章", "颁诏", "覃恩", "施恩", "招贤", "举正直",
-                "恤孤茕", "宣政事", "雪冤", "庆赐", "宴会", "出行", "安抚边境", "选将", "出师", "上官",
-                "临政", "结婚姻", "纳采", "嫁娶", "搬移", "解除", "求医疗病", "裁制", "营建", "缮城郭",
-                "修造", "竖柱上梁", "修仓库", "栽种", "牧养", "纳畜", "安葬"]);
-            badThing = addToArray(badThing, ["畋猎", "取鱼"]);
-        }
-        
-        // 凤凰日、麒麟日（根据季节和二十八宿）
-        const xiu = calculateXiu(solarYear, solarMonth, solarDay);
-        const phoenixXiu = ["危", "昴", "胃", "毕"];  // 春夏秋冬
-        const kylinXiu = ["井", "尾", "牛", "壁"];   // 春夏秋冬
-        if (phoenixXiu[sn] === xiu) {
-            goodGodName.push("凤凰日");
-            goodThing = addToArray(goodThing, ["嫁娶"]);
-        }
-        if (kylinXiu[sn] === xiu) {
-            goodGodName.push("麒麟日");
-            goodThing = addToArray(goodThing, ["嫁娶"]);
-        }
-        
-        // 天赦：甲子(0) 戊寅(14) 甲午(30) 戊申(44) 对应特定月份
-        const tiansheList = ["甲子", "甲子", "戊寅", "戊寅", "戊寅", "甲午", "甲午", "甲午", "戊申", "戊申", "戊申", "甲子"];
-        if (tiansheList[men] === ganzhi) {
-            goodGodName.push("天赦");
-            goodThing = addToArray(goodThing, ["祭祀", "祈福", "求嗣", "上册", "上表章", "颁诏", "覃恩", "施恩", "招贤", "举正直",
-                "恤孤茕", "宣政事", "雪冤", "庆赐", "宴会", "出行", "安抚边境", "选将", "出师", "上官",
-                "临政", "结婚姻", "纳采", "嫁娶", "搬移", "解除", "求医疗病", "裁制", "营建", "缮城郭",
-                "修造", "竖柱上梁", "修仓库", "栽种", "牧养", "纳畜", "安葬"]);
-            badThing = addToArray(badThing, ["畋猎", "取鱼"]);
-        }
-        
-        // 天愿：特定干支对应月份
-        const tianyuanList = ["甲子", "癸未", "甲午", "甲戌", "乙酉", "丙子", "丁丑", "戊午", "甲寅", "丙辰", "辛卯", "戊辰"];
-        if (tianyuanList[men] === ganzhi) {
-            goodGodName.push("天愿");
-            goodThing = addToArray(goodThing, ["祭祀", "祈福", "求嗣", "上册", "上表章", "颁诏", "覃恩", "施恩", "招贤", "举正直",
-                "恤孤茕", "宣政事", "雪冤", "庆赐", "宴会", "出行", "安抚边境", "选将", "上官", "临政",
-                "结婚姻", "纳采", "嫁娶", "进人口", "搬移", "裁制", "营建", "缮城郭", "修造", "竖柱上梁",
-                "修仓库", "经络", "酝酿", "开市", "立券交易", "纳财", "栽种", "牧养", "纳畜", "安葬"]);
-        }
-        
-        // 天恩：特定干支日（甲子乙丑丙寅...）
-        const tianEnList = [0, 1, 2, 3, 4, 5, 6, 8, 9, 10, 11, 12, 13, 14, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 33, 34, 37, 40, 44, 45, 46, 49, 50, 51, 52, 53, 54, 55, 56, 57, 58, 59];
-        if (tianEnList.includes(dhen % 60)) {
-            goodGodName.push("天恩");
-            goodThing = addToArray(goodThing, ["覃恩", "恤孤茕", "布政事", "雪冤", "庆赐", "宴会"]);
-        }
-        
-        // 月恩：甲辛丙丁庚己戊辛壬癸庚乙（月支）
-        if ("甲辛丙丁庚己戊辛壬癸庚乙"[men] === dayGan) {
-            goodGodName.push("月恩");
-            goodThing = addToArray(goodThing, ["祭祀", "祈福", "求嗣", "施恩", "举正直", "庆赐", "宴会", "出行", "上官", "临政",
-                "结婚姻", "纳采", "搬移", "解除", "求医疗病", "裁制", "修宫室", "缮城郭", "修造", "竖柱上梁",
-                "纳财", "开仓", "栽种", "牧养"]);
-        }
-        
-        // 四相：春丙丁、夏戊己、秋壬癸、冬甲乙
-        const sixiangGan = ["丙丁", "戊己", "壬癸", "甲乙"];
-        if (sixiangGan[sn].includes(dayGan)) {
-            goodGodName.push("四相");
-            goodThing = addToArray(goodThing, ["祭祀", "祈福", "求嗣", "施恩", "举正直", "庆赐", "宴会", "出行", "上官", "临政",
-                "结婚姻", "纳采", "搬移", "解除", "求医疗病", "裁制", "修宫室", "缮城郭", "修造", "竖柱上梁",
-                "纳财", "开仓", "栽种", "牧养"]);
-        }
-        
-        // 时德：春午、夏辰、秋子、冬寅
-        if ("午辰子寅"[sn] === dayZhi) {
-            goodGodName.push("时德");
-            goodThing = addToArray(goodThing, ["祭祀", "祈福", "求嗣", "施恩", "举正直", "庆赐", "宴会", "出行", "上官", "临政",
-                "结婚姻", "纳采", "搬移", "解除", "求医疗病", "裁制", "修宫室", "缮城郭", "修造", "竖柱上梁",
-                "纳财", "开仓", "栽种", "牧养"]);
-        }
-        
-        // 王日、官日、守日、相日、民日（依季节）
-        const wangZhi = ["寅", "巳", "申", "亥"][sn];
-        const guanZhi = ["卯", "午", "酉", "子"][sn];
-        const shouZhi = ["酉", "子", "卯", "午"][sn];
-        const xiangZhi = ["巳", "申", "亥", "寅"][sn];
-        const minZhi = ["午", "酉", "子", "卯"][sn];
-        
-        if (dayZhi === wangZhi) {
-            goodGodName.push("王日");
-            goodThing = addToArray(goodThing, ["颁诏", "覃恩", "施恩", "招贤", "举正直", "恤孤茕", "宣政事", "雪冤", "庆赐", "宴会",
-                "出行", "安抚边境", "选将", "上官", "临政", "裁制"]);
-        }
-        if (dayZhi === guanZhi) {
-            goodGodName.push("官日");
-            goodThing = addToArray(goodThing, ["上官", "临政"]);
-        }
-        if (dayZhi === shouZhi) {
-            goodGodName.push("守日");
-            goodThing = addToArray(goodThing, ["安抚边境", "上官", "临政"]);
-        }
-        if (dayZhi === xiangZhi) {
-            goodGodName.push("相日");
-            goodThing = addToArray(goodThing, ["上官", "临政"]);
-        }
-        if (dayZhi === minZhi) {
-            goodGodName.push("民日");
-            goodThing = addToArray(goodThing, ["宴会", "结婚姻", "纳采", "进人口", "搬移", "开市", "立券交易", "纳财", "栽种", "牧养", "纳畜"]);
-        }
-        
-        // 三合
-        if ((den - men + 12) % 4 === 0) {
-            goodGodName.push("三合");
-            goodThing = addToArray(goodThing, ["庆赐", "宴会", "结婚姻", "纳采", "嫁娶", "进人口", "裁制", "修宫室", "缮城郭", "修造",
-                "竖柱上梁", "修仓库", "经络", "酝酿", "立券交易", "纳财", "安碓硙", "纳畜"]);
-        }
-        
-        // 五合：寅卯
-        if ("寅卯".includes(dayZhi)) {
-            goodGodName.push("五合");
-            goodThing = addToArray(goodThing, ["宴会", "结婚姻", "立券交易"]);
-        }
-        
-        // 五富：巳申亥寅循环
-        const wufuTable = "巳申亥寅巳申亥寅巳申亥寅";
-        if (wufuTable[men] === dayGan) {
-            goodGodName.push("五富");
-            goodThing = addToArray(goodThing, ["经络", "酝酿", "开市", "立券交易", "纳财", "开仓", "栽种", "牧养", "纳畜"]);
-        }
-        
-        // 六合
-        const liuheTable = "丑子亥戌酉申未午巳辰卯寅";
-        if (liuheTable[men] === dayZhi) {
-            goodGodName.push("六合");
-            goodThing = addToArray(goodThing, ["宴会", "结婚姻", "嫁娶", "进人口", "经络", "酝酿", "立券交易", "纳财", "纳畜", "安葬"]);
-        }
-        
-        // 六仪
-        const liuyiTable = "午巳辰卯寅丑子亥戌酉申未";
-        if (liuyiTable[men] === dayZhi) {
-            goodGodName.push("六仪");
-            goodThing = addToArray(goodThing, ["临政"]);
-        }
-        
-        // 不将（嫁娶吉日）
-        const bujiangTable = [
-            "甲乙", "丙丁", "戊己", "庚辛", "壬癸", "甲乙", "丙丁", "戊己", "庚辛", "壬癸", "甲乙", "丙丁"
-        ];
-        if (bujiangTable[men].includes(dayGan)) {
-            goodGodName.push("不将");
-            goodThing = addToArray(goodThing, ["嫁娶"]);
-        }
-        
-        // 临日
-        const linriTable = "辰酉午亥申丑戌卯子巳寅未";
-        if (linriTable[men] === dayGan) {
-            goodGodName.push("临日");
-            goodThing = addToArray(goodThing, ["上册", "上表章", "上官", "临政"]);
-        }
-        
-        // 天喜
-        const tianxiTable = "申酉戌亥子丑寅卯辰巳午未";
-        if (tianxiTable[men] === dayZhi) {
-            goodGodName.push("天喜");
-            goodThing = addToArray(goodThing, ["施恩", "举正直", "庆赐", "宴会", "出行", "上官", "临政", "结婚姻", "纳采", "嫁娶"]);
-        }
-        
-        // 天富
-        const tianfuTable = "寅卯辰巳午未申酉戌亥子丑";
-        if (tianfuTable[men] === dayZhi) {
-            goodGodName.push("天富");
-            goodThing = addToArray(goodThing, ["安葬", "修仓库"]);
-        }
-        
-        // 天贵
-        const tianguiTable = ["甲乙", "丙丁", "庚辛", "壬癸"];
-        if (tianguiTable[sn].includes(dayGan)) {
-            goodGodName.push("天贵");
-        }
-        
-        // 天成
-        const tianchengTable = "卯巳未酉亥丑卯巳未酉亥丑";
-        if (tianchengTable[men] === dayZhi) {
-            goodGodName.push("天成");
-        }
-        
-        // 天官
-        const tianguanTable = "午申戌子寅辰午申戌子寅辰";
-        if (tianguanTable[men] === dayZhi) {
-            goodGodName.push("天官");
-        }
-        
-        // 天医
-        const tianyiTable = "亥子丑寅卯辰巳午未申酉戌";
-        if (tianyiTable[men] === dayZhi) {
-            goodGodName.push("天医");
-            goodThing = addToArray(goodThing, ["求医疗病"]);
-        }
-        
-        // 天马
-        const tianmaTable = "寅辰午申戌子寅辰午申戌子";
-        if (tianmaTable[men] === dayZhi) {
-            goodGodName.push("天马");
-            goodThing = addToArray(goodThing, ["出行", "搬移"]);
-        }
-        
-        // 驿马
-        const yimaTable = "寅亥申巳寅亥申巳寅亥申巳";
-        if (yimaTable[men] === dayZhi) {
-            goodGodName.push("驿马");
-            goodThing = addToArray(goodThing, ["出行", "搬移"]);
-        }
-        
-        // 天财
-        const tiancaiTable = "子寅辰午申戌子寅辰午申戌";
-        if (tiancaiTable[men] === dayZhi) {
-            goodGodName.push("天财");
-        }
-        
-        // 福生
-        const fushengTable = "寅申酉卯戌辰亥巳子午丑未";
-        if (fushengTable[men] === dayZhi) {
-            goodGodName.push("福生");
-            goodThing = addToArray(goodThing, ["祭祀", "祈福"]);
-        }
-        
-        // 福厚
-        const fuhouTable = ["寅", "巳", "申", "亥"];
-        if (dayZhi === fuhouTable[sn]) {
-            goodGodName.push("福厚");
-        }
-        
-        // 福德
-        const fudeTable = "寅卯辰巳午未申酉戌亥子丑";
-        if (fudeTable[men] === dayZhi) {
-            goodGodName.push("福德");
-            goodThing = addToArray(goodThing, ["上册", "上表章", "庆赐", "宴会", "修宫室", "缮城郭"]);
-        }
-        
-        // 天巫
-        const tianwuTable = "寅卯辰巳午未申酉戌亥子丑";
-        if (tianwuTable[men] === dayZhi) {
-            goodGodName.push("天巫");
-            goodThing = addToArray(goodThing, ["求医疗病"]);
-        }
-        
-        // 地财
-        const dicaiTable = "丑卯巳未酉亥丑卯巳未酉亥";
-        if (dicaiTable[men] === dayZhi) {
-            goodGodName.push("地财");
-        }
-        
-        // 月财
-        const yuecaiTable = "酉亥午巳巳未酉亥午巳巳未";
-        if (yuecaiTable[men] === dayZhi) {
-            goodGodName.push("月财");
-        }
-        
-        // 月空
-        const yuekongTable = "丙甲壬庚丙甲壬庚丙甲壬庚";
-        if (yuekongTable[men] === dayGan) {
-            goodGodName.push("月空");
-            goodThing = addToArray(goodThing, ["上表章"]);
-        }
-        
-        // 母仓（按季节）
-        const mucangTable = ["亥子", "寅卯", "辰丑戌未", "申酉"];
-        if (mucangTable[sn].includes(dayZhi)) {
-            goodGodName.push("母仓");
-            goodThing = addToArray(goodThing, ["纳财", "栽种", "牧养", "纳畜"]);
-        }
-        
-        // 明星
-        const mingxingTable = "辰午甲戌子寅辰午甲戌子寅";
-        if (mingxingTable[men] === dayZhi) {
-            goodGodName.push("明星");
-            goodThing = addToArray(goodThing, ["赴任", "诉讼", "安葬"]);
-        }
-        
-        // 圣心
-        const shengxinTable = "辰戌亥巳子午丑未寅申卯酉";
-        if (shengxinTable[men] === dayZhi) {
-            goodGodName.push("圣心");
-            goodThing = addToArray(goodThing, ["祭祀", "祈福"]);
-        }
-        
-        // 禄库
-        const lukuTable = "寅卯辰巳午未申酉戌亥子丑";
-        if (lukuTable[men] === dayZhi) {
-            goodGodName.push("禄库");
-            goodThing = addToArray(goodThing, ["纳财"]);
-        }
-        
-        // 吉庆
-        const jiqingTable = "未子酉寅亥辰丑午卯申巳戌";
-        if (jiqingTable[men] === dayZhi) {
-            goodGodName.push("吉庆");
-        }
-        
-        // 阴德
-        const yindeTable = "丑亥酉未巳卯丑亥酉未巳卯";
-        if (yindeTable[men] === dayZhi) {
-            goodGodName.push("阴德");
-            goodThing = addToArray(goodThing, ["恤孤茕", "雪冤"]);
-        }
-        
-        // 活曜
-        const huoyaoTable = "卯申巳戌未子酉寅亥辰丑午";
-        if (huoyaoTable[men] === dayZhi) {
-            goodGodName.push("活曜");
-        }
-        
-        // 除神（申酉日）
-        if ("申酉".includes(dayZhi)) {
-            goodGodName.push("除神");
-            goodThing = addToArray(goodThing, ["解除", "沐浴", "整容", "剃头", "整手足甲", "求医疗病", "扫舍宇"]);
-        }
-        
-        // 解神
-        const jieshenTable = "午午申申戌戌子子寅寅辰辰";
-        if (jieshenTable[men] === dayZhi) {
-            goodGodName.push("解神");
-            goodThing = addToArray(goodThing, ["上表章", "解除", "沐浴", "整容", "剃头", "整手足甲", "求医疗病"]);
-        }
-        
-        // 生气
-        const shengqiTable = "戌亥子丑寅卯辰巳午未申酉";
-        if (shengqiTable[men] === dayZhi) {
-            goodGodName.push("生气");
-            badThing = addToArray(badThing, ["伐木", "畋猎", "取鱼"]);
-        }
-        
-        // 普护
-        const puhuTable = "丑卯申寅酉卯戌辰亥巳子午";
-        if (puhuTable[men] === dayZhi) {
-            goodGodName.push("普护");
-            goodThing = addToArray(goodThing, ["祭祀", "祈福"]);
-        }
-        
-        // 益后
-        const yihouTable = "巳亥子午丑未寅申卯酉辰戌";
-        if (yihouTable[men] === dayZhi) {
-            goodGodName.push("益后");
-            goodThing = addToArray(goodThing, ["祭祀", "祈福", "求嗣"]);
-        }
-        
-        // 续世
-        const xushiTable = "午子丑未寅申卯酉辰戌巳亥";
-        if (xushiTable[men] === dayZhi) {
-            goodGodName.push("续世");
-            goodThing = addToArray(goodThing, ["祭祀", "祈福", "求嗣"]);
-        }
-        
-        // 要安
-        const yaoanTable = "未丑寅申卯酉辰戌巳亥午子";
-        if (yaoanTable[men] === dayZhi) {
-            goodGodName.push("要安");
-        }
-        
-        // 天后
-        const tianhouTable = "寅亥申巳寅亥申巳寅亥申巳";
-        if (tianhouTable[men] === dayZhi) {
-            goodGodName.push("天后");
-            goodThing = addToArray(goodThing, ["求医疗病"]);
-        }
-        
-        // 天仓
-        const tiancangTable = "辰卯寅丑子亥戌酉申未午巳";
-        if (tiancangTable[men] === dayZhi) {
-            goodGodName.push("天仓");
-            goodThing = addToArray(goodThing, ["进人口", "纳财", "纳畜"]);
-        }
-        
-        // 敬安
-        const jinganTable = "子午未丑申寅酉卯戌辰亥巳";
-        if (jinganTable[men] === dayZhi) {
-            goodGodName.push("敬安");
-        }
-        
-        // 玉宇
-        const yuyuTable = "申寅卯酉辰戌巳亥午子未丑";
-        if (yuyuTable[men] === dayZhi) {
-            goodGodName.push("玉宇");
-        }
-        
-        // 金堂
-        const jintangTable = "酉卯辰戌巳亥午子未丑申寅";
-        if (jintangTable[men] === dayZhi) {
-            goodGodName.push("金堂");
-        }
-        
-        // 吉期
-        const jiqiTable = "丑寅卯辰巳午未申酉戌亥子";
-        if (jiqiTable[men] === dayZhi) {
-            goodGodName.push("吉期");
-            goodThing = addToArray(goodThing, ["施恩", "举正直", "出行", "上官", "临政"]);
-        }
-        
-        // 大葬日
-        const dazang = "壬申癸酉壬午甲申乙酉丙申丁酉壬寅丙午己酉庚申辛酉";
-        if (dazang.includes(ganzhi)) {
-            goodGodName.push("大葬");
-            goodThing = addToArray(goodThing, ["安葬"]);
-        }
-        
-        // 鸣吠日
-        const mingfei = "庚午壬申癸酉壬午甲申乙酉己酉丙申丁酉壬寅丙午庚寅庚申辛酉";
-        if (mingfei.includes(ganzhi)) {
-            goodGodName.push("鸣吠");
-            goodThing = addToArray(goodThing, ["破土", "安葬"]);
-        }
-        
-        // 小葬日
-        const xiaozang = "庚午壬辰甲辰乙巳甲寅丙辰庚寅";
-        if (xiaozang.includes(ganzhi)) {
-            goodGodName.push("小葬");
-            goodThing = addToArray(goodThing, ["安葬"]);
-        }
-        
-        // 鸣吠对日
-        const mingfeidui = "丙寅丁卯丙子辛卯甲午庚子癸卯壬子甲寅乙卯";
-        if (mingfeidui.includes(ganzhi)) {
-            goodGodName.push("鸣吠对");
-            goodThing = addToArray(goodThing, ["破土", "启攒"]);
-        }
-        
-        // 不守塚日
-        const bushouzhong = "庚午辛未壬申癸酉戊寅己卯壬午癸未甲申乙酉丁未甲午乙未丙申丁酉壬寅癸卯丙午戊申己酉庚申辛酉";
-        if (bushouzhong.includes(ganzhi)) {
-            goodGodName.push("不守塚");
-            goodThing = addToArray(goodThing, ["破土"]);
-        }
-
-        // ===== 凶神判断（完整移植自 cal.py） =====
-        
-        // 岁破（与年支相冲）
-        if (den === (yen + 6) % 12) {
-            badGodName.push("岁破");
-            badThing = addToArray(badThing, ["修造", "搬移", "嫁娶", "出行"]);
-        }
-        
-        // 月建、月破
-        if (men === den) {
-            badGodName.push("月建");
-            badThing = addToArray(badThing, ["祈福", "求嗣", "上册", "上表章", "结婚姻", "纳采", "嫁娶", "解除", "整容", "剃头",
-                "整手足甲", "求医疗病", "营建", "修宫室", "缮城郭", "修造", "竖柱上梁", "修仓库", "开仓",
-                "修置产室", "破屋坏垣", "伐木", "栽种", "破土", "安葬", "启攒"]);
-        }
-        if ((men + 6) % 12 === den) {
-            badGodName.push("月破");
-            badThing = addToArray(badThing, ["祈福", "求嗣", "上册", "上表章", "颁诏", "施恩", "招贤", "举正直", "宣政事", "布政事",
-                "庆赐", "宴会", "冠带", "出行", "安抚边境", "选将", "出师", "上官", "临政", "结婚姻", "纳采",
-                "嫁娶", "进人口", "搬移", "安床", "解除", "整容", "剃头", "整手足甲", "求医疗病", "裁制",
-                "营建", "修宫室", "缮城郭", "筑堤防", "修造", "竖柱上梁", "修仓库", "鼓铸", "经络", "酝酿",
-                "开市", "立券交易", "纳财", "开仓", "修置产室", "开渠", "穿井", "安碓硙", "塞穴", "补垣",
-                "修饰垣墙", "平治道涂", "破屋坏垣", "栽种", "牧养", "纳畜", "破土", "安葬", "启攒"]);
-            goodThing = addToArray(goodThing, ["破屋坏垣"]);
-        }
-        
-        // 月刑
-        const yuexingTable = ["卯", "戌", "巳", "子", "辰", "申", "午", "丑", "寅", "酉", "未", "亥"];
-        if (dayZhi === yuexingTable[men]) {
-            badGodName.push("月刑");
-            badThing = addToArray(badThing, ["祈福", "求嗣", "上册", "上表章", "颁诏", "施恩", "招贤", "举正直", "宣政事", "布政事",
-                "庆赐", "宴会", "冠带", "出行", "安抚边境", "选将", "出师", "上官", "临政", "结婚姻", "纳采",
-                "嫁娶", "进人口", "搬移", "安床", "解除", "整容", "剃头", "整手足甲", "求医疗病", "裁制",
-                "营建", "修宫室", "缮城郭", "筑堤防", "修造", "竖柱上梁", "修仓库", "鼓铸", "经络", "酝酿",
-                "开市", "立券交易", "纳财", "开仓", "修置产室", "开渠", "穿井", "安碓硙", "塞穴", "补垣",
-                "修饰垣墙", "破屋坏垣", "栽种", "牧养", "纳畜", "破土", "安葬", "启攒"]);
-        }
-        
-        // 月害
-        const yuehaiTable = ["未", "午", "巳", "辰", "卯", "寅", "丑", "子", "亥", "戌", "酉", "申"];
-        if (dayZhi === yuehaiTable[men]) {
-            badGodName.push("月害");
-            badThing = addToArray(badThing, ["祈福", "求嗣", "上册", "上表章", "庆赐", "宴会", "安抚边境", "选将", "出师", "上官",
-                "纳采", "嫁娶", "进人口", "求医疗病", "修仓库", "经络", "酝酿", "开市", "立券交易", "纳财",
-                "开仓", "修置产室", "牧养", "纳畜", "破土", "安葬", "启攒"]);
-        }
-        
-        // 月厌
-        const yueyanTable = ["子", "亥", "戌", "酉", "申", "未", "午", "巳", "辰", "卯", "寅", "丑"];
-        if (dayZhi === yueyanTable[men]) {
-            badGodName.push("月厌");
-            badThing = addToArray(badThing, ["祈福", "求嗣", "上册", "上表章", "颁诏", "施恩", "招贤", "举正直", "宣政事", "布政事",
-                "庆赐", "宴会", "冠带", "出行", "安抚边境", "选将", "出师", "上官", "临政", "结婚姻", "纳采",
-                "嫁娶", "进人口", "搬移", "远回", "安床", "解除", "整容", "剃头", "整手足甲", "求医疗病",
-                "裁制", "营建", "修宫室", "缮城郭", "筑堤防", "修造", "竖柱上梁", "修仓库", "鼓铸", "经络",
-                "酝酿", "开市", "立券交易", "纳财", "开仓", "修置产室", "开渠", "穿井", "安碓硙", "塞穴",
-                "补垣", "修饰垣墙", "平治道涂", "破屋坏垣", "伐木", "栽种", "牧养", "纳畜", "破土", "安葬", "启攒"]);
-        }
-        
-        // 月煞、月虚
-        const yueshaTable = "未辰丑戌未辰丑戌未辰丑戌";
-        if (dayZhi === yueshaTable[men]) {
-            badGodName.push("月煞");
-            badThing = addToArray(badThing, ["祈福", "求嗣", "上册", "上表章", "颁诏", "施恩", "招贤", "举正直", "宣政事", "布政事",
-                "庆赐", "宴会", "冠带", "出行", "安抚边境", "选将", "出师", "上官", "临政", "结婚姻", "纳采",
-                "嫁娶", "进人口", "搬移", "安床", "解除", "整容", "剃头", "整手足甲", "求医疗病", "裁制",
-                "营建", "修宫室", "缮城郭", "筑堤防", "修造", "竖柱上梁", "修仓库", "鼓铸", "经络", "酝酿",
-                "开市", "立券交易", "纳财", "开仓", "修置产室", "开渠", "穿井", "安碓硙", "塞穴", "补垣",
-                "修饰垣墙", "破屋坏垣", "栽种", "牧养", "纳畜", "安葬"]);
-            badGodName.push("月虚");
-            badThing = addToArray(badThing, ["修仓库", "纳财", "开仓"]);
-        }
-        
-        // 灾煞
-        const zaishaTable = "午卯子酉午卯子酉午卯子酉";
-        if (dayZhi === zaishaTable[men]) {
-            badGodName.push("灾煞");
-            badThing = addToArray(badThing, ["祈福", "求嗣", "上册", "上表章", "颁诏", "施恩", "招贤", "举正直", "宣政事", "布政事",
-                "庆赐", "宴会", "冠带", "出行", "安抚边境", "选将", "出师", "上官", "临政", "结婚姻", "纳采",
-                "嫁娶", "进人口", "搬移", "安床", "解除", "整容", "剃头", "整手足甲", "求医疗病", "裁制",
-                "营建", "修宫室", "缮城郭", "筑堤防", "修造", "竖柱上梁", "修仓库", "鼓铸", "经络", "酝酿",
-                "开市", "立券交易", "纳财", "开仓", "修置产室", "开渠", "穿井", "安碓硙", "塞穴", "补垣",
-                "修饰垣墙", "破屋坏垣", "栽种", "牧养", "纳畜", "破土", "安葬", "启攒"]);
-        }
-        
-        // 劫煞
-        const jieshaTable = "巳寅亥申巳寅亥申巳寅亥申";
-        if (dayZhi === jieshaTable[men]) {
-            badGodName.push("劫煞");
-            badThing = addToArray(badThing, ["祈福", "求嗣", "上册", "上表章", "颁诏", "施恩", "招贤", "举正直", "宣政事", "布政事",
-                "庆赐", "宴会", "冠带", "出行", "安抚边境", "选将", "出师", "上官", "临政", "结婚姻", "纳采",
-                "嫁娶", "进人口", "搬移", "安床", "解除", "整容", "剃头", "整手足甲", "求医疗病", "裁制",
-                "营建", "修宫室", "缮城郭", "筑堤防", "修造", "竖柱上梁", "修仓库", "鼓铸", "经络", "酝酿",
-                "开市", "立券交易", "纳财", "开仓", "修置产室", "开渠", "穿井", "安碓硙", "塞穴", "补垣",
-                "修饰垣墙", "破屋坏垣", "栽种", "牧养", "纳畜", "破土", "安葬", "启攒"]);
-        }
-        
-        // 四击
-        const sijiTable = "未未戌戌戌丑丑丑辰辰辰未";
-        if (dayZhi === sijiTable[men]) {
-            badGodName.push("四击");
-            badThing = addToArray(badThing, ["安抚边境", "选将", "出师"]);
-        }
-        
-        // 大时、咸池、大败
-        const dashiTable = "酉午卯子酉午卯子酉午卯子";
-        if (dayZhi === dashiTable[men]) {
-            badGodName.push("大时");
-            badThing = addToArray(badThing, ["祈福", "求嗣", "上册", "上表章", "施恩", "招贤", "举正直", "冠带", "出行", "安抚边境",
-                "选将", "出师", "上官", "临政", "结婚姻", "纳采", "嫁娶", "进人口", "搬移", "安床", "解除",
-                "求医疗病", "营建", "修宫室", "缮城郭", "筑堤防", "修造", "竖柱上梁", "修仓库", "开市", "立券交易",
-                "纳财", "开仓", "修置产室", "栽种", "牧养", "纳畜"]);
-            badGodName.push("咸池");
-            badThing = addToArray(badThing, ["嫁娶", "取鱼", "乘船渡水"]);
-            badGodName.push("大败");
-        }
-        
-        // 游祸
-        const youhuoTable = "亥申巳寅亥申巳寅亥申巳寅";
-        if (dayZhi === youhuoTable[men]) {
-            badGodName.push("游祸");
-            badThing = addToArray(badThing, ["祈福", "求嗣", "解除", "求医疗病"]);
-        }
-        
-        // 归忌
-        const guijiTable = "寅子丑寅子丑寅子丑寅子丑";
-        if (dayZhi === guijiTable[men]) {
-            badGodName.push("归忌");
-            badThing = addToArray(badThing, ["搬移", "远回"]);
-        }
-        
-        // 往亡
-        const wangwangTable = "戌丑寅巳申亥卯午酉子辰未";
-        if (dayZhi === wangwangTable[men]) {
-            badGodName.push("往亡");
-            badThing = addToArray(badThing, ["上册", "上表章", "颁诏", "招贤", "宣政事", "出行", "安抚边境", "选将", "出师", "上官",
-                "临政", "嫁娶", "进人口", "搬移", "求医疗病", "捕捉", "畋猎", "取鱼"]);
-        }
-        
-        // 天贼
-        const tianzeiTable = "卯寅丑子亥戌酉申未午巳辰";
-        if (dayZhi === tianzeiTable[men]) {
-            badGodName.push("天贼");
-            badThing = addToArray(badThing, ["出行", "修仓库", "开仓"]);
-        }
-        
-        // 天罡
-        const tiangangTable = "卯戌巳子未寅";
-        if (dayZhi === tiangangTable[men % 6]) {
-            badGodName.push("天罡");
-            badThing = addToArray(badThing, ["安葬"]);
-        }
-        
-        // 河魁
-        const hekuiTable = "酉辰亥午丑申";
-        if (dayZhi === hekuiTable[men % 6]) {
-            badGodName.push("河魁");
-            badThing = addToArray(badThing, ["安葬"]);
-        }
-        
-        // 死神
-        const sishenTable = "卯辰巳午未申酉戌亥子丑寅";
-        if (dayZhi === sishenTable[men]) {
-            badGodName.push("死神");
-            badThing = addToArray(badThing, ["安抚边境", "选将", "出师", "进人口", "解除", "求医疗病", "修置产室", "栽种", "牧养", "纳畜"]);
-        }
-        
-        // 死气
-        const siqiTable = "辰巳午未申酉戌亥子丑寅卯";
-        if (dayZhi === siqiTable[men]) {
-            badGodName.push("死气");
-            badThing = addToArray(badThing, ["安抚边境", "选将", "出师", "解除", "求医疗病", "修置产室", "栽种"]);
-        }
-        
-        // 伏兵（根据年支）
-        const fubingTable = "丙甲壬庚";
-        if (dayGan === fubingTable[yen % 4]) {
-            badGodName.push("伏兵");
-            badThing = addToArray(badThing, ["修仓库", "修造", "出师"]);
-        }
-        
-        // 官符
-        const guanfuTable = "辰巳午未申酉戌亥子丑寅卯";
-        if (dayZhi === guanfuTable[men]) {
-            badGodName.push("官符");
-            badThing = addToArray(badThing, ["上表章", "上册"]);
-        }
-        
-        // 厌对、招摇
-        const yanduiTable = "午巳辰卯寅丑子亥戌酉申未";
-        if (dayZhi === yanduiTable[men]) {
-            badGodName.push("厌对");
-            badThing = addToArray(badThing, ["嫁娶"]);
-            badGodName.push("招摇");
-            badThing = addToArray(badThing, ["取鱼", "乘船渡水"]);
-        }
-        
-        // 小红砂
-        const xiaohongshaTable = "酉丑巳酉丑巳酉丑巳酉丑巳";
-        if (dayZhi === xiaohongshaTable[men]) {
-            badGodName.push("小红砂");
-            badThing = addToArray(badThing, ["嫁娶"]);
-        }
-        
-        // 重丧
-        const zhongsangTable = "癸己甲乙己丙丁己庚辛己壬";
-        if (dayGan === zhongsangTable[men]) {
-            badGodName.push("重丧");
-            badThing = addToArray(badThing, ["嫁娶", "安葬"]);
-        }
-        
-        // 重复
-        const chongfuTable = "癸己庚辛己壬癸戊甲乙己壬";
-        if (dayGan === chongfuTable[men]) {
-            badGodName.push("重复");
-            badThing = addToArray(badThing, ["嫁娶", "安葬"]);
-        }
-        
-        // 杨公忌（13忌日）
-        const yanggongJiList = [
-            [1, 13], [2, 11], [3, 9], [4, 7], [5, 5], [6, 2], [7, 1], [7, 29],
-            [8, 27], [9, 25], [10, 23], [11, 21], [12, 19]
-        ];
-        for (let item of yanggongJiList) {
-            if (lmn === item[0] && ldn === item[1]) {
-                badGodName.push("杨公忌");
-                badThing = addToArray(badThing, ["开张", "修造", "嫁娶", "立券"]);
-                break;
-            }
-        }
-        
-        // 月忌（初五、十四、二十三）
-        if ([5, 14, 23].includes(ldn)) {
-            badGodName.push("月忌");
-            badThing = addToArray(badThing, ["出行", "乘船渡水"]);
-        }
-        
-        // 三娘煞（3, 7, 13, 18, 22, 27日）
-        if ([3, 7, 13, 18, 22, 27].includes(ldn)) {
-            badGodName.push("三娘煞");
-            badThing = addToArray(badThing, ["嫁娶", "结婚姻"]);
-        }
-        
-        // 大耗
-        const dahaoTable = "卯辰巳午未申酉戌亥子丑寅";
-        if (dayZhi === dahaoTable[men]) {
-            badGodName.push("大耗");
-            badThing = addToArray(badThing, ["修仓库", "开市", "立券交易", "纳财", "开仓"]);
-        }
-        
-        // 小耗
-        const xiaohaoTable = "卯辰巳午未申酉戌亥子丑寅";
-        if (dayZhi === xiaohaoTable[men]) {
-            badGodName.push("小耗");
-            badThing = addToArray(badThing, ["修仓库", "开市", "立券交易", "纳财", "开仓"]);
-        }
-        
-        // 天吏
-        const tianliTable = "卯子酉午卯子酉午卯子酉午";
-        if (dayZhi === tianliTable[men]) {
-            badGodName.push("天吏");
-            badThing = addToArray(badThing, ["祈福", "求嗣", "上册", "上表章", "施恩", "招贤", "举正直", "冠带", "出行", "安抚边境",
-                "选将", "出师", "上官", "临政", "结婚姻", "纳采", "嫁娶", "进人口", "搬移", "安床", "解除",
-                "求医疗病", "营建", "修宫室", "缮城郭", "筑堤防", "修造", "竖柱上梁", "修仓库", "开市", "立券交易",
-                "纳财", "开仓", "修置产室", "栽种", "牧养", "纳畜"]);
-        }
-        
-        // 天瘟
-        const tianwenTable = "丑卯未戌辰寅午子酉申巳亥";
-        if (dayZhi === tianwenTable[men]) {
-            badGodName.push("天瘟");
-            badThing = addToArray(badThing, ["修造", "求医疗病", "纳畜"]);
-        }
-        
-        // 天狱、天火
-        const tianyuTable = "午酉子卯午酉子卯午酉子卯";
-        if (dayZhi === tianyuTable[men]) {
-            badGodName.push("天狱");
-            badGodName.push("天火");
-            badThing = addToArray(badThing, ["苫盖"]);
-        }
-        
-        // 天棒
-        const tianbangTable = "寅辰午申戌子寅辰午申戌子";
-        if (dayZhi === tianbangTable[men]) {
-            badGodName.push("天棒");
-        }
-        
-        // 天狗
-        const tiangouTable = "寅卯辰巳午未申酉戌亥子丑";
-        if (dayZhi === tiangouTable[men]) {
-            badGodName.push("天狗");
-            badThing = addToArray(badThing, ["祭祀"]);
-        }
-        
-        // 天狗下食
-        const tiangouxiaTable = "戌亥子丑寅卯辰巳午未申酉";
-        if (dayZhi === tiangouxiaTable[men]) {
-            badGodName.push("天狗下食");
-            badThing = addToArray(badThing, ["祭祀"]);
-        }
-        
-        // 地火
-        const dihuoTable = "子亥戌酉申未午巳辰卯寅丑";
-        if (dayZhi === dihuoTable[men]) {
-            badGodName.push("地火");
-            badThing = addToArray(badThing, ["栽种"]);
-        }
-        
-        // 独火
-        const duhuoTable = "未午巳辰卯寅丑子亥戌酉申";
-        if (dayZhi === duhuoTable[men]) {
-            badGodName.push("独火");
-            badThing = addToArray(badThing, ["修造"]);
-        }
-        
-        // 受死
-        const shousiTable = "卯酉戌辰亥巳子午丑未寅申";
-        if (dayZhi === shousiTable[men]) {
-            badGodName.push("受死");
-            badThing = addToArray(badThing, ["畋猎"]);
-        }
-        
-        // 黄沙
-        const huangshaTable = "寅子午寅子午寅子午寅子午";
-        if (dayZhi === huangshaTable[men]) {
-            badGodName.push("黄沙");
-            badThing = addToArray(badThing, ["出行"]);
-        }
-        
-        // 六不成
-        const liubuchengTable = "卯未寅午戌巳酉丑申子辰亥";
-        if (dayZhi === liubuchengTable[men]) {
-            badGodName.push("六不成");
-            badThing = addToArray(badThing, ["修造"]);
-        }
-        
-        // 神隔
-        const shengeTable = "酉未巳卯丑亥酉未巳卯丑亥";
-        if (dayZhi === shengeTable[men]) {
-            badGodName.push("神隔");
-            badThing = addToArray(badThing, ["祭祀", "祈福"]);
-        }
-        
-        // 朱雀
-        const zhuqueTable = "亥丑卯巳未酉亥丑卯巳未酉";
-        if (dayZhi === zhuqueTable[men]) {
-            badGodName.push("朱雀");
-            badThing = addToArray(badThing, ["嫁娶"]);
-        }
-        
-        // 白虎
-        const baihuTable = "寅辰午申戌子寅辰午申戌子";
-        if (dayZhi === baihuTable[men]) {
-            badGodName.push("白虎");
-            badThing = addToArray(badThing, ["安葬"]);
-        }
-        
-        // 玄武
-        const xuanwuTable = "巳未酉亥丑卯巳未酉亥丑卯";
-        if (dayZhi === xuanwuTable[men]) {
-            badGodName.push("玄武");
-            badThing = addToArray(badThing, ["安葬"]);
-        }
-        
-        // 勾陈
-        const gouchanTable = "未酉亥丑卯巳未酉亥丑卯巳";
-        if (dayZhi === gouchanTable[men]) {
-            badGodName.push("勾陈");
-        }
-        
-        // 大祸
-        const dahuoTable = "丁乙癸辛";
-        if (dayGan === dahuoTable[yen % 4]) {
-            badGodName.push("大祸");
-            badThing = addToArray(badThing, ["修仓库", "修造", "出师"]);
-        }
-        
-        // 神号
-        const shenhaoTable = "申酉戌亥子丑寅卯辰巳午未";
-        if (dayZhi === shenhaoTable[men]) {
-            badGodName.push("神号");
-        }
-        
-        // 妨择
-        const fangzeTable = "辰辰午午申申戌戌子子寅寅";
-        if (dayZhi === fangzeTable[men]) {
-            badGodName.push("妨择");
-        }
-        
-        // 披麻
-        const pimaTable = "午卯子酉午卯子酉午卯子酉";
-        if (dayZhi === pimaTable[men]) {
-            badGodName.push("披麻");
-            badThing = addToArray(badThing, ["嫁娶", "入宅"]);
-        }
-        
-        // 九坎、九焦、九空、枯鱼（相同规律）
-        const jiukanTable = "申巳辰丑戌未卯子酉午寅亥";
-        if (dayZhi === jiukanTable[men]) {
-            badGodName.push("九坎");
-            badThing = addToArray(badThing, ["塞穴", "补垣", "取鱼", "乘船渡水"]);
-            badGodName.push("九焦");
-            badThing = addToArray(badThing, ["鼓铸", "栽种"]);
-            badGodName.push("九空");
-            badThing = addToArray(badThing, ["进人口", "修仓库", "开市", "立券交易", "纳财", "开仓"]);
-            badGodName.push("枯鱼");
-            badThing = addToArray(badThing, ["栽种"]);
-        }
-        
-        // 八座
-        const bazuoTable = "酉戌亥子丑寅卯辰巳午未申";
-        if (dayZhi === bazuoTable[men]) {
-            badGodName.push("八座");
-        }
-        
-        // 血忌、血支
-        const xuejiTable = "午子丑未寅申卯酉辰戌巳亥";
-        if (dayZhi === xuejiTable[men]) {
-            badGodName.push("血忌");
-            badThing = addToArray(badThing, ["针刺"]);
-        }
-        const xuezhiTable = "亥子丑寅卯辰巳午未申酉戌";
-        if (dayZhi === xuezhiTable[men]) {
-            badGodName.push("血支");
-            badThing = addToArray(badThing, ["针刺"]);
-        }
-        
-        // 土符
-        const tufuTable = "申子丑巳酉寅午戌卯未亥辰";
-        if (dayZhi === tufuTable[men]) {
-            badGodName.push("土符");
-            badThing = addToArray(badThing, ["营建", "修宫室", "缮城郭", "筑堤防", "修造", "修仓库", "修置产室", "开渠", "穿井", "安碓硙", "补垣", "修饰垣墙", "平治道涂", "破屋坏垣", "栽种", "破土"]);
-        }
-        
-        // 土府
-        const tufuTable2 = "子丑寅卯辰巳午未申酉戌亥";
-        if (dayZhi === tufuTable2[men]) {
-            badGodName.push("土府");
-            badThing = addToArray(badThing, ["营建", "修宫室", "缮城郭", "筑堤防", "修造", "修仓库", "修置产室", "开渠", "穿井", "安碓硙", "补垣", "修饰垣墙", "平治道涂", "破屋坏垣", "栽种", "破土"]);
-        }
-        
-        // 四忌、四穷
-        const sijiRi = ["甲子", "丙子", "庚子", "壬子"];
-        const siqiongRi = ["乙亥", "丁亥", "辛亥", "癸亥"];
-        if (ganzhi === sijiRi[sn]) {
-            badGodName.push("四忌");
-            badThing = addToArray(badThing, ["安抚边境", "选将", "出师", "结婚姻", "纳采", "嫁娶", "安葬"]);
-        }
-        if (ganzhi === siqiongRi[sn]) {
-            badGodName.push("四穷");
-            badThing = addToArray(badThing, ["安抚边境", "选将", "出师", "结婚姻", "纳采", "嫁娶", "进人口", "修仓库", "开市", "立券交易", "纳财", "开仓", "安葬"]);
-        }
-        
-        // 四废
-        const sifeiRi = ["庚申", "辛酉", "壬子", "癸亥", "甲寅", "乙卯", "丁巳", "丙午"];
-        const sifeiIdx = [0, 1, 2, 3, 4, 5, 6, 7];
-        const sifeiSeason = [0, 0, 1, 1, 2, 2, 3, 3];
-        for (let i = 0; i < sifeiRi.length; i++) {
-            if (ganzhi === sifeiRi[i] && sn === sifeiSeason[i]) {
-                badGodName.push("四废");
-                badThing = addToArray(badThing, ["祈福", "求嗣", "上册", "上表章", "颁诏", "施恩", "招贤", "举正直", "宣政事", "布政事",
-                    "庆赐", "宴会", "冠带", "出行", "安抚边境", "选将", "出师", "上官", "临政", "结婚姻", "纳采",
-                    "嫁娶", "进人口", "搬移", "安床", "解除", "求医疗病", "裁制", "营建", "修宫室", "缮城郭", "筑堤防",
-                    "修造", "竖柱上梁", "修仓库", "鼓铸", "经络", "酝酿", "开市", "立券交易", "纳财", "开仓", "修置产室", "开渠", "穿井", "安碓硙", "塞穴", "补垣",
-                    "修饰垣墙", "栽种", "牧养", "纳畜", "破土", "安葬", "启攒"]);
-                break;
-            }
-        }
-        
-        // 四耗
-        const sihaoRi = ["壬子", "乙卯", "戊午", "辛酉"];
-        if (ganzhi === sihaoRi[sn]) {
-            badGodName.push("四耗");
-            badThing = addToArray(badThing, ["安抚边境", "选将", "出师", "修仓库", "开市", "立券交易", "纳财", "开仓"]);
-        }
-        
-        // 五墓
-        const wumuTable = ["壬辰", "戊辰", "乙未", "乙未", "戊辰", "丙戌", "丙戌", "戊辰", "辛丑", "辛丑", "戊辰", "壬辰"];
-        if (ganzhi === wumuTable[men]) {
-            badGodName.push("五墓");
-            badThing = addToArray(badThing, ["冠带", "出行", "安抚边境", "选将", "出师", "上官", "临政", "结婚姻", "纳采", "嫁娶", "进人口", "搬移", "安床", "解除", "求医疗病", "营建",
-                "修宫室", "缮城郭", "筑堤防", "修造", "竖柱上梁", "开市", "立券交易", "修置产室", "栽种", "牧养", "纳畜", "破土", "安葬", "启攒"]);
-        }
-        
-        // 五虚
-        const wuxuTable = ["巳酉丑", "申子辰", "亥卯未", "寅午戌"];
-        if (wuxuTable[sn].includes(dayZhi)) {
-            badGodName.push("五虚");
-            badThing = addToArray(badThing, ["修仓库", "开仓"]);
-        }
-        
-        // 五离（申酉日）
-        if ("申酉".includes(dayZhi)) {
-            badGodName.push("五离");
-            badThing = addToArray(badThing, ["庆赐", "宴会", "结婚姻", "纳采", "立券交易"]);
-        }
-        
-        // 五鬼
-        const wuguiTable = "未戌午寅辰酉卯申丑巳子亥";
-        if (dayZhi === wuguiTable[men]) {
-            badGodName.push("五鬼");
-            badThing = addToArray(badThing, ["出行"]);
-        }
-        
-        // 八专
-        const bazhuanRi = ["丁未", "己未", "庚申", "甲寅", "癸丑"];
-        if (bazhuanRi.includes(ganzhi)) {
-            badGodName.push("八专");
-            badThing = addToArray(badThing, ["安抚边境", "选将", "出师", "结婚姻", "纳采", "嫁娶"]);
-        }
-        
-        // 天转、地转
-        const tianzhuanRi = ["乙卯", "丙午", "辛酉", "壬子"];
-        const dizhuanRi = ["辛卯", "戊午", "癸酉", "丙子"];
-        if (ganzhi === tianzhuanRi[sn]) {
-            badGodName.push("天转");
-            badThing = addToArray(badThing, ["修造", "搬移", "嫁娶"]);
-        }
-        if (ganzhi === dizhuanRi[sn]) {
-            badGodName.push("地转");
-            badThing = addToArray(badThing, ["修造", "搬移", "嫁娶"]);
-        }
-        
-        // 月建转杀
-        const yuejianzhuanshaTable = ["卯", "午", "酉", "子"];
-        if (dayZhi === yuejianzhuanshaTable[sn]) {
-            badGodName.push("月建转杀");
-            badThing = addToArray(badThing, ["修造"]);
-        }
-        
-        // 荒芜
-        const huangwuTable = ["巳酉丑", "申子辰", "亥卯未", "寅午戌"];
-        if (huangwuTable[sn].includes(dayZhi)) {
-            badGodName.push("荒芜");
-        }
-        
-        // 蚩尤
-        const chiyouTable = "戌子寅辰午申";
-        if (dayZhi === chiyouTable[men % 6]) {
-            badGodName.push("蚩尤");
-        }
-        
-        // 飞廉、大煞（相同规律）
-        const feilianTable = "申酉戌巳午未寅卯辰亥子丑";
-        if (dayZhi === feilianTable[yen]) {
-            badGodName.push("飞廉");
-            badThing = addToArray(badThing, ["纳畜", "修造", "搬移", "嫁娶"]);
-            badGodName.push("大煞");
-            badThing = addToArray(badThing, ["安抚边境", "选将", "出师"]);
-        }
-        
-        // 木马
-        const mumaTable = "辰午巳未酉申戌子亥丑卯寅";
-        if (dayZhi === mumaTable[men]) {
-            badGodName.push("木马");
-        }
-        
-        // 破败
-        const pobaiTable = "辰午申戌子寅辰午申戌子寅";
-        if (dayZhi === pobaiTable[men]) {
-            badGodName.push("破败");
-        }
-        
-        // 殃败
-        const yangbaiTable = "巳辰卯寅丑子亥戌酉申未午";
-        if (dayZhi === yangbaiTable[men]) {
-            badGodName.push("殃败");
-        }
-        
-        // 雷公
-        const leigongTable = "巳申寅亥巳申寅亥巳申寅亥";
-        if (dayZhi === leigongTable[men]) {
-            badGodName.push("雷公");
-        }
-        
-        // 咸池（与大时相同）
-        const xianchiTable = "酉午卯子酉午卯子酉午卯子";
-        if (dayZhi === xianchiTable[men]) {
-            badGodName.push("咸池");
-            badThing = addToArray(badThing, ["嫁娶", "取鱼", "乘船渡水"]);
-        }
-
-        // 去重
-        goodGodName = uniqueArray(goodGodName);
-        badGodName = uniqueArray(badGodName);
-        goodThing = uniqueArray(goodThing);
-        badThing = uniqueArray(badThing);
-        
-        return {
-            goodGodName,
-            badGodName,
-            goodThing,
-            badThing
-        };
-    }
-
     // ==================== 宜忌等第计算 ====================
 
     /**
      * 计算今日宜忌等第
-     * 移植自 cal.py 的 getTodayThingLevel 方法
+     * 移植自 lunar.py 的 getTodayThingLevel 方法
      * 返回：0=从宜不从忌, 1=从宜亦从忌, 2=从忌不从宜, 3=诸事皆忌
      */
     function getTodayThingLevel(jianchu, monthZhi, goodGodName, badGodName) {
@@ -1572,7 +645,7 @@ const Almanac = (function() {
         } else if (l === 0) {
             thingLevel = 0; // 上：从宜不从忌
         } else {
-            thingLevel = 0; // 无，从宜不从忌
+            thingLevel = 1; // 无，从宜不从忌
         }
         
         return {
@@ -1582,56 +655,721 @@ const Almanac = (function() {
         };
     }
 
-    // ==================== 宜忌处理函数 ====================
+    // ==================== 吉神凶神查找表 ====================
 
-    /**
-     * 根据宜忌等第处理宜忌事项
-     * 移植自 cal.py 的宜忌处理逻辑
-     */
-    function processYiJiByLevel(goodThing, badThing, thingLevel, goodGodName, badGodName, jianchu, lunarDate) {
-        // 深拷贝
-        let yi = [...goodThing];
-        let ji = [...badThing];
+    // 十二建除宜忌表（来自 lunar.py 的 officerThings）
+    const OFFICER_THINGS_LUNAR = {
+        "建": [
+            ["施恩", "招贤", "举正直", "出行", "上官", "临政"],
+            ["开仓"]
+        ],
+        "除": [
+            ["解除", "沐浴", "整容", "剃头", "整手足甲", "求医疗病", "扫舍宇"],
+            ["畋猎", "取鱼"]
+        ],
+        "满": [
+            ["进人口", "裁制", "竖柱上梁", "经络", "开市", "立券交易", "纳财", "开仓", "塞穴", "补垣"],
+            ["施恩", "招贤", "举正直", "上官", "临政", "结婚姻", "纳采", "求医疗病"]
+        ],
+        "平": [
+            ["修饰垣墙", "平治道涂"],
+            ["祈福", "求嗣", "上册", "上表章", "颁诏", "施恩", "招贤", "举正直", "宣政事", "布政事", "庆赐", "宴会", "冠带", "出行", "安抚边境", "选将",
+             "出师", "上官", "临政", "结婚姻", "纳采", "嫁娶", "进人口", "搬移", "安床", "解除", "求医疗病", "裁制", "营建", "修宫室", "缮城郭",
+             "筑堤防", "修造", "竖柱上梁", "修仓库", "鼓铸", "经络", "酝酿", "开市", "立券交易", "纳财", "开仓", "修置产室", "开渠", "穿井", "栽种",
+             "牧养", "纳畜", "破土", "安葬", "启攒"]
+        ],
+        "定": [
+            ["冠带"],
+            []
+        ],
+        "执": [
+            ["捕捉"],
+            []
+        ],
+        "破": [
+            ["求医疗病"],
+            []
+        ],
+        "危": [
+            ["安抚边境", "选将", "安床"],
+            []
+        ],
+        "成": [
+            ["入学", "安抚边境", "搬移", "筑堤防", "开市"],
+            []
+        ],
+        "收": [
+            ["进人口", "纳财", "捕捉", "纳畜"],
+            ["祈福", "求嗣", "上册", "上表章", "颁诏", "施恩", "招贤", "举正直", "宣政事", "布政事", "庆赐", "宴会", "冠带", "出行", "安抚边境", "选将",
+             "出师", "上官", "临政", "结婚姻", "纳采", "嫁娶", "搬移", "安床", "解除", "求医疗病", "裁制", "营建", "修宫室", "缮城郭", "筑堤防", "修造",
+             "竖柱上梁", "鼓铸", "经络", "酝酿", "开市", "立券交易", "开仓", "修置产室", "开渠", "穿井", "破土", "安葬", "启攒"]
+        ],
+        "开": [
+            ["祭祀", "祈福", "求嗣", "上册", "上表章", "颁诏", "覃恩", "施恩", "招贤", "举正直", "恤孤茕", "宣政事", "雪冤", "庆赐", "宴会", "入学",
+             "出行", "上官", "临政", "搬移", "解除", "求医疗病", "裁制", "修宫室", "缮城郭", "修造", "修仓库", "开市", "修置产室", "开渠", "穿井", "安碓硙", "栽种",
+             "牧养"],
+            ["破土", "安葬", "捕捉", "畋猎", "取鱼"]
+        ],
+        "闭": [
+            ["筑堤防", "塞穴", "补垣"],
+            ["上册", "上表章", "颁诏", "施恩", "招贤", "举正直", "宣政事", "布政事", "庆赐", "宴会", "出行", "出师", "上官", "临政", "结婚姻", "纳采",
+             "嫁娶", "进人口", "搬移", "安床", "求医疗病", "疗目", "营建", "修宫室", "修造", "竖柱上梁", "开市", "开仓", "修置产室", "开渠", "穿井"]
+        ]
+    };
+
+    // 日干支特定宜忌（来自 lunar.py 的 day8CharThing）
+    const DAY_8CHAR_THING = {
+        "甲": [[], ["开仓"]],
+        "乙": [[], ["栽种"]],
+        "丁": [[], ["整容", "剃头"]],
+        "庚": [[], ["经络"]],
+        "辛": [[], ["酝酿"]],
+        "壬": [[], ["开渠", "穿井"]],
+        "子": [["沐浴"], []],
+        "丑": [[], ["冠带"]],
+        "寅": [[], ["祭祀"]],
+        "卯": [[], ["穿井"]],
+        "酉": [[], ["宴会"]],
+        "巳": [[], ["出行"]],
+        "午": [[], ["苫盖"]],
+        "未": [[], ["求医疗病"]],
+        "申": [[], ["安床"]],
+        "亥": [["沐浴"], ["嫁娶"]]
+    };
+
+    // 不将日表（来自 lunar.py 的 bujiang）
+    const BU_JIANG_TABLE = [
+        "壬寅壬辰辛丑辛卯辛巳庚寅庚辰丁丑丁卯丁巳戊寅戊辰",
+        "辛丑辛卯庚子庚寅庚辰丁丑丁卯丙子丙寅丙辰戊子戊寅戊辰",
+        "辛亥辛丑辛卯庚子庚寅丁亥丁丑丁卯丙子丙寅戊子戊寅",
+        "庚戌庚子庚寅丁亥丁丑丙戌丙子丙寅乙亥乙丑戊戌戊子戊寅",
+        "丁酉丁亥丁丑丙戌丙子乙酉乙亥乙丑甲戌甲子戊戌戊子",
+        "丁酉丁亥丙申丙戌丙子乙酉乙亥甲申甲戌甲子戊申戊戌戊子",
+        "丙申丙戌乙未乙酉乙亥甲申甲戌癸未癸酉癸亥戊申戊戌",
+        "乙未乙酉甲午甲申甲戌癸未癸酉壬午壬申壬戌戊午戊申戊戌",
+        "乙巳乙未乙酉甲午甲申癸巳癸未癸酉壬午壬申戊午戊申",
+        "甲辰甲午甲申癸巳癸未壬辰壬午壬申辛巳辛未戊辰戊午戊申",
+        "癸卯癸巳癸未壬辰壬午辛卯辛巳辛未庚辰庚午戊辰戊午",
+        "癸卯癸巳壬寅壬辰壬午辛卯辛巳庚寅庚辰庚午戊寅戊辰戊午"
+    ];
+
+    // 宜忌排序表（来自 lunar.py 的 thingsSort）
+    const THINGS_SORT = [
+        "祭祀", "出行", "移徙", "结婚姻", "宴会", "嫁娶", "安床", "沐浴", "剃头", "修造", "求医疗病", "上表章", "上官", "入学", "冠带", "进人口",
+        "裁衣", "竖柱上梁", "经络", "开市", "立券", "交易", "纳财", "修置产室", "开渠", "穿井", "安碓硙", "扫舍宇", "平治道涂", "破屋坏垣", "伐木", "捕捉",
+        "畋猎", "栽种", "牧养", "破土", "安葬", "启攒"
+    ];
+
+    // 排序函数
+    function sortCollation(x) {
+        const idx = THINGS_SORT.indexOf(x);
+        return idx !== -1 ? idx : THINGS_SORT.length + 1;
+    }
+
+    function getAngelDemon(lunarDate, solarYear, solarMonth, solarDay, nextSolarNum, phaseOfMoon) {
+        const yearGan = lunarDate.year_ganzhi[0];
+        const yearZhi = lunarDate.year_ganzhi[1];
+        const monthGan = lunarDate.month_ganzhi[0];
+        const monthZhi = lunarDate.month_ganzhi[1];
+        const dayGan = lunarDate.day_ganzhi[0];
+        const dayZhi = lunarDate.day_ganzhi[1];
+        const ganzhi = dayGan + dayZhi;
+        const d = ganzhi;
         
+        const yhn = getGanIndex(yearGan);
+        const yen = getZhiIndex(yearZhi);
+        const men = getZhiIndex(monthZhi);
+        const dhen = getGanzhiIndex(ganzhi);
+        const den = getZhiIndex(dayZhi);
+        
+        const sn = getSeason(monthZhi);
+        const monthType = getMonthType(monthZhi);
+        
+        const lmn = lunarDate.month;
+        const ldn = lunarDate.day;
+        
+        // 计算二十八宿
+        const xiu = calculateXiu(solarYear, solarMonth, solarDay);
+        
+        // 计算十二建除
+        const jianchu = calculateJianchu(monthZhi, dayZhi);
+        
+        // 初始化宜忌字典
+        let gbDic = {
+            goodName: [],
+            badName: [],
+            goodThing: [...OFFICER_THINGS_LUNAR[jianchu][0]],
+            badThing: [...OFFICER_THINGS_LUNAR[jianchu][1]]
+        };
+
+        // ===== 日干支特定宜忌 =====
+        for (let key in DAY_8CHAR_THING) {
+            if (d.includes(key)) {
+                gbDic.goodThing = addToArray(gbDic.goodThing, DAY_8CHAR_THING[key][0]);
+                gbDic.badThing = addToArray(gbDic.badThing, DAY_8CHAR_THING[key][1]);
+            }
+        }
+
+        // ===== 卷十一拆解规则 =====
+        // 雨水后立夏前执日、危日、收日 宜 取鱼
+        if (nextSolarNum >= 4 && nextSolarNum < 9 && ["执", "危", "收"].includes(jianchu)) {
+            gbDic.goodThing = addToArray(gbDic.goodThing, ["取鱼"]);
+        }
+        // 霜降后立春前执日、危日、收日 宜 畋猎
+        if ((nextSolarNum >= 20 || nextSolarNum < 3) && ["执", "危", "收"].includes(jianchu)) {
+            gbDic.goodThing = addToArray(gbDic.goodThing, ["畋猎"]);
+        }
+        // 立冬后立春前危日 午日 申日 宜 伐木
+        if ((nextSolarNum >= 21 || nextSolarNum < 3) && (["危"].includes(jianchu) || ["午", "申"].includes(d))) {
+            gbDic.goodThing = addToArray(gbDic.goodThing, ["伐木"]);
+        }
+        // 每月一日 六日 十五 十九日 二十一日 二十三日 忌 整手足甲
+        if ([1, 6, 15, 19, 21, 23].includes(ldn)) {
+            gbDic.badThing = addToArray(gbDic.badThing, ["整手足甲"]);
+        }
+        // 每月十二日 十五日 忌 整容剃头
+        if ([12, 15].includes(ldn)) {
+            gbDic.badThing = addToArray(gbDic.badThing, ["整容", "剃头"]);
+        }
+        // 每月十五日 朔弦望月 忌 求医疗病
+        if (ldn === 15 || phaseOfMoon !== "") {
+            gbDic.badThing = addToArray(gbDic.badThing, ["求医疗病"]);
+        }
+
+        // ===== 吉神查找表（angel）=====
+        const angel = [
+            // 岁德
+            ["岁德", "甲庚丙壬戊甲庚丙壬戊"[yhn], d, ["修造"], []],
+            // 岁德合
+            ["岁德合", "己乙辛丁癸己乙辛丁癸"[yhn], d, ["修造"], []],
+            // 月德
+            ["月德", "壬庚丙甲壬庚丙甲壬庚丙甲"[men], dayGan, 
+             ["祭祀", "祈福", "求嗣", "上册", "上表章", "颁诏", "覃恩", "施恩", "招贤", "举正直", "恤孤茕", "宣政事", "雪冤", "庆赐", "宴会", "出行",
+              "安抚边境", "选将", "出师", "上官", "临政", "结婚姻", "纳采", "嫁娶", "搬移", "解除", "求医疗病", "裁制", "营建", "缮城郭", "修造", "竖柱上梁",
+              "修仓库", "栽种", "牧养", "纳畜", "安葬"], ["畋猎", "取鱼"]],
+            // 月德合
+            ["月德合", "丁乙辛己丁乙辛己丁乙辛己"[men], dayGan,
+             ["祭祀", "祈福", "求嗣", "上册", "上表章", "颁诏", "覃恩", "施恩", "招贤", "举正直", "恤孤茕", "宣政事", "雪冤", "庆赐", "宴会", "出行",
+              "安抚边境", "选将", "出师", "上官", "临政", "结婚姻", "纳采", "嫁娶", "搬移", "解除", "求医疗病", "裁制", "营建", "缮城郭", "修造", "竖柱上梁",
+              "修仓库", "栽种", "牧养", "纳畜", "安葬"], ["畋猎", "取鱼"]],
+            // 天德
+            ["天德", monthType === 1 ? dayGan : dayZhi, ["巳", "庚", "丁", "申", "壬", "辛", "亥", "甲", "癸", "寅", "丙", "乙"][men],
+             ["祭祀", "祈福", "求嗣", "上册", "上表章", "颁诏", "覃恩", "施恩", "招贤", "举正直", "恤孤茕", "宣政事", "雪冤", "庆赐", "宴会", "出行",
+              "安抚边境", "选将", "出师", "上官", "临政", "结婚姻", "纳采", "嫁娶", "搬移", "解除", "求医疗病", "裁制", "营建", "缮城郭", "修造", "竖柱上梁",
+              "修仓库", "栽种", "牧养", "纳畜", "安葬"], ["畋猎", "取鱼"]],
+            // 天德合
+            ["天德合", "空乙壬空丁丙空己戊空辛庚"[men], d,
+             ["祭祀", "祈福", "求嗣", "上册", "上表章", "颁诏", "覃恩", "施恩", "招贤", "举正直", "恤孤茕", "宣政事", "雪冤", "庆赐", "宴会", "出行",
+              "安抚边境", "选将", "出师", "上官", "临政", "结婚姻", "纳采", "嫁娶", "搬移", "解除", "求医疗病", "裁制", "营建", "缮城郭", "修造", "竖柱上梁",
+              "修仓库", "栽种", "牧养", "纳畜", "安葬"], ["畋猎", "取鱼"]],
+            // 凤凰日
+            ["凤凰日", xiu[0], "危昴胃毕"[sn], ["嫁娶"], []],
+            // 麒麟日
+            ["麒麟日", xiu[0], "井尾牛壁"[sn], ["嫁娶"], []],
+            // 三合
+            ["三合", (den - men + 12) % 4 === 0, [true],
+             ["庆赐", "宴会", "结婚姻", "纳采", "嫁娶", "进人口", "裁制", "修宫室", "缮城郭", "修造", "竖柱上梁", "修仓库", "经络", "酝酿", "立券交易", "纳财",
+              "安碓硙", "纳畜"], []],
+            // 四相
+            ["四相", dayGan, ["丙丁", "戊己", "壬癸", "甲乙"][sn],
+             ["祭祀", "祈福", "求嗣", "施恩", "举正直", "庆赐", "宴会", "出行", "上官", "临政", "结婚姻", "纳采", "搬移", "解除", "求医疗病", "裁制", "修宫室",
+              "缮城郭", "修造", "竖柱上梁", "纳财", "开仓", "栽种", "牧养"], []],
+            // 五合
+            ["五合", dayZhi, "寅卯", ["宴会", "结婚姻", "立券交易"], []],
+            // 五富
+            ["五富", "巳申亥寅巳申亥寅巳申亥寅"[men], d, ["经络", "酝酿", "开市", "立券交易", "纳财", "开仓", "栽种", "牧养", "纳畜"], []],
+            // 六合
+            ["六合", "丑子亥戌酉申未午巳辰卯寅"[men], dayZhi, ["宴会", "结婚姻", "嫁娶", "进人口", "经络", "酝酿", "立券交易", "纳财", "纳畜", "安葬"], []],
+            // 六仪
+            ["六仪", "午巳辰卯寅丑子亥戌酉申未"[men], dayZhi, ["临政"], []],
+            // 不将
+            ["不将", d, BU_JIANG_TABLE[men], ["嫁娶"], []],
+            // 时德
+            ["时德", "午辰子寅"[sn], dayZhi,
+             ["祭祀", "祈福", "求嗣", "施恩", "举正直", "庆赐", "宴会", "出行", "上官", "临政", "结婚姻", "纳采", "搬移", "解除", "求医疗病", "裁制", "修宫室",
+              "缮城郭", "修造", "竖柱上梁", "纳财", "开仓", "栽种", "牧养"], []],
+            // 大葬
+            ["大葬", d, "壬申癸酉壬午甲申乙酉丙申丁酉壬寅丙午己酉庚申辛酉", ["安葬"], []],
+            // 鸣吠
+            ["鸣吠", d, "庚午壬申癸酉壬午甲申乙酉己酉丙申丁酉壬寅丙午庚寅庚申辛酉", ["破土", "安葬"], []],
+            // 小葬
+            ["小葬", d, "庚午壬辰甲辰乙巳甲寅丙辰庚寅", ["安葬"], []],
+            // 鸣吠对
+            ["鸣吠对", d, "丙寅丁卯丙子辛卯甲午庚子癸卯壬子甲寅乙卯", ["破土", "启攒"], []],
+            // 不守塚
+            ["不守塚", d, "庚午辛未壬申癸酉戊寅己卯壬午癸未甲申乙酉丁未甲午乙未丙申丁酉壬寅癸卯丙午戊申己酉庚申辛酉", ["破土"], []],
+            // 王日
+            ["王日", "寅巳申亥"[sn], dayZhi,
+             ["颁诏", "覃恩", "施恩", "招贤", "举正直", "恤孤茕", "宣政事", "雪冤", "庆赐", "宴会", "出行", "安抚边境", "选将", "上官", "临政", "裁制"], []],
+            // 官日
+            ["官日", "卯午酉子"[sn], dayZhi, ["上官", "临政"], []],
+            // 守日
+            ["守日", "酉子卯午"[sn], dayZhi, ["安抚边境", "上官", "临政"], []],
+            // 相日
+            ["相日", "巳申亥寅"[sn], dayZhi, ["上官", "临政"], []],
+            // 民日
+            ["民日", "午酉子卯"[sn], dayZhi, ["宴会", "结婚姻", "纳采", "进人口", "搬移", "开市", "立券交易", "纳财", "栽种", "牧养", "纳畜"], []],
+            // 临日
+            ["临日", "辰酉午亥申丑戌卯子巳寅未"[men], d, ["上册", "上表章", "上官", "临政"], []],
+            // 天贵
+            ["天贵", dayGan, ["甲乙", "丙丁", "庚辛", "壬癸"][sn], [], []],
+            // 天喜
+            ["天喜", "申酉戌亥子丑寅卯辰巳午未"[men], dayZhi, ["施恩", "举正直", "庆赐", "宴会", "出行", "上官", "临政", "结婚姻", "纳采", "嫁娶"], []],
+            // 天富
+            ["天富", "寅卯辰巳午未申酉戌亥子丑"[men], d, ["安葬", "修仓库"], []],
+            // 天恩
+            ["天恩", dhen % 15 < 5 && Math.floor(dhen / 15) !== 2, [true], ["覃恩", "恤孤茕", "布政事", "雪冤", "庆赐", "宴会"], []],
+            // 月恩
+            ["月恩", "甲辛丙丁庚己戊辛壬癸庚乙"[men], d,
+             ["祭祀", "祈福", "求嗣", "施恩", "举正直", "庆赐", "宴会", "出行", "上官", "临政", "结婚姻", "纳采", "搬移", "解除", "求医疗病", "裁制", "修宫室",
+              "缮城郭", "修造", "竖柱上梁", "纳财", "开仓", "栽种", "牧养"], []],
+            // 天赦
+            ["天赦", ["甲子", "甲子", "戊寅", "戊寅", "戊寅", "甲午", "甲午", "甲午", "戊申", "戊申", "戊申", "甲子"][men], d,
+             ["祭祀", "祈福", "求嗣", "上册", "上表章", "颁诏", "覃恩", "施恩", "招贤", "举正直", "恤孤茕", "宣政事", "雪冤", "庆赐", "宴会", "出行",
+              "安抚边境", "选将", "上官", "临政", "结婚姻", "纳采", "嫁娶", "搬移", "解除", "求医疗病", "裁制", "营建", "缮城郭", "修造", "竖柱上梁", "修仓库",
+              "栽种", "牧养", "纳畜", "安葬"], ["畋猎", "取鱼"]],
+            // 天愿
+            ["天愿", ["甲子", "癸未", "甲午", "甲戌", "乙酉", "丙子", "丁丑", "戊午", "甲寅", "丙辰", "辛卯", "戊辰"][men], d,
+             ["祭祀", "祈福", "求嗣", "上册", "上表章", "颁诏", "覃恩", "施恩", "招贤", "举正直", "恤孤茕", "宣政事", "雪冤", "庆赐", "宴会", "出行",
+              "安抚边境", "选将", "上官", "临政", "结婚姻", "纳采", "嫁娶", "进人口", "搬移", "裁制", "营建", "缮城郭", "修造", "竖柱上梁", "修仓库", "经络",
+              "酝酿", "开市", "立券交易", "纳财", "栽种", "牧养", "纳畜", "安葬"], []],
+            // 天成
+            ["天成", "卯巳未酉亥丑卯巳未酉亥丑"[men], d, [], []],
+            // 天官
+            ["天官", "午申戌子寅辰午申戌子寅辰"[men], d, [], []],
+            // 天医
+            ["天医", "亥子丑寅卯辰巳午未申酉戌"[men], dayZhi, ["求医疗病"], []],
+            // 天马
+            ["天马", "寅辰午申戌子寅辰午申戌子"[men], dayZhi, ["出行", "搬移"], []],
+            // 驿马
+            ["驿马", "寅亥申巳寅亥申巳寅亥申巳"[men], dayZhi, ["出行", "搬移"], []],
+            // 天财
+            ["天财", "子寅辰午申戌子寅辰午申戌"[men], dayZhi, [], []],
+            // 福生
+            ["福生", "寅申酉卯戌辰亥巳子午丑未"[men], dayZhi, ["祭祀", "祈福"], []],
+            // 福厚
+            ["福厚", "寅巳申亥"[sn], d, [], []],
+            // 福德
+            ["福德", "寅卯辰巳午未申酉戌亥子丑"[men], dayZhi, ["上册", "上表章", "庆赐", "宴会", "修宫室", "缮城郭"], []],
+            // 天巫
+            ["天巫", "寅卯辰巳午未申酉戌亥子丑"[men], dayZhi, ["求医疗病"], []],
+            // 地财
+            ["地财", "丑卯巳未酉亥丑卯巳未酉亥"[men], dayZhi, [], []],
+            // 月财
+            ["月财", "酉亥午巳巳未酉亥午巳巳未"[men], dayZhi, [], []],
+            // 月空
+            ["月空", "丙甲壬庚丙甲壬庚丙甲壬庚"[men], dayGan, ["上表章"], []],
+            // 母仓
+            ["母仓", dayZhi, ["亥子", "寅卯", "辰丑戌未", "申酉"][sn], ["纳财", "栽种", "牧养", "纳畜"], []],
+            // 明星
+            ["明星", "辰午甲戌子寅辰午甲戌子寅"[men], dayZhi, ["赴任", "诉讼", "安葬"], []],
+            // 圣心
+            ["圣心", "辰戌亥巳子午丑未寅申卯酉"[men], dayZhi, ["祭祀", "祈福"], []],
+            // 禄库
+            ["禄库", "寅卯辰巳午未申酉戌亥子丑"[men], dayZhi, ["纳财"], []],
+            // 吉庆
+            ["吉庆", "未子酉寅亥辰丑午卯申巳戌"[men], dayZhi, [], []],
+            // 阴德
+            ["阴德", "丑亥酉未巳卯丑亥酉未巳卯"[men], dayZhi, ["恤孤茕", "雪冤"], []],
+            // 活曜
+            ["活曜", "卯申巳戌未子酉寅亥辰丑午"[men], dayZhi, [], []],
+            // 除神
+            ["除神", dayZhi, "申酉", ["解除", "沐浴", "整容", "剃头", "整手足甲", "求医疗病", "扫舍宇"], []],
+            // 解神
+            ["解神", "午午申申戌戌子子寅寅辰辰"[men], dayZhi, ["上表章", "解除", "沐浴", "整容", "剃头", "整手足甲", "求医疗病"], []],
+            // 生气
+            ["生气", "戌亥子丑寅卯辰巳午未申酉"[men], dayZhi, [], ["伐木", "畋猎", "取鱼"]],
+            // 普护
+            ["普护", "丑卯申寅酉卯戌辰亥巳子午"[men], dayZhi, ["祭祀", "祈福"], []],
+            // 益后
+            ["益后", "巳亥子午丑未寅申卯酉辰戌"[men], dayZhi, ["祭祀", "祈福", "求嗣"], []],
+            // 续世
+            ["续世", "午子丑未寅申卯酉辰戌巳亥"[men], dayZhi, ["祭祀", "祈福", "求嗣"], []],
+            // 要安
+            ["要安", "未丑寅申卯酉辰戌巳亥午子"[men], dayZhi, [], []],
+            // 天后
+            ["天后", "寅亥申巳寅亥申巳寅亥申巳"[men], dayZhi, ["求医疗病"], []],
+            // 天仓
+            ["天仓", "辰卯寅丑子亥戌酉申未午巳"[men], dayZhi, ["进人口", "纳财", "纳畜"], []],
+            // 敬安
+            ["敬安", "子午未丑申寅酉卯戌辰亥巳"[men], dayZhi, [], []],
+            // 玉宇
+            ["玉宇", "申寅卯酉辰戌巳亥午子未丑"[men], dayZhi, [], []],
+            // 金堂
+            ["金堂", "酉卯辰戌巳亥午子未丑申寅"[men], dayZhi, [], []],
+            // 吉期
+            ["吉期", "丑寅卯辰巳午未申酉戌亥子"[men], dayZhi, ["施恩", "举正直", "出行", "上官", "临政"], []],
+            // 小时、兵福、兵宝
+            ["小时", "子丑寅卯辰巳午未申酉戌亥"[men], dayZhi, [], []],
+            ["兵福", "子丑寅卯辰巳午未申酉戌亥"[men], dayZhi, ["安抚边境", "选将", "出师"], []],
+            ["兵宝", "丑寅卯辰巳午未申酉戌亥子"[men], dayZhi, ["安抚边境", "选将", "出师"], []],
+            // 兵吉
+            ["兵吉", dayZhi,
+             ["寅卯辰巳", "丑寅卯辰", "子丑寅卯", "亥子丑寅", "戌亥子丑", "酉戌亥子", "申酉戌亥", "未申酉戌", "午未申酉", "巳午未申", "辰巳午未", "卯辰巳午"][men],
+             ["安抚边境", "选将", "出师"], []]
+        ];
+
+        // ===== 凶神查找表（demon）=====
+        const demon = [
+            // 岁破
+            ["岁破", den === (yen + 6) % 12, [true], [], ["修造", "搬移", "嫁娶", "出行"]],
+            // 天罡
+            ["天罡", "卯戌巳子未寅"[men % 6], dayZhi, [], ["安葬"]],
+            // 河魁
+            ["河魁", "酉辰亥午丑申"[men % 6], dayZhi, [], ["安葬"]],
+            // 死神
+            ["死神", "卯辰巳午未申酉戌亥子丑寅"[men], dayZhi, [], ["安抚边境", "选将", "出师", "进人口", "解除", "求医疗病", "修置产室", "栽种", "牧养", "纳畜"]],
+            // 死气
+            ["死气", "辰巳午未申酉戌亥子丑寅卯"[men], dayZhi, [], ["安抚边境", "选将", "出师", "解除", "求医疗病", "修置产室", "栽种"]],
+            // 伏兵
+            ["伏兵", "丙甲壬庚"[yen % 4], dayGan, [], ["修仓库", "修造", "出师"]],
+            // 官符
+            ["官符", "辰巳午未申酉戌亥子丑寅卯"[men], dayZhi, [], ["上表章", "上册"]],
+            // 月建
+            ["月建", "子丑寅卯辰巳午未申酉戌亥"[men], dayZhi, [],
+             ["祈福", "求嗣", "上册", "上表章", "结婚姻", "纳采", "解除", "整容", "剃头", "整手足甲", "求医疗病", "营建", "修宫室", "缮城郭", "修造", "竖柱上梁",
+              "修仓库", "开仓", "修置产室", "破屋坏垣", "伐木", "栽种", "破土", "安葬", "启攒"]],
+            // 月破
+            ["月破", "午未申酉戌亥子丑寅卯辰巳"[men], dayZhi, ["破屋坏垣"],
+             ["祈福", "求嗣", "上册", "上表章", "颁诏", "施恩", "招贤", "举正直", "宣政事", "布政事", "庆赐", "宴会", "冠带", "出行", "安抚边境", "选将",
+              "出师", "上官", "临政", "结婚姻", "纳采", "嫁娶", "进人口", "搬移", "安床", "整容", "剃头", "整手足甲", "裁制", "营建", "修宫室", "缮城郭",
+              "筑堤防", "修造", "竖柱上梁", "修仓库", "鼓铸", "经络", "酝酿", "开市", "立券交易", "纳财", "开仓", "修置产室", "开渠", "穿井", "安碓硙", "塞穴",
+              "补垣", "修饰垣墙", "平治道涂", "破屋坏垣", "伐木", "栽种", "牧养", "纳畜", "破土", "安葬", "启攒"]],
+            // 月煞
+            ["月煞", "未辰丑戌未辰丑戌未辰丑戌"[men], dayZhi, [],
+             ["祈福", "求嗣", "上册", "上表章", "颁诏", "施恩", "招贤", "举正直", "宣政事", "布政事", "庆赐", "宴会", "冠带", "出行", "安抚边境", "选将",
+              "出师", "上官", "临政", "结婚姻", "纳采", "嫁娶", "进人口", "搬移", "安床", "解除", "整容", "剃头", "整手足甲", "求医疗病", "裁制", "营建",
+              "修宫室", "缮城郭", "筑堤防", "修造", "竖柱上梁", "修仓库", "鼓铸", "经络", "酝酿", "开市", "立券交易", "纳财", "开仓", "修置产室", "开渠", "穿井",
+              "安碓硙", "塞穴", "补垣", "修饰垣墙", "破屋坏垣", "栽种", "牧养", "纳畜", "安葬"]],
+            // 月害
+            ["月害", "未午巳辰卯寅丑子亥戌酉申"[men], dayZhi, [],
+             ["祈福", "求嗣", "上册", "上表章", "庆赐", "宴会", "安抚边境", "选将", "出师", "上官", "纳采", "嫁娶", "进人口", "求医疗病", "修仓库", "经络",
+              "酝酿", "开市", "立券交易", "纳财", "开仓", "修置产室", "牧养", "纳畜", "破土", "安葬", "启攒"]],
+            // 月刑
+            ["月刑", "卯戌巳子辰申午丑寅酉未亥"[men], dayZhi, [],
+             ["祈福", "求嗣", "上册", "上表章", "颁诏", "施恩", "招贤", "举正直", "宣政事", "布政事", "庆赐", "宴会", "冠带", "出行", "安抚边境", "选将",
+              "出师", "上官", "临政", "结婚姻", "纳采", "嫁娶", "进人口", "搬移", "安床", "解除", "整容", "剃头", "整手足甲", "求医疗病", "裁制", "营建",
+              "修宫室", "缮城郭", "筑堤防", "修造", "竖柱上梁", "修仓库", "鼓铸", "经络", "酝酿", "开市", "立券交易", "纳财", "开仓", "修置产室", "开渠", "穿井",
+              "安碓硙", "塞穴", "补垣", "修饰垣墙", "破屋坏垣", "栽种", "牧养", "纳畜", "破土", "安葬", "启攒"]],
+            // 月厌
+            ["月厌", "子亥戌酉申未午巳辰卯寅丑"[men], dayZhi, [],
+             ["祈福", "求嗣", "上册", "上表章", "颁诏", "施恩", "招贤", "举正直", "宣政事", "布政事", "庆赐", "宴会", "冠带", "出行", "安抚边境", "选将",
+              "出师", "上官", "临政", "结婚姻", "纳采", "嫁娶", "进人口", "搬移", "远回", "安床", "解除", "整容", "剃头", "整手足甲", "求医疗病", "裁制",
+              "营建", "修宫室", "缮城郭", "筑堤防", "修造", "竖柱上梁", "修仓库", "鼓铸", "经络", "酝酿", "开市", "立券交易", "纳财", "开仓", "修置产室", "开渠",
+              "穿井", "安碓硙", "塞穴", "补垣", "修饰垣墙", "平治道涂", "破屋坏垣", "伐木", "栽种", "牧养", "纳畜", "破土", "安葬", "启攒"]],
+            // 月忌
+            ["月忌", ldn, [5, 14, 23], [], ["出行", "乘船渡水"]],
+            // 月虚
+            ["月虚", "未辰丑戌未辰丑戌未辰丑戌"[men], dayZhi, [], ["修仓库", "纳财", "开仓"]],
+            // 灾煞
+            ["灾煞", "午卯子酉午卯子酉午卯子酉"[men], dayZhi, [],
+             ["祈福", "求嗣", "上册", "上表章", "颁诏", "施恩", "招贤", "举正直", "宣政事", "布政事", "庆赐", "宴会", "冠带", "出行", "安抚边境", "选将",
+              "出师", "上官", "临政", "结婚姻", "纳采", "嫁娶", "进人口", "搬移", "安床", "解除", "整容", "剃头", "整手足甲", "求医疗病", "裁制", "营建",
+              "修宫室", "缮城郭", "筑堤防", "修造", "竖柱上梁", "修仓库", "鼓铸", "经络", "酝酿", "开市", "立券交易", "纳财", "开仓", "修置产室", "开渠", "穿井",
+              "安碓硙", "塞穴", "补垣", "修饰垣墙", "破屋坏垣", "栽种", "牧养", "纳畜", "破土", "安葬", "启攒"]],
+            // 劫煞
+            ["劫煞", "巳寅亥申巳寅亥申巳寅亥申"[men], dayZhi, [],
+             ["祈福", "求嗣", "上册", "上表章", "颁诏", "施恩", "招贤", "举正直", "宣政事", "布政事", "庆赐", "宴会", "冠带", "出行", "安抚边境", "选将",
+              "出师", "上官", "临政", "结婚姻", "纳采", "嫁娶", "进人口", "搬移", "安床", "解除", "整容", "剃头", "整手足甲", "求医疗病", "裁制", "营建",
+              "修宫室", "缮城郭", "筑堤防", "修造", "竖柱上梁", "修仓库", "鼓铸", "经络", "酝酿", "开市", "立券交易", "纳财", "开仓", "修置产室", "开渠", "穿井",
+              "安碓硙", "塞穴", "补垣", "修饰垣墙", "破屋坏垣", "栽种", "牧养", "纳畜", "破土", "安葬", "启攒"]],
+            // 厌对、招摇
+            ["厌对", "午巳辰卯寅丑子亥戌酉申未"[men], dayZhi, [], ["嫁娶"]],
+            ["招摇", "午巳辰卯寅丑子亥戌酉申未"[men], dayZhi, [], ["取鱼", "乘船渡水"]],
+            // 小红砂
+            ["小红砂", "酉丑巳酉丑巳酉丑巳酉丑巳"[men], dayZhi, [], ["嫁娶"]],
+            // 往亡
+            ["往亡", "戌丑寅巳申亥卯午酉子辰未"[men], dayZhi, [],
+             ["上册", "上表章", "颁诏", "招贤", "宣政事", "出行", "安抚边境", "选将", "出师", "上官", "临政", "嫁娶", "进人口", "搬移", "求医疗病", "捕捉",
+              "畋猎", "取鱼"]],
+            // 重丧、重复
+            ["重丧", "癸己甲乙己丙丁己庚辛己壬"[men], dayGan, [], ["嫁娶", "安葬"]],
+            ["重复", "癸己庚辛己壬癸戊甲乙己壬"[men], dayGan, [], ["嫁娶", "安葬"]],
+            // 杨公忌
+            ["杨公忌", [lmn, ldn], [[1, 13], [2, 11], [3, 9], [4, 7], [5, 5], [6, 2], [7, 1], [7, 29], [8, 27], [9, 25], [10, 23], [11, 21], [12, 19]], [], ["开张", "修造", "嫁娶", "立券"]],
+            // 神号、妨择
+            ["神号", "申酉戌亥子丑寅卯辰巳午未"[men], dayZhi, [], []],
+            ["妨择", "辰辰午午申申戌戌子子寅寅"[men], dayZhi, [], []],
+            // 披麻
+            ["披麻", "午卯子酉午卯子酉午卯子酉"[men], dayZhi, [], ["嫁娶", "入宅"]],
+            // 大耗
+            ["大耗", "辰巳午未申酉戌亥子丑寅卯"[men], dayZhi, [], ["修仓库", "开市", "立券交易", "纳财", "开仓"]],
+            // 大祸
+            ["大祸", "丁乙癸辛"[yen % 4], dayGan, [], ["修仓库", "修造", "出师"]],
+            // 天吏
+            ["天吏", "卯子酉午卯子酉午卯子酉午"[men], dayZhi, [],
+             ["祈福", "求嗣", "上册", "上表章", "施恩", "招贤", "举正直", "冠带", "出行", "安抚边境", "选将", "出师", "上官", "临政", "结婚姻", "纳采", "嫁娶",
+              "进人口", "搬移", "安床", "解除", "求医疗病", "营建", "修宫室", "缮城郭", "筑堤防", "修造", "竖柱上梁", "修仓库", "开市", "立券交易", "纳财", "开仓",
+              "修置产室", "栽种", "牧养", "纳畜"]],
+            // 天瘟
+            ["天瘟", "丑卯未戌辰寅午子酉申巳亥"[men], dayZhi, [], ["修造", "求医疗病", "纳畜"]],
+            // 天狱、天火
+            ["天狱", "午酉子卯午酉子卯午酉子卯"[men], dayZhi, [], []],
+            ["天火", "午酉子卯午酉子卯午酉子卯"[men], dayZhi, [], ["苫盖"]],
+            // 天棒
+            ["天棒", "寅辰午申戌子寅辰午申戌子"[men], dayZhi, [], []],
+            // 天狗
+            ["天狗", "寅卯辰巳午未申酉戌亥子丑"[men], dayZhi, [], ["祭祀"]],
+            // 天狗下食
+            ["天狗下食", "戌亥子丑寅卯辰巳午未申酉"[men], dayZhi, [], ["祭祀"]],
+            // 天贼
+            ["天贼", "卯寅丑子亥戌酉申未午巳辰"[men], dayZhi, [], ["出行", "修仓库", "开仓"]],
+            // 地囊
+            ["地囊", d,
+             ["辛未辛酉", "乙酉乙未", "庚子庚午", "癸未癸丑", "甲子甲寅", "己卯己丑", "戊辰戊午", "癸未癸巳", "丙寅丙申", "丁卯丁巳", "戊辰戊子", "庚戌庚子"][men],
+             [], ["营建", "修宫室", "缮城郭", "筑堤防", "修造", "修仓库", "修置产室", "开渠", "穿井", "安碓硙", "补垣", "修饰垣墙", "平治道涂", "破屋坏垣", "栽种", "破土"]],
+            // 地火
+            ["地火", "子亥戌酉申未午巳辰卯寅丑"[men], dayZhi, [], ["栽种"]],
+            // 独火
+            ["独火", "未午巳辰卯寅丑子亥戌酉申"[men], dayZhi, [], ["修造"]],
+            // 受死
+            ["受死", "卯酉戌辰亥巳子午丑未寅申"[men], dayZhi, [], ["畋猎"]],
+            // 黄沙
+            ["黄沙", "寅子午寅子午寅子午寅子午"[men], dayZhi, [], ["出行"]],
+            // 六不成
+            ["六不成", "卯未寅午戌巳酉丑申子辰亥"[men], dayZhi, [], ["修造"]],
+            // 小耗
+            ["小耗", "卯辰巳午未申酉戌亥子丑寅"[men], dayZhi, [], ["修仓库", "开市", "立券交易", "纳财", "开仓"]],
+            // 神隔
+            ["神隔", "酉未巳卯丑亥酉未巳卯丑亥"[men], dayZhi, [], ["祭祀", "祈福"]],
+            // 朱雀
+            ["朱雀", "亥丑卯巳未酉亥丑卯巳未酉"[men], dayZhi, [], ["嫁娶"]],
+            // 白虎
+            ["白虎", "寅辰午申戌子寅辰午申戌子"[men], dayZhi, [], ["安葬"]],
+            // 玄武
+            ["玄武", "巳未酉亥丑卯巳未酉亥丑卯"[men], dayZhi, [], ["安葬"]],
+            // 勾陈
+            ["勾陈", "未酉亥丑卯巳未酉亥丑卯巳"[men], dayZhi, [], []],
+            // 木马
+            ["木马", "辰午巳未酉申戌子亥丑卯寅"[men], dayZhi, [], []],
+            // 破败
+            ["破败", "辰午申戌子寅辰午申戌子寅"[men], dayZhi, [], []],
+            // 殃败
+            ["殃败", "巳辰卯寅丑子亥戌酉申未午"[men], dayZhi, [], []],
+            // 雷公
+            ["雷公", "巳申寅亥巳申寅亥巳申寅亥"[men], dayZhi, [], []],
+            // 飞廉、大煞
+            ["飞廉", "申酉戌巳午未寅卯辰亥子丑"[yen], dayZhi, [], ["纳畜", "修造", "搬移", "嫁娶"]],
+            ["大煞", "申酉戌巳午未寅卯辰亥子丑"[yen], dayZhi, [], ["安抚边境", "选将", "出师"]],
+            // 枯鱼、九空、九坎、九焦、八座
+            ["枯鱼", "申巳辰丑戌未卯子酉午寅亥"[men], dayZhi, [], ["栽种"]],
+            ["九空", "申巳辰丑戌未卯子酉午寅亥"[men], dayZhi, [], ["进人口", "修仓库", "开市", "立券交易", "纳财", "开仓"]],
+            ["九坎", "申巳辰丑戌未卯子酉午寅亥"[men], dayZhi, [], ["塞穴", "补垣", "取鱼", "乘船渡水"]],
+            ["九焦", "申巳辰丑戌未卯子酉午寅亥"[men], dayZhi, [], ["鼓铸", "栽种"]],
+            ["八座", "酉戌亥子丑寅卯辰巳午未申"[men], dayZhi, [], []],
+            // 血忌、血支
+            ["血忌", "午子丑未寅申卯酉辰戌巳亥"[men], dayZhi, [], ["针刺"]],
+            ["血支", "亥子丑寅卯辰巳午未申酉戌"[men], dayZhi, [], ["针刺"]],
+            // 土符
+            ["土符", "申子丑巳酉寅午戌卯未亥辰"[men], dayZhi, [],
+             ["营建", "修宫室", "缮城郭", "筑堤防", "修造", "修仓库", "修置产室", "开渠", "穿井", "安碓硙", "补垣", "修饰垣墙", "平治道涂", "破屋坏垣", "栽种", "破土"]],
+            // 土府
+            ["土府", "子丑寅卯辰巳午未申酉戌亥"[men], dayZhi, [],
+             ["营建", "修宫室", "缮城郭", "筑堤防", "修造", "修仓库", "修置产室", "开渠", "穿井", "安碓硙", "补垣", "修饰垣墙", "平治道涂", "破屋坏垣", "栽种", "破土"]],
+            // 四忌
+            ["四忌", d, ["甲子", "丙子", "庚子", "壬子"][sn], [], ["安抚边境", "选将", "出师", "结婚姻", "纳采", "嫁娶", "安葬"]],
+            // 四穷
+            ["四穷", d, ["乙亥", "丁亥", "辛亥", "癸亥"][sn], [], 
+             ["安抚边境", "选将", "出师", "结婚姻", "纳采", "嫁娶", "进人口", "修仓库", "开市", "立券交易", "纳财", "开仓", "安葬"]],
+            // 四废
+            ["四废", d, ["庚申辛酉", "壬子癸亥", "甲寅乙卯", "丁巳丙午"][sn], [],
+             ["祈福", "求嗣", "上册", "上表章", "颁诏", "施恩", "招贤", "举正直", "宣政事", "布政事", "庆赐", "宴会", "冠带", "出行", "安抚边境", "选将",
+              "出师", "上官", "临政", "结婚姻", "纳采", "嫁娶", "进人口", "搬移", "安床", "解除", "求医疗病", "裁制", "营建", "修宫室", "缮城郭", "筑堤防",
+              "修造", "竖柱上梁", "修仓库", "鼓铸", "经络", "酝酿", "开市", "立券交易", "纳财", "开仓", "修置产室", "开渠", "穿井", "安碓硙", "塞穴", "补垣",
+              "修饰垣墙", "栽种", "牧养", "纳畜", "破土", "安葬", "启攒"]],
+            // 五墓
+            ["五墓", ["壬辰", "戊辰", "乙未", "乙未", "戊辰", "丙戌", "丙戌", "戊辰", "辛丑", "辛丑", "戊辰", "壬辰"][men], d, [],
+             ["冠带", "出行", "安抚边境", "选将", "出师", "上官", "临政", "结婚姻", "纳采", "嫁娶", "进人口", "搬移", "安床", "解除", "求医疗病", "营建",
+              "修宫室", "缮城郭", "筑堤防", "修造", "竖柱上梁", "开市", "立券交易", "修置产室", "栽种", "牧养", "纳畜", "破土", "安葬", "启攒"]],
+            // 五虚
+            ["五虚", dayZhi, ["巳酉丑", "申子辰", "亥卯未", "寅午戌"][sn], [], ["修仓库", "开仓"]],
+            // 五离
+            ["五离", dayZhi, "申酉", ["沐浴"], ["庆赐", "宴会", "结婚姻", "纳采", "立券交易"]],
+            // 五鬼
+            ["五鬼", "未戌午寅辰酉卯申丑巳子亥"[men], dayZhi, [], ["出行"]],
+            // 八专
+            ["八专", d, ["丁未", "己未", "庚申", "甲寅", "癸丑"], [], ["安抚边境", "选将", "出师", "结婚姻", "纳采", "嫁娶"]],
+            // 天转
+            ["天转", d, ["乙卯", "丙午", "辛酉", "壬子"][sn], [], ["修造", "搬移", "嫁娶"]],
+            // 地转
+            ["地转", d, ["辛卯", "戊午", "癸酉", "丙子"][sn], [], ["修造", "搬移", "嫁娶"]],
+            // 月建转杀
+            ["月建转杀", "卯午酉子"[sn], dayZhi, [], ["修造"]],
+            // 荒芜
+            ["荒芜", dayZhi, ["巳酉丑", "申子辰", "亥卯未", "寅午戌"][sn], [], []],
+            // 蚩尤
+            ["蚩尤", "戌子寅辰午申"[men % 6], dayZhi, [], []],
+            // 大时、大败、咸池（相同规律）
+            ["大时", "酉午卯子酉午卯子酉午卯子"[men], dayZhi, [],
+             ["祈福", "求嗣", "上册", "上表章", "施恩", "招贤", "举正直", "冠带", "出行", "安抚边境", "选将", "出师", "上官", "临政", "结婚姻", "纳采", "嫁娶",
+              "进人口", "搬移", "安床", "解除", "求医疗病", "营建", "修宫室", "缮城郭", "筑堤防", "修造", "竖柱上梁", "修仓库", "开市", "立券交易", "纳财", "开仓",
+              "修置产室", "栽种", "牧养", "纳畜"]],
+            ["大败", "酉午卯子酉午卯子酉午卯子"[men], dayZhi, [], []],
+            ["咸池", "酉午卯子酉午卯子酉午卯子"[men], dayZhi, [], ["嫁娶", "取鱼", "乘船渡水"]],
+            // 四击
+            ["四击", "未未戌戌戌丑丑丑辰辰辰未"[men], dayZhi, [], ["安抚边境", "选将", "出师"]],
+            // 四耗
+            ["四耗", d, ["壬子", "乙卯", "戊午", "辛酉"][sn], [], ["安抚边境", "选将", "出师", "修仓库", "开市", "立券交易", "纳财", "开仓"]],
+            // 游祸
+            ["游祸", "亥申巳寅亥申巳寅亥申巳寅"[men], dayZhi, [], ["祈福", "求嗣", "解除", "求医疗病"]],
+            // 归忌
+            ["归忌", "寅子丑寅子丑寅子丑寅子丑"[men], dayZhi, [], ["搬移", "远回"]],
+            // 三娘煞
+            ["三娘煞", ldn, [3, 7, 13, 18, 22, 27], [], ["嫁娶", "结婚姻"]]
+        ];
+
+        // ===== getTodayGoodBadThing 函数：配合angel、demon的数据结构的吉神凶神筛选 =====
+        function getTodayGoodBadThing(dic) {
+            // 处理吉神
+            for (let godItem of angel) {
+                // godItem: [name, 当日判断结果, 判断规则, 宜事, 忌事]
+                const name = godItem[0];
+                const judgeResult = godItem[1];
+                const judgeRule = godItem[2];
+                const goodThings = godItem[3];
+                const badThings = godItem[4];
+                
+                let match = false;
+                
+                // 判断逻辑
+                if (typeof judgeRule === "boolean") {
+                    match = judgeRule;
+                } else if (typeof judgeRule === "string") {
+                    if (judgeRule.length === 1) {
+                        match = judgeResult === judgeRule;
+                    } else {
+                        match = judgeRule.includes(judgeResult);
+                    }
+                } else if (Array.isArray(judgeRule)) {
+                    if (Array.isArray(judgeResult)) {
+                        // 比较 [lmn, ldn] 是否在 judgeRule 列表中
+                        for (let item of judgeRule) {
+                            if (Array.isArray(item) && item[0] === judgeResult[0] && item[1] === judgeResult[1]) {
+                                match = true;
+                                break;
+                            }
+                        }
+                    } else if (typeof judgeResult === "number") {
+                        match = judgeRule.includes(judgeResult);
+                    } else {
+                        match = false;
+                    }
+                }
+                
+                if (match) {
+                    dic.goodName.push(name);
+                    dic.goodThing = addToArray(dic.goodThing, goodThings);
+                    dic.badThing = addToArray(dic.badThing, badThings);
+                }
+            }
+            
+            // 处理凶神
+            for (let godItem of demon) {
+                const name = godItem[0];
+                const judgeResult = godItem[1];
+                const judgeRule = godItem[2];
+                const goodThings = godItem[3];
+                const badThings = godItem[4];
+                
+                let match = false;
+                
+                // 判断逻辑（同吉神）
+                if (typeof judgeRule === "boolean") {
+                    match = judgeRule;
+                } else if (typeof judgeRule === "string") {
+                    if (judgeRule.length === 1) {
+                        match = judgeResult === judgeRule;
+                    } else {
+                        match = judgeRule.includes(judgeResult);
+                    }
+                } else if (Array.isArray(judgeRule)) {
+                    if (Array.isArray(judgeResult)) {
+                        for (let item of judgeRule) {
+                            if (Array.isArray(item) && item[0] === judgeResult[0] && item[1] === judgeResult[1]) {
+                                match = true;
+                                break;
+                            }
+                        }
+                    } else if (typeof judgeResult === "number") {
+                        match = judgeRule.includes(judgeResult);
+                    } else {
+                        match = false;
+                    }
+                }
+                
+                if (match) {
+                    dic.badName.push(name);
+                    dic.goodThing = addToArray(dic.goodThing, goodThings);
+                    dic.badThing = addToArray(dic.badThing, badThings);
+                }
+            }
+            
+            // 宜列、忌列分别去重
+            dic.goodThing = uniqueArray(dic.goodThing);
+            dic.badThing = uniqueArray(dic.badThing);
+            
+            return dic;
+        }
+
+        // 执行筛选
+        gbDic = getTodayGoodBadThing(gbDic);
+
+        let goodGodName = gbDic.goodName;
+        let badGodName = gbDic.badName;
+        let goodThing = gbDic.goodThing;
+        let badThing = gbDic.badThing;
+
+        // ===== 宜忌等第表后续处理 =====
+        // 首先获取宜忌等第
+        const levelInfo = getTodayThingLevel(jianchu, monthZhi, goodGodName, badGodName);
+        const thingLevel = levelInfo.thingLevel;
+        const isDe = levelInfo.isDe;
+        const todayLevel = levelInfo.level;
+
         // 从忌亦从宜：移除冲突
-        function badDrewGood(y, j) {
-            let conflict = y.filter(item => j.includes(item));
-            return [
-                y.filter(item => !conflict.includes(item)),
-                j.filter(item => !conflict.includes(item))
-            ];
+        function badDrewGood(dic) {
+            const conflict = dic.goodThing.filter(item => dic.badThing.includes(item));
+            dic.goodThing = dic.goodThing.filter(item => !conflict.includes(item));
+            dic.badThing = dic.badThing.filter(item => !conflict.includes(item));
+            return dic;
         }
         
-        // 从忌不从宜：保留忌，移除宜中的冲突
-        function badOppressGood(y, j) {
-            let conflict = y.filter(item => j.includes(item));
-            return [y.filter(item => !conflict.includes(item)), j];
+        // 从忌不从宜
+        function badOppressGood(dic) {
+            const conflict = dic.goodThing.filter(item => dic.badThing.includes(item));
+            dic.goodThing = dic.goodThing.filter(item => !conflict.includes(item));
+            return dic;
         }
         
-        // 从宜不从忌：保留宜，移除忌中的冲突
-        function goodOppressBad(y, j) {
-            let conflict = y.filter(item => j.includes(item));
-            return [y, j.filter(item => !conflict.includes(item))];
+        // 从宜不从忌
+        function goodOppressBad(dic) {
+            const conflict = dic.goodThing.filter(item => dic.badThing.includes(item));
+            dic.badThing = dic.badThing.filter(item => !conflict.includes(item));
+            return dic;
         }
         
         // 诸事不宜
-        function nothingGood() {
-            return [["诸事不宜"], ["诸事不宜"]];
+        function nothingGood(dic) {
+            dic.goodThing = ["诸事不宜"];
+            dic.badThing = ["诸事不宜"];
+            return dic;
         }
         
-        // 根据 thingLevel 处理
+        // 0:'从宜不从忌',1:'从宜亦从忌',2:'从忌不从宜',3:'诸事皆忌'
         if (thingLevel === 3) {
-            [yi, ji] = nothingGood();
+            gbDic = nothingGood(gbDic);
         } else if (thingLevel === 2) {
-            [yi, ji] = badOppressGood(yi, ji);
+            gbDic = badOppressGood(gbDic);
         } else if (thingLevel === 1) {
-            [yi, ji] = badDrewGood(yi, ji);
+            gbDic = badDrewGood(gbDic);
         } else {
-            [yi, ji] = goodOppressBad(yi, ji);
+            gbDic = goodOppressBad(gbDic);
         }
         
-        // ===== 遇德犹忌处理 =====
-        // 遇德犹忌事项
+        goodThing = gbDic.goodThing;
+        badThing = gbDic.badThing;
+
+        // 遇德犹忌之事字典
         const deIsBadThingDic = {
             "月德": ["畋猎", "取鱼"],
             "月德合": ["畋猎", "取鱼"],
@@ -1648,123 +1386,217 @@ const Almanac = (function() {
                 deIsBadThing = addToArray(deIsBadThing, deIsBadThingDic[god]);
             }
         }
-        
-        // 判断是否遇德合、赦、愿、月恩、四相、时德
-        let isDeSheEnSixiang = false;
-        const maxPowerGodList = ["月德合", "天德合", "天赦", "天愿", "月恩", "四相", "时德"];
-        for (let god of goodGodName) {
-            if (maxPowerGodList.includes(god)) {
-                isDeSheEnSixiang = true;
-                break;
-            }
-        }
-        
-        // 遇德犹忌处理
+
         if (thingLevel !== 3) {
-            // 凡德合、赦、愿、月恩、四相、时德等日，不注忌某些事项（非从忌不从宜日）
-            if (isDeSheEnSixiang && thingLevel !== 2) {
-                ji = removeFromArray(ji, ["进人口", "安床", "经络", "酝酿", "开市", "立券交易", "纳财", "开仓库", "出货财"]);
-                ji = addToArray(ji, deIsBadThing);
+            // 凡德合、赦愿、月恩、四相、时德等日，不注忌某些事项（非从忌不从宜日）
+            let isDeSheEnSixiang = false;
+            const maxPowerGodList = ["月德合", "天德合", "天赦", "天愿", "月恩", "四相", "时德"];
+            for (let god of goodGodName) {
+                if (maxPowerGodList.includes(god)) {
+                    isDeSheEnSixiang = true;
+                    break;
+                }
             }
             
-            // 吉足胜凶或吉凶相抵，遇德犹忌之事仍注忌
-            // 简化处理：直接在宜中保留遇德犹忌的事项
+            if (isDeSheEnSixiang && thingLevel !== 2) {
+                badThing = removeFromArray(badThing, ["进人口", "安床", "经络", "酝酿", "开市", "立券交易", "纳财", "开仓库", "出货财"]);
+                badThing = addToArray(badThing, deIsBadThing);
+            }
             
-            // 凡天狗寅日忌祭祀
-            if (badGodName.includes("天狗") || lunarDate.day_ganzhi.includes("寅")) {
-                ji = addToArray(ji, ["祭祀"]);
-                yi = removeFromArray(yi, ["祭祀", "求福", "祈嗣"]);
+            // 凡吉足胜凶，从宜不从忌者，如遇德犹忌之事，则仍注忌
+            if (todayLevel === 0 && thingLevel === 0) {
+                badThing = addToArray(badThing, deIsBadThing);
+            }
+            
+            // 凡吉凶相抵，不注宜亦不注忌者，如遇德犹忌之事，则仍注忌
+            if (todayLevel === 1) {
+                badThing = addToArray(badThing, deIsBadThing);
+                // 凡吉凶相抵，不注忌祈福，亦不注忌求嗣
+                if (!badThing.includes("祈福")) {
+                    badThing = removeFromArray(badThing, ["求嗣"]);
+                }
+                // 凡吉凶相抵，不注忌结婚姻，亦不注忌冠带、纳采问名、嫁娶、进人口，如遇德犹忌之日则仍注忌
+                if (!badThing.includes("结婚姻") && !isDe) {
+                    badThing = removeFromArray(badThing, ["冠带", "纳采问名", "嫁娶", "进人口"]);
+                }
+                // 凡吉凶相抵，不注忌嫁娶，亦不注忌冠带、结婚姻、纳采问名、进人口、搬移、安床，如遇德犹忌之日，则仍注忌
+                if (!badThing.includes("嫁娶") && !isDe) {
+                    if (!goodGodName.includes("不将")) {
+                        badThing = removeFromArray(badThing, ["冠带", "纳采问名", "结婚姻", "进人口", "搬移", "安床"]);
+                    }
+                }
+                // 凡吉凶相抵，不注忌搬移，亦不注忌安床
+                if (!badThing.includes("搬移") && !isDe) {
+                    badThing = removeFromArray(badThing, ["安床"]);
+                }
+                if (!badThing.includes("安床") && !isDe) {
+                    badThing = removeFromArray(badThing, ["搬移"]);
+                }
+                // 凡吉凶相抵，不注忌解除，亦不注忌整容、剃头、整手足甲
+                if (!badThing.includes("解除") && !isDe) {
+                    badThing = removeFromArray(badThing, ["整容", "剃头", "整手足甲"]);
+                }
+                // 凡吉凶相抵，不注忌修造动土、竖柱上梁，亦不注忌修宫室、缮城郭、筑提防、修仓库、鼓铸、苫盖、修置产室、开渠穿井、安碓硙、补垣塞穴、修饰垣墙、平治道涂、破屋坏垣
+                if ((!badThing.includes("修造") || !badThing.includes("竖柱上梁")) && !isDe) {
+                    badThing = removeFromArray(badThing, ["修宫室", "缮城郭", "整手足甲", "筑提", "修仓库", "鼓铸", "苫盖", "修置产室", "开渠穿井",
+                         "安碓硙", "补垣塞穴", "修饰垣墙", "平治道涂", "破屋坏垣"]);
+                }
+                // 凡吉凶相抵，不注忌开市，亦不注忌立券交易、纳财
+                if (!badThing.includes("开市") && !isDe) {
+                    badThing = removeFromArray(badThing, ["立券交易", "纳财", "开仓库", "出货财"]);
+                }
+                if (!badThing.includes("纳财") && !isDe) {
+                    badThing = removeFromArray(badThing, ["立券交易", "开市"]);
+                }
+                if (!badThing.includes("立券交易") && !isDe) {
+                    badThing = removeFromArray(badThing, ["纳财", "开市", "开仓库", "出货财"]);
+                }
+                // 凡吉凶相抵，不注忌牧养，亦不注忌纳畜
+                if (!badThing.includes("牧养") && !isDe) {
+                    badThing = removeFromArray(badThing, ["纳畜"]);
+                }
+                if (!badThing.includes("纳畜") && !isDe) {
+                    badThing = removeFromArray(badThing, ["牧养"]);
+                }
+                // 凡吉凶相抵，有宜安葬不注忌启攒，有宜启攒不注忌安葬
+                if (goodThing.includes("安葬") && !isDe) {
+                    badThing = removeFromArray(badThing, ["启攒"]);
+                }
+                if (goodThing.includes("启攒") && !isDe) {
+                    badThing = removeFromArray(badThing, ["安葬"]);
+                }
+            }
+            
+            // 凡忌诏命公卿、招贤，不注宜施恩、封拜、举正直、袭爵受封
+            if (badThing.includes("诏命公卿") || badThing.includes("招贤")) {
+                goodThing = removeFromArray(goodThing, ["施恩", "举正直"]);
+            }
+            // 凡忌施恩、封拜、举正直、袭爵受封，亦不注宜诏命公卿、招贤
+            if (badThing.includes("施恩") || badThing.includes("举正直")) {
+                goodThing = removeFromArray(goodThing, ["诏命公卿", "招贤"]);
+            }
+            
+            // 遇亥日、厌对、八专、四忌、四穷而仍注忌嫁娶者
+            if (d.includes("亥") || badGodName.includes("厌对") || badGodName.includes("八专") || badGodName.includes("四忌") || badGodName.includes("四穷")) {
+                badThing = addToArray(badThing, ["嫁娶"]);
+            }
+            
+            // 凡天狗寅日忌祭祀，不注宜求福、祈嗣
+            if (badGodName.includes("天狗") || d.includes("寅")) {
+                badThing = addToArray(badThing, ["祭祀"]);
+                goodThing = removeFromArray(goodThing, ["祭祀", "求福", "祈嗣"]);
             }
             
             // 凡卯日忌穿井，不注宜开渠。壬日忌开渠，不注宜穿井
-            if (lunarDate.day_ganzhi.includes("卯")) {
-                ji = addToArray(ji, ["穿井"]);
-                yi = removeFromArray(yi, ["穿井", "开渠"]);
+            if (d.includes("卯")) {
+                badThing = addToArray(badThing, ["穿井"]);
+                goodThing = removeFromArray(goodThing, ["穿井", "开渠"]);
             }
-            if (lunarDate.day_ganzhi.includes("壬")) {
-                ji = addToArray(ji, ["开渠"]);
-                yi = removeFromArray(yi, ["开渠", "穿井"]);
-            }
-            
-            // 凡巳日忌出行
-            if (lunarDate.day_ganzhi.includes("巳")) {
-                ji = addToArray(ji, ["出行"]);
-                yi = removeFromArray(yi, ["出行", "出师", "遣使"]);
+            if (d.includes("壬")) {
+                badThing = addToArray(badThing, ["开渠"]);
+                goodThing = removeFromArray(goodThing, ["开渠", "穿井"]);
             }
             
-            // 凡酉日忌宴会
-            if (lunarDate.day_ganzhi.includes("酉")) {
-                ji = addToArray(ji, ["宴会"]);
-                yi = removeFromArray(yi, ["宴会", "庆赐", "赏贺"]);
+            // 凡巳日忌出行，不注宜出师、遣使
+            if (d.includes("巳")) {
+                badThing = addToArray(badThing, ["出行"]);
+                goodThing = removeFromArray(goodThing, ["出行", "出师", "遣使"]);
             }
             
-            // 凡丁日忌剃头
-            if (lunarDate.day_ganzhi.includes("丁")) {
-                ji = addToArray(ji, ["剃头"]);
-                yi = removeFromArray(yi, ["剃头", "整容"]);
+            // 凡酉日忌宴会，亦不注宜庆赐、赏贺
+            if (d.includes("酉")) {
+                badThing = addToArray(badThing, ["宴会"]);
+                goodThing = removeFromArray(goodThing, ["宴会", "庆赐", "赏贺"]);
             }
             
-            // 凡月厌忌行幸、上官，遇宜宣政事则改宣为布
+            // 凡丁日忌剃头，亦不注宜整容
+            if (d.includes("丁")) {
+                badThing = addToArray(badThing, ["剃头"]);
+                goodThing = removeFromArray(goodThing, ["剃头", "整容"]);
+            }
+            
+            // 凡宜宣政事之日遇往亡则改宣为布
+            if (goodThing.includes("宣政事") && badGodName.includes("往亡")) {
+                goodThing = removeFromArray(goodThing, ["宣政事"]);
+                goodThing = addToArray(goodThing, ["布政事"]);
+            }
+            
+            // 凡月厌忌行幸、上官，不注宜颁诏、施恩封拜、诏命公卿、招贤、举正直
             if (badGodName.includes("月厌")) {
-                yi = removeFromArray(yi, ["颁诏", "施恩", "招贤", "举正直", "宣政事"]);
-                yi = addToArray(yi, ["布政事"]);
+                goodThing = removeFromArray(goodThing, ["颁诏", "施恩", "招贤", "举正直", "宣政事"]);
+                goodThing = addToArray(goodThing, ["布政事"]);
+                badThing = addToArray(badThing, ["补垣"]);
+                if (badGodName.includes("土府") || badGodName.includes("土符") || badGodName.includes("地囊")) {
+                    goodThing = removeFromArray(goodThing, ["塞穴"]);
+                }
             }
             
-            // 凡开日，不注宜破土、安葬、启攒
+            // 凡开日，不注宜破土、安葬、启攒，亦不注忌。遇忌则注
             if (jianchu === "开") {
-                yi = removeFromArray(yi, ["破土", "安葬", "启攒"]);
+                goodThing = removeFromArray(goodThing, ["破土", "安葬", "启攒"]);
             }
             
-            // 凡四忌、四穷只忌安葬
+            // 凡四忌、四穷只忌安葬。如遇鸣吠、鸣吠对亦不注宜破土、启攒
             if (badGodName.includes("四忌") || badGodName.includes("四穷")) {
-                ji = addToArray(ji, ["安葬"]);
-                yi = removeFromArray(yi, ["破土", "启攒"]);
+                badThing = addToArray(badThing, ["安葬"]);
+                goodThing = removeFromArray(goodThing, ["破土", "启攒"]);
+            }
+            if (goodGodName.includes("鸣吠") || goodGodName.includes("鸣吠对")) {
+                goodThing = removeFromArray(goodThing, ["破土", "启攒"]);
             }
             
-            // 遇鸣吠、鸣吠对亦不注宜破土、启攒
-            if (goodGodName.includes("鸣吠") || goodGodName.includes("鸣吠对")) {
-                yi = removeFromArray(yi, ["破土", "启攒"]);
+            // 二月甲戌、四月丙申、六月甲子、七月戊申、八月庚辰、九月辛卯、十月甲子、十二月甲子，德和与赦、愿所汇之辰，诸事不忌
+            if (["空", "甲戌", "空", "丙申", "空", "甲子", "戊申", "庚辰", "辛卯", "甲子", "空", "甲子"][lmn - 1] === d) {
+                badThing = ["诸事不忌"];
+            }
+            
+            // 岁德合、月德合、天德合与天赦、天愿同时出现，诸事不忌
+            const deHeList = ["岁德合", "月德合", "天德合"];
+            const sheYuanList = ["天赦", "天愿"];
+            const hasDeHe = goodGodName.some(g => deHeList.includes(g));
+            const hasSheYuan = goodGodName.some(g => sheYuanList.includes(g));
+            if (hasDeHe && hasSheYuan) {
+                badThing = ["诸事不忌"];
             }
         }
         
-        // 最终去重和清理
-        yi = uniqueArray(yi);
-        ji = uniqueArray(ji);
-        
-        // 移除宜忌中的冲突（宜中有忌中有的事项，从忌中移除）
-        let rmThing = ji.filter(thing => yi.includes(thing));
+        // 最终清理
+        let rmThing = badThing.filter(thing => goodThing.includes(thing));
         if (!(rmThing.length === 1 && rmThing[0].includes("诸事"))) {
-            ji = removeFromArray(ji, rmThing);
+            goodThing = removeFromArray(goodThing, rmThing);
         }
         
-        // 为空处理
-        if (ji.length === 0) ji = ["诸事不忌"];
-        if (yi.length === 0) yi = ["诸事不宜"];
+        // 为空清理
+        if (badThing.length === 0) {
+            badThing = ["诸事不忌"];
+        }
+        if (goodThing.length === 0) {
+            goodThing = ["诸事不宜"];
+        }
         
-        return { yi, ji };
+        // 输出排序调整
+        badThing.sort((a, b) => sortCollation(a) - sortCollation(b));
+        goodThing.sort((a, b) => sortCollation(a) - sortCollation(b));
+        
+        return { goodGodName, badGodName, goodThing, badThing };
     }
 
     // ==================== 主计算函数 ====================
 
     /**
-     * 计算指定日期的择吉信息
+     * 计算指定日期的择吉信息（完整版）
      * @param {object} lunarDate - 农历日期对象（来自 lunar_calendar.js）
-     * @param {number} year - 公历年（向后兼容）
-     * @param {number} month - 公历月（向后兼容）
-     * @param {number} day - 公历日（向后兼容）
+     * @param {number} year - 公历年
+     * @param {number} month - 公历月
+     * @param {number} day - 公历日
+     * @param {number} hour - 小时（0-23，可选，默认12）
      * @param {object} solarInfo - 可选的额外公历信息对象，包含 nextSolarNum, phaseOfMoon
      */
-    function calculate(lunarDate, year, month, day, solarInfo) {
+    function calculate(lunarDate, year, month, day, hour, solarInfo) {
         if (!lunarDate) return null;
         
-        // 支持两种调用方式：
-        // 1. Almanac.calculate(nongli, year, month, day) - 向后兼容
-        // 2. Almanac.calculate(nongli, year, month, day, {nextSolarNum, phaseOfMoon}) - 完整功能
         solarInfo = solarInfo || {};
-        const solarYear = year || lunarDate.year;
-        const solarMonth = month || lunarDate.month;
-        const solarDay = day || lunarDate.day;
-        const nextSolarNum = solarInfo.nextSolarNum || 0;
+        hour = hour || 12;
         const phaseOfMoon = solarInfo.phaseOfMoon || "";
         
         const yearGan = lunarDate.year_ganzhi[0];
@@ -1774,31 +1606,54 @@ const Almanac = (function() {
         const dayGan = lunarDate.day_ganzhi[0];
         const dayZhi = lunarDate.day_ganzhi[1];
         
+        // 计算节气信息（新增）
+        const solarTermsInfo = getTodaySolarTerms(year, month, day);
+        const nextSolarNum = solarTermsInfo.nextSolarNum;
+        
+        // 计算八字（包含时柱）
+        const baZi = calculate8Char(year, month, day, hour, lunarDate);
+        
+        // 计算星座
+        const starZodiac = calculateStarZodiac(month, day);
+        
         // 计算十二建除
         const jianchu = calculateJianchu(monthZhi, dayZhi);
         
         // 计算二十八宿（使用公历日期）
-        const xiu = calculateXiu(solarYear, solarMonth, solarDay);
+        const xiu = calculateXiu(year, month, day);
         
         // 计算十二神
         const shen = calculateRiShen(monthZhi, dayZhi);
         
-        // 获取吉神凶神及宜忌（完整版）
-        const angelDemon = getAngelDemon(lunarDate, solarYear, solarMonth, solarDay, nextSolarNum, phaseOfMoon);
+        // 计算九宫飞星
+        const flyStar9 = calculate9FlyStar(year, month, day);
         
-        // 计算宜忌等第
+        // 计算吉神方位
+        const luckyDirections = calculateLuckyGodsDirection(dayGan);
+        
+        // 计算胎神
+        const fetalGod = calculateFetalGod(dayGan + dayZhi);
+        
+        // 计算时辰吉凶
+        const twoHourLucky = calculateTwoHourLuckyList(dayGan + dayZhi);
+        
+        // 计算当日五行
+        const today5Elements = calculateToday5Elements(dayGan + dayZhi, xiu, jianchu);
+        
+        // 计算彭祖百忌
+        const pengTaboo = calculatePengTaboo(dayGan + dayZhi);
+        
+        // 获取吉神凶神及宜忌（已包含完整的宜忌筛选逻辑，传入节气信息）
+        const angelDemon = getAngelDemon(lunarDate, year, month, day, nextSolarNum, phaseOfMoon);
+        
+        // 宜忌等第信息已在 getAngelDemon 中处理
+        const yiji = {
+            yi: angelDemon.goodThing,
+            ji: angelDemon.badThing
+        };
+        
+        // 计算宜忌等第（用于评分）
         const levelInfo = getTodayThingLevel(jianchu, monthZhi, angelDemon.goodGodName, angelDemon.badGodName);
-        
-        // 根据等第处理宜忌
-        const yiji = processYiJiByLevel(
-            angelDemon.goodThing, 
-            angelDemon.badThing, 
-            levelInfo.thingLevel, 
-            angelDemon.goodGodName, 
-            angelDemon.badGodName,
-            jianchu,
-            lunarDate
-        );
         
         // 计算吉凶评分
         let score = 0;
@@ -1816,40 +1671,125 @@ const Almanac = (function() {
         else overall = "凶";
         
         return {
+            // 基本信息
             year: lunarDate.year,
             month: lunarDate.month,
             day: lunarDate.day,
             isLeap: lunarDate.is_leap,
+            hour: hour,
+            
+            // 八字
+            baZi: baZi,
+            
+            // 星座
+            starZodiac: starZodiac,
+            
+            // 干支
             yearGanzhi: lunarDate.year_ganzhi,
             monthGanzhi: lunarDate.month_ganzhi,
             dayGanzhi: lunarDate.day_ganzhi,
             zodiac: lunarDate.zodiac,
+            
+            // 择吉要素
             jianchu: jianchu,
             xiu: xiu,
             shen: shen,
+            flyStar9: flyStar9,
+            luckyDirections: luckyDirections,
+            fetalGod: fetalGod,
+            twoHourLucky: twoHourLucky,
+            today5Elements: today5Elements,
+            pengTaboo: pengTaboo,
+            
+            // 节气信息（新增）
+            solarTerms: {
+                today: solarTermsInfo.todaySolarTerm,
+                todayIndex: solarTermsInfo.todaySolarTermIndex,
+                next: solarTermsInfo.nextSolarTerm,
+                nextDate: solarTermsInfo.nextSolarTermDate,
+                nextYear: solarTermsInfo.nextSolarTermYear,
+                nextNum: solarTermsInfo.nextSolarNum,
+                list: solarTermsInfo.thisYearSolarTermsDateList
+            },
+            
+            // 神煞
             goodGodName: angelDemon.goodGodName,
             badGodName: angelDemon.badGodName,
-            luck: {
-                score: score,
-                overall: overall
-            },
+            
+            // 吉凶
+            luck: { score: score, overall: overall },
+            
+            // 宜忌
             yi: yiji.yi,
             ji: yiji.ji,
             levelInfo: levelInfo,
-            display: `${lunarDate.year_ganzhi}${lunarDate.zodiac}年 ${lunarDate.month_name}${lunarDate.day_name} ${jianchu}日${xiu}宿值${shen}`
+            
+            // 显示字符串
+            display: `${lunarDate.year_ganzhi}${lunarDate.zodiac}年 ${lunarDate.month_name}${lunarDate.day_name} ${jianchu}日${xiu[0]}宿值${shen}`,
+            
+            // 时辰干支列表
+            twoHour8Char: getTwoHour8CharList(dayGan + dayZhi)
         };
     }
 
     // ==================== 公共接口 ====================
     
     return {
+        // 主计算函数
         calculate: calculate,
-        // 暴露内部函数供测试使用
-        _calculateJianchu: calculateJianchu,
-        _calculateXiu: calculateXiu,
-        _calculateRiShen: calculateRiShen,
-        _getAngelDemon: getAngelDemon,
-        _getTodayThingLevel: getTodayThingLevel
+        
+        // 八字计算
+        calculate8Char: calculate8Char,
+        getTwoHour8CharList: getTwoHour8CharList,
+        
+        // 星座计算
+        calculateStarZodiac: calculateStarZodiac,
+        
+        // 十二建除
+        calculateJianchu: calculateJianchu,
+        
+        // 二十八宿
+        calculateXiu: calculateXiu,
+        
+        // 十二神
+        calculateRiShen: calculateRiShen,
+        
+        // 九宫飞星
+        calculate9FlyStar: calculate9FlyStar,
+        
+        // 吉神方位
+        calculateLuckyGodsDirection: calculateLuckyGodsDirection,
+        
+        // 胎神
+        calculateFetalGod: calculateFetalGod,
+        
+        // 时辰吉凶
+        calculateTwoHourLuckyList: calculateTwoHourLuckyList,
+        
+        // 当日五行
+        calculateToday5Elements: calculateToday5Elements,
+        
+        // 彭祖百忌
+        calculatePengTaboo: calculatePengTaboo,
+        
+        // 宜忌等第
+        getTodayThingLevel: getTodayThingLevel,
+        
+        // 吉凶神煞
+        getAngelDemon: getAngelDemon,
+        
+        // 节气计算（新增）
+        getSolarTermsDateList: getSolarTermsDateList,
+        getTodaySolarTerms: getTodaySolarTerms,
+        calcSolarTerm: calcSolarTerm,
+
+        // 辅助函数
+        getGanIndex: getGanIndex,
+        getZhiIndex: getZhiIndex,
+        getGanzhiIndex: getGanzhiIndex,
+        uniqueArray: uniqueArray,
+        addToArray: addToArray,
+        removeFromArray: removeFromArray
     };
 
 })();
