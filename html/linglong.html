@@ -91,7 +91,7 @@ a {
 }
 .setting_button:active, .joystick_button:active {
     background: #232323;
-    padding: 2px 0 0 2px;
+    padding: 1px 0 0 1px;
     color: #ffffffaa;
     box-shadow: inset 1px 1px 3px 0px rgba(0, 0, 0, 0.5);
 }
@@ -106,9 +106,10 @@ a {
     <div class="container" style="text-align: center; padding: 0 10px 0 10px;">
         <div style="font-size: 10px; margin: 10px auto; color: #ffffffaa;">V2603 &copy; 2011-2026 <a href="https://bd4sur.com" target="_blank">BD4SUR</a></div>
         <div class="setting_buttons_container">
+            <button class="setting_button" id="toggle_projection">投影算法<br><span class="status_label" id="projection_status">-</span></button>
             <button class="setting_button" id="toggle_equatorial_coord">赤道坐标<br><span class="status_label" id="equatorial_coord_status">-</span></button>
             <button class="setting_button" id="toggle_horizontal_coord">地平方位<br><span class="status_label" id="horizontal_coord_status">-</span></button>
-            <button class="setting_button" id="toggle_star_burst">星芒<br><span class="status_label" id="star_burst_status">-</span></button>
+            <button class="setting_button" id="toggle_star_burst" style="display: none;">星芒<br><span class="status_label" id="star_burst_status">-</span></button>
             <button class="setting_button" id="toggle_ecliptic_circle">黄道<br><span class="status_label" id="ecliptic_circle_status">-</span></button>
             <button class="setting_button" id="toggle_star_name">天体名称<br><span class="status_label" id="star_name_status">-</span></button>
             <button class="setting_button" id="toggle_cloud">体积云<br><span class="status_label" id="cloud_status">-</span></button>
@@ -223,8 +224,8 @@ a {
     <script>
 
 
-
-const USE_FISHEYE_PROJECTION = true; // 是否使用鱼眼投影（否则使用XY投影）
+// 是否使用鱼眼投影（否则使用线性透视投影）
+let enable_fisheye_projection = true;
 
 // 是否启用赤道坐标圈
 let enable_equatorial_coord = false;
@@ -648,14 +649,29 @@ function fisheye_project(azimuth_deg, altitude_deg, R, center_x, center_y, view_
     let vy = dot(v, yv_rot);
     let vz = dot(v, v_view);
 
-    if (vz < -1) return [0, 0];
+    if (enable_fisheye_projection) {
+        if (vz < -1) return [0, 0];
+        const theta = Math.acos(vz); // rad
+        const phi_v = -Math.atan2(vx, vy); // rad
+        const r = (f * 2.0 * R / Math.PI) * theta;
+        const x =  r * Math.sin(phi_v);
+        const y = -r * Math.cos(phi_v);
+        return [x + center_x, y + center_y];
+    }
+    else {
+        // *** 透视投影要求目标点严格在相机前方（vz > 0） ***
+        // vz ≤ 0 意味着点在相机后方或侧面，返回大误差值驱离优化器
+        if (vz <= 0) return [center_x + 1e6, center_y + 1e6];
 
-    const theta = Math.acos(vz); // rad
-    const phi_v = -Math.atan2(vx, vy); // rad
-    const r = (f * 2.0 * R / Math.PI) * theta;
-    const x =  r * Math.sin(phi_v);
-    const y = -r * Math.cos(phi_v);
-    return [x + center_x, y + center_y];
+        // *** 透视正向公式：
+        //   screen_x - center_x = -f·R·vx/vz
+        //   screen_y - center_y = -f·R·vy/vz
+        // 等价于 r_proj = f·R·tan(θ) = f·R·√(vx²+vy²)/vz ***
+        return [
+            center_x - f * R * vx / vz,
+            center_y - f * R * vy / vz
+        ];
+    }
 }
 
 function fisheye_unproject(scr_x, scr_y, R, center_x, center_y, view_alt, view_azi, view_roll, f) {
@@ -674,7 +690,7 @@ function fisheye_unproject(scr_x, scr_y, R, center_x, center_y, view_alt, view_a
     }
 
     // 极坐标转单位向量
-    let theta = (Math.PI / 2) * (r / (R * f));
+    let theta = (enable_fisheye_projection) ? ((Math.PI / 2) * (r / (R * f))) : (Math.atan2(r, f * R));
     let pxy = Math.sin(theta);
     let p_prime = [
         pxy * Math.sin(phi_prime),
@@ -767,7 +783,7 @@ function find_view_dir(alt, azi, R, x, y, center_x, center_y, view_roll, f, last
     }
     
     // 3. 计算球面参数
-    let theta = r * Math.PI / (2 * f * R);
+    let theta = (enable_fisheye_projection) ? (r * Math.PI / (2 * f * R)) : (Math.atan2(r, f * R));
     theta = Math.max(0, Math.min(Math.PI, theta));
     const phi_v = Math.atan2(dx, -dy); // 由投影公式反推
     const k = Math.sin(theta) * Math.cos(phi_v);
@@ -892,15 +908,31 @@ function find_view_dir_numerical(alt, azi, R, x, y, center_x, center_y, view_rol
         const vx = dot(v, x_v);
         const vy = dot(v, y_v);
         const vz = dot(v, v_view);
-        if (vz <= -1) return [center_x, center_y];
-        
-        const theta = Math.acos(Math.max(-1, Math.min(1, vz)));
-        const phi_v = -Math.atan2(vx, vy);
-        const r_proj = (f * 2 * R / Math.PI) * theta;
-        return [
-            r_proj * Math.sin(phi_v) + center_x,
-            -r_proj * Math.cos(phi_v) + center_y
-        ];
+
+        if (enable_fisheye_projection) {
+            if (vz <= -1) return [center_x, center_y];
+            const theta = Math.acos(Math.max(-1, Math.min(1, vz)));
+            const phi_v = -Math.atan2(vx, vy);
+            const r_proj = (f * 2 * R / Math.PI) * theta;
+            return [
+                r_proj * Math.sin(phi_v) + center_x,
+                -r_proj * Math.cos(phi_v) + center_y
+            ];
+        }
+        else {
+            // *** 透视投影要求目标点严格在相机前方（vz > 0） ***
+            // vz ≤ 0 意味着点在相机后方或侧面，返回大误差值驱离优化器
+            if (vz <= 0) return [center_x + 1e6, center_y + 1e6];
+
+            // *** 透视正向公式：
+            //   screen_x - center_x = -f·R·vx/vz
+            //   screen_y - center_y = -f·R·vy/vz
+            // 等价于 r_proj = f·R·tan(θ) = f·R·√(vx²+vy²)/vz ***
+            return [
+                center_x - f * R * vx / vz,
+                center_y - f * R * vy / vz
+            ];
+        }
     }
     
     // ===== 关键增强：以last为初始点构建单纯形 =====
@@ -1025,31 +1057,18 @@ function find_view_dir_numerical(alt, azi, R, x, y, center_x, center_y, view_rol
 
 // 地平天球的球坐标系→地平天球的笛卡尔坐标系→投影到地面投影坐标系
 function horizontal_to_screen_xy(azimuth_deg, altitude_deg, R, center_x, center_y) {
-    // 鱼眼投影
-    if (USE_FISHEYE_PROJECTION) {
-        const az_rad = (-azimuth_deg * Math.PI) / 180; // 因为是躺在地上看天，所以方位角是从正北逆时针旋转
-        const alt_rad = (altitude_deg * Math.PI) / 180;
-        // 天顶距（zenith distance）θ = π/2 - altitude
-        const theta = Math.PI / 2 - alt_rad; // 弧度
-        // 等距鱼眼投影：r ∝ θ，且当地平线（θ = π/2）时 r = R
-        // 所以 r = R * (θ / (π/2)) = (2R / π) * θ
-        const r = (2 * R / Math.PI) * theta;
-        // 投影到平面：X指向东（注意因为是躺在地上看天，所以东是屏幕坐标系的左侧/负半轴），Y指向北
-        // azimuth=0°（北）→ (0, r)；azimuth=90°（东）→ (r, 0)
-        const X = r * Math.sin(az_rad);
-        const Y = -r * Math.cos(az_rad);
-        return [X + center_x, Y + center_y];
-    }
-    // XY投影：笛卡尔坐标系的XY直接垂直投射到地平面上
-    else {
-        const xyz = horizontal_to_xyz(azimuth_deg, altitude_deg, R);
-        if (altitude_deg >= 0) {
-            return [xyz[0] + center_x, xyz[1] + center_y]; // 转到canvas的屏幕坐标系
-        }
-        else {
-            return [xyz[0] - center_x, xyz[1] - center_y]; // 地平面以下的，移出canvas显示范围
-        }
-    }
+    const az_rad = (-azimuth_deg * Math.PI) / 180; // 因为是躺在地上看天，所以方位角是从正北逆时针旋转
+    const alt_rad = (altitude_deg * Math.PI) / 180;
+    // 天顶距（zenith distance）θ = π/2 - altitude
+    const theta = Math.PI / 2 - alt_rad; // 弧度
+    // 等距鱼眼投影：r ∝ θ，且当地平线（θ = π/2）时 r = R
+    // 所以 r = R * (θ / (π/2)) = (2R / π) * θ
+    const r = (2 * R / Math.PI) * theta;
+    // 投影到平面：X指向东（注意因为是躺在地上看天，所以东是屏幕坐标系的左侧/负半轴），Y指向北
+    // azimuth=0°（北）→ (0, r)；azimuth=90°（东）→ (r, 0)
+    const X = r * Math.sin(az_rad);
+    const Y = -r * Math.cos(az_rad);
+    return [X + center_x, Y + center_y];
 }
 
 
@@ -1060,23 +1079,18 @@ function screen_xy_to_xyz(scr_x, scr_y, radius, center_x, center_y) {
     const dx = scr_x - cx;
     const dy = scr_y - cy;
     let hor_xyz = [0, 0, 0];
-    // 鱼眼投影
-    if (USE_FISHEYE_PROJECTION) {
-        let r = Math.sqrt(dx*dx + dy*dy) / radius; // 归一化半径
-        if (r <= 1) {
-            const theta = r * Math.PI / 2; // 天顶角
-            const phi = Math.atan2(dx, dy); // 方位角
-            hor_xyz = [
-                -radius * Math.sin(theta) * Math.sin(phi),
-                -radius * Math.sin(theta) * Math.cos(phi),
-                radius * Math.cos(theta)
-            ];
-        }
+
+    let r = Math.sqrt(dx*dx + dy*dy) / radius; // 归一化半径
+    if (r <= 1) {
+        const theta = r * Math.PI / 2; // 天顶角
+        const phi = Math.atan2(dx, dy); // 方位角
+        hor_xyz = [
+            -radius * Math.sin(theta) * Math.sin(phi),
+            -radius * Math.sin(theta) * Math.cos(phi),
+            radius * Math.cos(theta)
+        ];
     }
-    // XY投影
-    else {
-        hor_xyz = [ dx, dy, Math.sqrt(radius*radius - (dx*dx + dy*dy)) ];
-    }
+
     return hor_xyz;
 }
 
@@ -3510,7 +3524,8 @@ const VolumetricCloudWebGL = {
             u_cloud_bbox_max: gl.getUniformLocation(this.program, 'u_cloud_bbox_max'),
             u_cloud_clusters: gl.getUniformLocation(this.program, 'u_cloud_clusters'),
             u_cloud_params: gl.getUniformLocation(this.program, 'u_cloud_params'),
-            u_background_texture: gl.getUniformLocation(this.program, 'u_background_texture')
+            u_background_texture: gl.getUniformLocation(this.program, 'u_background_texture'),
+            u_enable_fisheye_projection: gl.getUniformLocation(this.program, 'u_enable_fisheye_projection')
         };
         
         // 创建输出纹理和帧缓冲区
@@ -3594,6 +3609,7 @@ const VolumetricCloudWebGL = {
         uniform float u_cloud_bbox_min;
         uniform float u_cloud_bbox_max;
         uniform sampler2D u_background_texture;
+        uniform int u_enable_fisheye_projection;
         
         // 云团数据：x, y, z, radius
         uniform vec4 u_cloud_clusters[3];
@@ -3668,7 +3684,13 @@ const VolumetricCloudWebGL = {
                 phi_prime = atan(dx, dy); // NOTE 此处不同
             }
             
-            float theta = r * PI / (2.0 * u_f * u_sky_radius);
+            float theta = 0.0;
+            if (u_enable_fisheye_projection == 0) {
+                theta = atan(r, u_f * u_sky_radius);
+            }
+            else {
+                theta = r * PI / (2.0 * u_f * u_sky_radius);
+            }
             theta = clamp(theta, 0.0, PI);
             float pxy = sin(theta);
             vec3 p_prime = vec3(
@@ -3981,6 +4003,7 @@ const VolumetricCloudWebGL = {
         gl.uniform1f(this.uniforms.u_cloud_bbox_min, cloud_bbox_min);
         gl.uniform1f(this.uniforms.u_cloud_bbox_max, cloud_bbox_max);
         gl.uniform1i(this.uniforms.u_background_texture, 0);
+        gl.uniform1i(this.uniforms.u_enable_fisheye_projection, (enable_fisheye_projection) ? 1 : 0);
         
         // 设置云团数据
         for (let i = 0; i < 3; i++) {
@@ -4107,7 +4130,8 @@ const AtmosphericScatteringWebGL = {
             u_f: gl.getUniformLocation(this.program, 'u_f'),
             u_sun_alt: gl.getUniformLocation(this.program, 'u_sun_alt'),
             u_sun_azi: gl.getUniformLocation(this.program, 'u_sun_azi'),
-            u_model_index: gl.getUniformLocation(this.program, 'u_model_index')
+            u_model_index: gl.getUniformLocation(this.program, 'u_model_index'),
+            u_enable_fisheye_projection: gl.getUniformLocation(this.program, 'u_enable_fisheye_projection')
         };
         
         // 创建输出纹理和帧缓冲区
@@ -4180,6 +4204,7 @@ const AtmosphericScatteringWebGL = {
         uniform float u_sun_alt;
         uniform float u_sun_azi;
         uniform int u_model_index;
+        uniform int u_enable_fisheye_projection;
         
         const float PI = 3.14159265358979323846;
 
@@ -4216,7 +4241,13 @@ const AtmosphericScatteringWebGL = {
                 phi_prime = atan(dx, -dy);
             }
             
-            float theta = r * PI / (2.0 * u_f * u_sky_radius);
+            float theta = 0.0;
+            if (u_enable_fisheye_projection == 0) {
+                theta = atan(r, u_f * u_sky_radius);
+            }
+            else {
+                theta = r * PI / (2.0 * u_f * u_sky_radius);
+            }
             theta = clamp(theta, 0.0, PI);
             float pxy = sin(theta);
             vec3 p_prime = vec3(
@@ -4806,6 +4837,7 @@ const AtmosphericScatteringWebGL = {
         gl.uniform1f(this.uniforms.u_sun_alt, sun_alt);
         gl.uniform1f(this.uniforms.u_sun_azi, sun_azi);
         gl.uniform1i(this.uniforms.u_model_index, model_index);
+        gl.uniform1i(this.uniforms.u_enable_fisheye_projection, (enable_fisheye_projection) ? 1 : 0);
         
         // 绘制全屏四边形
         gl.drawArrays(gl.TRIANGLES, 0, 6);
@@ -5817,9 +5849,19 @@ function refresh_view_angle() {
 function refresh_button_status() {
     let status = null;
 
+    // toggle_projection
+    let btn = document.getElementById("toggle_projection");
+    if (!enable_fisheye_projection) {
+        status = `<span class="switch_active">透视投影</span>`;
+    }
+    else {
+        status = `<span class="switch_active">鱼眼投影</span>`;
+    }
+    document.getElementById("projection_status").innerHTML = status;
+
 
     // toggle_equatorial_coord
-    let btn = document.getElementById("toggle_equatorial_coord");
+    btn = document.getElementById("toggle_equatorial_coord");
     if (!enable_equatorial_coord) {
         status = `<span class="switch_off">关闭</span>`;
     }
@@ -6069,6 +6111,11 @@ window.onload = function() {
         refresh_button_status();
     });
 
+
+    document.getElementById("toggle_projection").addEventListener("click", function(e) {
+        enable_fisheye_projection = !enable_fisheye_projection;
+        refresh_button_status();
+    });
     document.getElementById("toggle_equatorial_coord").addEventListener("click", function(e) {
         enable_equatorial_coord = !enable_equatorial_coord;
         refresh_button_status();
