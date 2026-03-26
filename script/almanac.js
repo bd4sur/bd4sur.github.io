@@ -1581,6 +1581,53 @@ const Almanac = (function() {
         return { goodGodName, badGodName, goodThing, badThing };
     }
 
+    // 子午流注
+    // 输入：0-子时；1-丑时……
+    function calculateZiWuLiuZhu(shichen) {
+        const ziwuliuzhu = {
+        //  当令器官  说明                    宜      忌
+            "子": ["胆",   "子时睡得足，黑眼圈不露。子时前入睡，晨醒后头脑清新，气色红润。", "睡觉", "熬夜、吃夜宵"],
+            "丑": ["肝",   "人卧则血归于肝。此时应熟睡养肝，让肝血推陈出新，顺利排毒藏血。", "熟睡", "熬夜，生闷气、久视"],
+            "寅": ["肺",   "寅时睡得熟，面红精气足。此时肺经最旺，熟睡可保证气血平均分配。", "熟睡，或导引吐纳、调理肺经", "熬夜"],
+            "卯": ["大肠", "卯时大肠蠕，排毒渣滓出。此时宜披衣起床。", "起床喝温热的白开水，排便，调理大肠经", "饮酒"],
+            "辰": ["胃",   "辰时吃早餐，营养身体安。早餐宜丰富及多样化。", "及时吃早餐，调理胃经", "早餐质量不好"],
+            "巳": ["脾",   "巳时脾经旺，造血身体壮。此时宜适当活动，忌久坐不动。", "适量饮水，调理脾经", "思虑过度，久坐不动"],
+            "午": ["心",   "午时一小憩，安神养精气。午时小睡片刻或闭目养神，有助于养心。", "吃午餐，小憩，静养阴血，调理心经", "马上剧烈运动"],
+            "未": ["小肠", "未时分清浊，饮水能降火。此时宜多喝水、喝茶，利于小肠排毒降火。", "调理小肠经", "多吃食物"],
+            "申": ["膀胱", "申时津液足，养阴身体舒。此时宜运动，有助于体内津液循环。", "适量饮水，运动，工作，调理膀胱经", "憋小便"],
+            "酉": ["肾",   "日出而作，日入而息。此时适宜下班。", "休息，调理肾经", "过劳"],
+            "戌": ["心包", "戌时护心脏，减压心舒畅。此时宜保持心情舒畅。", "吃晚餐，减压，散步，调理心包经", "晚餐过肥腻，生气"],
+            "亥": ["三焦", "亥时百脉通，养身养娇容。此时宜睡眠，休息百脉，有益美容。", "心平气和，入睡，调理三焦经", "熬夜，生气，饮茶"],
+        };
+        return ziwuliuzhu[shichen];
+    }
+
+    // 用蔡勒公式计算当天是星期几
+    function getWeekByZeller(year, month, day) {
+        // 关键：处理一月和二月，将其视为上一年的第13月和第14月
+        if (month < 3) {
+            month += 12;
+            year -= 1;
+        }
+        const q = day;                           // 日期
+        const m = month;                         // 调整后的月份（3-14）
+        const K = year % 100;                    // 世纪年份（年份后两位）
+        const J = Math.floor(year / 100);        // 世纪数（年份前两位）
+        // 蔡勒公式计算（公历版本）
+        let h = (q + 
+                Math.floor(13 * (m + 1) / 5) + 
+                K + 
+                Math.floor(K / 4) + 
+                Math.floor(J / 4) - 
+                2 * J) % 7;
+        // 处理 JavaScript 取模可能产生的负数结果（如 -1 % 7 = -1）
+        if (h < 0) {
+            h += 7;
+        }
+        const weekDays = ['星期六', '星期日', '星期一', '星期二', '星期三', '星期四', '星期五'];
+        return weekDays[h];
+    }
+
     // ==================== 主计算函数 ====================
 
     /**
@@ -1605,6 +1652,7 @@ const Almanac = (function() {
         const monthZhi = lunarDate.month_ganzhi[1];
         const dayGan = lunarDate.day_ganzhi[0];
         const dayZhi = lunarDate.day_ganzhi[1];
+        const week = getWeekByZeller(year, month, day);
         
         // 计算节气信息（新增）
         const solarTermsInfo = getTodaySolarTerms(year, month, day);
@@ -1612,6 +1660,9 @@ const Almanac = (function() {
         
         // 计算八字（包含时柱）
         const baZi = calculate8Char(year, month, day, hour, lunarDate);
+
+        // 子午流注
+        const ziwuliuzhu = calculateZiWuLiuZhu(baZi.hour.zhi);
         
         // 计算星座
         const starZodiac = calculateStarZodiac(month, day);
@@ -1677,9 +1728,13 @@ const Almanac = (function() {
             day: lunarDate.day,
             isLeap: lunarDate.is_leap,
             hour: hour,
+            week: week,
             
             // 八字
             baZi: baZi,
+
+            // 子午流注
+            ziwuliuzhu: ziwuliuzhu,
             
             // 星座
             starZodiac: starZodiac,

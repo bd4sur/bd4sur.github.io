@@ -56,17 +56,18 @@ a {
 }
 
 .status_label {
-    font-size: smaller;
+    font-size: 9px;
 }
 .switch_on {
     color: #00ff00;
-    background: #192c19;
+    /* background: #192c19; */
+    text-shadow: 0px 0px 10px #00ff00;
 }
 .switch_off {
     color: #929397;
 }
 .switch_active {
-    color: #00cccc;
+    color: #00ffff;
 }
 .setting_buttons_container {
     display: flex;
@@ -76,23 +77,19 @@ a {
     flex-wrap: wrap;
     flex-direction: row;
 }
-.setting_button {
-    min-height: 32px;
-    min-width: 60px;
-    font-size: 11px;
-}
+
 .joystick_buttons_container {
     margin: 0px auto;
     padding: 10px;
 }
-.joystick_button {
+.setting_button, .joystick_button {
     color: #ffffff;
-    min-height: 32px;
+    min-height: 34px;
     min-width: 60px;
     font-size: 11px;
     box-shadow: inset 1px 1px 1px #515151ba, inset -1px -1px 1px #0000003b, .222px .222px .314px -.5px #0003, .605px .605px .856px -1px #0000002e, 1.329px 1.329px 1.88px -1.5px #00000040, 2.95px 2.95px 4.172px -2px #0000001a, 2.5px 2.5px 3px -2.5px #00000026, -.5px -.5px #0000001a;
 }
-.joystick_button:active {
+.setting_button:active, .joystick_button:active {
     background: #232323;
     padding: 2px 0 0 2px;
     color: #ffffffaa;
@@ -109,18 +106,16 @@ a {
     <div class="container" style="text-align: center; padding: 0 10px 0 10px;">
         <div style="font-size: 10px; margin: 10px auto; color: #ffffffaa;">V2603 &copy; 2011-2026 <a href="https://bd4sur.com" target="_blank">BD4SUR</a></div>
         <div class="setting_buttons_container">
-            <button class="setting_button" id="toggle_equatorial_coord">赤道坐标</button>
+            <button class="setting_button" id="toggle_equatorial_coord">赤道坐标<br><span class="status_label" id="equatorial_coord_status">-</span></button>
             <button class="setting_button" id="toggle_horizontal_coord">地平方位<br><span class="status_label" id="horizontal_coord_status">-</span></button>
-            <button class="setting_button" id="toggle_star_burst">星芒</button>
-            <button class="setting_button" id="toggle_ecliptic_circle">黄道</button>
-            <button class="setting_button" id="toggle_planet" style="display: none;">行星</button>
-            <button class="setting_button" id="toggle_star_name">天体名称</button>
-            <button class="setting_button" id="toggle_planet_name" style="display: none;">行星名称</button>
-            <button class="setting_button" id="toggle_opt_bilinear">双线性插值</button>
-            <button class="setting_button" id="toggle_cloud">体积云</button>
-            <button class="setting_button" id="toggle_gyro">重力感应</button>
-            <button class="setting_button" id="toggle_att_indicator">姿态指示</button>
-            <button class="setting_button" id="toggle_webgl">GPU渲染</button>
+            <button class="setting_button" id="toggle_star_burst">星芒<br><span class="status_label" id="star_burst_status">-</span></button>
+            <button class="setting_button" id="toggle_ecliptic_circle">黄道<br><span class="status_label" id="ecliptic_circle_status">-</span></button>
+            <button class="setting_button" id="toggle_star_name">天体名称<br><span class="status_label" id="star_name_status">-</span></button>
+            <button class="setting_button" id="toggle_cloud">体积云<br><span class="status_label" id="cloud_status">-</span></button>
+            <button class="setting_button" id="toggle_gyro">重力感应<br><span class="status_label" id="gyro_status">-</span></button>
+            <button class="setting_button" id="toggle_att_indicator">姿态指示<br><span class="status_label" id="att_indicator_status">-</span></button>
+            <button class="setting_button" id="toggle_opt_bilinear">平滑滤波<br><span class="status_label" id="opt_bilinear_status">-</span></button>
+            <button class="setting_button" id="toggle_webgl">GPU渲染<br><span class="status_label" id="webgl_status">-</span></button>
             <button class="setting_button" id="toggle_atmospheric_scattering">大气散射<br><span class="status_label" id="scattering_status">-</span></button>
             <button class="setting_button" id="toggle_landscape">地景<br><span class="status_label" id="landscape_status">-</span></button>
         </div>
@@ -146,10 +141,12 @@ a {
         </div>
 
         <div class="setting_buttons_container" id="timemachine_controller">
-            <button class="setting_button" id="toggle_timemachine_backward">◀快退</button>
+            <button class="setting_button" id="toggle_timemachine_backward_day">▕◀◀</button>
+            <button class="setting_button" id="toggle_timemachine_backward">▕◀</button>
             <button class="setting_button" id="toggle_timemachine_now">实时</button>
-            <button class="setting_button" id="toggle_timemachine_pause">暂停/运行</button>
-            <button class="setting_button" id="toggle_timemachine_forward">快进▶</button>
+            <button class="setting_button" id="toggle_timemachine_pause">暂停/运行<br><span class="status_label" id="timemachine_status">-</span></button>
+            <button class="setting_button" id="toggle_timemachine_forward">▶▏</button>
+            <button class="setting_button" id="toggle_timemachine_forward_day">▶▶▏</button>
         </div>
 
         <table class="joystick_buttons_container">
@@ -170,17 +167,26 @@ a {
             </tr>
         </table>
 
-        <div style="font-size: 12px; font-family: monospace;" id="view_dir">Pitch:<span id="view_pitch">-</span>° Yaw:<span id="view_yaw">-</span>° Roll:<span id="view_roll">-</span>° Range:<span id="view_range">-</span></div>
+        <div style="font-size: 12px; font-family: monospace; display: none;" id="view_dir">Pitch:<span id="view_pitch">-</span>° Yaw:<span id="view_yaw">-</span>° Roll:<span id="view_roll">-</span>° Range:<span id="view_range">-</span></div>
 
         <!-- 择吉信息显示框 -->
         <div class="almanac_container" id="almanac_info" style="display: flex; max-width: 400px; margin: 10px auto; padding: 3px; background: #141516; border-radius: 6px; flex-direction: column;">
             <!-- <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
                 <div style="font-size: 12px; font-weight: bold; color: #ffffff;">基于《钦定协纪辨方书》的择吉算法</div>
             </div> -->
-            <!-- 八字、星座、宿值、建除、十二神、当日吉凶 -->
+            <!-- 八字、星期、星座、宿值、建除、十二神、当日吉凶 -->
             <div style="display: flex; justify-content: space-between; align-items: center; font-size: 11px; margin-bottom: 3px; padding: 6px; background: #1a1a1a; border-radius: 4px;">
-                <div><span id="almanac_bazi" style="color: #ffaa66; font-weight: bold;">-</span> | <span id="almanac_zodiac" style="color: #66ccff;">-</span> | <span id="almanac_xiu" style="color: #66ccff;">-</span> | <span id="almanac_jianchu" style="color: #66ccff;">-</span> | <span id="almanac_shen" style="color: #66ccff;">-</span></div>
+                <div><span id="almanac_bazi" style="color: #ffaa66; font-weight: bold;">-</span> | <span id="almanac_week" style="color: #66ccff;">-</span> | <span id="almanac_zodiac" style="color: #66ccff;">-</span> | <span id="almanac_xiu" style="color: #66ccff;">-</span> | <span id="almanac_jianchu" style="color: #66ccff;">-</span> | <span id="almanac_shen" style="color: #66ccff;">-</span></div>
                 <div id="almanac_overall" style="font-size: 12px; padding: 2px 8px; border-radius: 4px; background: #333;">-</div>
+            </div>
+            <!-- 子午流注 -->
+            <div style="font-size: 10px; margin-bottom: 3px; padding: 4px 6px; background: #1a1a1a; border-radius: 4px; text-align: left; white-space: nowrap; overflow: auto;">
+                <div style="display: flex; flex-direction: row; justify-content: space-between; margin-bottom: 3px;">
+                    <div><span style="color: #e2e5ef;">当令器官</span> <span id="almanac_ziwuliuzhu_organ" style="color: #fff200; font-weight: bold;">-</span></div>
+                    <div><span style="color: #99eb99; font-weight: bold;">宜</span>：<span id="almanac_ziwuliuzhu_yi">-</span></div>
+                    <div><span style="color: #ffacc7; font-weight: bold;">忌</span>：<span id="almanac_ziwuliuzhu_ji">-</span></div>
+                </div>
+                <div style="color: #808289; text-align: center; transform: scale(0.88);"><span id="almanac_ziwuliuzhu_note">-</span></div>
             </div>
             <!-- 宜忌 -->
             <div style="font-size: 10px; margin-bottom: 3px; padding: 4px 6px; background: #1a1a1a; border-radius: 4px; text-align: left; white-space: nowrap; overflow: auto;">
@@ -228,12 +234,10 @@ let enable_horizontal_coord = 0; // 0-不启用；1-仅方位角文字；2-方�
 let enable_star_burst = true;
 // 大气散射模型（0-不启用；1-简化模型；2-一次散射；3-二次散射）
 let enable_atmospheric_scattering = 3;
-// 是否显示恒星名称
-let enable_star_name = false;
+// 是否显示天体名称（0-不显示；1-仅恒星；2-仅行星；3-全部）
+let enable_star_name = 0;
 // 是否显示大行星
 let enable_planet = true;
-// 是否显示大行星名称
-let enable_planet_name = false;
 // 是否显示黄道
 let enable_ecliptic_circle = false;
 
@@ -241,14 +245,14 @@ let enable_ecliptic_circle = false;
 let enable_realtime = true;
 // 时光机状态（以尽可能快的速度渲染并绘制）
 let enable_timemachine_running = false;
-// 时光机方向：'forward' 快进, 'backward' 快退, null 未启动
-let timemachine_direction = null;
+// 时光机方向：大于0快进, 小于0快退, 等于0未启动
+let timemachine_direction = 0;
 // 时光机是否暂停
 let timemachine_paused = false;
 // 当前显示的时间（用于时光机模式下）
 let timemachine_current_time = new Date();
-// 记录上一次运行的模式：'realtime', 'forward', 'backward'
-let last_running_mode = 'realtime';
+// 记录上一次运行的模式：0-'realtime', 大于0-'forward', 小于0-'backward'
+let last_running_mode = 0;
 
 // 是否启用双线性插值
 let enable_opt_bilinear = false;
@@ -5325,7 +5329,7 @@ function render_all(
         const proj_xy = fisheye_project(star_ec[1], star_ec[0], RADIUS, center_x, center_y, view_alt, view_azi, view_roll, f);
         const mag = Math.random() * 0.5 + mag_offset + star_item[6];
         draw_star(frame_buffer, FB_WIDTH, FB_HEIGHT, proj_xy[0], proj_xy[1], mag, 1, 255, 255, 255);
-        if (enable_star_name) {
+        if (enable_star_name === 1 || enable_star_name === 3) {
             if (!STAR_NAME[i]) continue;
             fb_draw_textline(frame_buffer, fb_width, fb_height, STAR_NAME[i], proj_xy[0]+3, proj_xy[1]+3, 255, 255, 255, 1);
         }
@@ -5358,8 +5362,7 @@ function render_all(
             draw_star(frame_buffer, FB_WIDTH, FB_HEIGHT, planet_proj_x, planet_proj_y,
                 0, PLANET_RADIUS[i], PLANET_COLOR_R[i], PLANET_COLOR_G[i], PLANET_COLOR_B[i]);
 
-            // if (enable_planet_name) {
-            if (enable_star_name) {
+            if (enable_star_name === 2 || enable_star_name === 3) {
                 fb_draw_textline(frame_buffer, fb_width, fb_height, PLANET_NAME[i], planet_proj_x+3, planet_proj_y+3, PLANET_COLOR_R[i], PLANET_COLOR_G[i], PLANET_COLOR_B[i], 1);
             }
         }
@@ -5814,46 +5817,125 @@ function refresh_view_angle() {
 function refresh_button_status() {
     let status = null;
 
+
     // toggle_equatorial_coord
     let btn = document.getElementById("toggle_equatorial_coord");
     if (!enable_equatorial_coord) {
-        btn.classList.remove("switch_on");
-        btn.classList.add("switch_off");
+        status = `<span class="switch_off">关闭</span>`;
     }
     else {
-        btn.classList.remove("switch_off");
-        btn.classList.add("switch_on");
+        status = `<span class="switch_on">开启</span>`;
     }
+    document.getElementById("equatorial_coord_status").innerHTML = status;
+
 
     // toggle_horizontal_coord
     btn = document.getElementById("toggle_horizontal_coord");
     if (enable_horizontal_coord === 0) {
-        btn.classList.remove("switch_on");
-        btn.classList.add("switch_off");
         status = `<span class="switch_off">关闭</span>`;
     }
     else if (enable_horizontal_coord === 1) {
-        btn.classList.remove("switch_off");
-        btn.classList.add("switch_on");
-        status = `<span class="switch_on">方位角</span>`;
+        status = `<span class="switch_active">方位角</span>`;
     }
     else if (enable_horizontal_coord === 2) {
-        btn.classList.remove("switch_off");
-        btn.classList.add("switch_on");
-        status = `<span class="switch_on">坐标圈</span>`;
+        status = `<span class="switch_active">坐标圈</span>`;
     }
     document.getElementById("horizontal_coord_status").innerHTML = status;
+
 
     // toggle_star_burst
     btn = document.getElementById("toggle_star_burst");
     if (!enable_star_burst) {
-        btn.classList.remove("switch_on");
-        btn.classList.add("switch_off");
+        status = `<span class="switch_off">关闭</span>`;
     }
     else {
-        btn.classList.remove("switch_off");
-        btn.classList.add("switch_on");
+        status = `<span class="switch_on">开启</span>`;
     }
+    document.getElementById("star_burst_status").innerHTML = status;
+
+
+    // toggle_ecliptic_circle
+    btn = document.getElementById("toggle_ecliptic_circle");
+    if (!enable_ecliptic_circle) {
+        status = `<span class="switch_off">关闭</span>`;
+    }
+    else {
+        status = `<span class="switch_on">开启</span>`;
+    }
+    document.getElementById("ecliptic_circle_status").innerHTML = status;
+
+
+    // toggle_star_name
+    btn = document.getElementById("toggle_star_name");
+    if (enable_star_name === 0) {
+        status = `<span class="switch_off">关闭</span>`;
+    }
+    else if (enable_star_name === 1) {
+        status = `<span class="switch_active">除行星</span>`;
+    }
+    else if (enable_star_name === 2) {
+        status = `<span class="switch_active">仅行星</span>`;
+    }
+    else if (enable_star_name === 3) {
+        status = `<span class="switch_on">全部</span>`;
+    }
+    document.getElementById("star_name_status").innerHTML = status;
+
+
+    // toggle_cloud
+    btn = document.getElementById("toggle_cloud");
+    if (!enable_volumetric_cloud) {
+        status = `<span class="switch_off">关闭</span>`;
+    }
+    else {
+        status = `<span class="switch_on">开启</span>`;
+    }
+    document.getElementById("cloud_status").innerHTML = status;
+
+
+    // toggle_gyro
+    btn = document.getElementById("toggle_gyro");
+    if (!enable_gyro) {
+        status = `<span class="switch_off">关闭</span>`;
+    }
+    else {
+        status = `<span class="switch_on">开启</span>`;
+    }
+    document.getElementById("gyro_status").innerHTML = status;
+
+
+    // toggle_att_indicator
+    btn = document.getElementById("toggle_att_indicator");
+    if (!enable_att_indicator) {
+        status = `<span class="switch_off">关闭</span>`;
+    }
+    else {
+        status = `<span class="switch_on">开启</span>`;
+    }
+    document.getElementById("att_indicator_status").innerHTML = status;
+
+
+    // toggle_opt_bilinear
+    btn = document.getElementById("toggle_opt_bilinear");
+    if (!enable_opt_bilinear) {
+        status = `<span class="switch_off">关闭</span>`;
+    }
+    else {
+        status = `<span class="switch_on">开启</span>`;
+    }
+    document.getElementById("opt_bilinear_status").innerHTML = status;
+
+
+    // toggle_webgl
+    btn = document.getElementById("toggle_webgl");
+    if (!enable_webgl) {
+        status = `<span class="switch_off">关闭</span>`;
+    }
+    else {
+        status = `<span class="switch_on">开启</span>`;
+    }
+    document.getElementById("webgl_status").innerHTML = status;
+
 
     // toggle_atmospheric_scattering
     if (enable_atmospheric_scattering === 0) {
@@ -5871,63 +5953,6 @@ function refresh_button_status() {
     document.getElementById("scattering_status").innerHTML = status;
 
 
-
-    // toggle_ecliptic_circle
-    btn = document.getElementById("toggle_ecliptic_circle");
-    if (!enable_ecliptic_circle) {
-        btn.classList.remove("switch_on");
-        btn.classList.add("switch_off");
-    }
-    else {
-        btn.classList.remove("switch_off");
-        btn.classList.add("switch_on");
-    }
-
-    // toggle_planet
-    btn = document.getElementById("toggle_planet");
-    if (!enable_planet) {
-        btn.classList.remove("switch_on");
-        btn.classList.add("switch_off");
-    }
-    else {
-        btn.classList.remove("switch_off");
-        btn.classList.add("switch_on");
-    }
-
-    // toggle_star_name
-    btn = document.getElementById("toggle_star_name");
-    if (!enable_star_name) {
-        btn.classList.remove("switch_on");
-        btn.classList.add("switch_off");
-    }
-    else {
-        btn.classList.remove("switch_off");
-        btn.classList.add("switch_on");
-    }
-
-    // enable_planet_name
-    btn = document.getElementById("toggle_planet_name");
-    if (!enable_planet_name) {
-        btn.classList.remove("switch_on");
-        btn.classList.add("switch_off");
-    }
-    else {
-        btn.classList.remove("switch_off");
-        btn.classList.add("switch_on");
-    }
-
-    // toggle_opt_bilinear
-    btn = document.getElementById("toggle_opt_bilinear");
-    if (!enable_opt_bilinear) {
-        btn.classList.remove("switch_on");
-        btn.classList.add("switch_off");
-    }
-    else {
-        btn.classList.remove("switch_off");
-        btn.classList.add("switch_on");
-    }
-
-
     // toggle_landscape
     if (landscape_index === 0) {
         status = `<span class="switch_off">关闭</span>`;
@@ -5937,64 +5962,23 @@ function refresh_button_status() {
     }
     document.getElementById("landscape_status").innerHTML = status;
 
-    // toggle_cloud
-    btn = document.getElementById("toggle_cloud");
-    if (!enable_volumetric_cloud) {
-        btn.classList.remove("switch_on");
-        btn.classList.add("switch_off");
-    }
-    else {
-        btn.classList.remove("switch_off");
-        btn.classList.add("switch_on");
-    }
 
-    // toggle_gyro
-    btn = document.getElementById("toggle_gyro");
-    if (!enable_gyro) {
-        btn.classList.remove("switch_on");
-        btn.classList.add("switch_off");
-    }
-    else {
-        btn.classList.remove("switch_off");
-        btn.classList.add("switch_on");
-    }
 
-    // toggle_att_indicator
-    btn = document.getElementById("toggle_att_indicator");
-    if (!enable_att_indicator) {
-        btn.classList.remove("switch_on");
-        btn.classList.add("switch_off");
-    }
-    else {
-        btn.classList.remove("switch_off");
-        btn.classList.add("switch_on");
-    }
 
-    // toggle_webgl
-    btn = document.getElementById("toggle_webgl");
-    if (!enable_webgl) {
-        btn.classList.remove("switch_on");
-        btn.classList.add("switch_off");
-    }
-    else {
-        btn.classList.remove("switch_off");
-        btn.classList.add("switch_on");
-    }
+
 
 
     // toggle_timemachine_pause
     btn = document.getElementById("toggle_timemachine_pause");
     if (timemachine_paused) {
-        btn.classList.remove("switch_on");
-        btn.classList.add("switch_off");
-        btn.innerHTML = `已暂停<br><span style="font-size: smaller;">点击运行</span>`;
+        btn.classList.remove("active");
+        status = `<span class="switch_off">暂停中</span>`;
     }
     else {
-        btn.classList.remove("switch_off");
-        btn.classList.add("switch_on");
-        btn.innerHTML = `运行中<br><span style="font-size: smaller;">点击暂停</span>`;
+        btn.classList.add("active");
+        status = `<span class="switch_on">运行中</span>`;
     }
-
+    document.getElementById("timemachine_status").innerHTML = status;
 
 
 
@@ -6113,20 +6097,40 @@ window.onload = function() {
         // enable_atmospheric_scattering = enable_atmospheric_scattering % 4;
         refresh_button_status();
     });
-    document.getElementById("toggle_planet").addEventListener("click", function(e) {
-        enable_planet = !enable_planet;
-        refresh_button_status();
-    });
+
     document.getElementById("toggle_star_name").addEventListener("click", function(e) {
-        enable_star_name = !enable_star_name;
-        refresh_button_status();
-    });
-    document.getElementById("toggle_planet_name").addEventListener("click", function(e) {
-        enable_planet_name = !enable_planet_name;
+        switch (enable_star_name) {
+            case 0: enable_star_name = 1; break;
+            case 1: enable_star_name = 2; break;
+            case 2: enable_star_name = 3; break;
+            case 3: enable_star_name = 0; break;
+            default: enable_star_name = 0;
+        }
         refresh_button_status();
     });
     document.getElementById("toggle_ecliptic_circle").addEventListener("click", function(e) {
         enable_ecliptic_circle = !enable_ecliptic_circle;
+        refresh_button_status();
+    });
+
+    // 快退2按钮
+    document.getElementById("toggle_timemachine_backward_day").addEventListener("click", function(e) {
+        nongli = null;
+        // 如果当前是实时模式，先记录当前时间
+        if (enable_realtime) {
+            timemachine_current_time = new Date();
+        }
+        // 如果当前不是快退模式，切换到快退模式
+        if (enable_realtime || timemachine_direction !== -2) {
+            enable_realtime = false;
+            // enable_timemachine_running = true;
+            timemachine_direction = -2;
+            // timemachine_paused = false;
+            last_running_mode = -2;
+        }
+        // 如果已经是快退模式，不做任何改变（保持快退）
+
+        document.getElementById("toggle_timemachine_pause").click();
         refresh_button_status();
     });
 
@@ -6138,14 +6142,16 @@ window.onload = function() {
             timemachine_current_time = new Date();
         }
         // 如果当前不是快退模式，切换到快退模式
-        if (enable_realtime || timemachine_direction !== 'backward') {
+        if (enable_realtime || timemachine_direction !== -1) {
             enable_realtime = false;
-            enable_timemachine_running = true;
-            timemachine_direction = 'backward';
-            timemachine_paused = false;
-            last_running_mode = 'backward';
+            // enable_timemachine_running = true;
+            timemachine_direction = -1;
+            // timemachine_paused = false;
+            last_running_mode = -1;
         }
         // 如果已经是快退模式，不做任何改变（保持快退）
+
+        document.getElementById("toggle_timemachine_pause").click();
         refresh_button_status();
     });
 
@@ -6157,14 +6163,37 @@ window.onload = function() {
             timemachine_current_time = new Date();
         }
         // 如果当前不是快进模式，切换到快进模式
-        if (enable_realtime || timemachine_direction !== 'forward') {
+        if (enable_realtime || timemachine_direction !== 1) {
             enable_realtime = false;
-            enable_timemachine_running = true;
-            timemachine_direction = 'forward';
-            timemachine_paused = false;
-            last_running_mode = 'forward';
+            // enable_timemachine_running = true;
+            timemachine_direction = 1;
+            // timemachine_paused = false;
+            last_running_mode = 1;
         }
         // 如果已经是快进模式，不做任何改变（保持快进）
+
+        document.getElementById("toggle_timemachine_pause").click();
+        refresh_button_status();
+    });
+
+    // 快进2按钮
+    document.getElementById("toggle_timemachine_forward_day").addEventListener("click", function(e) {
+        nongli = null;
+        // 如果当前是实时模式，先记录当前时间
+        if (enable_realtime) {
+            timemachine_current_time = new Date();
+        }
+        // 如果当前不是快进模式，切换到快进模式
+        if (enable_realtime || timemachine_direction !== 2) {
+            enable_realtime = false;
+            // enable_timemachine_running = true;
+            timemachine_direction = 2;
+            // timemachine_paused = false;
+            last_running_mode = 2;
+        }
+        // 如果已经是快进模式，不做任何改变（保持快进）
+
+        document.getElementById("toggle_timemachine_pause").click();
         refresh_button_status();
     });
 
@@ -6174,10 +6203,10 @@ window.onload = function() {
         if (timemachine_paused) {
             // 当前处于暂停状态，根据last_running_mode恢复运行
             timemachine_paused = false;
-            if (last_running_mode === 'realtime') {
+            if (last_running_mode === 0) {
                 enable_realtime = true;
                 enable_timemachine_running = false;
-                timemachine_direction = null;
+                timemachine_direction = 0;
             }
             else {
                 // 恢复快进或快退
@@ -6190,11 +6219,11 @@ window.onload = function() {
             // 当前处于运行状态（实时或快进/快退），点击后暂停
             // 先记录当前运行模式
             if (enable_realtime) {
-                last_running_mode = 'realtime';
+                last_running_mode = 0;
                 // 冻结当前时间
                 timemachine_current_time = new Date();
             }
-            else if (enable_timemachine_running && timemachine_direction) {
+            else if (enable_timemachine_running && timemachine_direction !== 0) {
                 last_running_mode = timemachine_direction;
             }
             // 停止运行
@@ -6211,9 +6240,9 @@ window.onload = function() {
         // 切换到实时模式
         enable_realtime = true;
         enable_timemachine_running = false;
-        timemachine_direction = null;
+        timemachine_direction = 0;
         timemachine_paused = false;
-        last_running_mode = 'realtime';
+        last_running_mode = 0;
         timemachine_current_time = new Date();
         refresh_button_status();
     });
@@ -6258,9 +6287,9 @@ window.onload = function() {
         nongli = null;
         enable_realtime = false;
         enable_timemachine_running = false;
-        timemachine_direction = null;
+        timemachine_direction = 0;
         timemachine_paused = false;
-        last_running_mode = 'realtime';
+        last_running_mode = 0;
         year = Number(prompt(`输入年份`));
         month = Number(prompt(`输入月份`));
         day = Number(prompt(`输入日期`));
@@ -6575,9 +6604,17 @@ window.onload = function() {
             timemachine_current_time = new Date(current_date.getTime());
         }
         else {
-            if (enable_timemachine_running && timemachine_direction) {
+            if (enable_timemachine_running && timemachine_direction !== 0) {
                 // 根据方向更新时间
-                const timeDelta = (timemachine_direction === 'forward') ? TIMEMACHINE_SPEED : -TIMEMACHINE_SPEED;
+                let timeDelta = 0;
+                switch (timemachine_direction) {
+                    case -2: timeDelta = -TIMEMACHINE_SPEED * 30 * 24; break; // 1day
+                    case -1: timeDelta = -TIMEMACHINE_SPEED; break;           // 2min
+                    case  1: timeDelta =  TIMEMACHINE_SPEED; break;           // 2min
+                    case  2: timeDelta =  TIMEMACHINE_SPEED * 30 * 24; break; // 1day
+                    default: timeDelta = 0;
+                }
+
                 timemachine_current_time.setTime(timemachine_current_time.getTime() + timeDelta);
                 timemachine_current_time.setSeconds(0); // 设为0以便触发农历更新
                 day = timemachine_current_time.getDate();
@@ -6617,8 +6654,9 @@ window.onload = function() {
                 if (almanac) {
                     // 八字
                     document.getElementById('almanac_bazi').textContent = almanac.baZi.display;
-                    // 星座
+                    // 星座、星期
                     document.getElementById('almanac_zodiac').textContent = almanac.starZodiac;
+                    document.getElementById('almanac_week').textContent = almanac.week;
                     // 建除、宿值、十二神
                     document.getElementById('almanac_jianchu').textContent = almanac.jianchu;
                     document.getElementById('almanac_xiu').textContent = almanac.xiu;
@@ -6664,6 +6702,12 @@ window.onload = function() {
                     let jiText = almanac.ji.slice(0, 8).join('、');
                     document.getElementById('almanac_yi').textContent = yiText || '无';
                     document.getElementById('almanac_ji').textContent = jiText || '无';
+
+                    // 子午流注
+                    document.getElementById('almanac_ziwuliuzhu_organ').textContent = almanac.ziwuliuzhu[0];
+                    document.getElementById('almanac_ziwuliuzhu_note').textContent = almanac.ziwuliuzhu[1];
+                    document.getElementById('almanac_ziwuliuzhu_yi').textContent = almanac.ziwuliuzhu[2];
+                    document.getElementById('almanac_ziwuliuzhu_ji').textContent = almanac.ziwuliuzhu[3];
                 }
             }
         }
