@@ -27,7 +27,7 @@ a {
 }
 .mainCanvas {
     image-rendering: pixelated;
-    margin: 10px 0;
+    margin: 10px 0 0 0;
     border-radius: 5px;
 }
 
@@ -95,6 +95,149 @@ a {
     color: #ffffffaa;
     box-shadow: inset 1px 1px 3px 0px rgba(0, 0, 0, 0.5);
 }
+    /* 模态框样式 */
+    .modal-overlay {
+        display: none;
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: rgba(0, 0, 0, 0.7);
+        z-index: 1000;
+        justify-content: center;
+        align-items: center;
+    }
+    .modal-overlay.active {
+        display: flex;
+    }
+    .modal-box {
+        background: #1a1a1a;
+        border: 1px solid #333;
+        border-radius: 8px;
+        padding: 20px;
+        min-width: 260px;
+        color: #fff;
+    }
+    .modal-title {
+        font-size: 14px;
+        font-weight: bold;
+        margin-bottom: 15px;
+        text-align: center;
+        color: #99ddff;
+    }
+    .modal-row {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        margin: 12px 0;
+        gap: 8px;
+    }
+    .modal-label {
+        font-size: 12px;
+        color: #929397;
+        width: 36px;
+        text-align: right;
+    }
+    .modal-input-group {
+        display: flex;
+        align-items: center;
+        gap: 4px;
+    }
+    .modal-digit-group {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+    }
+    .modal-btn {
+        background: #252629;
+        color: #929397;
+        border: none;
+        width: 28px;
+        height: 20px;
+        font-size: 11px;
+        cursor: pointer;
+        border-radius: 3px;
+        padding: 0;
+        line-height: 20px;
+    }
+    .modal-btn:active {
+        background: #333;
+    }
+    .modal-value {
+        background: #141516;
+        border: 1px solid #333;
+        color: #fff;
+        width: 30px;
+        height: 24px;
+        text-align: center;
+        font-size: 13px;
+        border-radius: 3px;
+        line-height: 24px;
+        margin: 2px 0;
+        padding: 0;
+        font-family: inherit;
+        outline: none;
+    }
+    .modal-value:focus {
+        border-color: #99ddff;
+    }
+    .modal-value-wide {
+        width: 40px;
+    }
+    .modal-unit {
+        font-size: 11px;
+        color: #666;
+        margin-left: 2px;
+    }
+    .modal-dir-btn {
+        background: #252629;
+        color: #929397;
+        border: none;
+        width: 28px;
+        height: 52px;
+        font-size: 12px;
+        cursor: pointer;
+        border-radius: 3px;
+        margin-left: 4px;
+    }
+    .modal-dir-btn.active {
+        background: #99ddff;
+        color: #000;
+    }
+    .modal-actions {
+        display: flex;
+        justify-content: center;
+        gap: 15px;
+        margin-top: 20px;
+    }
+    .modal-action-btn {
+        background: #252629;
+        color: #fff;
+        border: none;
+        padding: 6px 20px;
+        font-size: 12px;
+        cursor: pointer;
+        border-radius: 3px;
+    }
+    .modal-action-btn:active {
+        background: #333;
+    }
+    .modal-text-box {
+        max-width: 320px;
+    }
+    .modal-text-content {
+        font-size: 12px;
+        line-height: 1.8;
+        color: #e2e5ef;
+        text-align: left;
+    }
+    .modal-text-content p {
+        margin: 8px 0;
+    }
+    .modal-text-content ul, .modal-text-content ol {
+        padding-inline-start: 20px;
+    }
     </style>
 </head>
 <body>
@@ -207,10 +350,10 @@ a {
         </div>
 
         <div style="display: flex; max-width: 320px; flex-direction: row; justify-content: center; margin: 10px auto;">
-            <div style="font-size: 11px; text-align: center; background: #252629; width: fit-content; border-radius: 100px; padding: 3px 10px; margin: 0 3px;" onclick="alert('玲珑仪使用说明\n🔹时间日期均为北京时间(UTC+8)。\n🔹农历日期系由星历算法解算而得，未必准确。\n🔹拖动屏幕改变视角。\n🔹点击“重力感应”按钮，启用姿态传感器。\n🔹姿态角的精度取决于设备，未必准确。\n🔹GPU渲染未必可用，取决于设备。\n🔹二次散射计算量较大，速度较慢。\n🔹体积云渲染非常慢，请按需启用。');">
+            <div id="btnHelp" style="font-size: 11px; text-align: center; background: #252629; width: fit-content; border-radius: 100px; padding: 3px 10px; margin: 0 3px; cursor: pointer;">
                 ℹ️使用说明
             </div>
-            <div style="font-size: 11px; text-align: center; background: #252629; width: fit-content; border-radius: 100px; padding: 3px 10px; margin: 0 3px;" onclick="alert('主要参考文献\n🔹Nishita T, et al. Display of The Earth Taking into Account Atmospheric Scattering. 1993.\n🔹Meeus J. Astronomical Algorithms (Second Edition). 1998.\n🔹清代《钦定协纪辨方书》的Python实现：https://github.com/OPN48/cnlunar/tree/master');">
+            <div id="btnRef" style="font-size: 11px; text-align: center; background: #252629; width: fit-content; border-radius: 100px; padding: 3px 10px; margin: 0 3px; cursor: pointer;">
                 📚参考文献
             </div>
         </div>
@@ -221,6 +364,156 @@ a {
     <script src="../script/eph.js"></script>
     <script src="../script/lunar_calendar.js"></script>
     <script src="../script/almanac.js"></script>
+
+    <!-- 经纬度模态框 -->
+    <div class="modal-overlay" id="coordModal">
+        <div class="modal-box">
+            <div class="modal-title">设置观测位置</div>
+            <div class="modal-row">
+                <span class="modal-label">纬度</span>
+                <div class="modal-input-group">
+                    <div class="modal-digit-group">
+                        <button class="modal-btn" data-coord="lat" data-unit="deg" data-delta="1">+</button>
+                        <input type="text" class="modal-value" id="latDeg" maxlength="2" value="00">
+                        <button class="modal-btn" data-coord="lat" data-unit="deg" data-delta="-1">-</button>
+                    </div>
+                    <span class="modal-unit">°</span>
+                    <div class="modal-digit-group">
+                        <button class="modal-btn" data-coord="lat" data-unit="min" data-delta="1">+</button>
+                        <input type="text" class="modal-value" id="latMin" maxlength="2" value="00">
+                        <button class="modal-btn" data-coord="lat" data-unit="min" data-delta="-1">-</button>
+                    </div>
+                    <span class="modal-unit">′</span>
+                    <div class="modal-digit-group">
+                        <button class="modal-btn" data-coord="lat" data-unit="sec" data-delta="1">+</button>
+                        <input type="text" class="modal-value" id="latSec" maxlength="2" value="00">
+                        <button class="modal-btn" data-coord="lat" data-unit="sec" data-delta="-1">-</button>
+                    </div>
+                    <span class="modal-unit">″</span>
+                    <button class="modal-dir-btn active" id="latNS">N</button>
+                </div>
+            </div>
+            <div class="modal-row">
+                <span class="modal-label">经度</span>
+                <div class="modal-input-group">
+                    <div class="modal-digit-group">
+                        <button class="modal-btn" data-coord="lon" data-unit="deg" data-delta="1">+</button>
+                        <input type="text" class="modal-value modal-value-wide" id="lonDeg" maxlength="3" value="000">
+                        <button class="modal-btn" data-coord="lon" data-unit="deg" data-delta="-1">-</button>
+                    </div>
+                    <span class="modal-unit">°</span>
+                    <div class="modal-digit-group">
+                        <button class="modal-btn" data-coord="lon" data-unit="min" data-delta="1">+</button>
+                        <input type="text" class="modal-value" id="lonMin" maxlength="2" value="00">
+                        <button class="modal-btn" data-coord="lon" data-unit="min" data-delta="-1">-</button>
+                    </div>
+                    <span class="modal-unit">′</span>
+                    <div class="modal-digit-group">
+                        <button class="modal-btn" data-coord="lon" data-unit="sec" data-delta="1">+</button>
+                        <input type="text" class="modal-value" id="lonSec" maxlength="2" value="00">
+                        <button class="modal-btn" data-coord="lon" data-unit="sec" data-delta="-1">-</button>
+                    </div>
+                    <span class="modal-unit">″</span>
+                    <button class="modal-dir-btn active" id="lonEW">E</button>
+                </div>
+            </div>
+            <div class="modal-actions">
+                <button class="modal-action-btn" id="coordConfirm">确认</button>
+                <button class="modal-action-btn" id="coordCancel">取消</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 时间模态框 -->
+    <div class="modal-overlay" id="timeModal">
+        <div class="modal-box">
+            <div class="modal-title">设置观测时间</div>
+            <div class="modal-row">
+                <span class="modal-label">日期</span>
+                <div class="modal-input-group">
+                    <div class="modal-digit-group">
+                        <button class="modal-btn" data-time="year" data-delta="1">+</button>
+                        <input type="text" class="modal-value modal-value-wide" id="timeYear" maxlength="4" value="2024">
+                        <button class="modal-btn" data-time="year" data-delta="-1">-</button>
+                    </div>
+                    <span class="modal-unit">年</span>
+                    <div class="modal-digit-group">
+                        <button class="modal-btn" data-time="month" data-delta="1">+</button>
+                        <input type="text" class="modal-value" id="timeMonth" maxlength="2" value="01">
+                        <button class="modal-btn" data-time="month" data-delta="-1">-</button>
+                    </div>
+                    <span class="modal-unit">月</span>
+                    <div class="modal-digit-group">
+                        <button class="modal-btn" data-time="day" data-delta="1">+</button>
+                        <input type="text" class="modal-value" id="timeDay" maxlength="2" value="01">
+                        <button class="modal-btn" data-time="day" data-delta="-1">-</button>
+                    </div>
+                    <span class="modal-unit">日</span>
+                </div>
+            </div>
+            <div class="modal-row">
+                <span class="modal-label">时间</span>
+                <div class="modal-input-group">
+                    <div class="modal-digit-group">
+                        <button class="modal-btn" data-time="hour" data-delta="1">+</button>
+                        <input type="text" class="modal-value" id="timeHour" maxlength="2" value="00">
+                        <button class="modal-btn" data-time="hour" data-delta="-1">-</button>
+                    </div>
+                    <span class="modal-unit">时</span>
+                    <div class="modal-digit-group">
+                        <button class="modal-btn" data-time="minute" data-delta="1">+</button>
+                        <input type="text" class="modal-value" id="timeMinute" maxlength="2" value="00">
+                        <button class="modal-btn" data-time="minute" data-delta="-1">-</button>
+                    </div>
+                    <span class="modal-unit">分</span>
+                </div>
+            </div>
+            <div class="modal-actions">
+                <button class="modal-action-btn" id="timeConfirm">确认</button>
+                <button class="modal-action-btn" id="timeCancel">取消</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 使用说明模态框 -->
+    <div class="modal-overlay" id="helpModal">
+        <div class="modal-box modal-text-box">
+            <div class="modal-title">玲珑仪使用说明</div>
+            <div class="modal-text-content">
+                <ul>
+                    <li>时间日期均为北京时间(UTC+8)。</li>
+                    <li>农历日期系由星历算法解算而得，未必准确。</li>
+                    <li>拖动屏幕改变视角。</li>
+                    <li>点击"重力感应"按钮，启用姿态传感器。</li>
+                    <li>姿态角的精度取决于设备，未必准确。</li>
+                    <li>GPU渲染未必可用，取决于设备。</li>
+                    <li>二次散射计算量较大，速度较慢。</li>
+                    <li>体积云渲染非常慢，请按需启用。</li>
+                </ul>
+            </div>
+            <div class="modal-actions">
+                <button class="modal-action-btn" id="helpClose">关闭</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 参考文献模态框 -->
+    <div class="modal-overlay" id="refModal">
+        <div class="modal-box modal-text-box">
+            <div class="modal-title">主要参考文献</div>
+            <div class="modal-text-content">
+                <ol>
+                    <li>Nishita T, et al. <b>Display of The Earth Taking into Account Atmospheric Scattering</b>. 1993.</li>
+                    <li>Meeus J. <b>Astronomical Algorithms (Second Edition)</b>. 1998.</li>
+                    <li>清代《钦定协纪辨方书》的Python实现：<a href="https://github.com/OPN48/cnlunar" target="_blank" style="color: #99ddff;">https://github.com/OPN48/cnlunar</a></li>
+                </ol>
+            </div>
+            <div class="modal-actions">
+                <button class="modal-action-btn" id="refClose">关闭</button>
+            </div>
+        </div>
+    </div>
+
     <script>
 
 
@@ -6330,30 +6623,340 @@ window.onload = function() {
     });
 
 
-    document.getElementById("set_time").addEventListener("click", function(e) {
+    // ========== 模态框相关函数 ==========
+
+    // 临时存储当前值
+    let modalLatDeg = 0, modalLatMin = 0, modalLatSec = 0, modalLatNS = 1; // N=1, S=-1
+    let modalLonDeg = 0, modalLonMin = 0, modalLonSec = 0, modalLonEW = 1; // E=1, W=-1
+    let modalYear = 2024, modalMonth = 1, modalDay = 1, modalHour = 0, modalMinute = 0;
+
+    // 十进制经纬度转为度分秒
+    function decimalToDMS(decimal) {
+        const sign = decimal < 0 ? -1 : 1;
+        const absVal = Math.abs(decimal);
+        const deg = Math.floor(absVal);
+        const min = Math.floor((absVal - deg) * 60);
+        const sec = Math.round(((absVal - deg) * 60 - min) * 60);
+        return { deg, min, sec, sign };
+    }
+
+    // 度分秒转为十进制
+    function dmsToDecimal(deg, min, sec, sign) {
+        return sign * (deg + min / 60 + sec / 3600);
+    }
+
+    // 打开经纬度模态框
+    function openCoordModal() {
+        const lat = decimalToDMS(latitude);
+        const lon = decimalToDMS(longitude);
+        modalLatDeg = lat.deg;
+        modalLatMin = lat.min;
+        modalLatSec = lat.sec;
+        modalLatNS = lat.sign;
+        modalLonDeg = lon.deg;
+        modalLonMin = lon.min;
+        modalLonSec = lon.sec;
+        modalLonEW = lon.sign;
+        updateCoordDisplay();
+        document.getElementById('coordModal').classList.add('active');
+    }
+
+    // 更新时间显示
+    function updateCoordDisplay() {
+        document.getElementById('latDeg').value = String(modalLatDeg).padStart(2, '0');
+        document.getElementById('latMin').value = String(modalLatMin).padStart(2, '0');
+        document.getElementById('latSec').value = String(modalLatSec).padStart(2, '0');
+        document.getElementById('latNS').textContent = modalLatNS === 1 ? 'N' : 'S';
+        document.getElementById('latNS').classList.toggle('active', modalLatNS === 1);
+        document.getElementById('lonDeg').value = String(modalLonDeg).padStart(3, '0');
+        document.getElementById('lonMin').value = String(modalLonMin).padStart(2, '0');
+        document.getElementById('lonSec').value = String(modalLonSec).padStart(2, '0');
+        document.getElementById('lonEW').textContent = modalLonEW === 1 ? 'E' : 'W';
+        document.getElementById('lonEW').classList.toggle('active', modalLonEW === 1);
+    }
+
+    // 调整经纬度
+    function adjustCoord(type, unit, delta) {
+        if (type === 'lat') {
+            if (unit === 'deg') {
+                modalLatDeg = Math.max(0, Math.min(89, modalLatDeg + delta));
+            } else if (unit === 'min') {
+                modalLatMin = Math.max(0, Math.min(59, modalLatMin + delta));
+            } else if (unit === 'sec') {
+                modalLatSec = Math.max(0, Math.min(59, modalLatSec + delta));
+            }
+        } else {
+            if (unit === 'deg') {
+                modalLonDeg = Math.max(0, Math.min(179, modalLonDeg + delta));
+            } else if (unit === 'min') {
+                modalLonMin = Math.max(0, Math.min(59, modalLonMin + delta));
+            } else if (unit === 'sec') {
+                modalLonSec = Math.max(0, Math.min(59, modalLonSec + delta));
+            }
+        }
+        updateCoordDisplay();
+    }
+
+    // 切换方向
+    function toggleDir(type) {
+        if (type === 'lat') {
+            modalLatNS = -modalLatNS;
+        } else {
+            modalLonEW = -modalLonEW;
+        }
+        updateCoordDisplay();
+    }
+
+    // 确认经纬度
+    function confirmCoord() {
+        latitude = dmsToDecimal(modalLatDeg, modalLatMin, modalLatSec, modalLatNS);
+        longitude = dmsToDecimal(modalLonDeg, modalLonMin, modalLonSec, modalLonEW);
+        nongli = null;
+        document.getElementById('coordModal').classList.remove('active');
+        refresh_button_status();
+    }
+
+    // 取消经纬度
+    function cancelCoord() {
+        document.getElementById('coordModal').classList.remove('active');
+    }
+
+    // 打开时间模态框
+    function openTimeModal() {
+        modalYear = year;
+        modalMonth = month;
+        modalDay = day;
+        modalHour = hour;
+        modalMinute = minute;
+        updateTimeDisplay();
+        document.getElementById('timeModal').classList.add('active');
+    }
+
+    // 更新时间显示
+    function updateTimeDisplay() {
+        document.getElementById('timeYear').value = modalYear;
+        document.getElementById('timeMonth').value = String(modalMonth).padStart(2, '0');
+        document.getElementById('timeDay').value = String(modalDay).padStart(2, '0');
+        document.getElementById('timeHour').value = String(modalHour).padStart(2, '0');
+        document.getElementById('timeMinute').value = String(modalMinute).padStart(2, '0');
+    }
+
+    // 调整时间
+    function adjustTime(unit, delta) {
+        if (unit === 'year') {
+            modalYear = Math.max(1, Math.min(9999, modalYear + delta));
+        } else if (unit === 'month') {
+            modalMonth = ((modalMonth - 1 + delta + 12) % 12) + 1;
+        } else if (unit === 'day') {
+            const daysInMonth = new Date(modalYear, modalMonth, 0).getDate();
+            modalDay = ((modalDay - 1 + delta + daysInMonth) % daysInMonth) + 1;
+        } else if (unit === 'hour') {
+            modalHour = ((modalHour + delta + 24) % 24);
+        } else if (unit === 'minute') {
+            modalMinute = ((modalMinute + delta + 60) % 60);
+        }
+        updateTimeDisplay();
+    }
+
+    // 确认时间
+    function confirmTime() {
         nongli = null;
         enable_realtime = false;
         enable_timemachine_running = false;
         timemachine_direction = 0;
         timemachine_paused = false;
         last_running_mode = 0;
-        year = Number(prompt(`输入年份`));
-        month = Number(prompt(`输入月份`));
-        day = Number(prompt(`输入日期`));
-        hour = Number(prompt(`输入时`));
-        minute = Number(prompt(`输入分`));
+        year = modalYear;
+        month = modalMonth;
+        day = modalDay;
+        hour = modalHour;
+        minute = modalMinute;
         second = 0;
-        // 同步timemachine_current_time
         timemachine_current_time = new Date(year, month - 1, day, hour, minute, second);
+        document.getElementById('timeModal').classList.remove('active');
         refresh_button_status();
+    }
+
+    // 取消时间
+    function cancelTime() {
+        document.getElementById('timeModal').classList.remove('active');
+    }
+
+    document.getElementById("set_time").addEventListener("click", function(e) {
+        openTimeModal();
     });
 
     document.getElementById("set_coord").addEventListener("click", function(e) {
-        nongli = null;
-        longitude = Number(prompt(`输入经度（十进制，东为正）`));
-        latitude = Number(prompt(`输入纬度（十进制，北为正）`));
-        refresh_button_status();
+        openCoordModal();
     });
+
+    // 绑定经纬度模态框按钮事件
+    document.getElementById("coordModal").querySelectorAll('.modal-btn[data-coord]').forEach(function(btn) {
+        btn.addEventListener('click', function() {
+            const coord = this.dataset.coord;
+            const unit = this.dataset.unit;
+            const delta = parseInt(this.dataset.delta);
+            adjustCoord(coord, unit, delta);
+        });
+    });
+
+    document.getElementById("latNS").addEventListener('click', function() {
+        toggleDir('lat');
+    });
+
+    document.getElementById("lonEW").addEventListener('click', function() {
+        toggleDir('lon');
+    });
+
+    document.getElementById("coordConfirm").addEventListener('click', function() {
+        confirmCoord();
+    });
+
+    document.getElementById("coordCancel").addEventListener('click', function() {
+        cancelCoord();
+    });
+
+    // 绑定时间模态框按钮事件
+    document.getElementById("timeModal").querySelectorAll('.modal-btn[data-time]').forEach(function(btn) {
+        btn.addEventListener('click', function() {
+            const unit = this.dataset.time;
+            const delta = parseInt(this.dataset.delta);
+            adjustTime(unit, delta);
+        });
+    });
+
+    document.getElementById("timeConfirm").addEventListener('click', function() {
+        confirmTime();
+    });
+
+    document.getElementById("timeCancel").addEventListener('click', function() {
+        cancelTime();
+    });
+
+    // 绑定经纬度输入框事件
+    function bindCoordInput(id, type, unit, minVal, maxVal) {
+        const input = document.getElementById(id);
+        input.addEventListener('input', function() {
+            // 只允许数字
+            this.value = this.value.replace(/[^0-9]/g, '');
+        });
+        input.addEventListener('blur', function() {
+            let val = parseInt(this.value) || 0;
+            val = Math.max(minVal, Math.min(maxVal, val));
+            this.value = String(val).padStart(unit === 'deg' && type === 'lon' ? 3 : 2, '0');
+            // 更新对应变量
+            if (type === 'lat') {
+                if (unit === 'deg') modalLatDeg = val;
+                else if (unit === 'min') modalLatMin = val;
+                else if (unit === 'sec') modalLatSec = val;
+            } else {
+                if (unit === 'deg') modalLonDeg = val;
+                else if (unit === 'min') modalLonMin = val;
+                else if (unit === 'sec') modalLonSec = val;
+            }
+        });
+        input.addEventListener('keydown', function(e) {
+            if (e.key === 'Enter') {
+                this.blur();
+            }
+        });
+    }
+
+    bindCoordInput('latDeg', 'lat', 'deg', 0, 89);
+    bindCoordInput('latMin', 'lat', 'min', 0, 59);
+    bindCoordInput('latSec', 'lat', 'sec', 0, 59);
+    bindCoordInput('lonDeg', 'lon', 'deg', 0, 179);
+    bindCoordInput('lonMin', 'lon', 'min', 0, 59);
+    bindCoordInput('lonSec', 'lon', 'sec', 0, 59);
+
+    // 绑定时间输入框事件
+    function bindTimeInput(id, unit, minVal, maxVal) {
+        const input = document.getElementById(id);
+        input.addEventListener('input', function() {
+            this.value = this.value.replace(/[^0-9]/g, '');
+        });
+        input.addEventListener('blur', function() {
+            let val = parseInt(this.value) || 0;
+            val = Math.max(minVal, Math.min(maxVal, val));
+            this.value = unit === 'year' ? val : String(val).padStart(2, '0');
+            if (unit === 'year') modalYear = val;
+            else if (unit === 'month') modalMonth = val;
+            else if (unit === 'day') modalDay = val;
+            else if (unit === 'hour') modalHour = val;
+            else if (unit === 'minute') modalMinute = val;
+        });
+        input.addEventListener('keydown', function(e) {
+            if (e.key === 'Enter') {
+                this.blur();
+            }
+        });
+    }
+
+    bindTimeInput('timeYear', 'year', 1, 9999);
+    bindTimeInput('timeMonth', 'month', 1, 12);
+    bindTimeInput('timeDay', 'day', 1, 31);
+    bindTimeInput('timeHour', 'hour', 0, 23);
+    bindTimeInput('timeMinute', 'minute', 0, 59);
+
+    // 使用说明和参考文献模态框函数
+    function openHelpModal() {
+        document.getElementById('helpModal').classList.add('active');
+    }
+
+    function closeHelpModal() {
+        document.getElementById('helpModal').classList.remove('active');
+    }
+
+    function openRefModal() {
+        document.getElementById('refModal').classList.add('active');
+    }
+
+    function closeRefModal() {
+        document.getElementById('refModal').classList.remove('active');
+    }
+
+    // 绑定使用说明和参考文献按钮事件
+    document.getElementById("btnHelp").addEventListener('click', function() {
+        openHelpModal();
+    });
+
+    document.getElementById("btnRef").addEventListener('click', function() {
+        openRefModal();
+    });
+
+    document.getElementById("helpClose").addEventListener('click', function() {
+        closeHelpModal();
+    });
+
+    document.getElementById("refClose").addEventListener('click', function() {
+        closeRefModal();
+    });
+
+    // 点击模态框背景关闭
+    document.getElementById("helpModal").addEventListener('click', function(e) {
+        if (e.target === this) closeHelpModal();
+    });
+
+    document.getElementById("refModal").addEventListener('click', function(e) {
+        if (e.target === this) closeRefModal();
+    });
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
