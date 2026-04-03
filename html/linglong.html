@@ -3678,8 +3678,8 @@ function scatter_model_3(ray_vec, sun_vec) {
 */
 
     // 臭氧吸收
-    const ozone_absorption = [0.005, 0.040, 0.010];
-    const oz_scale = 80;
+    const ozone_absorption = [0.020, 0.040, 0.000];
+    const oz_scale = 90;
     color[0] *= Math.exp(-ozone_absorption[0] * ((tMax - tMin) / Ra) * oz_scale);
     color[1] *= Math.exp(-ozone_absorption[1] * ((tMax - tMin) / Ra) * oz_scale);
     color[2] *= Math.exp(-ozone_absorption[2] * ((tMax - tMin) / Ra) * oz_scale);
@@ -3705,7 +3705,7 @@ function scatter_model_3(ray_vec, sun_vec) {
     const night_light_scale = 1 - viewElevationDeg / 90;
     color[0] += 0.05 * night_light_scale;
     color[1] += 0.08 * night_light_scale;
-    color[2] += 0.10 * night_light_scale;
+    color[2] += 0.12 * night_light_scale;
 
     // 返回线性 HDR 辐亮度值（未做色调映射，建议调用方自行处理）
     return color;
@@ -4768,8 +4768,8 @@ const AtmosphericScatteringWebGL = {
             }
             
             vec3 ozone_absorption = vec3(0.005, 0.030, 0.010);
-            float oz_scale = 80.0;
-            vec3 oz = exp(-ozone_absorption * (Lsun / R_atm) * oz_scale);
+            float oz_scale = 0.16;
+            vec3 oz = exp(-ozone_absorption * Lsun * oz_scale);
             
             vec3 color;
             color.r = (sum_R.r * betaRayleigh.r * rayleighPhase + sum_M.r * beta_Mie * miePhase) * oz.r;
@@ -5035,8 +5035,8 @@ const AtmosphericScatteringWebGL = {
             }
             
             // 臭氧吸收
-            vec3 ozone_absorption = vec3(0.005, 0.040, 0.010);
-            float oz_scale = 80.0;
+            vec3 ozone_absorption = vec3(0.020, 0.040, 0.000);
+            float oz_scale = 90.0;
             float oz_factor = ((tMax - tMin) / Ra) * oz_scale;
             color.r *= exp(-ozone_absorption.r * oz_factor);
             color.g *= exp(-ozone_absorption.g * oz_factor);
@@ -5051,7 +5051,7 @@ const AtmosphericScatteringWebGL = {
             float night_light_scale = 1.0 - viewElevationDeg / 90.0;
             color.r += 0.05 * night_light_scale;
             color.g += 0.08 * night_light_scale;
-            color.b += 0.10 * night_light_scale;
+            color.b += 0.12 * night_light_scale;
             
             return clamp(color, 0.0, 1.0);
         }
