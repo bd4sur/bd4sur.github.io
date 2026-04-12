@@ -5,6 +5,10 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>玲珑天象仪</title>
     <style>
+html {
+    scrollbar-width: thin;
+    scrollbar-color: #000000 #111111;
+}
 body {
     background-color: #000000;
     color: #fff;
@@ -551,8 +555,8 @@ let last_running_mode = 0;
 // 是否启用双线性插值
 let enable_opt_bilinear = false;
 
-// 地景选项：0-无地景
-let landscape_index = 1;
+// 地景选项：0-无地景；1-地形生成
+let landscape_index = 2;
 
 // 是否启用体积云
 let enable_volumetric_cloud = false;
@@ -616,7 +620,8 @@ let landscape_texture_height = 600;
 let landscape_texture_rgba = new Uint8ClampedArray(landscape_texture_width * landscape_texture_height * 4);;
 let img_landscape_texture = new Image();
 const LANDSCAPES = [
-    ["", "", 0], // 字段2为是否鱼眼，0-否，1-是
+    ["", "", 1], // 字段2为是否鱼眼，0-否，1-是
+    ["", "地形生成", 0],
     ["../image/H/landscape_0.jpg", "草原1", 1, 600, 600],
     ["../image/H/landscape_1.jpg", "草原2", 1, 600, 600],
     ["../image/H/landscape_2.jpg", "雪地", 1, 600, 600],
@@ -2329,7 +2334,8 @@ function draw_horizon(
         for (let x = 0; x < fb_width; x++) {
             const [hx, hy, hz] = fisheye_unproject(x, y, R, center_x, center_y, view_alt, view_azi, view_roll, f);
             if (hz < 0) {
-                if (landscape_texture_rgba === null) {
+                // if (landscape_texture_rgba === null) {
+                if (landscape_index === 0) {
                     const idx = (y * fb_width + x) * 4;
                     frame_buffer[idx + 0] = 0;     // R
                     frame_buffer[idx + 1] = 0;     // G
@@ -5739,7 +5745,8 @@ function render_all(
 
 
     // 绘制地景（天空投影圆盘之外的部分）
-    if (landscape_index === 0 || LANDSCAPES[landscape_index][2] === 0) {
+    // 地形生成或者非鱼眼地景贴图（透视投影）
+    if (landscape_index === 1 || LANDSCAPES[landscape_index][2] === 0) {
         // let fov = (0.45/90) * Math.abs(sun_alt) + 1.1;
         // let t = new Date().getTime() / 1000 % 600;
         let dx = Math.sin(-to_rad(view_azi)) * 0.001;
