@@ -283,8 +283,9 @@ a {
                 <div id="info_nongli_nian">-</div>
                 <div id="info_nongli_yueri">-</div>
             </div>
-            <div class="info_box">
+            <div class="info_box" id="fps" style="cursor: pointer;">
                 <div>帧率 <span id="info_fps">-</span> fps</div>
+                <div style="transform: scale(0.8); color:#666666">点击全屏</div>
             </div>
         </div>
 
@@ -570,11 +571,16 @@ let enable_att_indicator = false;
 // 是否启用GPU渲染
 let enable_webgl = true;
 
-
+// 是否启用devicePixelRatio
+let enable_device_pixel_ratio = false;
 
 let RADIUS = 150;
 let FB_WIDTH = 400;
 let FB_HEIGHT = 300;
+
+const BASE_FB_WIDTH = 400;
+const BASE_FB_HEIGHT = 300;
+const BASE_RADIUS = 150;
 
 let sky_radius = RADIUS;
 let center_x = FB_WIDTH / 2;
@@ -5914,15 +5920,26 @@ class SkyCanvas {
         this.ctx.webkitImageSmoothingEnabled = false;
         this.ctx.msImageSmoothingEnabled = false;
 
-        this.canvas.width = FB_WIDTH;
-        this.canvas.height = FB_HEIGHT;
+        this.applyRatio();
+    }
+
+    applyRatio() {
+        // 恢复基准尺寸
+        this.canvas.width = BASE_FB_WIDTH;
+        this.canvas.height = BASE_FB_HEIGHT;
+        FB_WIDTH = BASE_FB_WIDTH;
+        FB_HEIGHT = BASE_FB_HEIGHT;
+        RADIUS = BASE_RADIUS;
+        center_x = BASE_FB_WIDTH / 2;
+        center_y = BASE_FB_HEIGHT / 2;
+        sky_radius = BASE_RADIUS;
 
         function adaptRatio(context) {
             var devicePixelRatio = window.devicePixelRatio || 1;
             var backingStoreRatio = context.webkitBackingStorePixelRatio || context.mozBackingStorePixelRatio || context.msBackingStorePixelRatio || context.oBackingStorePixelRatio || context.backingStorePixelRatio || 1;
             return devicePixelRatio / backingStoreRatio;
         }
-        this.RATIO = 1; // adaptRatio(this.ctx);
+        this.RATIO = enable_device_pixel_ratio ? adaptRatio(this.ctx) : 1;
         this.canvas.width = Math.floor(this.canvas.width * this.RATIO);
         this.canvas.height = Math.floor(this.canvas.height * this.RATIO);
 
@@ -6356,7 +6373,7 @@ function clamp_view_angle() {
 }
 
 
-window.onload = function() {
+function init() {
 
     // TODO 以下逻辑试图模仿飞机操纵特性，待确认
     document.getElementById("cam_pitch_up").addEventListener("click", function(e) {
@@ -7152,8 +7169,13 @@ window.onload = function() {
 
 
     const sky = new SkyCanvas('skyCanvas');
-    const imageData = sky.ctx.createImageData(sky.canvas.width, sky.canvas.height);
-    const frame_buffer = imageData.data;
+    let imageData = sky.ctx.createImageData(sky.canvas.width, sky.canvas.height);
+    let frame_buffer = imageData.data;
+
+    function resetCanvasBuffer() {
+        imageData = sky.ctx.createImageData(sky.canvas.width, sky.canvas.height);
+        frame_buffer = imageData.data;
+    }
 
     const canvas = sky.canvas;
     const ctx = sky.ctx;
@@ -7394,7 +7416,41 @@ window.onload = function() {
     draw();
 
     refresh_button_status();
+
+    document.getElementById('fps').addEventListener('click', function() {
+        const canvas = document.getElementById('skyCanvas');
+        enable_device_pixel_ratio = true;
+        sky.applyRatio();
+        resetCanvasBuffer();
+        canvas.style.maxWidth = 'none';
+        if (canvas.requestFullscreen) {
+            canvas.requestFullscreen();
+        }
+        else if (canvas.webkitRequestFullscreen) {
+            canvas.webkitRequestFullscreen();
+        }
+        else if (canvas.msRequestFullscreen) {
+            canvas.msRequestFullscreen();
+        }
+    });
+
+    function handleFullscreenChange() {
+        const isFullscreen = !!(document.fullscreenElement || document.webkitFullscreenElement || document.msFullscreenElement);
+        if (!isFullscreen) {
+            enable_device_pixel_ratio = false;
+            sky.applyRatio();
+            resetCanvasBuffer();
+            document.getElementById('skyCanvas').style.maxWidth = '400px';
+        }
+    }
+
+    document.addEventListener('fullscreenchange', handleFullscreenChange);
+    document.addEventListener('webkitfullscreenchange', handleFullscreenChange);
+    document.addEventListener('msfullscreenchange', handleFullscreenChange);
 };
+
+window.onload = init;
+
     </script>
 </body>
 </html>
