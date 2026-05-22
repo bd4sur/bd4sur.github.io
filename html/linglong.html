@@ -2335,17 +2335,27 @@ function draw_horizon(
     const max_scattering_depth = 0.8;
     const margin = 10;
     // const k = Math.max(0.2, Math.sin(to_rad(sun_alt)) * 1.5);
-    const k = (1 / Math.PI) * Math.atan((sun_alt - 6) / 6) + 0.5 + 0.2;
+    const k = (1 / Math.PI) * Math.atan((sun_alt - 6) / 6) + 0.5 + 0.1;
     for (let y = 0; y < fb_height; y++) {
         for (let x = 0; x < fb_width; x++) {
             const [hx, hy, hz] = fisheye_unproject(x, y, R, center_x, center_y, view_alt, view_azi, view_roll, f);
             if (hz < 0) {
                 // if (landscape_texture_rgba === null) {
                 if (landscape_index === 0) {
+                    let r = 0; let g = 0; let b = 0;
+                    // 地景边缘抗锯齿：在地平线附近与天空背景平滑过渡
+                    let edge_margin = 2.0;
+                    if (!enable_atmosphere_scattering && hz > -edge_margin) {
+                        const idx = (y * fb_width + x) * 4;
+                        let t = Math.pow((edge_margin + hz) / edge_margin, 0.5);
+                        r = Math.min(255.0, ((1.0 - t) * r + t * frame_buffer[idx + 0]));
+                        g = Math.min(255.0, ((1.0 - t) * g + t * frame_buffer[idx + 1]));
+                        b = Math.min(255.0, ((1.0 - t) * b + t * frame_buffer[idx + 2]));
+                    }
                     const idx = (y * fb_width + x) * 4;
-                    frame_buffer[idx + 0] = 0;     // R
-                    frame_buffer[idx + 1] = 0;     // G
-                    frame_buffer[idx + 2] = 0;     // B
+                    frame_buffer[idx + 0] = r;     // R
+                    frame_buffer[idx + 1] = g;     // G
+                    frame_buffer[idx + 2] = b;     // B
                     frame_buffer[idx + 3] = 255;   // A
                 }
                 else {
@@ -2378,6 +2388,16 @@ function draw_horizon(
                     r = Math.min(255.0, (scattered_r * k));
                     g = Math.min(255.0, (scattered_g * k));
                     b = Math.min(255.0, (scattered_b * k));
+
+                    // 地景边缘抗锯齿：在地平线附近与天空背景平滑过渡
+                    let edge_margin = 2.0;
+                    if (!enable_atmosphere_scattering && hz > -edge_margin) {
+                        const idx = (y * fb_width + x) * 4;
+                        let t = Math.pow((edge_margin + hz) / edge_margin, 0.5);
+                        r = Math.min(255.0, ((1.0 - t) * r + t * frame_buffer[idx + 0]));
+                        g = Math.min(255.0, ((1.0 - t) * g + t * frame_buffer[idx + 1]));
+                        b = Math.min(255.0, ((1.0 - t) * b + t * frame_buffer[idx + 2]));
+                    }
 
                     const idx = (y * fb_width + x) * 4;
                     frame_buffer[idx + 0] = r; // R
@@ -3716,7 +3736,7 @@ function scatter_model_3(ray_vec, sun_vec) {
     // 拍脑袋：夜天光
     const night_light_scale = 1 - viewElevationDeg / 90;
     color[0] += 0.05 * night_light_scale;
-    color[1] += 0.08 * night_light_scale;
+    color[1] += 0.06 * night_light_scale;
     color[2] += 0.12 * night_light_scale;
 
     // 返回线性 HDR 辐亮度值（未做色调映射，建议调用方自行处理）
@@ -5062,7 +5082,7 @@ const AtmosphericScatteringWebGL = {
             // 夜天光
             float night_light_scale = 1.0 - viewElevationDeg / 90.0;
             color.r += 0.05 * night_light_scale;
-            color.g += 0.08 * night_light_scale;
+            color.g += 0.06 * night_light_scale;
             color.b += 0.12 * night_light_scale;
             
             return clamp(color, 0.0, 1.0);
