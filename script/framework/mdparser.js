@@ -246,13 +246,16 @@ function ParseMarkdown(markdown, isImageLazyLoad) {
             let alignType = new Array();
             HtmlBuffer.push('<div class="MikumarkTableContainer"><table>');
 
+            const line_regex = /^\s*\|?\s*(?:-{1,}:?)(\s*\|\s*(?:-{1,}:?))*\s*\|?\s*$/;
+
             for(let i = 0; i < rows.length; i++) {
                 let row = rows[i];
                 let cols = row.split("|");
                 if(cols.length <= 2) {
                     console.log("Syntax error."); return;
                 }
-                if(cols.length == 3 && /\-{3,}/i.test(cols[1])==true) {
+                // if(cols.length == 3 && /\-{3,}/i.test(cols[1])==true) {
+                if(line_regex.test(row) === true) {
                     hasHeadline = true;
                 }
                 else {

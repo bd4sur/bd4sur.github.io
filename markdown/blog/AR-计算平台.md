@@ -46,7 +46,7 @@ HomeLab有哪些子系统？
 <summary>CPU天梯图</summary>
 
 |型号|年代|多核跑分*|C/T|TDP|主频|工艺|能耗比|
-|------------------------------------|
+|----|---|---------|---|--|---|----|------|
 |Ryzen 9 7945HX|23Q1|55000|16/32|55W|2.5GHz|-nm|1000|
 |Ryzen 7 5800H|21Q1|21000|8/16|45W|3.2GHz|7nm|480|
 |[Xeon E5-2686 v4](https://www.intel.cn/content/www/cn/zh/support/articles/000090280/processors/intel-xeon-processors.html)|16Q4|21000|18/36|145W|2.3GHz|14nm|144|
