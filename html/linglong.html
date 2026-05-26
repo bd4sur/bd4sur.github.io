@@ -3547,7 +3547,7 @@ function scatter_model_3(ray_vec, sun_vec) {
     const N_AMB  = ambDirs.length;
     const dOmega = 2.0 * Math.PI / N_AMB;   // 每方向代表的立体角（上半球 2π / N_AMB）
 
-    const N_V2  = 6;                         // 二阶路径采样数（粗于一阶，节省算力）
+    const N_V2  = 4;                         // 二阶路径采样数（粗于一阶，节省算力）
     const segV2 = (tMax - tMin) / N_V2;
     let odR2 = 0.0, odM2 = 0.0;             // 累积视线光学深度（eye → 当前采样点）
 
@@ -3577,7 +3577,7 @@ function scatter_model_3(ray_vec, sun_vec) {
             if (!aHit || aHit[1] <= 0.0) continue;
 
             // 计算从 X 出发沿方向 ad 的一次散射天光 L₁(X, ad)
-            // 使用轻量级步进（4 主采样 + 4 太阳采样），性能友好
+            // 使用轻量级步进（3 主采样 + 3 太阳采样），性能友好
             const muA = vDot(ad, sunDir);
             const sc  = marchRay(pos, ad, 0.0, aHit[1], 3, 3);
 
@@ -4965,7 +4965,7 @@ const AtmosphericScatteringWebGL = {
             const int N_AMB = 9;
             float dOmega = 2.0 * PI / float(N_AMB);
             
-            const int N_V2 = 6;
+            const int N_V2 = 4;
             float segV2 = (tMax - tMin) / float(N_V2);
             float odR2 = 0.0, odM2 = 0.0;
             
@@ -4994,13 +4994,16 @@ const AtmosphericScatteringWebGL = {
                     vec2 aHit = rsi_model3(pos2, ad, Ra);
                     if (aHit.y <= 0.0) continue;
                     
-                    // 轻量级 marchRay - 沿方向 ad 的一次散射计算（6+6采样）
-                    float segLenAd = aHit.y / 6.0;
+                    // 轻量级 marchRay - 沿方向 ad 的一次散射计算（3+3采样）
+                    const int NV2 = 3;
+                    const int NL2 = 3;
+
+                    float segLenAd = aHit.y / float(NV2);
                     vec3 sumR_ad = vec3(0.0);
                     vec3 sumM_ad = vec3(0.0);
                     float odR_ad = 0.0, odM_ad = 0.0;
                     
-                    for (int ia = 0; ia < 6; ia++) {
+                    for (int ia = 0; ia < NV2; ia++) {
                         float t_ad = (float(ia) + 0.5) * segLenAd;
                         vec3 pos_ad = pos2 + ad * t_ad;
                         float h_ad = length(pos_ad) - Re;
@@ -5014,11 +5017,11 @@ const AtmosphericScatteringWebGL = {
                         vec2 sh_ad = rsi_model3(pos_ad, sunDir, Ra);
                         if (sh_ad.y <= 0.0) continue;
                         
-                        float lSeg_ad = sh_ad.y / 6.0;
+                        float lSeg_ad = sh_ad.y / float(NL2);
                         float lR_ad = 0.0, lM_ad = 0.0;
                         bool blocked_ad = false;
                         
-                        for (int ja = 0; ja < 6; ja++) {
+                        for (int ja = 0; ja < NL2; ja++) {
                             float t_sun_ad = (float(ja) + 0.5) * lSeg_ad;
                             vec3 lp_ad = pos_ad + sunDir * t_sun_ad;
                             float lh_ad = length(lp_ad) - Re;
