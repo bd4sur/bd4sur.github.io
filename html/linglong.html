@@ -3579,7 +3579,7 @@ function scatter_model_3(ray_vec, sun_vec) {
             // 计算从 X 出发沿方向 ad 的一次散射天光 L₁(X, ad)
             // 使用轻量级步进（3 主采样 + 3 太阳采样），性能友好
             const muA = vDot(ad, sunDir);
-            const sc  = marchRay(pos, ad, 0.0, aHit[1], 3, 3);
+            const sc  = marchRay(pos, ad, 0.0, aHit[1], 2, 2);
 
             const L1 = [
                 (sc.sumR[0]*bR[0]*phaseR(muA) + sc.sumM[0]*bM*phaseM(muA)) * SUN,
@@ -4994,9 +4994,9 @@ const AtmosphericScatteringWebGL = {
                     vec2 aHit = rsi_model3(pos2, ad, Ra);
                     if (aHit.y <= 0.0) continue;
                     
-                    // 轻量级 marchRay - 沿方向 ad 的一次散射计算（3+3采样）
-                    const int NV2 = 3;
-                    const int NL2 = 3;
+                    // 轻量级 marchRay - 沿方向 ad 的一次散射计算
+                    const int NV2 = 2;
+                    const int NL2 = 2;
 
                     float segLenAd = aHit.y / float(NV2);
                     vec3 sumR_ad = vec3(0.0);
