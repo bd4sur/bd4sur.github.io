@@ -3734,7 +3734,7 @@ function scatter_model_3(ray_vec, sun_vec) {
     color[2] = hdr_mapping(color[2]);
 
     // 拍脑袋：夜天光
-    const night_light_scale = 1 - viewElevationDeg / 90;
+    const night_light_scale = 1 - viewElevationDeg / 120;
     color[0] += 0.05 * night_light_scale;
     color[1] += 0.06 * night_light_scale;
     color[2] += 0.12 * night_light_scale;
@@ -5083,7 +5083,7 @@ const AtmosphericScatteringWebGL = {
             color.b = hdr_mapping_model3(color.b);
             
             // 夜天光
-            float night_light_scale = 1.0 - viewElevationDeg / 90.0;
+            float night_light_scale = 1.0 - viewElevationDeg / 120.0;
             color.r += 0.05 * night_light_scale;
             color.g += 0.06 * night_light_scale;
             color.b += 0.12 * night_light_scale;

@@ -214,7 +214,7 @@ a.ContactLink:hover { text-decoration: none; border: none; }
             <div class="bd4sur-timeline-item-head bd4sur-timeline-item-head-green"></div>
             <div class="bd4sur-timeline-item-content">
                 <i>2020.12.07</i>
-                <p>主管机关批准设立A类业余电台。</p>
+                <p>无线电管理机关批准设置、使用A类业余电台，颁发无线电台执照。</p>
             </div>
         </li>
 
@@ -232,7 +232,7 @@ a.ContactLink:hover { text-decoration: none; border: none; }
             <div class="bd4sur-timeline-item-head bd4sur-timeline-item-head-green"></div>
             <div class="bd4sur-timeline-item-content">
                 <i>2021.11.13</i>
-                <p>主管机关批准本台升级为B类业余电台。</p>
+                <p>无线电管理机关批准本台变更为B类业余电台，颁发无线电台执照。</p>
             </div>
         </li>
 
@@ -260,6 +260,15 @@ a.ContactLink:hover { text-decoration: none; border: none; }
             <div class="bd4sur-timeline-item-content">
                 <i>2024.05.02 ~ 05.03</i>
                 <p>参加2024年<a href="http://www.crac.org.cn/News/Detail?ID=5df06649a98e4a818eb129fb704fe811" target="_blank">成都五五节活动</a>，受邀发表技术演讲（<a href="./image/G3/2024成都五五节活动-业余无线电数字图传技术.pdf" target="_blank">讲稿</a>）。</p>
+            </div>
+        </li>
+
+        <li class="bd4sur-timeline-item">
+            <div class="bd4sur-timeline-item-tail"></div>
+            <div class="bd4sur-timeline-item-head bd4sur-timeline-item-head-green"></div>
+            <div class="bd4sur-timeline-item-content">
+                <i>2026.06.08</i>
+                <p>无线电管理机关批准本台继续设置、使用，颁发新版业余无线电台执照。</p>
             </div>
         </li>
     </ul>
