@@ -1635,5 +1635,43 @@
         "qth_self": "OM91 Base",
 
         "note":     "省协会中继周五晚间点名"
+    },
+    {
+        "time":     "2026-06-20 14:23",
+        "callsign": "BA4TLP",
+        "freq":     "430.610R+9",
+        "mode":     "FM",
+        "rst":      "T59/R59",
+
+        "rig":      "泉盛UV-K6",
+        "ant":      "原装",
+        "pwr":      "低功率",
+        "qth":      "紫金山顶",
+
+        "rig_self": "iRadio UV-98Plus",
+        "ant_self": "原装",
+        "pwr_self": "5W",
+        "qth_self": "江宁区如意湖公园",
+
+        "note":     ""
+    },
+    {
+        "time":     "2026-06-20 14:26",
+        "callsign": "BA4VDJ",
+        "freq":     "430.610R+9",
+        "mode":     "FM",
+        "rst":      "T59/R59",
+
+        "rig":      "iRadio UV4R",
+        "ant":      "车载苗子",
+        "pwr":      "5W",
+        "qth":      "南京市建邺区",
+
+        "rig_self": "iRadio UV-98Plus",
+        "ant_self": "原装",
+        "pwr_self": "5W",
+        "qth_self": "江宁区如意湖公园",
+
+        "note":     ""
     }
 ]
