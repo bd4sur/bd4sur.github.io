@@ -64,6 +64,7 @@ button:hover {
 
 <table class="arg_table">
     <tr><td class="item_key">采样率</td>  <td class="item_value"><span id="sample_rate">-</span>Hz</td></tr>
+    <tr><td class="item_key">载波频率</td> <td class="item_value"><span id="carrier_freq">-</span>Hz</td></tr>
     <tr><td class="item_key">基波频率</td> <td class="item_value"><span id="base_freq">-</span>Hz</td></tr>
     <tr><td class="item_key">符号周期</td> <td class="item_value"><span id="symbol_duration">-</span>ms（<span id="symbol_length">-</span>samp.）</td></tr>
     <tr><td class="item_key">CP周期</td> <td class="item_value"><span id="cp_duration">-</span>ms（<span id="cp_length">-</span>samp.）</td></tr>
@@ -74,7 +75,6 @@ button:hover {
 <div>
     <button class="btn_tx" id="btn_transmitter">发射</button>
     <button class="btn_rx" id="btn_receiver">接收</button>
-    <button id="btn_sync">立即同步</button>
     <button id="btn_text_loop">发送文本并环路接收</button>
     <button id="btn_stop">停止</button>
     <label style="font-size: 13px; vertical-align: middle;"><input type="checkbox" id="chk_play_audio"> 收听环路信号</label>
@@ -82,10 +82,38 @@ button:hover {
 
 <div style="margin: 10px auto; width: 90%; max-width: 600px;">
     <div>发送文本（Unicode，支持中文）：</div>
-    <textarea id="tx_text" rows="4" style="width: 100%; font-size: 13px;">OFDM 音频带宽软件环路测试：一二三四五，天地玄黄宇宙洪荒。</textarea>
+    <textarea id="tx_text" rows="4" style="width: 100%; font-size: 13px;">正交频分复用，英文缩写为OFDM，是现代宽带无线通信和数字广播系统中最为核心的多载波调制技术之一。它的核心思想是将一个高速数据流分割为大量并行的低速子数据流，分别调制到一组相互正交的窄带子载波上进行传输。由于每个子载波上的符号速率大幅降低，符号周期相应拉长，系统对多径时延扩展的敏感度显著下降，从而将原本棘手的频率选择性衰落信道转化为若干个近似平坦衰落的窄带子信道，极大地简化了接收端的均衡处理。
+
+从历史脉络来看，OFDM的思想可以追溯到二十世纪六十年代。一九六六年，美国学者Robert Chang发表了关于正交多载波传输的奠基性论文，提出了在有限带宽内利用正交函数集实现无干扰并行传输的理论框架。此后，Weinstein和Ebert在一九七一年提出利用离散傅里叶变换和逆离散傅里叶变换来高效实现OFDM的调制与解调，这一贡献使得OFDM从理论走向工程实现成为可能。然而，受限于当时的数字信号处理器件能力，OFDM在随后十余年间并未得到大规模商用。直到二十世纪九十年代，随着快速傅里叶变换专用芯片的成熟以及数字通信需求的爆发，OFDM才真正进入工程应用的黄金时期。
+
+OFDM调制的数学原理可以从正交性条件说起。设系统共有N个子载波，第k个子载波的基带表达式为exp(j乘以2pi乘以k乘以Delta_f乘以t)，其中Delta_f为子载波间隔，k取零到N减一。在一个OFDM符号持续时间T_u内，任意两个不同子载波的内积为零，即它们在整个符号周期上积分结果为零。这一正交性条件要求子载波间隔Delta_f恰好等于有用符号持续时间T_u的倒数。正是由于这种严格的正交关系，各子载波的频谱可以相互重叠而不产生载波间干扰，频谱利用率远高于传统的频分复用方案。在传统频分复用中，相邻信道之间必须留出保护频带以避免干扰，而OFDM中子载波频谱的主瓣峰值恰好落在相邻子载波的零点位置，实现了频谱的紧密排列。
+
+在工程实现层面，OFDM的调制与解调通过逆快速傅里叶变换和快速傅里叶变换来完成。发射端将N个待调制的复数符号（通常来自QPSK、16QAM、64QAM或256QAM等星座映射）作为频域输入，经过N点逆快速傅里叶变换后得到时域采样序列，再经数模转换和射频上变频后发送。接收端则执行相反的操作：射频下变频、模数转换后，对接收到的时域采样进行N点快速傅里叶变换，恢复出各子载波上的频域符号。这种基于傅里叶变换的实现方式将复杂度从直接调制所需的N的平方量级降低到N乘以log以2为底N的量级，使得大规模子载波系统的实时处理成为可能。
+
+循环前缀是OFDM系统中另一个至关重要的设计。在每个OFDM符号的有用部分之前，发射端将符号末尾的一段采样复制到符号前端，形成循环前缀。循环前缀的长度必须大于信道的最大时延扩展。其作用有二：第一，它消除了相邻OFDM符号之间的符号间干扰，因为多径分量在循环前缀区间内衰减殆尽，不会侵入下一个符号的有用区间；第二，它使得线性卷积在数学上等效为循环卷积，从而保证接收端通过简单的单抽头频域均衡（即每个子载波上除以该子载波的信道频率响应）即可消除多径效应，无需复杂的时域均衡器。循环前缀的代价是降低了有效数据传输速率，因为这部分时间不携带新信息，其开销比例等于循环前缀长度除以有用符号长度与循环前缀长度之和。
+
+OFDM系统面临的首要工程问题是高峰均功率比。由于OFDM信号是大量独立子载波信号的叠加，根据中心极限定理，当时域采样点数较大时，信号的瞬时包络近似服从瑞利分布，其峰值功率可能远超平均功率。理论上，N个子载波的OFDM信号峰均功率比可达N倍（以线性值计），即10乘以log以10为底N分贝。实际系统中，虽然如此极端的峰值出现概率极低，但峰均功率比超过十至十二分贝的情况仍时有发生。高峰均功率比要求射频功率放大器具有很大的线性动态范围，否则信号峰值将被削波，产生带内失真和带外频谱泄漏。工程上应对峰均功率比的手段包括：限幅滤波法，简单但引入非线性失真；选择性映射法和部分传输序列法，通过搜索相位旋转组合降低峰值，但增加计算复杂度和边带信息开销；以及主动星座扩展和音调预留法等。在第五代移动通信系统中，还采用了DFT扩展OFDM技术来降低上行链路的峰均功率比，以适配终端功率放大器能力有限的场景。
+
+第二个关键工程问题是对载波频率偏移和相位噪声的高度敏感性。OFDM子载波之间的正交性建立在发射端和接收端本振频率严格一致的前提上。一旦存在频率偏移，子载波间的正交性被破坏，产生载波间干扰，表现为每个子载波上叠加了来自所有其他子载波的泄漏分量。频率偏移的来源包括发射机和接收机振荡器的频率偏差、多普勒频移以及锁相环的相位噪声。工程上，系统在帧结构中嵌入导频符号和同步序列，接收端通过相关运算和相位跟踪环路估计并补偿残余频偏。在高速移动场景下，多普勒扩展可能导致子载波间干扰显著恶化，这是OFDM在高铁等场景下面临的严峻挑战。
+
+第三个工程问题是信道估计与均衡。虽然OFDM将频率选择性信道转化为若干平坦子信道，但接收端仍需准确获知每个子载波的信道增益和相位，才能正确解调。信道估计通常借助插入到时频网格中的已知导频符号完成。导频的图案设计（梳状导频、块状导频或散状导频）需要在估计精度、开销和跟踪时变信道的能力之间取得平衡。在快速时变信道中，导频密度必须足够高以跟踪信道的时域变化；在频率选择性严重的信道中，导频在频域上的间隔必须足够小以捕捉信道频率响应的起伏。插值算法（线性插值、维纳滤波、基于基扩展模型的插值等）用于从导频位置估计出数据子载波处的信道响应。
+
+第四个工程问题是时间同步与频率同步。接收机必须准确定位OFDM符号的起始位置，使快速傅里叶变换窗口恰好落在循环前缀之后的有用符号区间内。定时偏差若落在循环前缀范围内，仅引入一个线性相位旋转，可在频域均衡中一并补偿；但若定时偏差超出循环前缀范围，则会引入符号间干扰和载波间干扰，导致性能急剧恶化。同步通常分为粗同步和细同步两个阶段：粗同步利用前导码或循环前缀的自相关特性确定大致位置；细同步则借助频域导频的相位信息进一步修正。
+
+在典型应用系统方面，长期演进技术即LTE是OFDM在蜂窝移动通信中的里程碑式应用。LTE下行链路采用OFDM多址接入，上行链路则采用单载波频分多址以控制终端的峰均功率比。LTE支持一点四兆赫兹到二十兆赫兹的可变系统带宽，子载波间隔固定为十五千赫兹。在二十兆赫兹带宽下，共有一千二百个可用子载波，有用符号持续时间约为六十六点七微秒，循环前缀常规长度约为四点七微秒。LTE的帧结构分为频分双工和时分双工两种模式，每个无线帧长十毫秒，包含十个子帧，每个子帧由两个时隙组成。LTE引入了多输入多输出技术与OFDM的深度结合，在空间域、频率域和时间域三个维度上实现资源调度，峰值下行速率在四天线配置下可达三百兆比特每秒。LTE的演进版本LTE-Advanced进一步引入了载波聚合、增强型多输入多输出和协作多点传输等技术。
+
+第五代新空口即NR在LTE的基础上进行了全面革新，但OFDM仍是其物理层波形的基础。NR最显著的变化之一是引入了灵活的参数集设计。子载波间隔不再固定为十五千赫兹，而是支持十五、三十、六十、一百二十和二百四十千赫兹五种选项，对应不同的有用符号长度和循环前缀长度。这一设计使得NR能够同时服务于低频段广覆盖场景（使用较小子载波间隔以获得较长符号和较强抗多径能力）和高频段毫米波场景（使用较大子载波间隔以缩短符号时间、降低相位噪声影响并适配更大的多普勒扩展）。NR的帧结构以十毫秒为一个帧，每帧包含十个子帧，每个子帧的时隙数随子载波间隔成比例增加。NR还引入了迷你时隙概念，允许在时隙内的任意符号位置开始传输，以满足超低时延业务的需求。在波形细节上，NR下行采用循环前缀OFDM，上行支持循环前缀OFDM和DFT扩展OFDM两种模式。NR的带宽部分机制允许终端仅在系统带宽的一个子集上工作，降低了终端的射频和基带处理复杂度。
+
+数字无线电广播领域的全球数字广播即DRM系统是OFDM在短波、中波和长波频段的典型应用。DRM系统工作在三十兆赫兹以下的频段，信道条件极为恶劣，多径时延可达数十毫秒，多普勒扩展在短波电离层反射信道中也非常显著。DRM采用OFDM调制，子载波数量根据信道带宽和模式不同从几十到几百不等，子载波间隔约为几十赫兹到上百赫兹量级，符号持续时间相应达到数十毫秒。为应对短波信道的长时延扩展，DRM使用了较长的循环前缀。调制方式根据信道条件自适应选择，从鲁棒的4QAM到频谱效率较高的64QAM。DRM还引入了时间交织和频率交织来对抗信道的时变和频率选择性，并采用多层编码调制和不等差错保护来适配音频流的不同重要性层次。DRMplus是DRM在三十兆赫兹以上频段的扩展版本，工作在甚高频段，带宽更宽，子载波数量更多，可传输更高质量的音频和辅助数据。
+
+数字音频广播即DAB及其演进版本DAB加是OFDM在欧洲和亚太地区地面数字广播中的成功实践。DAB系统工作在甚高频第三频段，约一百七十四至二百四十兆赫兹，采用编码正交频分复用方案。DAB的传输模式定义了四种参数配置，其中模式一最为常用，包含一千五百三十六个子载波，子载波间隔为一千赫兹，有用符号持续时间为一毫秒，循环前缀约为零点二四六毫秒。DAB使用差分编码的QPSK调制，避免了相干解调对信道估计精度的严格要求，适合移动接收场景。DAB的帧结构包含同步信道、快速信息信道和主业务信道。DAB加在DAB基础上引入了正交频分复用符号内的时间分集、更高效的音频编码（从MPEG-1第二层升级到HE-AAC第二版）以及更强的信道编码，在相同带宽下可容纳更多节目或提供更高质量的音频。DAB系统的一个突出优势是支持单频网部署，即多个发射机在同一频率上同步发送相同内容，利用OFDM的循环前缀吸收来自不同发射机的信号时延差，将多发射机干扰转化为有益的多径分集。
+
+除上述系统外，OFDM还广泛应用于众多其他通信标准中。无线局域网标准IEEE 802.11a、g、n、ac、ax均采用OFDM作为物理层基础波形，子载波间隔为三百一十二点五千赫兹，有用符号持续时间为三点二微秒。数字视频广播标准DVB-T和DVB-T2利用OFDM实现地面电视广播，支持两千、四千和八千个子载波模式，并引入了多输入多输出和旋转星座等增强技术。电力线通信标准如HomePlug AV和G.hn也采用OFDM来应对电力线信道的严重频率选择性和窄带干扰。有线通信领域，非对称数字用户线技术的离散多音调调制本质上是OFDM在有线信道上的应用。
+
+从系统设计的宏观视角来看，OFDM的成功在于它以一种优雅的方式将复杂的宽带频率选择性信道问题分解为大量简单的窄带平坦信道问题，使得频域均衡、自适应比特加载、频率选择性调度和多天线预编码等信号处理技术得以高效实施。然而，OFDM并非没有局限：它对频率偏移和相位噪声敏感，峰均功率比较高，对定时同步要求严格，且在极低时延或极高多普勒场景下性能受限。近年来，学术界也提出了若干替代或补充波形方案，如滤波器组多载波、通用滤波多载波和正交时频空间调制等，试图在保持OFDM优势的同时缓解其固有缺陷。但截至当前，OFDM及其变体仍然是从蜂窝移动通信到数字广播、从无线局域网到有线宽带接入的最为主流和成熟的多载波传输技术，其工程生态和产业链已高度完善，在可预见的未来仍将是宽带波形设计的基石。</textarea>
     <div style="text-align: left; margin-top: 5px;">
-        <label>信道 SNR：<input type="range" id="snr_slider" min="-10" max="30" step="1" value="30" style="vertical-align: middle; width: 60%;"> <span id="snr_value">30</span>dB</label>
-        <label style="margin-left: 15px;"><input type="checkbox" id="chk_multipath"> 多径衰落（频率选择性）</label>
+        <label>信道 SNR：<input type="range" id="snr_slider" min="-10" max="30" step="1" value="3" style="vertical-align: middle; width: 60%;"> <span id="snr_value">3</span>dB</label>
+        <label style="margin-left: 15px;"><input type="checkbox" id="chk_multipath" checked> 多径衰落（频率选择性）</label>
     </div>
 </div>
 
@@ -112,7 +140,7 @@ button:hover {
 <div>解调出的IQ星座</div>
 <canvas id="constellation" width="200px" height="200px" style="width: 200px; height: 200px;"></canvas>
 
-<div>接收符号的基带频谱</div>
+<div>接收符号的OFDM通带频谱</div>
 <canvas id="spectrum" width="480px" height="180px" style="width: 480px; height: 180px;"></canvas>
 
 <div id="indicators"></div>
@@ -136,6 +164,9 @@ try {
 const SAMPLE_RATE    = audioCtx.sampleRate; // 典型值：48000Hz
 const BASE_FREQ      = 40;   // 子载波间隔(Hz)，也是基波频率
 const CARRIER_NUMBER = 64;   // 正交子载波数
+const CARRIER_FREQ   = 10000; // 通带载波频率(Hz)：复基带经 IQ 调制搬移到 fc，频谱以 fc 为中心，
+                                // 占用 fc±1280Hz。子载波取半间隔偏置（fc±20,±60,…,±1260），避开 DC，
+                                // 且两两之和/之差均为 BASE_FREQ 整数倍，符号周期内保持正交
 
 const BANDWIDTH = BASE_FREQ * CARRIER_NUMBER;          // 占用带宽（Hz）
 const SYMBOL_LENGTH = Math.round(SAMPLE_RATE / BASE_FREQ); // 符号长度（AF采样点数）
@@ -147,6 +178,7 @@ const TRAINING_PERIOD = TRAINING_SYMBOL_INTERVAL + 1;  // 一个“数据+训练
 const IQ_AMP = 0.02;
 
 $("#sample_rate").html(SAMPLE_RATE);
+$("#carrier_freq").html(CARRIER_FREQ);
 $("#base_freq").html(BASE_FREQ);
 $("#carrier_number").html(CARRIER_NUMBER);
 $("#bandwidth").html(BANDWIDTH);
@@ -246,9 +278,11 @@ function fft(re, im) {
     }
 }
 
-// 绘制基带频谱（带横纵刻度）：横轴 0~FMAX Hz，纵轴 dB（满幅正弦为 0dB）
+// 绘制通带频谱（带横纵刻度）：横轴为载波附近频率窗，纵轴 dB（满幅正弦为 0dB）
 const SPECTRUM_FFT_LEN = 4096;
-const SPECTRUM_FMAX = 3200;   // 频率轴上限（Hz），覆盖 64 个子载波（40~2560Hz）并留余量
+// 横轴 span 取 OFDM 包络带宽的两倍（2×BANDWIDTH），以载波为中心
+const SPECTRUM_FMIN = CARRIER_FREQ - BANDWIDTH;            // 频率轴下限（Hz）
+const SPECTRUM_FMAX = CARRIER_FREQ + BANDWIDTH;            // 频率轴上限（Hz）
 const SPECTRUM_DB_TOP = 0;
 const SPECTRUM_DB_BOT = -80;
 function plot_spectrum(samples) {
@@ -263,7 +297,8 @@ function plot_spectrum(samples) {
     fft(re, im);
 
     let bin_hz = SAMPLE_RATE / SPECTRUM_FFT_LEN;
-    let n_bins = Math.floor(SPECTRUM_FMAX / bin_hz);
+    let k_min = Math.max(0, Math.ceil(SPECTRUM_FMIN / bin_hz));
+    let k_max = Math.floor(SPECTRUM_FMAX / bin_hz);
     const ML = 34, MR = 8, MT = 6, MB = 20; // 四周留白，左/下用于刻度
     let pw = W - ML - MR, ph = H - MT - MB;
     let db_range = SPECTRUM_DB_TOP - SPECTRUM_DB_BOT;
@@ -283,9 +318,9 @@ function plot_spectrum(samples) {
     }
     // 横刻度（每 400Hz 一条网格线）
     ctx.textAlign = "center";
-    for(let f = 0; f <= SPECTRUM_FMAX; f += 400) {
-        let x = ML + pw * f / SPECTRUM_FMAX;
-        ctx.strokeStyle = (f === 0) ? "#666" : "#333";
+    for(let f = Math.ceil(SPECTRUM_FMIN / 400) * 400; f <= SPECTRUM_FMAX; f += 400) {
+        let x = ML + pw * (f - SPECTRUM_FMIN) / (SPECTRUM_FMAX - SPECTRUM_FMIN);
+        ctx.strokeStyle = "#333";
         ctx.beginPath(); ctx.moveTo(x, MT); ctx.lineTo(x, MT + ph); ctx.stroke();
         ctx.fillStyle = "#aaa";
         ctx.fillText(f.toString(), x, H - 6);
@@ -299,13 +334,13 @@ function plot_spectrum(samples) {
     // 频谱曲线
     ctx.strokeStyle = "#0f0";
     ctx.beginPath();
-    for(let k = 0; k <= n_bins; k++) {
+    for(let k = k_min; k <= k_max; k++) {
         let mag = Math.sqrt(re[k] * re[k] + im[k] * im[k]) / (SPECTRUM_FFT_LEN / 2);
         let db = 20 * Math.log10(mag + 1e-12);
         if(db < SPECTRUM_DB_BOT) db = SPECTRUM_DB_BOT;
-        let x = ML + pw * (k * bin_hz) / SPECTRUM_FMAX;
+        let x = ML + pw * (k * bin_hz - SPECTRUM_FMIN) / (SPECTRUM_FMAX - SPECTRUM_FMIN);
         let y = MT + ph * (SPECTRUM_DB_TOP - db) / db_range;
-        if(k === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+        if(k === k_min) ctx.moveTo(x, y); else ctx.lineTo(x, y);
     }
     ctx.stroke();
 }
@@ -338,15 +373,19 @@ function update_graph(graph, new_value) {
 // 本振信号 和 一般信号处理
 //////////////////////////////////////////////////////////////////////////
 
-// 用于IQ调制的中频（复数）本振信号。下标0为第1个子载波（40Hz），不包括直流
+// 用于IQ调制的通带（复数）本振信号：64 个子载波以 CARRIER_FREQ 为中心对称分布，
+// 第 c 个子载波位于 CARRIER_FREQ + (c - 31.5)×BASE_FREQ（即 fc±20,±60,…,±1260Hz）。
+// 发射：symbol = Σ(Ic·cos − Qc·sin) = Re{ Σ Xc·e^{j2πft} }（复基带 IQ 调制到音频）；
+// 接收：与本振相关，还原复基带 IQ（IQ 解调）。
 const CARRIER_I = [];
 const CARRIER_Q = [];
 for(let c = 0; c < CARRIER_NUMBER; c++) {
     let cwave_i = [];
     let cwave_q = [];
+    let f = CARRIER_FREQ + (c - (CARRIER_NUMBER - 1) / 2) * BASE_FREQ;
     for(let t = 0; t < SYMBOL_LENGTH; t++) {
-        cwave_i[t] = Math.cos(2 * Math.PI * (c+1) * t / SYMBOL_LENGTH);
-        cwave_q[t] = Math.sin(2 * Math.PI * (c+1) * t / SYMBOL_LENGTH);
+        cwave_i[t] = Math.cos(2 * Math.PI * f * t / SAMPLE_RATE);
+        cwave_q[t] = Math.sin(2 * Math.PI * f * t / SAMPLE_RATE);
     }
     CARRIER_I[c] = cwave_i;
     CARRIER_Q[c] = cwave_q;
@@ -427,21 +466,25 @@ function play_frame(frame) {
     playTime += frame.length / SAMPLE_RATE;
 }
 
-// 播放基带（音频）波形
-function Transmit(ofdm_wave) {
+// 发射机：循环播放已调制的一轮 OFDM 波形（SC前导 + 训练符号 + 分帧数据）
+let txSource = null;
+function stop_transmitter() {
+    if(txSource !== null) {
+        try { txSource.stop(); } catch(e) {}
+        txSource = null;
+    }
+}
+function transmit_loop(ofdm_wave) {
+    stop_transmitter();
     if(!audioCtx) return;
     if(audioCtx.state === "suspended") audioCtx.resume();
     let pcmAudioBuffer = audioCtx.createBuffer(CHANNELS, ofdm_wave.length, SAMPLE_RATE);
-    for(let channel = 0; channel < CHANNELS; channel++) {
-        let channelBuffer = pcmAudioBuffer.getChannelData(channel);
-        for(let t = 0; t < ofdm_wave.length; t++) {
-            channelBuffer[t] = ofdm_wave[t];
-        }
-    }
-    let source = audioCtx.createBufferSource();
-    source.buffer = pcmAudioBuffer;
-    source.connect(audioCtx.destination);
-    source.start();
+    pcmAudioBuffer.getChannelData(0).set(ofdm_wave);
+    txSource = audioCtx.createBufferSource();
+    txSource.buffer = pcmAudioBuffer;
+    txSource.loop = true; // 波形结构本就按周期设计，无缝循环
+    txSource.connect(audioCtx.destination);
+    txSource.start();
 }
 
 //////////////////////////////////////////////////////////////////////////
@@ -999,11 +1042,7 @@ function receiver_test(ofdm_wave, is_soft_loop, fec_info) {
     AUDIO_BUFFER = [];
     $("#ber_stat").text("-");
     $("#indicators").empty(); // 清空上一次的曲线图，避免重复堆叠
-    let byte_graph = create_graph("byte_graph", "indicators", "解码出的字节", 64, 50, [0, 0], [64, 256]);
     let buffer_length_graph = create_graph("buffer_length_graph", "indicators", "缓冲区现有采样数", 200, 50, [0, 0], [200, AUDIO_BUFFER_LENGTH * 4]);
-
-    let prev_bytes = [];
-    let checksum = 0;
 
     function on_success(stream) {
         // 软件环路无需麦克风，只有真实音频接收才建立采集链路
@@ -1168,9 +1207,12 @@ function receiver_test(ofdm_wave, is_soft_loop, fec_info) {
                 det_hist = det_hist.concat(frame);
                 // 已同步期间 det_hist 保留最近 2 个槽长的采样供下次检测：
                 // 下一遍的 SC 前导在本遍末尾就已开始到达，若裁得太短，前导头部会在
-                // 恢复检测前被裁掉，导致隔一遍才能锁定（奇偶轮交替失败）
+                // 恢复检测前被裁掉，导致隔一遍才能锁定（奇偶轮交替失败）；
+                // 若有待验证的候选峰，还须额外保留峰前 360 采样供模板精化
                 if(!is_need_sync && det_hist.length > 2 * GROSS_SYMBOL_LENGTH) {
-                    det_hist.splice(0, det_hist.length - 2 * GROSS_SYMBOL_LENGTH);
+                    let kf = Math.max(searched_upto, feed_abs - 2 * GROSS_SYMBOL_LENGTH);
+                    if(best_metric >= 0 && best_offset - 360 < kf) kf = Math.max(0, best_offset - 360);
+                    det_hist.splice(0, Math.max(0, kf - (feed_abs - det_hist.length)));
                 }
                 // 文本环路近似实时运行，可同步外放给人听
                 if($("#chk_play_audio").is(":checked")) {
@@ -1178,9 +1220,17 @@ function receiver_test(ofdm_wave, is_soft_loop, fec_info) {
                 }
             }
             else {
+                // 麦克风真实接收：同样喂入检测历史，走与软环路统一的同步/快捕流水线
                 let input_wave = new Float32Array(window_length);
                 analyser.getFloatTimeDomainData(input_wave);
                 frame = Array.from(input_wave);
+                feed_abs += frame.length;
+                det_hist = det_hist.concat(frame);
+                if(!is_need_sync && det_hist.length > 2 * GROSS_SYMBOL_LENGTH) {
+                    let kf = Math.max(searched_upto, feed_abs - 2 * GROSS_SYMBOL_LENGTH);
+                    if(best_metric >= 0 && best_offset - 360 < kf) kf = Math.max(0, best_offset - 360);
+                    det_hist.splice(0, Math.max(0, kf - (feed_abs - det_hist.length)));
+                }
             }
 
             // 将新一帧采样全部压入缓冲区
@@ -1189,8 +1239,9 @@ function receiver_test(ofdm_wave, is_soft_loop, fec_info) {
             }
             update_graph(buffer_length_graph, AUDIO_BUFFER.length);
 
-            // —— 软环路：流式粗同步 + 快速捕获（网格态下后台并行尝试前导锁定） ——
-            if(is_soft_loop && (is_need_sync || acq_state === 1 || (sync_countdown <= 0))) {
+            // —— 流式粗同步 + 快速捕获（软环路与麦克风共用；网格态下后台并行尝试前导锁定） ——
+            // 麦克风接收时持续运行：每个前导到达即接管新一轮，避免消费越过轮边界破坏网格
+            if(is_soft_loop ? (is_need_sync || acq_state === 1 || (sync_countdown <= 0)) : true) {
                 let base = feed_abs - det_hist.length;   // det_hist[0] 的绝对下标
                 let d_begin = Math.max(searched_upto, base);
                 let d_max = feed_abs - 2 * SC_HALF_LEN;  // 两段窗口须完整
@@ -1203,7 +1254,8 @@ function receiver_test(ofdm_wave, is_soft_loop, fec_info) {
                         R += det_hist[i0 + n + SC_HALF_LEN] * det_hist[i0 + n + SC_HALF_LEN];
                         E1 += det_hist[i0 + n] * det_hist[i0 + n];
                     }
-                    for(let d = d_begin; d <= d_max; d++) {
+                    // stride 4 粗扫（精化阶段在 ±360 窗口内补回采样级精度，计算量降 4 倍）
+                    for(let d = d_begin; d <= d_max; d += 4) {
                         let i = d - base;
                         // 双窗能量归一化（E1·R）：窗口滑出前导时失配项才真正拉低度量，三角峰尖锐
                         let metric = (P * P) / (E1 * R + 1e-12);
@@ -1211,13 +1263,16 @@ function receiver_test(ofdm_wave, is_soft_loop, fec_info) {
                             best_metric = metric;
                             best_offset = d;
                         }
-                        if(d < d_max) {
-                            P += -det_hist[i] * det_hist[i + SC_HALF_LEN]
-                                + det_hist[i + SC_HALF_LEN] * det_hist[i + 2 * SC_HALF_LEN];
-                            R += -det_hist[i + SC_HALF_LEN] * det_hist[i + SC_HALF_LEN]
-                                + det_hist[i + 2 * SC_HALF_LEN] * det_hist[i + 2 * SC_HALF_LEN];
-                            E1 += -det_hist[i] * det_hist[i]
-                                + det_hist[i + SC_HALF_LEN] * det_hist[i + SC_HALF_LEN];
+                        // 滑动到下一个 stride 位置
+                        let steps = Math.min(4, d_max - d);
+                        for(let s = 0; s < steps; s++) {
+                            let j = i + s;
+                            P += -det_hist[j] * det_hist[j + SC_HALF_LEN]
+                                + det_hist[j + SC_HALF_LEN] * det_hist[j + 2 * SC_HALF_LEN];
+                            R += -det_hist[j + SC_HALF_LEN] * det_hist[j + SC_HALF_LEN]
+                                + det_hist[j + 2 * SC_HALF_LEN] * det_hist[j + 2 * SC_HALF_LEN];
+                            E1 += -det_hist[j] * det_hist[j]
+                                + det_hist[j + SC_HALF_LEN] * det_hist[j + SC_HALF_LEN];
                         }
                     }
                     searched_upto = d_max + 1;
@@ -1256,11 +1311,16 @@ function receiver_test(ofdm_wave, is_soft_loop, fec_info) {
                     sync_countdown = 10000;
                     symbol_count = 0;
                     is_need_sync = false;
-                    // 从前导之后起，一整遍包含的符号槽数（含数据与训练符号）
-                    symbols_until_resync = Math.round(ofdm_wave.length / GROSS_SYMBOL_LENGTH) - 1;
+                    // 从前导之后起，一整遍包含的符号槽数（含数据与训练符号）；麦克风接收时轮长未知
+                    symbols_until_resync = ofdm_wave ? Math.round(ofdm_wave.length / GROSS_SYMBOL_LENGTH) - 1 : 1e9;
                     console.log("SC 粗同步 @" + t_offset + "（精化度量 " + validate_metric.toFixed(3) + "）");
                     best_metric = -1; // 为下一次检测复位
                     // 新一轮开始：复位分帧接收状态
+                    if(!is_soft_loop) {
+                        // 麦克风接收：每轮前导锁定即换一轮显示
+                        receivedTextBytes = [];
+                        updateReceivedText();
+                    }
                     pkt_buf = [];
                     pkt_index = 0;
                     last_seq = -1;
@@ -1320,31 +1380,17 @@ function receiver_test(ofdm_wave, is_soft_loop, fec_info) {
                 let skip = keep_from - (feed_abs - det_hist.length);
                 if(skip > 0) det_hist.splice(0, skip);
             }
-            // —— 麦克风接收：缓冲区充满后做模板相关同步（原有逻辑） ——
-            if(!is_soft_loop && (is_need_sync || (sync_countdown <= 0)) && (AUDIO_BUFFER.length < AUDIO_BUFFER_LENGTH)) {
-                // 跳过，继续填充缓冲区
-            }
-            else if(!is_soft_loop && (is_need_sync || (sync_countdown <= 0)) && (AUDIO_BUFFER.length >= AUDIO_BUFFER_LENGTH)) {
-                let start_offset = estimate_STO(AUDIO_BUFFER);
-                $("#estimated_offset").html(start_offset);
-                for(let i = 0; i < start_offset && AUDIO_BUFFER.length > 0; i++) {
-                    AUDIO_BUFFER.shift();
-                }
-                sync_countdown = 10000;
-                symbol_count = 0;
-                is_need_sync = false;
-            }
-            // 软环路未锁定：仅检测，不消费
-            else if(is_soft_loop && is_need_sync) {
+            // 未锁定：仅检测，不消费（软环路与麦克风一致）
+            if(is_need_sync) {
                 // 跳过
             }
             // 已同步（含快速捕获网格态），但缓冲区内不足一个符号
-            else if((sync_countdown > 0) && (AUDIO_BUFFER.length < GROSS_SYMBOL_LENGTH + (is_soft_loop ? 2 * FINE_SEARCH_LEN : 0))) {
+            else if((sync_countdown > 0) && (AUDIO_BUFFER.length < GROSS_SYMBOL_LENGTH + 2 * FINE_SEARCH_LEN)) {
                 sync_countdown--;
             }
             // 已同步（含快速捕获网格态），且缓冲区内至少有一个符号
-            else if((sync_countdown > 0) && (AUDIO_BUFFER.length >= GROSS_SYMBOL_LENGTH + (is_soft_loop ? 2 * FINE_SEARCH_LEN : 0))) {
-                while(AUDIO_BUFFER.length >= GROSS_SYMBOL_LENGTH + (is_soft_loop ? 2 * FINE_SEARCH_LEN : 0)) {
+            else if((sync_countdown > 0) && (AUDIO_BUFFER.length >= GROSS_SYMBOL_LENGTH + 2 * FINE_SEARCH_LEN)) {
+                while(AUDIO_BUFFER.length >= GROSS_SYMBOL_LENGTH + 2 * FINE_SEARCH_LEN) {
                     if(is_soft_loop && symbols_until_resync <= 0) {
                         // 本遍符号已消费完：清空接收框，准备显示下一轮（误码率统计已在逐帧更新）
                         receivedTextBytes = [];
@@ -1359,7 +1405,7 @@ function receiver_test(ofdm_wave, is_soft_loop, fec_info) {
                     let symbol_wave = null;
                     let frame_iq = null;
 
-                    if(is_soft_loop) {
+                    {
                         if(symbol_count % TRAINING_PERIOD === 0) {
                             // —— 训练符号槽：逐载波信道估计（指数平滑）——
                             // z[c] = R[c]/T[c] = H[c]·e^{-j2πcδ/N}：CP 范围内的恒定定时偏差表现为
@@ -1403,29 +1449,13 @@ function receiver_test(ofdm_wave, is_soft_loop, fec_info) {
                             }
                         }
                     }
-                    else {
-                        // 麦克风接收：丢弃 CP，取出一个完整符号体（原有逻辑）
-                        for(let i = 0; i < CP_LENGTH; i++) {
-                            AUDIO_BUFFER.shift();
-                        }
-                        symbol_wave = [];
-                        for(let i = 0; i < SYMBOL_LENGTH; i++) {
-                            symbol_wave.push(AUDIO_BUFFER.shift());
-                        }
-                        // 训练符号位置：每个 TRAINING_PERIOD 中的最后一个符号，不携带数据
-                        if(symbol_count % TRAINING_PERIOD === TRAINING_SYMBOL_INTERVAL) {
-                            symbol_count++;
-                            continue;
-                        }
-                        frame_iq = demodulate_ofdm_symbol(symbol_wave);
-                    }
 
                     plot_wave(oscilloscope, symbol_wave);
                     plot_spectrum(symbol_wave);
                     plot_constellation(constellation, frame_iq);
                     let frame_bytes = qam4_decoding(frame_iq[0], frame_iq[1], IQ_AMP);
 
-                    if(is_soft_loop && acq_state === 1) {
+                    if(acq_state === 1) {
                         // 快速捕获网格态：累积数据字节流，试 4 种帧相位（magic + RS 验证）
                         for(let n = 0; n < frame_bytes.length; n++) acq_stream.push(frame_bytes[n]);
                         acq_slots++;
@@ -1445,9 +1475,9 @@ function receiver_test(ofdm_wave, is_soft_loop, fec_info) {
                                     let n_next = 4 * r.seq + 4 + pkt_buf.length / 16;
                                     let s_next = 1 + Math.floor(n_next / TRAINING_SYMBOL_INTERVAL) * TRAINING_PERIOD + (n_next % TRAINING_SYMBOL_INTERVAL);
                                     // 锁定发生在本槽处理中，槽尾的 symbol_count++ 与 symbols_until_resync--
-                                    // 会再各增/减一次，先减 1 补偿
+                                    // 会再各增/减一次，先减 1 补偿；麦克风接收时轮长未知
                                     symbol_count = s_next - 1;
-                                    symbols_until_resync = Math.round(ofdm_wave.length / GROSS_SYMBOL_LENGTH) - 1 - s_next + 1;
+                                    symbols_until_resync = ofdm_wave ? Math.round(ofdm_wave.length / GROSS_SYMBOL_LENGTH) - 1 - s_next + 1 : 1e9;
                                     console.log("快速捕获：帧锁定 #" + r.seq + "，接管稳态");
                                     locked = true;
                                     break;
@@ -1458,15 +1488,15 @@ function receiver_test(ofdm_wave, is_soft_loop, fec_info) {
                                 break;
                             }
                         }
-                        // 超时回退：网格态超过两轮仍未帧锁定，回到前导搜索
-                        if(acq_state === 1 && acq_slots > 2 * ofdm_wave.length / GROSS_SYMBOL_LENGTH) {
+                        // 超时回退：网格态超过两轮（或麦克风下 500 槽）仍未帧锁定，回到前导搜索
+                        if(acq_state === 1 && acq_slots > (ofdm_wave ? 2 * ofdm_wave.length / GROSS_SYMBOL_LENGTH : 500)) {
                             is_need_sync = true;
                             acq_state = 0;
                             acq_stream = [];
                             console.log("快速捕获：超时，回退等待前导");
                         }
                     }
-                    else if(is_soft_loop) {
+                    else {
                         // 稳态：填入当前帧缓冲（未解扰），收满 64B 即译码一帧（增量显示）
                         for(let n = 0; n < frame_bytes.length; n++) {
                             pkt_buf.push(frame_bytes[n]);
@@ -1477,29 +1507,9 @@ function receiver_test(ofdm_wave, is_soft_loop, fec_info) {
                             }
                         }
                     }
-                    else {
-                        for(let n = 0; n < frame_bytes.length; n++) {
-                            let abyte = frame_bytes[n];
-                            update_graph(byte_graph, abyte);
-                            // 帧格式：每 16 个数据字节后跟 0 0 0 checksum
-                            if(prev_bytes.length >= 3 && prev_bytes[0] === 0 && prev_bytes[1] === 0 && prev_bytes[2] === 0) {
-                                if(checksum % 256 === abyte) {
-                                    console.log("✔");
-                                }
-                                else {
-                                    console.log("❌");
-                                }
-                                checksum = 0;
-                            }
-                            else {
-                                checksum += abyte;
-                            }
-                            push_value(prev_bytes, abyte, 3);
-                        }
-                    }
                     valid_symbol_count++;
                     symbol_count++;
-                    if(is_soft_loop) symbols_until_resync--;
+                    if(symbols_until_resync < 1e9) symbols_until_resync--;
                 }
                 sync_countdown--;
             }
@@ -1540,41 +1550,6 @@ function receiver_test(ofdm_wave, is_soft_loop, fec_info) {
 //////////////////////////////////////////////////////////////////////////
 // 测试与校验
 //////////////////////////////////////////////////////////////////////////
-
-// 生成随机的发射测试波形
-function generate_testing_ofdm_signal(byte_length, snr) {
-    // 保证为完整帧（16 字节一帧）
-    byte_length = Math.floor(byte_length / 16) * 16;
-    if(byte_length < 16) byte_length = 16;
-
-    let source = [];
-    for(let t = 0; t < byte_length; t++) {
-        source[t] = Math.floor(Math.random() * 255) + 1;
-    }
-
-    let checksum = 0;
-    let byte_stream = [];
-    for(let t = 0; t < byte_length; t++) {
-        let abyte = source[t];
-        checksum += abyte;
-        byte_stream.push(abyte);
-        if(t % 16 === 15) {
-            byte_stream.push(0);
-            byte_stream.push(0);
-            byte_stream.push(0);
-            byte_stream.push(checksum & 0xFF);
-            checksum = 0;
-        }
-    }
-
-    // 随机指定信号起始位置，模拟接收机从任意时刻切入
-    let init_offset = Math.floor(Math.random() * (TRAINING_PERIOD * GROSS_SYMBOL_LENGTH));
-
-    let ofdm_wave = OFDM_Modulate(byte_stream, IQ_AMP);
-    ofdm_wave = ofdm_wave.slice(init_offset);
-    ofdm_wave = awgn(ofdm_wave, snr);
-    return ofdm_wave;
-}
 
 // 比较两个字节流：寻找 received 在 expected 中的最佳对齐位置，并统计误码
 function compare_byte_streams(expected, received) {
@@ -1752,34 +1727,12 @@ function text_loop(text, snr) {
     };
 }
 
-// 音频发射
-$("#btn_transmitter").click(() => {
-    let ofdm_wave = generate_testing_ofdm_signal(100000, 30);
-    Transmit(ofdm_wave);
-});
-
-// 音频接收
-$("#btn_receiver").click(() => {
-    receiver_test(null, false);
-});
-
-// 立即同步
-$("#btn_sync").click(() => {
-    is_need_sync = true;
-});
-
-// 发送文本并环路接收（持续循环发送，接收端持续解调并更新显示）
-// 发送链路：文本 → UTF-8 分帧（64B/帧：帧头 8B + 负载 ≤24B）
-//         → 帧内 2×RS(32,16) → 帧内块交织 → 整轮连续加扰 → QAM/OFDM 调制
-$("#btn_text_loop").click(() => {
-    let text = $("#tx_text").val();
-    receivedTextBytes = [];
-    $("#sent_text").text(text);
-    $("#received_text").text("");
-
+// 将文本调制为完整的一轮 OFDM 波形：[SC前导][训练符号][分帧数据符号…]
+// 返回 { wave, coded, payload }：coded/payload 供接收端误码率比对
+function build_tx_wave(text) {
     let payload = Array.from(new TextEncoder().encode(text));
     let tx_bytes = [];
-    let coded = []; // 交织前的期望码字流，用于 RS 前误码率比对
+    let coded = []; // 交织前的期望码字流
     let n_packets = Math.ceil(payload.length / PKT_PAYLOAD_MAX);
     for(let i = 0; i < n_packets; i++) {
         let chunk = payload.slice(i * PKT_PAYLOAD_MAX, (i + 1) * PKT_PAYLOAD_MAX);
@@ -1791,8 +1744,6 @@ $("#btn_text_loop").click(() => {
         // 加扰逐帧独立复位：帧边界确定后 LFSR 状态立即可算，支持任意帧中途切入
         tx_bytes = tx_bytes.concat(scramble_stream(interleave(pkt_coded, PKT_SYMBOLS)));
     }
-
-    // 波形结构：[SC前导][训练符号][数据符号…]（训练符号按每 5 个数据符号插入，含开头的这个）
     // SC 前导用于流式粗同步；紧跟其后的训练符号在第一个数据符号解调前完成首次信道估计。
     // 注意：TRAINING_SYMBOL_TIME 是未经 0.9 峰值归一化的“生”波形，电平比 OFDM_Modulate 的
     // 输出低两个数量级，直接拼接会被噪声淹没，必须先提升到相同电平。
@@ -1800,12 +1751,34 @@ $("#btn_text_loop").click(() => {
     for(let v of TRAINING_SYMBOL_TIME) { let a = Math.abs(v); if(a > training_peak) training_peak = a; }
     let training_leveled = TRAINING_SYMBOL_TIME.map(v => v * (0.9 / training_peak));
     let preamble = SC_PREAMBLE.concat(training_leveled);
-    // 干净波形：多径衰落与 AWGN 在接收端逐帧生成，每遍环路的噪声都不同
     let ofdm_wave = preamble.concat(OFDM_Modulate(tx_bytes, IQ_AMP));
+    return { wave: ofdm_wave, coded: coded, payload: payload };
+}
 
-    receiver_test(ofdm_wave, true, {
-        payload: payload, // 纠错后比对的期望负载
-        coded: coded      // 纠错前比对的期望码字流
+// 发射：调制当前文本，音频信号通过 Web Audio API 循环播放
+$("#btn_transmitter").click(() => {
+    let text = $("#tx_text").val();
+    let tx = build_tx_wave(text);
+    transmit_loop(tx.wave);
+    console.log("发射中（循环播放），文本长度 " + text.length);
+});
+
+// 接收：从麦克风持续获取音频并解调（与软环路同一套同步/快捕/均衡/分帧流水线）
+$("#btn_receiver").click(() => {
+    receiver_test(null, false);
+});
+
+// 发送文本并环路接收（持续循环发送，接收端持续解调并更新显示）
+$("#btn_text_loop").click(() => {
+    let text = $("#tx_text").val();
+    receivedTextBytes = [];
+    $("#sent_text").text(text);
+    $("#received_text").text("");
+    let tx = build_tx_wave(text);
+    // 干净波形：多径衰落与 AWGN 在接收端逐帧生成，每遍环路的噪声都不同
+    receiver_test(tx.wave, true, {
+        payload: tx.payload, // 纠错后比对的期望负载
+        coded: tx.coded      // 纠错前比对的期望码字流
     });
     console.log("启动文本 OFDM 持续环路（分帧 64B + RS(32,16)×2/帧 + 帧内交织 + 加扰）");
 });
@@ -1815,10 +1788,11 @@ $("#snr_slider").on("input", () => {
     $("#snr_value").text($("#snr_slider").val());
 });
 
-// 停止接收/环路
+// 停止接收/环路/发射
 $("#btn_stop").click(() => {
     stop_receiver();
-    console.log("已停止接收");
+    stop_transmitter();
+    console.log("已停止接收/发射");
 });
 
 // 页面加载后自动运行一次软件环路测试，输出误码率
