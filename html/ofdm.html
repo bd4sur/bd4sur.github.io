@@ -74,7 +74,6 @@ button:hover {
 <div>
     <button class="btn_tx" id="btn_transmitter">发射</button>
     <button class="btn_rx" id="btn_receiver">接收</button>
-    <button id="btn_loop">软件环路</button>
     <button id="btn_sync">立即同步</button>
     <button id="btn_text_loop">发送文本并环路接收</button>
     <button id="btn_stop">停止</button>
@@ -84,12 +83,15 @@ button:hover {
 <div style="margin: 10px auto; width: 90%; max-width: 600px;">
     <div>发送文本（Unicode，支持中文）：</div>
     <textarea id="tx_text" rows="4" style="width: 100%; font-size: 13px;">OFDM 音频带宽软件环路测试：一二三四五，天地玄黄宇宙洪荒。</textarea>
+    <div style="text-align: left; margin-top: 5px;">
+        <label>信道 SNR：<input type="range" id="snr_slider" min="-10" max="30" step="1" value="30" style="vertical-align: middle; width: 60%;"> <span id="snr_value">30</span>dB</label>
+    </div>
 </div>
 
 <div style="display: flex; justify-content: center; gap: 20px; margin: 10px auto; width: 95%; max-width: 900px; text-align: left;">
-    <div style="flex: 1; border: 1px solid #ccc; padding: 8px; min-height: 80px; background: #fafafa;">
+    <div style="flex: 1; border: 1px solid #ccc; padding: 8px; min-height: 80px; max-height: 200px; background: #fafafa; display: flex; flex-direction: column;">
         <div style="font-weight: bold; color: #e11;">发送端字符流</div>
-        <pre id="sent_text" style="margin: 5px 0; white-space: pre-wrap; word-break: break-all;"></pre>
+        <pre id="sent_text" style="margin: 5px 0; white-space: pre-wrap; word-break: break-all; overflow-y: auto; flex: 1;"></pre>
     </div>
     <div style="flex: 1; border: 1px solid #ccc; padding: 8px; min-height: 80px; max-height: 200px; background: #f5fff5; display: flex; flex-direction: column;">
         <div style="font-weight: bold; color: #129900;">接收端字符流</div>
@@ -100,6 +102,7 @@ button:hover {
 <table class="arg_table">
     <tr><td class="item_key">符号计数</td>  <td class="item_value"><span id="current_symbol_index">-</span></td></tr>
     <tr><td class="item_key">估计符号起点</td> <td class="item_value"><span id="estimated_offset">-</span></tr>
+    <tr><td class="item_key">上一轮误码率</td> <td class="item_value"><span id="ber_stat">-</span></td></tr>
 </table>
 
 <div>已同步的OFDM符号时域波形</div>
@@ -141,7 +144,6 @@ const TRAINING_SYMBOL_INTERVAL = 5;                    // 每几个数据符号�
 const TRAINING_PERIOD = TRAINING_SYMBOL_INTERVAL + 1;  // 一个“数据+训练”周期包含的符号数
 
 const IQ_AMP = 0.02;
-const TEXT_LOOP_SNR_DB = 30; // 文本软环路中，每遍叠加 AWGN 的信噪比
 
 $("#sample_rate").html(SAMPLE_RATE);
 $("#base_freq").html(BASE_FREQ);
@@ -710,6 +712,9 @@ const CHIRP_PREAMBLE = generate_chirp_preamble(GROSS_SYMBOL_LENGTH, BASE_FREQ, B
 const CHIRP_ENERGY = CHIRP_PREAMBLE.reduce((p, c) => p + c * c, 0);
 const CHIRP_DETECT_THRESHOLD = 0.5; // 归一化相关检测门限（无噪时主峰接近 1）
 
+const TRAINING_ENERGY = TRAINING_SYMBOL_TIME.reduce((p, c) => p + c * c, 0);
+const FINE_SEARCH_LEN = 16; // 细同步搜索半径（采样）：训练符号块相关在 ±16 采样内修正符号边界
+
 //////////////////////////////////////////////////////////////////////////
 // 接收机
 //////////////////////////////////////////////////////////////////////////
@@ -742,20 +747,37 @@ function stop_receiver() {
 
 let receivedTextBytes = [];
 
-// 将累积的文本字节流解码并显示在页面上
+// 将累积的文本字节流解码并显示在页面上（并自动滚动到最底部）
 function updateReceivedText() {
     let decoder = new TextDecoder('utf-8', { fatal: false });
     let text = decoder.decode(new Uint8Array(receivedTextBytes));
     if(text.length > 3000) text = text.slice(-3000);
     $("#received_text").text(text);
+    let pre = document.getElementById("received_text");
+    pre.scrollTop = pre.scrollHeight;
 }
 
-function receiver_test(ofdm_wave, is_soft_loop, mode) {
-    mode = mode || 'bytes';
+// 统计一轮接收的误码率：逐比特比对实际接收与期望的字节，长度差异按全错计
+function compute_ber(received, expected) {
+    let errors = 0;
+    let n = Math.min(received.length, expected.length);
+    for(let i = 0; i < n; i++) {
+        let x = received[i] ^ expected[i];
+        while(x) { errors += x & 1; x >>= 1; }
+    }
+    errors += Math.abs(received.length - expected.length) * 8;
+    let total = Math.max(received.length, expected.length) * 8;
+    return { errors: errors, total: total, ber: total > 0 ? errors / total : 0 };
+}
+
+// 接收/环路主流程。is_soft_loop = true 时为文本软环路（唯一保留的环路模式），
+// false 时为麦克风真实接收（字节流模式，配合“发射”按钮使用）。
+function receiver_test(ofdm_wave, is_soft_loop, expected_payload) {
     stop_receiver(); // 先停掉可能在运行的上一个接收/环路实例
     isReceiverRunning = true;
     is_need_sync = true;
     AUDIO_BUFFER = [];
+    $("#ber_stat").text("-");
     $("#indicators").empty(); // 清空上一次的曲线图，避免重复堆叠
     let byte_graph = create_graph("byte_graph", "indicators", "解码出的字节", 64, 50, [0, 0], [64, 256]);
     let buffer_length_graph = create_graph("buffer_length_graph", "indicators", "缓冲区现有采样数", 200, 50, [0, 0], [200, AUDIO_BUFFER_LENGTH * 4]);
@@ -784,24 +806,24 @@ function receiver_test(ofdm_wave, is_soft_loop, mode) {
         let symbol_count = 0;
         let valid_symbol_count = 0;
 
-        // 文本软环路（is_text_loop）的策略：
+        // 文本软环路（is_soft_loop）的策略：
         // - 降速到近似实时（48k samp/s ÷ 60fps ≈ 800 samp/帧），波形/频谱/星座逐个符号可见，可同步外放；
         // - 每帧喂入时叠加新生成的 AWGN，每遍噪声都不同（噪声功率按整遍信号功率归一）；
-        // - 流式同步：在喂入的数据流上增量搜索 chirp 前导，归一化相关度超过门限且主峰完整经过即锁定，
-        //   与波形总长无关，任意长的文本都能工作（不依赖缓冲区能装下整遍波形）；
-        // - 从 chirp 之后起消费完一整遍的符号后主动重新同步，相位不漂移。
-        let is_text_loop = (mode === 'text') && is_soft_loop;
-        const FRAME_LEN = is_text_loop ? 800 : 4096;
-        let sync_threshold = AUDIO_BUFFER_LENGTH; // 非文本模式的同步门限（充满再同步）
+        // - 粗同步：chirp 前导流式检测，到达即锁定，与波形总长无关（任意长文本都能工作）；
+        // - 细同步：每个训练符号槽用训练符号模板做块相关，在 ±FINE_SEARCH_LEN 采样小窗内
+        //   修正符号边界（原“软件环路”的块同步，整合为粗同步基础上的精修）；
+        // - 缓冲区头始终领先“认定的”符号起点 FINE_SEARCH_LEN 个采样（保护带不变式），
+        //   使细同步可以向正负两个方向修正；
+        // - 从 chirp 之后起消费完一整遍的符号后主动重新粗同步，相位不漂移。
+        const FRAME_LEN = 800; // 仅软环路使用
         let symbols_until_resync = 0;
 
-        // 文本环路：按整遍信号功率和目标 SNR 计算噪声标准差，逐帧叠加新噪声
-        let noise_sigma = 0;
-        if(is_text_loop) {
-            let signal_power = 0;
+        // 软环路：预计算整遍信号功率；噪声标准差每帧根据 SNR 滑块的当前值实时计算，
+        // 使用户可以在环路运行中随时调节信道 SNR
+        let signal_power = 0;
+        if(is_soft_loop) {
             for(let v of ofdm_wave) signal_power += v * v;
             signal_power /= ofdm_wave.length;
-            noise_sigma = Math.sqrt(signal_power / Math.pow(10, TEXT_LOOP_SNR_DB / 10));
         }
 
         // 流式 chirp 检测器状态（绝对坐标以累计喂入采样数计）
@@ -819,15 +841,8 @@ function receiver_test(ofdm_wave, is_soft_loop, mode) {
             $("#current_symbol_index").html(receive_timer);
 
             if(is_soft_loop && test_timer >= ofdm_wave.length) {
-                if(is_text_loop) {
-                    // 文本流持续循环重发（新一遍的噪声在喂帧时重新生成）
-                    test_timer = 0;
-                }
-                else if(AUDIO_BUFFER.length < GROSS_SYMBOL_LENGTH) {
-                    console.log("软件环路已处理完毕");
-                    isReceiverRunning = false;
-                    return;
-                }
+                // 文本流持续循环重发（新一遍的噪声在喂帧时重新生成）
+                test_timer = 0;
             }
 
             let frame;
@@ -838,23 +853,23 @@ function receiver_test(ofdm_wave, is_soft_loop, mode) {
                 } else {
                     frame = [];
                 }
-                if(is_text_loop) {
-                    // 逐帧叠加新的 AWGN，使每遍环路的噪声都不同
-                    for(let i = 0; i < frame.length; i += 2) {
-                        let g = gaussian_random_pair(0, noise_sigma);
-                        frame[i] += g[0];
-                        if(i + 1 < frame.length) frame[i + 1] += g[1];
-                    }
-                    feed_abs += frame.length;
-                    det_hist = det_hist.concat(frame);
-                    // 已同步期间只需保留最近一个模板长的采样供下次检测，防止 det_hist 无限增长
-                    if(!is_need_sync && det_hist.length > GROSS_SYMBOL_LENGTH - 1) {
-                        det_hist.splice(0, det_hist.length - (GROSS_SYMBOL_LENGTH - 1));
-                    }
-                    // 文本环路近似实时运行，可同步外放给人听（字节环路是加速运行，不适合外放）
-                    if($("#chk_play_audio").is(":checked")) {
-                        play_frame(frame);
-                    }
+                // 逐帧叠加新的 AWGN（每遍噪声都不同），噪声幅度按 SNR 滑块当前值计算
+                let snr_db = Number($("#snr_slider").val());
+                let noise_sigma = Math.sqrt(signal_power / Math.pow(10, snr_db / 10));
+                for(let i = 0; i < frame.length; i += 2) {
+                    let g = gaussian_random_pair(0, noise_sigma);
+                    frame[i] += g[0];
+                    if(i + 1 < frame.length) frame[i + 1] += g[1];
+                }
+                feed_abs += frame.length;
+                det_hist = det_hist.concat(frame);
+                // 已同步期间只需保留最近一个模板长的采样供下次检测，防止 det_hist 无限增长
+                if(!is_need_sync && det_hist.length > GROSS_SYMBOL_LENGTH - 1) {
+                    det_hist.splice(0, det_hist.length - (GROSS_SYMBOL_LENGTH - 1));
+                }
+                // 文本环路近似实时运行，可同步外放给人听
+                if($("#chk_play_audio").is(":checked")) {
+                    play_frame(frame);
                 }
             }
             else {
@@ -869,8 +884,8 @@ function receiver_test(ofdm_wave, is_soft_loop, mode) {
             }
             update_graph(buffer_length_graph, AUDIO_BUFFER.length);
 
-            // —— 文本环路：流式同步，在新喂入的数据上增量搜索 chirp，到达即锁定 ——
-            if(is_text_loop && (is_need_sync || (sync_countdown <= 0))) {
+            // —— 软环路：流式粗同步，在新喂入的数据上增量搜索 chirp，到达即锁定 ——
+            if(is_soft_loop && (is_need_sync || (sync_countdown <= 0))) {
                 let base = feed_abs - det_hist.length;   // det_hist[0] 的绝对下标
                 let d_begin = Math.max(searched_upto, base);
                 let d_max = feed_abs - GROSS_SYMBOL_LENGTH; // 相关窗口须完整
@@ -900,8 +915,9 @@ function receiver_test(ofdm_wave, is_soft_loop, mode) {
                 }
                 // 峰值确认：超过门限，且搜索已越过峰值一个模板长（确保主峰已完整经过）
                 if(best_metric >= CHIRP_DETECT_THRESHOLD && searched_upto > best_offset + GROSS_SYMBOL_LENGTH) {
-                    // 将缓冲区对齐到 chirp 结束处（第一个数据符号起点）
-                    let drop = best_offset + GROSS_SYMBOL_LENGTH - (feed_abs - AUDIO_BUFFER.length);
+                    // 将缓冲区对齐到 chirp 结束处再回退 FINE_SEARCH_LEN 个采样，
+                    // 建立“缓冲区头领先认定起点 FINE_SEARCH_LEN”的保护带不变式，供细同步双向修正
+                    let drop = best_offset + GROSS_SYMBOL_LENGTH - FINE_SEARCH_LEN - (feed_abs - AUDIO_BUFFER.length);
                     if(drop > 0) AUDIO_BUFFER.splice(0, Math.min(drop, AUDIO_BUFFER.length));
                     $("#estimated_offset").html(best_offset);
                     sync_countdown = 10000;
@@ -916,11 +932,11 @@ function receiver_test(ofdm_wave, is_soft_loop, mode) {
                 let skip = Math.max(searched_upto, feed_abs - (GROSS_SYMBOL_LENGTH - 1)) - (feed_abs - det_hist.length);
                 if(skip > 0) det_hist.splice(0, skip);
             }
-            // —— 非文本模式：缓冲区充满后做模板相关同步（原有逻辑） ——
-            else if(!is_text_loop && (is_need_sync || (sync_countdown <= 0)) && (AUDIO_BUFFER.length < sync_threshold)) {
+            // —— 麦克风接收：缓冲区充满后做模板相关同步（原有逻辑） ——
+            else if(!is_soft_loop && (is_need_sync || (sync_countdown <= 0)) && (AUDIO_BUFFER.length < AUDIO_BUFFER_LENGTH)) {
                 // 跳过，继续填充缓冲区
             }
-            else if(!is_text_loop && (is_need_sync || (sync_countdown <= 0)) && (AUDIO_BUFFER.length >= sync_threshold)) {
+            else if(!is_soft_loop && (is_need_sync || (sync_countdown <= 0)) && (AUDIO_BUFFER.length >= AUDIO_BUFFER_LENGTH)) {
                 let start_offset = estimate_STO(AUDIO_BUFFER);
                 $("#estimated_offset").html(start_offset);
                 for(let i = 0; i < start_offset && AUDIO_BUFFER.length > 0; i++) {
@@ -934,71 +950,122 @@ function receiver_test(ofdm_wave, is_soft_loop, mode) {
             else if((sync_countdown > 0) && (AUDIO_BUFFER.length < GROSS_SYMBOL_LENGTH)) {
                 sync_countdown--;
             }
-            // 已同步，且缓冲区内至少有一个符号
-            else if((sync_countdown > 0) && (AUDIO_BUFFER.length >= GROSS_SYMBOL_LENGTH)) {
-                while(AUDIO_BUFFER.length >= GROSS_SYMBOL_LENGTH) {
-                    if(is_text_loop && symbols_until_resync <= 0) {
-                        // 本遍符号已消费完，下一槽是 chirp 前导：交由流式检测器重新锁定
+            // 已同步，且缓冲区内至少有一个符号（软环路还需保护带）
+            else if((sync_countdown > 0) && (AUDIO_BUFFER.length >= GROSS_SYMBOL_LENGTH + (is_soft_loop ? FINE_SEARCH_LEN : 0))) {
+                while(AUDIO_BUFFER.length >= GROSS_SYMBOL_LENGTH + (is_soft_loop ? FINE_SEARCH_LEN : 0)) {
+                    if(is_soft_loop && symbols_until_resync <= 0) {
+                        // 本遍符号已消费完：统计本轮误码率，并清空接收框，准备显示下一轮
+                        if(expected_payload) {
+                            let stat = compute_ber(receivedTextBytes, expected_payload);
+                            $("#ber_stat").text((stat.ber * 100).toFixed(3) + "%（" + stat.errors + " / " + stat.total + " bit）");
+                        }
+                        receivedTextBytes = [];
+                        updateReceivedText();
+                        // 下一槽是 chirp 前导：交由流式检测器重新锁定
                         is_need_sync = true;
                         break;
                     }
-                    // 丢弃 CP
-                    for(let i = 0; i < CP_LENGTH; i++) {
-                        AUDIO_BUFFER.shift();
-                    }
-                    // 取出一个完整符号体
-                    let symbol_wave = [];
-                    for(let i = 0; i < SYMBOL_LENGTH; i++) {
-                        symbol_wave.push(AUDIO_BUFFER.shift());
-                    }
 
-                    // 训练符号位置：每个 TRAINING_PERIOD 中的最后一个符号
-                    if(symbol_count % TRAINING_PERIOD === TRAINING_SYMBOL_INTERVAL) {
-                        // 训练符号，不携带数据，可选择在这里做相关验证/精同步
+                    let symbol_wave = null;
+
+                    if(is_soft_loop && (symbol_count % TRAINING_PERIOD === 0)) {
+                        // —— 训练符号槽：细同步（块相关精修符号边界，原“软件环路”的块同步） ——
+                        // 发送波形结构为 [chirp][T][d0..d4][T][d5..d9][T]…，紧跟 chirp 的第一个槽
+                        // 就是训练符号（count % 6 == 0），因此细同步在任何数据符号解调之前
+                        // 就能修正粗同步的残余误差，之后每 6 个槽精修一次。
+                        // 不变式：缓冲区头领先“认定的”训练符号起点 FINE_SEARCH_LEN 个采样，
+                        // 在 [0, 2*FINE_SEARCH_LEN] 窗口内搜到的主峰位置即修正后的真实起点。
+                        if(AUDIO_BUFFER.length < GROSS_SYMBOL_LENGTH + 2 * FINE_SEARCH_LEN) break; // 等保护带到齐
+                        let fine_best_metric = -1;
+                        let fine_best_d = FINE_SEARCH_LEN; // 默认无修正
+                        for(let d = 0; d <= 2 * FINE_SEARCH_LEN; d++) {
+                            let corr = 0, energy = 0;
+                            for(let t = 0; t < GROSS_SYMBOL_LENGTH; t++) {
+                                let s = AUDIO_BUFFER[d + t];
+                                corr += s * TRAINING_SYMBOL_TIME[t];
+                                energy += s * s;
+                            }
+                            let m = (corr * corr) / (energy * TRAINING_ENERGY + 1e-12);
+                            if(m > fine_best_metric) {
+                                fine_best_metric = m;
+                                fine_best_d = d;
+                            }
+                        }
+                        if(fine_best_metric < CHIRP_DETECT_THRESHOLD) {
+                            fine_best_d = FINE_SEARCH_LEN; // 相关度不足，信任原边界
+                        }
+                        else if(fine_best_d !== FINE_SEARCH_LEN) {
+                            console.log("细同步：修正 " + (fine_best_d - FINE_SEARCH_LEN) + " 采样（相关度 " + fine_best_metric.toFixed(3) + "）");
+                        }
+                        // 丢弃到修正后的训练符号起点，再消费 GROSS - FINE_SEARCH_LEN，
+                        // 保留 FINE_SEARCH_LEN 个采样作为下一槽的保护带，维持不变式
+                        AUDIO_BUFFER.splice(0, fine_best_d + GROSS_SYMBOL_LENGTH - FINE_SEARCH_LEN);
+                        symbol_count++;
+                        symbols_until_resync--;
+                        continue;
+                    }
+                    else if(is_soft_loop) {
+                        // 数据槽：跳过保护带与 CP，取出符号体（不改变缓冲区），再丢弃整槽
+                        symbol_wave = AUDIO_BUFFER.slice(FINE_SEARCH_LEN + CP_LENGTH, FINE_SEARCH_LEN + CP_LENGTH + SYMBOL_LENGTH);
+                        AUDIO_BUFFER.splice(0, GROSS_SYMBOL_LENGTH);
                     }
                     else {
-                        plot_wave(oscilloscope, symbol_wave);
-                        plot_spectrum(symbol_wave);
-                        let frame_iq = demodulate_ofdm_symbol(symbol_wave);
-                        plot_constellation(constellation, frame_iq);
-                        let frame_bytes = qam4_decoding(frame_iq[0], frame_iq[1], IQ_AMP);
-
-                        if(mode === 'text') {
-                            // 文本模式：按 [L, data...] 的符号格式还原字节
-                            for(let n = 0; n < frame_bytes.length; n += 16) {
-                                if(n + 15 >= frame_bytes.length) break;
-                                let L = frame_bytes[n];
-                                if(L > 15) L = 15;
-                                for(let k = 1; k <= L; k++) {
-                                    receivedTextBytes.push(frame_bytes[n + k]);
-                                }
-                            }
-                            updateReceivedText();
+                        // 麦克风接收：丢弃 CP，取出一个完整符号体（原有逻辑）
+                        for(let i = 0; i < CP_LENGTH; i++) {
+                            AUDIO_BUFFER.shift();
                         }
-                        else {
-                            for(let n = 0; n < frame_bytes.length; n++) {
-                                let abyte = frame_bytes[n];
-                                update_graph(byte_graph, abyte);
-                                // 帧格式：每 16 个数据字节后跟 0 0 0 checksum
-                                if(prev_bytes.length >= 3 && prev_bytes[0] === 0 && prev_bytes[1] === 0 && prev_bytes[2] === 0) {
-                                    if(checksum % 256 === abyte) {
-                                        console.log("✔");
-                                    }
-                                    else {
-                                        console.log("❌");
-                                    }
-                                    checksum = 0;
+                        symbol_wave = [];
+                        for(let i = 0; i < SYMBOL_LENGTH; i++) {
+                            symbol_wave.push(AUDIO_BUFFER.shift());
+                        }
+                        // 训练符号位置：每个 TRAINING_PERIOD 中的最后一个符号，不携带数据
+                        if(symbol_count % TRAINING_PERIOD === TRAINING_SYMBOL_INTERVAL) {
+                            symbol_count++;
+                            continue;
+                        }
+                    }
+
+                    plot_wave(oscilloscope, symbol_wave);
+                    plot_spectrum(symbol_wave);
+                    let frame_iq = demodulate_ofdm_symbol(symbol_wave);
+                    plot_constellation(constellation, frame_iq);
+                    let frame_bytes = qam4_decoding(frame_iq[0], frame_iq[1], IQ_AMP);
+
+                    if(is_soft_loop) {
+                        // 文本模式：按 [L, data...] 的符号格式还原字节
+                        for(let n = 0; n < frame_bytes.length; n += 16) {
+                            if(n + 15 >= frame_bytes.length) break;
+                            let L = frame_bytes[n];
+                            if(L > 15) L = 15;
+                            for(let k = 1; k <= L; k++) {
+                                receivedTextBytes.push(frame_bytes[n + k]);
+                            }
+                        }
+                        updateReceivedText();
+                    }
+                    else {
+                        for(let n = 0; n < frame_bytes.length; n++) {
+                            let abyte = frame_bytes[n];
+                            update_graph(byte_graph, abyte);
+                            // 帧格式：每 16 个数据字节后跟 0 0 0 checksum
+                            if(prev_bytes.length >= 3 && prev_bytes[0] === 0 && prev_bytes[1] === 0 && prev_bytes[2] === 0) {
+                                if(checksum % 256 === abyte) {
+                                    console.log("✔");
                                 }
                                 else {
-                                    checksum += abyte;
+                                    console.log("❌");
                                 }
-                                push_value(prev_bytes, abyte, 3);
+                                checksum = 0;
                             }
+                            else {
+                                checksum += abyte;
+                            }
+                            push_value(prev_bytes, abyte, 3);
                         }
-                        valid_symbol_count++;
                     }
+                    valid_symbol_count++;
                     symbol_count++;
-                    if(is_text_loop) symbols_until_resync--;
+                    if(is_soft_loop) symbols_until_resync--;
                 }
                 sync_countdown--;
             }
@@ -1262,12 +1329,6 @@ $("#btn_receiver").click(() => {
     receiver_test(null, false);
 });
 
-// 软件自环
-$("#btn_loop").click(() => {
-    let ofdm_wave = generate_testing_ofdm_signal(100000, 30);
-    receiver_test(ofdm_wave, true);
-});
-
 // 立即同步
 $("#btn_sync").click(() => {
     is_need_sync = true;
@@ -1281,12 +1342,24 @@ $("#btn_text_loop").click(() => {
     $("#received_text").text("");
 
     let byte_stream = text_to_byte_stream(text);
-    let preamble = CHIRP_PREAMBLE.slice();
+    // 波形结构：[chirp前导][训练符号][数据符号…]（训练符号按每 5 个数据符号插入，含开头的这个）
+    // chirp 用于流式粗同步；紧跟其后的训练符号用于块相关细同步，在任何数据符号解调前修正边界。
+    // 注意：TRAINING_SYMBOL_TIME 是未经 0.9 峰值归一化的“生”波形，电平比 OFDM_Modulate 的
+    // 输出低两个数量级，直接拼接会被噪声淹没，必须先提升到相同电平。
+    let training_peak = 0;
+    for(let v of TRAINING_SYMBOL_TIME) { let a = Math.abs(v); if(a > training_peak) training_peak = a; }
+    let training_leveled = TRAINING_SYMBOL_TIME.map(v => v * (0.9 / training_peak));
+    let preamble = CHIRP_PREAMBLE.concat(training_leveled);
     // 干净波形：AWGN 在接收端逐帧重新生成，每遍环路的噪声都不同
     let ofdm_wave = preamble.concat(OFDM_Modulate(byte_stream, IQ_AMP));
 
-    receiver_test(ofdm_wave, true, 'text');
+    receiver_test(ofdm_wave, true, Array.from(new TextEncoder().encode(text)));
     console.log("启动文本 OFDM 持续环路");
+});
+
+// SNR 滑块：实时更新显示值（噪声幅度在接收机内每帧读取滑块值，立即生效）
+$("#snr_slider").on("input", () => {
+    $("#snr_value").text($("#snr_slider").val());
 });
 
 // 停止接收/环路
