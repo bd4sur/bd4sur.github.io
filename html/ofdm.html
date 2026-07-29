@@ -79,7 +79,7 @@ button:hover {
     <button id="btn_stop">停止</button>
     <label style="font-size: 13px; vertical-align: middle;"><input type="checkbox" id="chk_play_audio"> 收听环路信号</label>
     <label style="font-size: 13px; vertical-align: middle;">输出增益：<input type="range" id="gain_slider" min="0" max="100" step="1" value="30" style="vertical-align: middle; width: 120px;"> <span id="gain_value">30</span>%</label>
-    <label style="font-size: 13px; vertical-align: middle;">可视化帧率：<input type="range" id="viz_slider" min="0" max="10" step="1" value="5" style="vertical-align: middle; width: 80px;"> <span id="viz_value">5</span>Hz</label>
+    <label style="font-size: 13px; vertical-align: middle;">可视化帧率：<input type="range" id="viz_slider" min="0" max="10" step="1" value="1" style="vertical-align: middle; width: 80px;"> <span id="viz_value">1</span>Hz</label>
 </div>
 
 <div style="margin: 10px auto; width: 90%; max-width: 600px;">
@@ -166,7 +166,7 @@ try {
 const SAMPLE_RATE    = 48000;
 const BASE_FREQ      = 40;
 const CARRIER_NUMBER = 64;
-const CARRIER_FREQ   = 10000;
+const CARRIER_FREQ   = 2000;
 const BANDWIDTH = BASE_FREQ * CARRIER_NUMBER;
 const SYMBOL_LENGTH = Math.round(SAMPLE_RATE / BASE_FREQ);
 const CP_LENGTH = Math.floor(0.2 * SYMBOL_LENGTH);

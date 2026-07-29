@@ -8,7 +8,7 @@
 const SAMPLE_RATE    = 48000;
 const BASE_FREQ      = 40;    // 子载波间隔(Hz)
 const CARRIER_NUMBER = 64;    // 正交子载波数
-const CARRIER_FREQ   = 10000; // 通带载波频率(Hz)：复基带经 IQ 调制搬移到 fc，频谱以 fc 为中心
+const CARRIER_FREQ   = 2000; // 通带载波频率(Hz)：复基带经 IQ 调制搬移到 fc，频谱以 fc 为中心
 const BANDWIDTH = BASE_FREQ * CARRIER_NUMBER;
 const SYMBOL_LENGTH = Math.round(SAMPLE_RATE / BASE_FREQ); // 符号长度（采样点）
 const CP_LENGTH = Math.floor(0.2 * SYMBOL_LENGTH);         // 循环前缀长度
