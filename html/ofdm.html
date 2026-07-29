@@ -85,6 +85,7 @@ button:hover {
     <textarea id="tx_text" rows="4" style="width: 100%; font-size: 13px;">OFDM 音频带宽软件环路测试：一二三四五，天地玄黄宇宙洪荒。</textarea>
     <div style="text-align: left; margin-top: 5px;">
         <label>信道 SNR：<input type="range" id="snr_slider" min="-10" max="30" step="1" value="30" style="vertical-align: middle; width: 60%;"> <span id="snr_value">30</span>dB</label>
+        <label style="margin-left: 15px;"><input type="checkbox" id="chk_multipath"> 多径衰落（频率选择性）</label>
     </div>
 </div>
 
@@ -102,7 +103,7 @@ button:hover {
 <table class="arg_table">
     <tr><td class="item_key">符号计数</td>  <td class="item_value"><span id="current_symbol_index">-</span></td></tr>
     <tr><td class="item_key">估计符号起点</td> <td class="item_value"><span id="estimated_offset">-</span></tr>
-    <tr><td class="item_key">上一轮误码率</td> <td class="item_value"><span id="ber_stat">-</span></td></tr>
+    <tr><td class="item_key">误码率（本轮）</td> <td class="item_value"><span id="ber_stat">-</span></td></tr>
 </table>
 
 <div>已同步的OFDM符号时域波形</div>
@@ -351,14 +352,19 @@ for(let c = 0; c < CARRIER_NUMBER; c++) {
     CARRIER_Q[c] = cwave_q;
 }
 
-// 训练符号频域：固定伪随机 QPSK/4QAM 图案，接收端已知，用于相关同步
+// 训练符号频域：伪随机 QPSK 图案（LCG 生成，接收端已知）。
+// 时域能量平坦、低峰均比——原 (c&3) 周期图案会使时域能量集中成脉冲，
+// 导致 SC 度量出现平台与次生假峰。
 const TRAINING_I = [];
 const TRAINING_Q = [];
 const A1 = 2 * IQ_AMP;
-for(let c = 0; c < CARRIER_NUMBER; c++) {
-    let pat = c & 3;
-    TRAINING_I[c] = (pat & 1) ? -A1 :  A1;
-    TRAINING_Q[c] = (pat & 2) ? -A1 :  A1;
+{
+    let tseed = 54321;
+    let trnd = () => (tseed = (tseed * 1103515245 + 12345) & 0x7fffffff) / 0x7fffffff;
+    for(let c = 0; c < CARRIER_NUMBER; c++) {
+        TRAINING_I[c] = (trnd() < 0.5) ? -A1 : A1;
+        TRAINING_Q[c] = (trnd() < 0.5) ? -A1 : A1;
+    }
 }
 
 // 辅助函数：压入队列
@@ -524,6 +530,208 @@ function qam4_decoding(input_i, input_q, amp) {
         }
     }
     return byte_stream;
+}
+
+//////////////////////////////////////////////////////////////////////////
+// 前向纠错：R-S码 / 交织 / 加扰
+//////////////////////////////////////////////////////////////////////////
+
+// GF(2^8) 域运算（本原多项式 x^8+x^4+x^3+x^2+1 = 0x11D）
+const GF_EXP = new Array(512), GF_LOG = new Array(256);
+(function init_gf() {
+    let x = 1;
+    for(let i = 0; i < 255; i++) {
+        GF_EXP[i] = x; GF_LOG[x] = i;
+        x <<= 1;
+        if(x & 0x100) x ^= 0x11D;
+    }
+    for(let i = 255; i < 512; i++) GF_EXP[i] = GF_EXP[i - 255];
+})();
+function gf_mul(a, b) { return (a === 0 || b === 0) ? 0 : GF_EXP[GF_LOG[a] + GF_LOG[b]]; }
+function gf_div(a, b) { return GF_EXP[(GF_LOG[a] - GF_LOG[b] + 255) % 255]; }
+function gf_pow(a, n) { return n === 0 ? 1 : GF_EXP[(GF_LOG[a] * n) % 255]; }
+
+// RS(32,16)：16 字节数据 + 16 字节校验，可纠 8 字节错误
+const RS_NROOTS = 16;
+const RS_K = 16;
+const RS_N = 32;
+const RS_FCR = 1;
+
+// 生成多项式 g(x) = Π (x - α^(fcr+i))，系数降幂排列，首项系数为 1
+const RS_GEN = (function() {
+    let g = [1];
+    for(let i = 0; i < RS_NROOTS; i++) {
+        let root = GF_EXP[RS_FCR + i];
+        let ng = new Array(g.length + 1).fill(0);
+        for(let j = 0; j < g.length; j++) {
+            ng[j] ^= g[j];                   // g(x)·x 的系数（降幂下右移一位）
+            ng[j + 1] ^= gf_mul(g[j], root); // g(x)·root 对齐到同次幂
+        }
+        g = ng;
+    }
+    return g;
+})();
+
+// 系统码编码：k 字节数据 + nroots 字节校验
+function rs_encode(msg) {
+    let res = msg.concat(new Array(RS_NROOTS).fill(0));
+    for(let i = 0; i < msg.length; i++) {
+        let coef = res[i];
+        if(coef !== 0) {
+            for(let j = 0; j < RS_GEN.length; j++) {
+                res[i + j] ^= gf_mul(RS_GEN[j], coef);
+            }
+        }
+    }
+    return msg.concat(res.slice(msg.length));
+}
+
+function rs_syndromes(cw) {
+    let syn = [];
+    for(let i = 0; i < RS_NROOTS; i++) {
+        let a = GF_EXP[RS_FCR + i];
+        let s = 0;
+        for(let j = 0; j < cw.length; j++) s = gf_mul(s, a) ^ cw[j];
+        syn[i] = s;
+    }
+    return syn;
+}
+
+function rs_berlekamp_massey(syn) {
+    let C = [1], B = [1], L = 0, m = 1, b = 1;
+    for(let n = 0; n < syn.length; n++) {
+        let d = syn[n];
+        for(let i = 1; i <= L; i++) d ^= gf_mul(C[i], syn[n - i]);
+        if(d === 0) { m++; }
+        else if(2 * L <= n) {
+            let T = C.slice();
+            let coef = gf_div(d, b);
+            let nC = new Array(Math.max(C.length, B.length + m)).fill(0);
+            for(let i = 0; i < C.length; i++) nC[i] = C[i];
+            for(let i = 0; i < B.length; i++) nC[i + m] ^= gf_mul(coef, B[i]);
+            C = nC; L = n + 1 - L; B = T; b = d; m = 1;
+        }
+        else {
+            let coef = gf_div(d, b);
+            let nC = C.slice();
+            while(nC.length < B.length + m) nC.push(0);
+            for(let i = 0; i < B.length; i++) nC[i + m] ^= gf_mul(coef, B[i]);
+            C = nC; m++;
+        }
+    }
+    return C;
+}
+
+// 译码：BM 求错误定位多项式 + Chien 搜索定位 + Forney 求幅值
+// 返回 { bytes(纠正后的 k 字节), corrected(纠正字节数), fail(超出纠错能力) }
+function rs_decode(cw) {
+    let syn = rs_syndromes(cw);
+    if(syn.every(s => s === 0)) return { bytes: cw.slice(0, RS_K), corrected: 0, fail: false };
+    let lambda = rs_berlekamp_massey(syn);
+    // Chien 搜索：λ(α^-i)=0 → 错误位置 cw.length-1-i（降幂约定，X 须取逆元方向）
+    let positions = [];
+    for(let i = 0; i < cw.length; i++) {
+        let X = GF_EXP[(255 - i) % 255];
+        let y = 0;
+        for(let j = 0; j < lambda.length; j++) y ^= gf_mul(lambda[j], gf_pow(X, j));
+        if(y === 0) positions.push(cw.length - 1 - i);
+    }
+    if(positions.length !== lambda.length - 1)
+        return { bytes: cw.slice(0, RS_K), corrected: 0, fail: true };
+    // Forney：Ω(x) = S(x)·λ(x) mod x^nroots；fcr=1 时幅值 = Ω(X)/λ'(X)
+    let omega = new Array(RS_NROOTS).fill(0);
+    for(let i = 0; i < RS_NROOTS; i++)
+        for(let j = 0; j <= i && j < lambda.length; j++)
+            omega[i] ^= gf_mul(lambda[j], syn[i - j]);
+    let out = cw.slice();
+    for(let p of positions) {
+        let X = GF_EXP[(255 - (cw.length - 1 - p)) % 255];
+        let num = 0;
+        for(let j = 0; j < omega.length; j++) num ^= gf_mul(omega[j], gf_pow(X, j));
+        let den = 0;
+        for(let j = 1; j < lambda.length; j += 2) den ^= gf_mul(lambda[j], gf_pow(X, j - 1));
+        out[p] ^= gf_div(num, den);
+    }
+    let ok = rs_syndromes(out).every(s => s === 0);
+    return { bytes: out.slice(0, RS_K), corrected: positions.length, fail: !ok };
+}
+
+// 块交织：rows 行 × cols 列矩阵，按行写入、按列读出
+// 使一个 OFDM 符号（16 连续字节）的突发错误分散到各个 RS 码字
+function interleave(data, rows) {
+    let cols = data.length / rows;
+    let out = new Array(data.length);
+    for(let c = 0; c < cols; c++)
+        for(let r = 0; r < rows; r++)
+            out[c * rows + r] = data[r * cols + c];
+    return out;
+}
+function deinterleave(data, rows) {
+    let cols = data.length / rows;
+    let out = new Array(data.length);
+    for(let r = 0; r < rows; r++)
+        for(let c = 0; c < cols; c++)
+            out[r * cols + c] = data[c * rows + r];
+    return out;
+}
+
+// 链路层帧结构：线上 64B = 4 个 OFDM 符号 = 2 个 RS(32,16) 码字。
+// 译码后 32B = magic(6B, "BD4SUR") + LEN(1B) + SEQ(1B) + payload(≤24B)
+const PKT_MAGIC = [0x42, 0x44, 0x34, 0x53, 0x55, 0x52]; // "BD4SUR"，兼作帧同步字
+const PKT_HEADER_LEN = 8;
+const PKT_PAYLOAD_MAX = 24;
+const PKT_WIRE_LEN = 64;
+const PKT_SYMBOLS = 4; // 每帧占用的 OFDM 符号数（帧内交织的行数）
+
+// 加扰/解扰（同一函数）：16 位 Galois LFSR 生成伪随机序列，逐字节异或，白化数据
+function scramble_stream(data) {
+    let lfsr = 0xACE1;
+    let out = new Array(data.length);
+    for(let i = 0; i < data.length; i++) {
+        let b = 0;
+        for(let k = 0; k < 8; k++) {
+            let bit = lfsr & 1;
+            lfsr = (lfsr >> 1) ^ (bit ? 0xB400 : 0);
+            b = (b >> 1) | (bit << 7);
+        }
+        out[i] = data[i] ^ b;
+    }
+    return out;
+}
+
+// 增量解扰用的 LFSR 状态步进（接收端逐字节调用，每轮开始时复位）
+function prbs_byte_mut(ctx) {
+    let b = 0;
+    for(let k = 0; k < 8; k++) {
+        let bit = ctx.lfsr & 1;
+        ctx.lfsr = (ctx.lfsr >> 1) ^ (bit ? 0xB400 : 0);
+        b = (b >> 1) | (bit << 7);
+    }
+    return b;
+}
+
+// 多径衰落信道（频率选择性）：直视径 + 三个回声，时延均在 CP（240 采样）以内，
+// 无符号间干扰，但对各子载波产生不同的增益/相位（部分载波深陷）
+const MULTIPATH_TAPS = (function() {
+    let taps = new Array(201).fill(0);
+    taps[0] = 1.0;    // 直视径
+    taps[24] = 0.35;  // 0.5ms 回声
+    taps[96] = -0.2;  // 2ms 回声
+    taps[200] = 0.12; // 4.2ms 回声
+    return taps;
+})();
+
+// 流式 FIR 滤波：state 保存最近 taps.length-1 个输入采样（跨帧、跨遍连续）
+function apply_multipath(frame, state) {
+    let seg = state.concat(frame);
+    let out = new Array(frame.length);
+    let T = MULTIPATH_TAPS.length;
+    for(let i = 0; i < frame.length; i++) {
+        let acc = 0;
+        for(let k = 0; k < T; k++) acc += MULTIPATH_TAPS[k] * seg[i + T - 1 - k];
+        out[i] = acc;
+    }
+    return [out, seg.slice(-(T - 1))];
 }
 
 //////////////////////////////////////////////////////////////////////////
@@ -698,22 +906,34 @@ function estimate_STO(ofdm_wave, max_search) {
     return estimate_STO_by_template(ofdm_wave, TRAINING_SYMBOL_TIME, max_search);
 }
 
-// 生成线性调频（chirp）前导，自相关尖锐，抗噪性更好
-function generate_chirp_preamble(length, f0, f1, amp) {
-    let wave = [];
-    for(let t = 0; t < length; t++) {
-        let phase = 2 * Math.PI * (f0 * t + (f1 - f0) * t * t / (2 * length)) / SAMPLE_RATE;
-        wave[t] = amp * Math.cos(phase);
+// Schmidl-Cox 前导：两段完全相同的 720 采样宽带波形 [A, A]（总长 1 个符号槽）。
+// 接收端用延迟自相关检测：LTI 信道（多径/频率选择性衰落）对两段的作用几乎相同，
+// 相关峰同相叠加，因此检测性能几乎不随衰落退化；且度量自归一化，固定门限在全 SNR 范围成立。
+const SC_HALF_LEN = Math.floor(GROSS_SYMBOL_LENGTH / 2); // 720
+const SC_PREAMBLE = (function() {
+    // A：独立的伪随机 IQ（与训练符号图案不相关，否则前导与后续内容相关，平台延长）
+    let seed = 12345;
+    let rnd = () => (seed = (seed * 1103515245 + 12345) & 0x7fffffff) / 0x7fffffff;
+    let sc_i = [], sc_q = [];
+    for(let c = 0; c < CARRIER_NUMBER; c++) {
+        sc_i[c] = (rnd() < 0.5 ? -1 : 1) * 2 * IQ_AMP;
+        sc_q[c] = (rnd() < 0.5 ? -1 : 1) * 2 * IQ_AMP;
     }
-    return wave;
-}
+    let full = generate_symbol_wave([sc_i, sc_q], false);
+    let half = full.slice(0, SC_HALF_LEN);
+    let pre = half.concat(half);
+    raised_cosine_window(pre, 0.01); // 抑制前导外缘
+    // 电平归一化到与数据符号相同的峰值 0.9
+    let peak = 0;
+    for(let v of pre) { let a = Math.abs(v); if(a > peak) peak = a; }
+    return pre.map(v => v * (0.9 / peak));
+})();
+const SC_ENERGY = SC_PREAMBLE.reduce((p, c) => p + c * c, 0);
+const TRAINING_TPL_ENERGY = TRAINING_SYMBOL_TIME.reduce((p, c) => p + c * c, 0);
+const SC_DETECT_THRESHOLD = 0.2; // SC 检测门限：自相关度随 SNR 下降，配合模板验证使用
+const SC_VALIDATE_THRESHOLD = 0.35; // 模板互相关验证门限：假峰 <0.1，真前导在 0dB 下仍 >0.5
 
-const CHIRP_PREAMBLE = generate_chirp_preamble(GROSS_SYMBOL_LENGTH, BASE_FREQ, BANDWIDTH, 0.9);
-const CHIRP_ENERGY = CHIRP_PREAMBLE.reduce((p, c) => p + c * c, 0);
-const CHIRP_DETECT_THRESHOLD = 0.5; // 归一化相关检测门限（无噪时主峰接近 1）
-
-const TRAINING_ENERGY = TRAINING_SYMBOL_TIME.reduce((p, c) => p + c * c, 0);
-const FINE_SEARCH_LEN = 16; // 细同步搜索半径（采样）：训练符号块相关在 ±16 采样内修正符号边界
+const FINE_SEARCH_LEN = 16; // 细同步单槽最大修正量（采样）：相位斜率法每训练槽最多修正 ±16
 
 //////////////////////////////////////////////////////////////////////////
 // 接收机
@@ -772,7 +992,7 @@ function compute_ber(received, expected) {
 
 // 接收/环路主流程。is_soft_loop = true 时为文本软环路（唯一保留的环路模式），
 // false 时为麦克风真实接收（字节流模式，配合“发射”按钮使用）。
-function receiver_test(ofdm_wave, is_soft_loop, expected_payload) {
+function receiver_test(ofdm_wave, is_soft_loop, fec_info) {
     stop_receiver(); // 先停掉可能在运行的上一个接收/环路实例
     isReceiverRunning = true;
     is_need_sync = true;
@@ -805,16 +1025,93 @@ function receiver_test(ofdm_wave, is_soft_loop, expected_payload) {
         let receive_timer = 0;
         let symbol_count = 0;
         let valid_symbol_count = 0;
+        let multipath_state = []; // 多径 FIR 的历史输入（跨帧连续）
+        let chan_hi = null, chan_hq = null; // 逐载波信道复增益估计（训练符号处指数平滑更新）
+
+        // 分帧接收状态（加扰逐帧复位，无需跟踪 LFSR 状态）
+        let pkt_buf = [];               // 当前帧缓冲（未解扰，收满 64B 即译码）
+        let pkt_index = 0;              // 本轮帧序号
+        let last_seq = -1;              // 上一帧 SEQ，用于丢帧检测
+        let round_stat = null;          // 本轮误码统计（每轮粗同步锁定时重置）
+
+        // 快速捕获状态（任意时刻切入）：0=未捕获，1=已锁定训练网格（试帧相位中）
+        let acq_state = 0;
+        let acq_stream = [];            // 网格态下累积的数据字节流（未解扰）
+        let acq_slots = 0;              // 网格态下已消费的槽数（超时回退用）
+        let acq_try_countdown = 0;      // 训练符号搜索节流
+
+        function update_ber_display() {
+            if(!round_stat) return;
+            let pre = round_stat.pre_total ? (round_stat.pre_err / round_stat.pre_total * 100).toFixed(3) + "%" : "-";
+            let post = round_stat.post_total ? (round_stat.post_err / round_stat.post_total * 100).toFixed(3) + "%" : "-";
+            $("#ber_stat").text("RS前 " + pre + " → RS后 " + post +
+                "%（纠 " + round_stat.corrected + "B / 败 " + round_stat.fail_blocks + " / 坏帧 " + round_stat.bad_frames + "）");
+        }
+
+        // 试译码一帧（不解扰输入）：逐帧复位解扰 → 解交织 → 2×RS 译码 → 校验 magic。
+        // 返回 { ok, seq, payload, rx_coded, corrected, fail_blocks }
+        function try_decode_packet(pkt_raw) {
+            let pkt = scramble_stream(pkt_raw); // 逐帧复位解扰
+            let rx_coded = deinterleave(pkt, PKT_SYMBOLS);
+            let block = [];
+            let corrected = 0, fail_blocks = 0;
+            for(let b = 0; b < PKT_WIRE_LEN / RS_N; b++) {
+                let dec = rs_decode(rx_coded.slice(b * RS_N, (b + 1) * RS_N));
+                corrected += dec.corrected;
+                if(dec.fail) fail_blocks++;
+                block = block.concat(dec.bytes);
+            }
+            let magic_ok = PKT_MAGIC.every((m, i) => block[i] === m);
+            if(!magic_ok) return { ok: false };
+            let len = Math.min(block[6], PKT_PAYLOAD_MAX);
+            return { ok: true, seq: block[7], payload: block.slice(PKT_HEADER_LEN, PKT_HEADER_LEN + len), rx_coded: rx_coded, corrected: corrected, fail_blocks: fail_blocks };
+        }
+
+        // 译码一帧（64B 未解扰数据）：试译码 → 校验 magic → 提取负载并增量显示
+        function decode_packet(pkt_raw, index) {
+            let r = try_decode_packet(pkt_raw);
+            let rx_coded = r.ok ? r.rx_coded : deinterleave(scramble_stream(pkt_raw), PKT_SYMBOLS);
+            if(fec_info && (index + 1) * PKT_WIRE_LEN <= fec_info.coded.length) {
+                let s = compute_ber(rx_coded, fec_info.coded.slice(index * PKT_WIRE_LEN, (index + 1) * PKT_WIRE_LEN));
+                round_stat.pre_err += s.errors; round_stat.pre_total += s.total;
+            }
+            if(!r.ok) {
+                round_stat.fail_blocks += 2;
+                round_stat.bad_frames++;
+                console.log("坏帧 #" + index + "（magic 不符，丢弃）");
+            }
+            else {
+                round_stat.corrected += r.corrected;
+                round_stat.fail_blocks += r.fail_blocks;
+                let seq = r.seq;
+                if(last_seq >= 0 && seq !== (last_seq + 1) % 256) {
+                    console.log("帧序号不连续：" + last_seq + " → " + seq + "（丢帧）");
+                }
+                last_seq = seq;
+                if(fec_info) {
+                    let s = compute_ber(r.payload, fec_info.payload.slice(index * PKT_PAYLOAD_MAX, index * PKT_PAYLOAD_MAX + r.payload.length));
+                    round_stat.post_err += s.errors; round_stat.post_total += s.total;
+                }
+                for(let b of r.payload) receivedTextBytes.push(b);
+                updateReceivedText(); // 增量显示
+            }
+            update_ber_display(); // 误码率随帧实时更新
+        }
 
         // 文本软环路（is_soft_loop）的策略：
         // - 降速到近似实时（48k samp/s ÷ 60fps ≈ 800 samp/帧），波形/频谱/星座逐个符号可见，可同步外放；
         // - 每帧喂入时叠加新生成的 AWGN，每遍噪声都不同（噪声功率按整遍信号功率归一）；
-        // - 粗同步：chirp 前导流式检测，到达即锁定，与波形总长无关（任意长文本都能工作）；
-        // - 细同步：每个训练符号槽用训练符号模板做块相关，在 ±FINE_SEARCH_LEN 采样小窗内
-        //   修正符号边界（原“软件环路”的块同步，整合为粗同步基础上的精修）；
+        // - 粗同步：Schmidl-Cox 前导（两段重复波形）流式延迟自相关检测（双窗能量归一化），
+        //   多径下性能几乎不退化；再用前导模板互相关精化并验证，否决数据区假峰；
+        // - 快速捕获（任意时刻切入）：与等前导并行，搜索训练符号模板锁定 6 槽网格，
+        //   再对 4 种候选帧相位做 magic+RS 验证，锁定后由 SEQ 反推轮内绝对位置接管稳态；
+        //   加扰逐帧独立复位是中途解扰的前提；
+        // - 细同步/均衡：训练符号逐载波信道估计（指数平滑），数据符号逐载波均衡——
+        //   CP 范围内的恒定定时偏差等价于逐载波相位旋转，与频率选择性衰落一并被均衡
+        //   消去（软环路无时钟漂移，相位斜率法在低 SNR 下噪声过大，误修正反而破坏定时，故不用）；
         // - 缓冲区头始终领先“认定的”符号起点 FINE_SEARCH_LEN 个采样（保护带不变式），
         //   使细同步可以向正负两个方向修正；
-        // - 从 chirp 之后起消费完一整遍的符号后主动重新粗同步，相位不漂移。
+        // - 从前导之后起消费完一整遍的符号后主动重新粗同步，相位不漂移。
         const FRAME_LEN = 800; // 仅软环路使用
         let symbols_until_resync = 0;
 
@@ -826,10 +1123,10 @@ function receiver_test(ofdm_wave, is_soft_loop, expected_payload) {
             signal_power /= ofdm_wave.length;
         }
 
-        // 流式 chirp 检测器状态（绝对坐标以累计喂入采样数计）
-        let det_hist = [];       // 最近若干个已喂采样（覆盖未搜索区域 + 一个模板长）
+        // 流式 SC 检测器状态（绝对坐标以累计喂入采样数计）
+        let det_hist = [];       // 最近若干个已喂采样（覆盖未搜索区域 + 一个前导长）
         let feed_abs = 0;        // 已累计喂入的采样数
-        let searched_upto = 0;   // 已搜索过的 chirp 起始偏移（左闭右开）
+        let searched_upto = 0;   // 已搜索过的前导起始偏移（左闭右开）
         let best_metric = -1;
         let best_offset = 0;
 
@@ -853,6 +1150,12 @@ function receiver_test(ofdm_wave, is_soft_loop, expected_payload) {
                 } else {
                     frame = [];
                 }
+                // 多径衰落（频率选择性）：对干净波形做流式 FIR，再叠加 AWGN
+                if($("#chk_multipath").is(":checked")) {
+                    let r = apply_multipath(frame, multipath_state);
+                    frame = r[0];
+                    multipath_state = r[1];
+                }
                 // 逐帧叠加新的 AWGN（每遍噪声都不同），噪声幅度按 SNR 滑块当前值计算
                 let snr_db = Number($("#snr_slider").val());
                 let noise_sigma = Math.sqrt(signal_power / Math.pow(10, snr_db / 10));
@@ -863,9 +1166,11 @@ function receiver_test(ofdm_wave, is_soft_loop, expected_payload) {
                 }
                 feed_abs += frame.length;
                 det_hist = det_hist.concat(frame);
-                // 已同步期间只需保留最近一个模板长的采样供下次检测，防止 det_hist 无限增长
-                if(!is_need_sync && det_hist.length > GROSS_SYMBOL_LENGTH - 1) {
-                    det_hist.splice(0, det_hist.length - (GROSS_SYMBOL_LENGTH - 1));
+                // 已同步期间 det_hist 保留最近 2 个槽长的采样供下次检测：
+                // 下一遍的 SC 前导在本遍末尾就已开始到达，若裁得太短，前导头部会在
+                // 恢复检测前被裁掉，导致隔一遍才能锁定（奇偶轮交替失败）
+                if(!is_need_sync && det_hist.length > 2 * GROSS_SYMBOL_LENGTH) {
+                    det_hist.splice(0, det_hist.length - 2 * GROSS_SYMBOL_LENGTH);
                 }
                 // 文本环路近似实时运行，可同步外放给人听
                 if($("#chk_play_audio").is(":checked")) {
@@ -884,56 +1189,139 @@ function receiver_test(ofdm_wave, is_soft_loop, expected_payload) {
             }
             update_graph(buffer_length_graph, AUDIO_BUFFER.length);
 
-            // —— 软环路：流式粗同步，在新喂入的数据上增量搜索 chirp，到达即锁定 ——
-            if(is_soft_loop && (is_need_sync || (sync_countdown <= 0))) {
+            // —— 软环路：流式粗同步 + 快速捕获（网格态下后台并行尝试前导锁定） ——
+            if(is_soft_loop && (is_need_sync || acq_state === 1 || (sync_countdown <= 0))) {
                 let base = feed_abs - det_hist.length;   // det_hist[0] 的绝对下标
                 let d_begin = Math.max(searched_upto, base);
-                let d_max = feed_abs - GROSS_SYMBOL_LENGTH; // 相关窗口须完整
+                let d_max = feed_abs - 2 * SC_HALF_LEN;  // 两段窗口须完整
                 if(d_max >= d_begin) {
-                    let energy = 0;
-                    for(let t = 0; t < GROSS_SYMBOL_LENGTH; t++) {
-                        let v = det_hist[d_begin - base + t];
-                        energy += v * v;
+                    // P、R、E1 滑动和：先在 d_begin 处 O(L) 初始化，之后每偏移 O(1) 滑动
+                    let i0 = d_begin - base;
+                    let P = 0, R = 0, E1 = 0;
+                    for(let n = 0; n < SC_HALF_LEN; n++) {
+                        P += det_hist[i0 + n] * det_hist[i0 + n + SC_HALF_LEN];
+                        R += det_hist[i0 + n + SC_HALF_LEN] * det_hist[i0 + n + SC_HALF_LEN];
+                        E1 += det_hist[i0 + n] * det_hist[i0 + n];
                     }
                     for(let d = d_begin; d <= d_max; d++) {
                         let i = d - base;
-                        let corr = 0;
-                        for(let t = 0; t < GROSS_SYMBOL_LENGTH; t++) {
-                            corr += det_hist[i + t] * CHIRP_PREAMBLE[t];
-                        }
-                        let metric = (corr * corr) / (energy * CHIRP_ENERGY + 1e-12);
+                        // 双窗能量归一化（E1·R）：窗口滑出前导时失配项才真正拉低度量，三角峰尖锐
+                        let metric = (P * P) / (E1 * R + 1e-12);
                         if(metric > best_metric) {
                             best_metric = metric;
                             best_offset = d;
                         }
-                        if(d < d_max) { // 窗口能量滑动更新，O(1)
-                            energy += det_hist[i + GROSS_SYMBOL_LENGTH] * det_hist[i + GROSS_SYMBOL_LENGTH]
-                                    - det_hist[i] * det_hist[i];
+                        if(d < d_max) {
+                            P += -det_hist[i] * det_hist[i + SC_HALF_LEN]
+                                + det_hist[i + SC_HALF_LEN] * det_hist[i + 2 * SC_HALF_LEN];
+                            R += -det_hist[i + SC_HALF_LEN] * det_hist[i + SC_HALF_LEN]
+                                + det_hist[i + 2 * SC_HALF_LEN] * det_hist[i + 2 * SC_HALF_LEN];
+                            E1 += -det_hist[i] * det_hist[i]
+                                + det_hist[i + SC_HALF_LEN] * det_hist[i + SC_HALF_LEN];
                         }
                     }
                     searched_upto = d_max + 1;
                 }
-                // 峰值确认：超过门限，且搜索已越过峰值一个模板长（确保主峰已完整经过）
-                if(best_metric >= CHIRP_DETECT_THRESHOLD && searched_upto > best_offset + GROSS_SYMBOL_LENGTH) {
-                    // 将缓冲区对齐到 chirp 结束处再回退 FINE_SEARCH_LEN 个采样，
+                // 峰值确认：超过门限，且搜索已越过峰值半个前导（主峰已完整经过）
+                if(best_metric >= SC_DETECT_THRESHOLD && searched_upto > best_offset + SC_HALF_LEN) {
+                    // 精化+验证：在粗定位 ±360 范围内与本地前导模板做归一化互相关。
+                    // SC 在数据区（OFDM 的 CP 结构）有 0.6~0.8 假峰，但模板互相关在假峰处 <0.1、
+                    // 在真前导处 ≈0.9——以此验证，否决假峰并继续搜索。
+                    let t_offset = best_offset;
+                    let validate_metric = -1;
+                    {
+                        let base2 = feed_abs - det_hist.length;
+                        let d0 = Math.max(best_offset - 360, base2);
+                        let d1 = Math.min(best_offset + 360, feed_abs - 2 * SC_HALF_LEN);
+                        for(let d = d0; d <= d1; d++) {
+                            let i = d - base2;
+                            let corr = 0, e = 0;
+                            for(let t = 0; t < 2 * SC_HALF_LEN; t++) {
+                                corr += det_hist[i + t] * SC_PREAMBLE[t];
+                                e += det_hist[i + t] * det_hist[i + t];
+                            }
+                            let m = (corr * corr) / (e * SC_ENERGY + 1e-12);
+                            if(m > validate_metric) { validate_metric = m; t_offset = d; }
+                        }
+                    }
+                    if(validate_metric < SC_VALIDATE_THRESHOLD) {
+                        best_metric = -1; // 假峰否决：继续搜索
+                    }
+                    else {
+                    // 将缓冲区对齐到前导结束处再回退 FINE_SEARCH_LEN 个采样，
                     // 建立“缓冲区头领先认定起点 FINE_SEARCH_LEN”的保护带不变式，供细同步双向修正
-                    let drop = best_offset + GROSS_SYMBOL_LENGTH - FINE_SEARCH_LEN - (feed_abs - AUDIO_BUFFER.length);
+                    let drop = t_offset + GROSS_SYMBOL_LENGTH - FINE_SEARCH_LEN - (feed_abs - AUDIO_BUFFER.length);
                     if(drop > 0) AUDIO_BUFFER.splice(0, Math.min(drop, AUDIO_BUFFER.length));
-                    $("#estimated_offset").html(best_offset);
+                    $("#estimated_offset").html(t_offset);
                     sync_countdown = 10000;
                     symbol_count = 0;
                     is_need_sync = false;
-                    // 从 chirp 之后起，一整遍包含的符号槽数（含数据与训练符号）
+                    // 从前导之后起，一整遍包含的符号槽数（含数据与训练符号）
                     symbols_until_resync = Math.round(ofdm_wave.length / GROSS_SYMBOL_LENGTH) - 1;
-                    console.log("chirp 同步 @" + best_offset + "，相关度 " + best_metric.toFixed(3));
+                    console.log("SC 粗同步 @" + t_offset + "（精化度量 " + validate_metric.toFixed(3) + "）");
                     best_metric = -1; // 为下一次检测复位
+                    // 新一轮开始：复位分帧接收状态
+                    pkt_buf = [];
+                    pkt_index = 0;
+                    last_seq = -1;
+                    round_stat = { pre_err: 0, pre_total: 0, post_err: 0, post_total: 0, corrected: 0, fail_blocks: 0, bad_frames: 0 };
+                    acq_state = 0;
+                    acq_stream = [];
+                    acq_slots = 0;
+                    }
                 }
-                // 检测窗滑动：丢弃已搜索区域之前的采样
-                let skip = Math.max(searched_upto, feed_abs - (GROSS_SYMBOL_LENGTH - 1)) - (feed_abs - det_hist.length);
+                // —— 快速捕获（任意时刻切入）：搜索训练符号模板，锁定 6 槽网格 ——
+                if(is_need_sync) {
+                    acq_try_countdown--;
+                    if(acq_try_countdown <= 0 && AUDIO_BUFFER.length >= 2 * GROSS_SYMBOL_LENGTH) {
+                        acq_try_countdown = 2; // 每 2 帧尝试一次
+                        let d_end = AUDIO_BUFFER.length - GROSS_SYMBOL_LENGTH;
+                        let d_begin = Math.max(0, d_end - (GROSS_SYMBOL_LENGTH + FRAME_LEN));
+                        let acq_best_m = -1, acq_best_d = -1;
+                        // stride 4 粗扫 + 局部精扫（训练符号归一化互相关）
+                        for(let d = d_begin; d <= d_end; d += 4) {
+                            let corr = 0, e = 0;
+                            for(let t = 0; t < GROSS_SYMBOL_LENGTH; t++) {
+                                let s = AUDIO_BUFFER[d + t];
+                                corr += s * TRAINING_SYMBOL_TIME[t];
+                                e += s * s;
+                            }
+                            let m = (corr * corr) / (e * TRAINING_TPL_ENERGY + 1e-12);
+                            if(m > acq_best_m) { acq_best_m = m; acq_best_d = d; }
+                        }
+                        for(let d = Math.max(d_begin, acq_best_d - 4); d <= Math.min(d_end, acq_best_d + 4); d++) {
+                            let corr = 0, e = 0;
+                            for(let t = 0; t < GROSS_SYMBOL_LENGTH; t++) {
+                                let s = AUDIO_BUFFER[d + t];
+                                corr += s * TRAINING_SYMBOL_TIME[t];
+                                e += s * s;
+                            }
+                            let m = (corr * corr) / (e * TRAINING_TPL_ENERGY + 1e-12);
+                            if(m > acq_best_m) { acq_best_m = m; acq_best_d = d; }
+                        }
+                        if(acq_best_m >= 0.3) {
+                            // 网格锁定：缓冲区对齐到训练符号终点 - F（保护带不变式）
+                            AUDIO_BUFFER.splice(0, Math.min(acq_best_d + GROSS_SYMBOL_LENGTH - FINE_SEARCH_LEN, AUDIO_BUFFER.length));
+                            symbol_count = 1; // 下一槽为数据槽
+                            symbols_until_resync = 1e9; // 轮内位置未知，帧锁定后由 SEQ 反推
+                            is_need_sync = false;
+                            acq_state = 1;
+                            acq_stream = [];
+                            acq_slots = 0;
+                            if(!round_stat) round_stat = { pre_err: 0, pre_total: 0, post_err: 0, post_total: 0, corrected: 0, fail_blocks: 0, bad_frames: 0 };
+                            console.log("快速捕获：锁定训练网格（相关度 " + acq_best_m.toFixed(3) + "）");
+                        }
+                    }
+                }
+                // 检测窗滑动：不得裁掉待精化的主峰区域（确认前 searched_upto 已越过峰顶，
+                // 必须额外保留 best_offset 之前 360 个采样供模板精化）
+                let keep_from = searched_upto;
+                if(best_metric >= 0 && best_offset - 360 < keep_from) keep_from = Math.max(0, best_offset - 360);
+                let skip = keep_from - (feed_abs - det_hist.length);
                 if(skip > 0) det_hist.splice(0, skip);
             }
             // —— 麦克风接收：缓冲区充满后做模板相关同步（原有逻辑） ——
-            else if(!is_soft_loop && (is_need_sync || (sync_countdown <= 0)) && (AUDIO_BUFFER.length < AUDIO_BUFFER_LENGTH)) {
+            if(!is_soft_loop && (is_need_sync || (sync_countdown <= 0)) && (AUDIO_BUFFER.length < AUDIO_BUFFER_LENGTH)) {
                 // 跳过，继续填充缓冲区
             }
             else if(!is_soft_loop && (is_need_sync || (sync_countdown <= 0)) && (AUDIO_BUFFER.length >= AUDIO_BUFFER_LENGTH)) {
@@ -946,68 +1334,74 @@ function receiver_test(ofdm_wave, is_soft_loop, expected_payload) {
                 symbol_count = 0;
                 is_need_sync = false;
             }
-            // 已同步，但缓冲区内不足一个符号
-            else if((sync_countdown > 0) && (AUDIO_BUFFER.length < GROSS_SYMBOL_LENGTH)) {
+            // 软环路未锁定：仅检测，不消费
+            else if(is_soft_loop && is_need_sync) {
+                // 跳过
+            }
+            // 已同步（含快速捕获网格态），但缓冲区内不足一个符号
+            else if((sync_countdown > 0) && (AUDIO_BUFFER.length < GROSS_SYMBOL_LENGTH + (is_soft_loop ? 2 * FINE_SEARCH_LEN : 0))) {
                 sync_countdown--;
             }
-            // 已同步，且缓冲区内至少有一个符号（软环路还需保护带）
-            else if((sync_countdown > 0) && (AUDIO_BUFFER.length >= GROSS_SYMBOL_LENGTH + (is_soft_loop ? FINE_SEARCH_LEN : 0))) {
-                while(AUDIO_BUFFER.length >= GROSS_SYMBOL_LENGTH + (is_soft_loop ? FINE_SEARCH_LEN : 0)) {
+            // 已同步（含快速捕获网格态），且缓冲区内至少有一个符号
+            else if((sync_countdown > 0) && (AUDIO_BUFFER.length >= GROSS_SYMBOL_LENGTH + (is_soft_loop ? 2 * FINE_SEARCH_LEN : 0))) {
+                while(AUDIO_BUFFER.length >= GROSS_SYMBOL_LENGTH + (is_soft_loop ? 2 * FINE_SEARCH_LEN : 0)) {
                     if(is_soft_loop && symbols_until_resync <= 0) {
-                        // 本遍符号已消费完：统计本轮误码率，并清空接收框，准备显示下一轮
-                        if(expected_payload) {
-                            let stat = compute_ber(receivedTextBytes, expected_payload);
-                            $("#ber_stat").text((stat.ber * 100).toFixed(3) + "%（" + stat.errors + " / " + stat.total + " bit）");
-                        }
+                        // 本遍符号已消费完：清空接收框，准备显示下一轮（误码率统计已在逐帧更新）
                         receivedTextBytes = [];
                         updateReceivedText();
-                        // 下一槽是 chirp 前导：交由流式检测器重新锁定
+                        // 下一槽是 SC 前导：交由流式检测器/快速捕获重新锁定
                         is_need_sync = true;
+                        acq_state = 0;
+                        acq_stream = [];
                         break;
                     }
 
                     let symbol_wave = null;
+                    let frame_iq = null;
 
-                    if(is_soft_loop && (symbol_count % TRAINING_PERIOD === 0)) {
-                        // —— 训练符号槽：细同步（块相关精修符号边界，原“软件环路”的块同步） ——
-                        // 发送波形结构为 [chirp][T][d0..d4][T][d5..d9][T]…，紧跟 chirp 的第一个槽
-                        // 就是训练符号（count % 6 == 0），因此细同步在任何数据符号解调之前
-                        // 就能修正粗同步的残余误差，之后每 6 个槽精修一次。
-                        // 不变式：缓冲区头领先“认定的”训练符号起点 FINE_SEARCH_LEN 个采样，
-                        // 在 [0, 2*FINE_SEARCH_LEN] 窗口内搜到的主峰位置即修正后的真实起点。
-                        if(AUDIO_BUFFER.length < GROSS_SYMBOL_LENGTH + 2 * FINE_SEARCH_LEN) break; // 等保护带到齐
-                        let fine_best_metric = -1;
-                        let fine_best_d = FINE_SEARCH_LEN; // 默认无修正
-                        for(let d = 0; d <= 2 * FINE_SEARCH_LEN; d++) {
-                            let corr = 0, energy = 0;
-                            for(let t = 0; t < GROSS_SYMBOL_LENGTH; t++) {
-                                let s = AUDIO_BUFFER[d + t];
-                                corr += s * TRAINING_SYMBOL_TIME[t];
-                                energy += s * s;
+                    if(is_soft_loop) {
+                        if(symbol_count % TRAINING_PERIOD === 0) {
+                            // —— 训练符号槽：逐载波信道估计（指数平滑）——
+                            // z[c] = R[c]/T[c] = H[c]·e^{-j2πcδ/N}：CP 范围内的恒定定时偏差表现为
+                            // 逐载波相位旋转，与信道响应一起被 Ĥ 吸收，由均衡一并消去——软环路无
+                            // 时钟漂移，粗同步（模板精化）已足够精确，无需逐槽定时修正（低 SNR 下
+                            // 相位斜率法噪声过大，误修正反而会破坏定时）。
+                            symbol_wave = AUDIO_BUFFER.slice(FINE_SEARCH_LEN + CP_LENGTH, FINE_SEARCH_LEN + CP_LENGTH + SYMBOL_LENGTH);
+                            let tr_iq = demodulate_ofdm_symbol(symbol_wave);
+                            if(chan_hi === null) { chan_hi = []; chan_hq = []; }
+                            for(let c = 0; c < CARRIER_NUMBER; c++) {
+                                let ti = TRAINING_I[c], tq = TRAINING_Q[c];
+                                let denom = ti * ti + tq * tq;
+                                let hi = (tr_iq[0][c] * ti + tr_iq[1][c] * tq) / denom;
+                                let hq = (tr_iq[1][c] * ti - tr_iq[0][c] * tq) / denom;
+                                if(chan_hi[c] === undefined) {
+                                    chan_hi[c] = hi; chan_hq[c] = hq;
+                                }
+                                else {
+                                    chan_hi[c] = 0.5 * chan_hi[c] + 0.5 * hi;
+                                    chan_hq[c] = 0.5 * chan_hq[c] + 0.5 * hq;
+                                }
                             }
-                            let m = (corr * corr) / (energy * TRAINING_ENERGY + 1e-12);
-                            if(m > fine_best_metric) {
-                                fine_best_metric = m;
-                                fine_best_d = d;
-                            }
+                            AUDIO_BUFFER.splice(0, GROSS_SYMBOL_LENGTH);
+                            symbol_count++;
+                            symbols_until_resync--;
+                            continue;
                         }
-                        if(fine_best_metric < CHIRP_DETECT_THRESHOLD) {
-                            fine_best_d = FINE_SEARCH_LEN; // 相关度不足，信任原边界
-                        }
-                        else if(fine_best_d !== FINE_SEARCH_LEN) {
-                            console.log("细同步：修正 " + (fine_best_d - FINE_SEARCH_LEN) + " 采样（相关度 " + fine_best_metric.toFixed(3) + "）");
-                        }
-                        // 丢弃到修正后的训练符号起点，再消费 GROSS - FINE_SEARCH_LEN，
-                        // 保留 FINE_SEARCH_LEN 个采样作为下一槽的保护带，维持不变式
-                        AUDIO_BUFFER.splice(0, fine_best_d + GROSS_SYMBOL_LENGTH - FINE_SEARCH_LEN);
-                        symbol_count++;
-                        symbols_until_resync--;
-                        continue;
-                    }
-                    else if(is_soft_loop) {
-                        // 数据槽：跳过保护带与 CP，取出符号体（不改变缓冲区），再丢弃整槽
+                        // 数据槽：按认定位置取符号体（保护带 + CP 之后），消费整槽
                         symbol_wave = AUDIO_BUFFER.slice(FINE_SEARCH_LEN + CP_LENGTH, FINE_SEARCH_LEN + CP_LENGTH + SYMBOL_LENGTH);
                         AUDIO_BUFFER.splice(0, GROSS_SYMBOL_LENGTH);
+                        frame_iq = demodulate_ofdm_symbol(symbol_wave);
+                        // 逐载波均衡：IQ / H[c]，纠正频率选择性衰落造成的星座畸变
+                        if(chan_hi !== null) {
+                            for(let c = 0; c < CARRIER_NUMBER; c++) {
+                                let hi = chan_hi[c], hq = chan_hq[c];
+                                let denom = hi * hi + hq * hq;
+                                if(denom < 1e-6) denom = 1e-6; // 深陷载波防止除爆
+                                let ii = frame_iq[0][c], qq = frame_iq[1][c];
+                                frame_iq[0][c] = (ii * hi + qq * hq) / denom;
+                                frame_iq[1][c] = (qq * hi - ii * hq) / denom;
+                            }
+                        }
                     }
                     else {
                         // 麦克风接收：丢弃 CP，取出一个完整符号体（原有逻辑）
@@ -1023,25 +1417,65 @@ function receiver_test(ofdm_wave, is_soft_loop, expected_payload) {
                             symbol_count++;
                             continue;
                         }
+                        frame_iq = demodulate_ofdm_symbol(symbol_wave);
                     }
 
                     plot_wave(oscilloscope, symbol_wave);
                     plot_spectrum(symbol_wave);
-                    let frame_iq = demodulate_ofdm_symbol(symbol_wave);
                     plot_constellation(constellation, frame_iq);
                     let frame_bytes = qam4_decoding(frame_iq[0], frame_iq[1], IQ_AMP);
 
-                    if(is_soft_loop) {
-                        // 文本模式：按 [L, data...] 的符号格式还原字节
-                        for(let n = 0; n < frame_bytes.length; n += 16) {
-                            if(n + 15 >= frame_bytes.length) break;
-                            let L = frame_bytes[n];
-                            if(L > 15) L = 15;
-                            for(let k = 1; k <= L; k++) {
-                                receivedTextBytes.push(frame_bytes[n + k]);
+                    if(is_soft_loop && acq_state === 1) {
+                        // 快速捕获网格态：累积数据字节流，试 4 种帧相位（magic + RS 验证）
+                        for(let n = 0; n < frame_bytes.length; n++) acq_stream.push(frame_bytes[n]);
+                        acq_slots++;
+                        while(acq_stream.length >= PKT_WIRE_LEN && acq_state === 1) {
+                            let locked = false;
+                            for(let off = 0; off <= 3 * 16 && off + PKT_WIRE_LEN <= acq_stream.length; off += 16) {
+                                let r = try_decode_packet(acq_stream.slice(off, off + PKT_WIRE_LEN));
+                                if(r.ok) {
+                                    // 帧锁定：由 SEQ 反推轮内绝对位置，接管稳态
+                                    acq_state = 2;
+                                    let validated = acq_stream.slice(off, off + PKT_WIRE_LEN);
+                                    pkt_buf = acq_stream.slice(off + PKT_WIRE_LEN);
+                                    acq_stream = [];
+                                    pkt_index = r.seq;
+                                    decode_packet(validated, pkt_index);
+                                    pkt_index++;
+                                    let n_next = 4 * r.seq + 4 + pkt_buf.length / 16;
+                                    let s_next = 1 + Math.floor(n_next / TRAINING_SYMBOL_INTERVAL) * TRAINING_PERIOD + (n_next % TRAINING_SYMBOL_INTERVAL);
+                                    // 锁定发生在本槽处理中，槽尾的 symbol_count++ 与 symbols_until_resync--
+                                    // 会再各增/减一次，先减 1 补偿
+                                    symbol_count = s_next - 1;
+                                    symbols_until_resync = Math.round(ofdm_wave.length / GROSS_SYMBOL_LENGTH) - 1 - s_next + 1;
+                                    console.log("快速捕获：帧锁定 #" + r.seq + "，接管稳态");
+                                    locked = true;
+                                    break;
+                                }
+                            }
+                            if(!locked) {
+                                if(acq_stream.length > PKT_WIRE_LEN + 3 * 16) acq_stream.splice(0, 16); // 丢最旧一槽
+                                break;
                             }
                         }
-                        updateReceivedText();
+                        // 超时回退：网格态超过两轮仍未帧锁定，回到前导搜索
+                        if(acq_state === 1 && acq_slots > 2 * ofdm_wave.length / GROSS_SYMBOL_LENGTH) {
+                            is_need_sync = true;
+                            acq_state = 0;
+                            acq_stream = [];
+                            console.log("快速捕获：超时，回退等待前导");
+                        }
+                    }
+                    else if(is_soft_loop) {
+                        // 稳态：填入当前帧缓冲（未解扰），收满 64B 即译码一帧（增量显示）
+                        for(let n = 0; n < frame_bytes.length; n++) {
+                            pkt_buf.push(frame_bytes[n]);
+                            if(pkt_buf.length === PKT_WIRE_LEN) {
+                                decode_packet(pkt_buf, pkt_index);
+                                pkt_buf = [];
+                                pkt_index++;
+                            }
+                        }
                     }
                     else {
                         for(let n = 0; n < frame_bytes.length; n++) {
@@ -1301,13 +1735,13 @@ function byte_stream_to_text(byte_stream) {
 function text_loop(text, snr) {
     let byte_stream = text_to_byte_stream(text);
 
-    // 加前导：一个 chirp 符号，利用其尖锐自相关完成定时同步
-    let preamble = CHIRP_PREAMBLE.slice();
+    // 加前导：一个 Schmidl-Cox 重复序列符号，利用延迟自相关完成定时同步
+    let preamble = SC_PREAMBLE.slice();
     let ofdm_wave = preamble.concat(OFDM_Modulate(byte_stream, IQ_AMP));
     ofdm_wave = awgn(ofdm_wave, snr);
 
-    // 只在前导区域搜索 chirp
-    let decoded = receive_byte_stream(ofdm_wave, 2 * GROSS_SYMBOL_LENGTH, CHIRP_PREAMBLE);
+    // 只在前导区域搜索 SC 前导
+    let decoded = receive_byte_stream(ofdm_wave, 2 * GROSS_SYMBOL_LENGTH, SC_PREAMBLE);
     let received_text = byte_stream_to_text(decoded);
 
     return {
@@ -1335,26 +1769,45 @@ $("#btn_sync").click(() => {
 });
 
 // 发送文本并环路接收（持续循环发送，接收端持续解调并更新显示）
+// 发送链路：文本 → UTF-8 分帧（64B/帧：帧头 8B + 负载 ≤24B）
+//         → 帧内 2×RS(32,16) → 帧内块交织 → 整轮连续加扰 → QAM/OFDM 调制
 $("#btn_text_loop").click(() => {
     let text = $("#tx_text").val();
     receivedTextBytes = [];
     $("#sent_text").text(text);
     $("#received_text").text("");
 
-    let byte_stream = text_to_byte_stream(text);
-    // 波形结构：[chirp前导][训练符号][数据符号…]（训练符号按每 5 个数据符号插入，含开头的这个）
-    // chirp 用于流式粗同步；紧跟其后的训练符号用于块相关细同步，在任何数据符号解调前修正边界。
+    let payload = Array.from(new TextEncoder().encode(text));
+    let tx_bytes = [];
+    let coded = []; // 交织前的期望码字流，用于 RS 前误码率比对
+    let n_packets = Math.ceil(payload.length / PKT_PAYLOAD_MAX);
+    for(let i = 0; i < n_packets; i++) {
+        let chunk = payload.slice(i * PKT_PAYLOAD_MAX, (i + 1) * PKT_PAYLOAD_MAX);
+        let block = PKT_MAGIC.concat([chunk.length, i % 256], chunk);
+        while(block.length < RS_N) block.push(0); // 负载不足 24B 时补零
+        let pkt_coded = rs_encode(block.slice(0, RS_K)).concat(rs_encode(block.slice(RS_K, RS_N)));
+        coded = coded.concat(pkt_coded);
+        // 帧内交织（4 行 × 16 列，行 = 符号）：一个符号的突发错误分散到两个码字
+        // 加扰逐帧独立复位：帧边界确定后 LFSR 状态立即可算，支持任意帧中途切入
+        tx_bytes = tx_bytes.concat(scramble_stream(interleave(pkt_coded, PKT_SYMBOLS)));
+    }
+
+    // 波形结构：[SC前导][训练符号][数据符号…]（训练符号按每 5 个数据符号插入，含开头的这个）
+    // SC 前导用于流式粗同步；紧跟其后的训练符号在第一个数据符号解调前完成首次信道估计。
     // 注意：TRAINING_SYMBOL_TIME 是未经 0.9 峰值归一化的“生”波形，电平比 OFDM_Modulate 的
     // 输出低两个数量级，直接拼接会被噪声淹没，必须先提升到相同电平。
     let training_peak = 0;
     for(let v of TRAINING_SYMBOL_TIME) { let a = Math.abs(v); if(a > training_peak) training_peak = a; }
     let training_leveled = TRAINING_SYMBOL_TIME.map(v => v * (0.9 / training_peak));
-    let preamble = CHIRP_PREAMBLE.concat(training_leveled);
-    // 干净波形：AWGN 在接收端逐帧重新生成，每遍环路的噪声都不同
-    let ofdm_wave = preamble.concat(OFDM_Modulate(byte_stream, IQ_AMP));
+    let preamble = SC_PREAMBLE.concat(training_leveled);
+    // 干净波形：多径衰落与 AWGN 在接收端逐帧生成，每遍环路的噪声都不同
+    let ofdm_wave = preamble.concat(OFDM_Modulate(tx_bytes, IQ_AMP));
 
-    receiver_test(ofdm_wave, true, Array.from(new TextEncoder().encode(text)));
-    console.log("启动文本 OFDM 持续环路");
+    receiver_test(ofdm_wave, true, {
+        payload: payload, // 纠错后比对的期望负载
+        coded: coded      // 纠错前比对的期望码字流
+    });
+    console.log("启动文本 OFDM 持续环路（分帧 64B + RS(32,16)×2/帧 + 帧内交织 + 加扰）");
 });
 
 // SNR 滑块：实时更新显示值（噪声幅度在接收机内每帧读取滑块值，立即生效）
