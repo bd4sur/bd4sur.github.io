@@ -12,22 +12,41 @@
 //     用于逐符号相位跟踪与信道跟踪；
 //   - 利用帧头两个相同训练符号的相位差按载波频率拟合相位速率，
 //     显式估计并补偿载波频偏(CFO)与采样率偏差(SFO)。
-//   调制/解调采用 FFT 制式：载波梳对齐 1024 点基2 FFT 的整数 bin，
-//   调制=共轭对称填 bin + IFFT（直接得通带实信号），解调=实 FFT + 读 bin。
+//   调制/解调采用基带复FFT制式（可配置载波频率/子载波数/基波频率）：
+//   发射=基带复IFFT → ×DECIM多相内插 → IQ混频上变频；
+//   接收=IQ混频下变频 → 多相抽取 → 基带复FFT读 bin。
+//   混频本振为相位累加器DDS（正弦LUT），载波频率可任意配置，无栅格约束。
 // ============================================================================
 
 // ---------------- 系统参数 ----------------
 const SAMPLE_RATE    = 48000;
 const BASE_FREQ      = 46.875;    // 子载波间隔(Hz)
 const CARRIER_NUMBER = 64;    // 正交子载波数
-const CARRIER_FREQ   = 1992.1875; // 通带中心频率(Hz)：= 46.875×42.5，使载波梳对齐 FFT 整数 bin（bin 11~74）
+const CARRIER_FREQ   = 2000; // 通带中心频率(Hz)：DDS混频，可任意配置（仅需满足物理边界）
 const BANDWIDTH = BASE_FREQ * CARRIER_NUMBER;
-const SYMBOL_LENGTH = Math.round(SAMPLE_RATE / BASE_FREQ); // 符号长度（采样点）
-const CP_LENGTH = Math.floor(0.4 * SYMBOL_LENGTH);         // 循环前缀长度
-const GROSS_SYMBOL_LENGTH = SYMBOL_LENGTH + CP_LENGTH;     // 槽长（符号+CP）
+// ---- FFT 制式推导：IQ混频 + ×DECIM 抽取/内插 + 基带复IFFT/FFT ----
+// 可配置项：SAMPLE_RATE / BASE_FREQ / CARRIER_NUMBER / CARRIER_FREQ，约束：
+//   1) SYMBOL_LENGTH = SAMPLE_RATE/BASE_FREQ 为 2 的幂（全速率符号长度）
+//   2) BB_FFT_LEN = 2^ceil(log2(2×CARRIER_NUMBER)) 整除 SYMBOL_LENGTH
+//   3) CARRIER_FREQ 任意（混频器为相位累加器DDS，无栅格约束），仅需满足物理边界：
+//      0 < fc−B/2 且 fc+B/2 < Fs/2；且镜像带 2·f_mix±B/2 应落在抽取滤波器阻带
+//      （经验法则：2·(fc+Δf/2)−B/2 ≳ Fs/DECIM−B/2），否则镜像会折叠进数据区
+const SYMBOL_LENGTH = Math.round(SAMPLE_RATE / BASE_FREQ); // 全速率符号长度（采样点）= 1024
+const BB_FFT_LEN    = next_pow2(2 * CARRIER_NUMBER);       // 基带复FFT点数 = 128
+const DECIM         = SYMBOL_LENGTH / BB_FFT_LEN;          // 抽取/内插因子 = 8（基带 6kHz）
+const CP_BB         = Math.ceil(0.4 * BB_FFT_LEN / 2) * 2; // 基带CP（取偶，使基带槽长为偶） = 52
+const CP_LENGTH     = CP_BB * DECIM;                       // 循环前缀长度 = 416
+const GROSS_SYMBOL_LENGTH = SYMBOL_LENGTH + CP_LENGTH;     // 槽长（符号+CP）= 1440
+const SLOT_BB       = BB_FFT_LEN + CP_BB;                  // 基带槽长 = 180
+const MIX_FREQ      = CARRIER_FREQ + BASE_FREQ / 2;        // 混频频率：基带载波对齐整数 bin
 const TRAINING_SYMBOL_INTERVAL = 5; // 帧内每几个数据符号插入一个块状训练符号
 const IQ_AMP = 0.02;
 const T_SLOT = GROSS_SYMBOL_LENGTH / SAMPLE_RATE;          // 槽长（秒）
+if ((SYMBOL_LENGTH & (SYMBOL_LENGTH - 1)) !== 0 || (BB_FFT_LEN & (BB_FFT_LEN - 1)) !== 0 ||
+    SYMBOL_LENGTH % BB_FFT_LEN !== 0)
+    throw new Error("FFT 制式约束：SAMPLE_RATE/BASE_FREQ 与 2^ceil(log2(2×子载波数)) 须为 2 的幂且前者为后者整数倍");
+if (CARRIER_FREQ - BANDWIDTH / 2 <= 0 || CARRIER_FREQ + BANDWIDTH / 2 >= SAMPLE_RATE / 2)
+    throw new Error("CARRIER_FREQ±BANDWIDTH/2 须位于 (0, Fs/2) 内");
 
 // ---------------- 物理帧结构 ----------------
 const FRAME_DATA_SYMBOLS = 16;  // 每帧数据符号数
@@ -73,13 +92,36 @@ class RingBuffer {
     read_to(out, off, n) { let j = this.start + off; for (let i = 0; i < n; i++) out[i] = this.buf[(j + i) & this.mask]; }
 }
 
-// ---------------- FFT 制式：载波梳与 bin 栅格对齐 ----------------
-// 符号长度必须为 2 的幂（基2 FFT）；各子载波频率必须为 BASE_FREQ 的整数倍，
-// 即恰好落在 FFT 的整数 bin 上（bin = CARRIER_BIN_BASE + c），调制=IFFT、解调=FFT。
-const FFT_LEN = SYMBOL_LENGTH; // 1024 = 2^10
-const CARRIER_BIN_BASE = CARRIER_FREQ / BASE_FREQ - (CARRIER_NUMBER - 1) / 2;
-if ((FFT_LEN & (FFT_LEN - 1)) !== 0 || Math.abs(CARRIER_BIN_BASE - Math.round(CARRIER_BIN_BASE)) > 1e-9)
-    throw new Error("FFT 制式要求：符号长度为 2 的幂且载波梳对齐整数 bin");
+// ---------------- 码表：IQ 混频器 DDS（相位累加器 + 正弦 LUT，支持任意混频频率） ----------------
+// 相位量化误差 ≤ 2π/(2×1024) rad（约 −54dB），对 QAM4 无感；嵌入式C同构
+const DDS_LUT_LEN = 1024;
+const DDS_COS = new Float32Array(DDS_LUT_LEN), DDS_SIN = new Float32Array(DDS_LUT_LEN);
+for (let n = 0; n < DDS_LUT_LEN; n++) {
+    DDS_COS[n] = Math.cos(2 * Math.PI * n / DDS_LUT_LEN);
+    DDS_SIN[n] = Math.sin(2 * Math.PI * n / DDS_LUT_LEN);
+}
+const TWO_PI = 2 * Math.PI;
+const MIX_STEP = TWO_PI * MIX_FREQ / SAMPLE_RATE; // 混频相位步进(rad/采样)
+const PHASE_TO_IDX = DDS_LUT_LEN / TWO_PI;
+
+// ---------------- 码表：抽取/内插抗混叠低通（窗函数法FIR，多相结构） ----------------
+// 过渡带中心取信号带宽边缘与基带奈奎斯特的中点；群延迟 LPF_GD 须为 DECIM 整数倍
+const LPF_TAPS = 97;
+const LPF_GD = (LPF_TAPS - 1) / 2; // 48 = 6×DECIM
+const LPF = (function () {
+    let fc = (BANDWIDTH / 2 + (SAMPLE_RATE / DECIM) / 2) / 2 / SAMPLE_RATE; // 归一化截止频率
+    let h = new Float32Array(LPF_TAPS), sum = 0;
+    for (let n = 0; n < LPF_TAPS; n++) {
+        let x = n - LPF_GD;
+        let s = (x === 0) ? 2 * fc : Math.sin(2 * Math.PI * fc * x) / (Math.PI * x);
+        let w = 0.54 - 0.46 * Math.cos(2 * Math.PI * n / (LPF_TAPS - 1)); // Hamming
+        h[n] = s * w; sum += h[n];
+    }
+    for (let n = 0; n < LPF_TAPS; n++) h[n] /= sum; // 直流增益归一化
+    return h;
+})();
+if (LPF_GD % DECIM !== 0) throw new Error("LPF 群延迟须为 DECIM 的整数倍");
+
 const CARRIER_FREQS = []; // 各子载波频率(Hz)，CFO/SFO 拟合用
 for (let c = 0; c < CARRIER_NUMBER; c++)
     CARRIER_FREQS[c] = CARRIER_FREQ + (c - (CARRIER_NUMBER - 1) / 2) * BASE_FREQ;
@@ -143,34 +185,66 @@ function raised_cosine_window(wave, rolloff) {
     for (let i = B; i < wave.length; i++) wave[i] *= (0.5 + 0.5 * Math.cos(Math.PI * (i - B) / A));
     return wave;
 }
-function add_cyclic_prefix(wave, cp_length) {
-    let out = new Array(wave.length + cp_length);
-    for (let i = 0; i < cp_length; i++) out[i] = wave[wave.length - cp_length + i];
-    for (let i = 0; i < wave.length; i++) out[cp_length + i] = wave[i];
-    return out;
-}
-// 生成一个OFDM符号：64个子载波IQ填入共轭对称bin，IFFT直接得到通带实信号
-// 标度与旧直相关制式一致：x[n] = (2/N)Σ_c [si·cos(2πf_c·n/Fs) − sq·sin(2πf_c·n/Fs)]
-function generate_symbol_wave(symbol_iq, has_cp) {
-    let [si, sq] = symbol_iq;
-    let re = new Float32Array(FFT_LEN), im = new Float32Array(FFT_LEN);
-    for (let c = 0; c < CARRIER_NUMBER; c++) {
-        let k = Math.round(CARRIER_BIN_BASE) + c;
-        re[k] = si[c]; im[k] = sq[c];          // X[k] = si + j·sq
-        re[FFT_LEN - k] = si[c]; im[FFT_LEN - k] = -sq[c]; // 共轭对称 → 实时域
-    }
+
+// 子载波 c → 基带 bin（整数栅格：c − N_c/2，DC 不使用）
+function bb_bin(c) { return (c - (CARRIER_NUMBER >> 1) + BB_FFT_LEN) & (BB_FFT_LEN - 1); }
+// 一个基带复符号：载波 IQ 填入基带频域 → 复 IFFT → [re[BB_FFT_LEN], im[BB_FFT_LEN]]
+function baseband_symbol(si, sq) {
+    let re = new Float32Array(BB_FFT_LEN), im = new Float32Array(BB_FFT_LEN);
+    for (let c = 0; c < CARRIER_NUMBER; c++) { let k = bb_bin(c); re[k] = si[c]; im[k] = sq[c]; }
     fft_radix2(re, im, true);
-    let w = Array.from(re);
-    let out = has_cp ? add_cyclic_prefix(w, CP_LENGTH) : w;
-    return raised_cosine_window(out, 0.01);
+    return [re, im];
+}
+// 基带槽流（复） → 通带实信号：×DECIM 多相内插 → IQ混频取实部 → 逐槽升余弦窗
+// 混频相位逐槽复位（与旧直相关制式一致：各槽载波相位对齐槽起点，训练模板才能逐槽复用）
+function passband_from_bb(bb_re, bb_im) {
+    let n_bb = bb_re.length;
+    let n_out = n_bb * DECIM;
+    // 多相内插：y[t] = DECIM × Σ_k h[r + k·DECIM]·bb[(t−r)/DECIM − k]（边界零填充）
+    let tmp_re = new Float32Array(n_out + LPF_GD), tmp_im = new Float32Array(n_out + LPF_GD);
+    for (let t = 0; t < tmp_re.length; t++) {
+        let r = t % DECIM, n0 = (t - r) / DECIM;
+        let ar = 0, ai = 0;
+        for (let k = 0; k * DECIM + r < LPF_TAPS; k++) {
+            let idx = n0 - k;
+            if (idx >= 0 && idx < n_bb) { let w = LPF[r + k * DECIM]; ar += w * bb_re[idx]; ai += w * bb_im[idx]; }
+        }
+        tmp_re[t] = ar * DECIM; tmp_im[t] = ai * DECIM;
+    }
+    // 裁掉群延迟，混频取实部（DDS 相位累加，逐槽复位），逐槽加窗
+    let wave = new Array(n_out);
+    for (let s0 = 0; s0 < n_out; s0 += GROSS_SYMBOL_LENGTH) {
+        let seg = new Array(GROSS_SYMBOL_LENGTH);
+        let phase = 0; // 槽内局部相位（与旧直相关制式一致：各槽载波相位对齐槽起点）
+        for (let t = 0; t < GROSS_SYMBOL_LENGTH; t++) {
+            let k = (phase * PHASE_TO_IDX) | 0;
+            seg[t] = tmp_re[s0 + t + LPF_GD] * DDS_COS[k] - tmp_im[s0 + t + LPF_GD] * DDS_SIN[k];
+            phase += MIX_STEP; if (phase >= TWO_PI) phase -= TWO_PI;
+        }
+        raised_cosine_window(seg, 0.01);
+        for (let t = 0; t < GROSS_SYMBOL_LENGTH; t++) wave[s0 + t] = seg[t];
+    }
+    return wave;
 }
 
-const TRAINING_SYMBOL_TIME = generate_symbol_wave([TRAINING_I, TRAINING_Q], true);
+// 训练符号：基带符号 + 时域模板（经完整发射链生成，取连续两槽中的第二槽以避开内插边缘瞬态）
+const TRAINING_BB = baseband_symbol(TRAINING_I, TRAINING_Q);
+const TRAINING_SYMBOL_TIME = (function () {
+    let bb_re = [], bb_im = [];
+    for (let rep = 0; rep < 2; rep++) {
+        for (let i = BB_FFT_LEN - CP_BB; i < BB_FFT_LEN; i++) { bb_re.push(TRAINING_BB[0][i]); bb_im.push(TRAINING_BB[1][i]); }
+        for (let i = 0; i < BB_FFT_LEN; i++) { bb_re.push(TRAINING_BB[0][i]); bb_im.push(TRAINING_BB[1][i]); }
+    }
+    let pb = passband_from_bb(bb_re, bb_im);
+    return pb.slice(GROSS_SYMBOL_LENGTH, 2 * GROSS_SYMBOL_LENGTH);
+})();
 const TRAINING_TPL_ENERGY = TRAINING_SYMBOL_TIME.reduce((p, c) => p + c * c, 0);
 
 // Schmidl-Cox 前导：[A, A] 两段相同 720 采样宽带波形（独立伪随机图案）
-const SC_HALF_LEN = Math.floor(GROSS_SYMBOL_LENGTH / 2);
-const SC_PREAMBLE = (function () {
+// 基带 [B, B·e^{jδ}]：δ 补偿混频器在半槽处的相位步进，保证通带两段严格相同
+const SC_HALF_LEN = GROSS_SYMBOL_LENGTH / 2; // 720
+const SC_HALF_BB = SLOT_BB / 2;              // 90
+const SC_BB = (function () {
     let seed = 12345;
     let rnd = () => (seed = (seed * 1103515245 + 12345) & 0x7fffffff) / 0x7fffffff;
     let sc_i = [], sc_q = [];
@@ -178,13 +252,23 @@ const SC_PREAMBLE = (function () {
         sc_i[c] = (rnd() < 0.5 ? -1 : 1) * 2 * IQ_AMP;
         sc_q[c] = (rnd() < 0.5 ? -1 : 1) * 2 * IQ_AMP;
     }
-    let full = generate_symbol_wave([sc_i, sc_q], false);
-    let half = full.slice(0, SC_HALF_LEN);
-    let pre = half.concat(half);
-    raised_cosine_window(pre, 0.01);
+    let sym = baseband_symbol(sc_i, sc_q);
+    let dphi = -MIX_STEP * SC_HALF_LEN; // 混频器在半槽处的相位步进
+    let cr = Math.cos(dphi), ci = Math.sin(dphi);
+    let re = new Array(SLOT_BB), im = new Array(SLOT_BB);
+    for (let m = 0; m < SC_HALF_BB; m++) {
+        re[m] = sym[0][m]; im[m] = sym[1][m];
+        re[SC_HALF_BB + m] = sym[0][m] * cr - sym[1][m] * ci; // e^{jδ} 旋转
+        im[SC_HALF_BB + m] = sym[0][m] * ci + sym[1][m] * cr;
+    }
+    return [re, im];
+})();
+// SC 前导通带模板：单独经发射链生成并峰值归一化
+const SC_PREAMBLE = (function () {
+    let pb = passband_from_bb(SC_BB[0], SC_BB[1]);
     let peak = 0;
-    for (let v of pre) { let a = Math.abs(v); if (a > peak) peak = a; }
-    return pre.map(v => v * (0.9 / peak));
+    for (let v of pb) { let a = Math.abs(v); if (a > peak) peak = a; }
+    return pb.map(v => v * (0.9 / peak));
 })();
 const SC_ENERGY = SC_PREAMBLE.reduce((p, c) => p + c * c, 0);
 const SC_DETECT_THRESHOLD = 0.2;
@@ -212,44 +296,48 @@ function qam4_decoding(input_i, input_q) {
 }
 
 // ---------------- OFDM 调制/解调 ----------------
-// 数据符号：56个数据子载波承载QAM4数据，8个散布导频点承载已知导频
-function build_data_symbol_wave(points, s) {
+// 数据符号的基带复符号：56个数据子载波承载QAM4数据，8个散布导频点承载已知导频
+function build_data_symbol_bb(points, s) {
     let si = new Array(CARRIER_NUMBER), sq = new Array(CARRIER_NUMBER);
     let po = pilot_offset(s), di = 0;
     for (let c = 0; c < CARRIER_NUMBER; c++) {
         if (c % PILOT_SPACING === po) { si[c] = PILOT_I[c]; sq[c] = PILOT_Q[c]; }
         else { si[c] = points[di][0]; sq[c] = points[di][1]; di++; }
     }
-    return generate_symbol_wave([si, sq], true);
+    return baseband_symbol(si, sq);
 }
-// 单个物理帧波形：[SC前导][训练A][训练B][数据符号（每5个后插训练）]
-function modulate_frame(tx_bytes) {
-    let pts = qam4_points(tx_bytes, IQ_AMP);
-    while (pts.length < FRAME_DATA_SYMBOLS * DATA_CARRIERS) pts.push([2 * IQ_AMP, -2 * IQ_AMP]);
-    let body = [];
-    for (let v of TRAINING_SYMBOL_TIME) body.push(v); // 训练A
-    for (let v of TRAINING_SYMBOL_TIME) body.push(v); // 训练B（与A相同，用于CFO/SFO估计）
-    for (let s = 0; s < FRAME_DATA_SYMBOLS; s++) {
-        for (let v of build_data_symbol_wave(pts.slice(s * DATA_CARRIERS, (s + 1) * DATA_CARRIERS), s)) body.push(v);
-        if ((s + 1) % TRAINING_SYMBOL_INTERVAL === 0 && s + 1 < FRAME_DATA_SYMBOLS)
-            for (let v of TRAINING_SYMBOL_TIME) body.push(v);
+// ---------------- OFDM 解调：IQ混频 → 多相抽取 → 复FFT ----------------
+// blk: 全速率实采样块（符号有用部分起点位于块内 LPF_GD 处，左右各 GD 余量供滤波器瞬态）
+// 混频相位与发射端同为“槽内局部相位”（符号起点 = LUT 索引 CP_LENGTH），
+// 使所有同类槽的载波相位一致，避免逐槽相位步进被误判为 CFO。输出与旧直相关制式同标度。
+const SYM_BLK_LEN = SYMBOL_LENGTH + 2 * LPF_GD; // 1120
+const RX_MIX_RE = new Float32Array(SYM_BLK_LEN), RX_MIX_IM = new Float32Array(SYM_BLK_LEN);
+const RX_BB_RE = new Float32Array(BB_FFT_LEN), RX_BB_IM = new Float32Array(BB_FFT_LEN);
+function demodulate_ofdm_symbol(blk) {
+    // 1) IQ 混频到零中频（×e^{-jωn}）：DDS 初相对齐符号起点（= 槽内第 CP_LENGTH 采样）
+    let phase = (MIX_STEP * (CP_LENGTH - LPF_GD)) % TWO_PI;
+    for (let n = 0; n < SYM_BLK_LEN; n++) {
+        let k = (phase * PHASE_TO_IDX) | 0;
+        RX_MIX_RE[n] = blk[n] * DDS_COS[k];
+        RX_MIX_IM[n] = -blk[n] * DDS_SIN[k];
+        phase += MIX_STEP; if (phase >= TWO_PI) phase -= TWO_PI;
     }
-    // 帧体峰值归一化（与前导幅度齐平）
-    let peak = 0;
-    for (let v of body) { let x = Math.abs(v); if (x > peak) peak = x; }
-    if (peak > 0) { let scale = 0.9 / peak; for (let t = 0; t < body.length; t++) body[t] *= scale; }
-    return SC_PREAMBLE.concat(body);
-}
-// 解调一个OFDM符号：FFT 后直读载波 bin，bin 复值即 (si + j·sq)（与旧直相关输出完全一致）
-// RX_FFT_RE/IM 为模块级暂存，稳态零堆分配
-const RX_FFT_RE = new Float32Array(FFT_LEN), RX_FFT_IM = new Float32Array(FFT_LEN);
-function demodulate_ofdm_symbol(symbol_wave) {
-    RX_FFT_RE.set(symbol_wave); RX_FFT_IM.fill(0);
-    fft_radix2(RX_FFT_RE, RX_FFT_IM, false);
+    // 2) 多相抽取 ×DECIM（含群延迟对齐：bb[m] 对应块内时刻 LPF_GD + m·DECIM）
+    for (let m = 0; m < BB_FFT_LEN; m++) {
+        let c0 = 2 * LPF_GD + m * DECIM;
+        let ar = 0, ai = 0;
+        for (let j = 0; j < LPF_TAPS; j++) {
+            let x = c0 - j;
+            ar += LPF[j] * RX_MIX_RE[x]; ai += LPF[j] * RX_MIX_IM[x];
+        }
+        RX_BB_RE[m] = ar; RX_BB_IM[m] = ai;
+    }
+    // 3) 复 FFT，读载波 bin（×2 补偿实混频的半幅度）
+    fft_radix2(RX_BB_RE, RX_BB_IM, false);
     let oi = new Array(CARRIER_NUMBER), oq = new Array(CARRIER_NUMBER);
-    let kb = Math.round(CARRIER_BIN_BASE);
     for (let c = 0; c < CARRIER_NUMBER; c++) {
-        oi[c] = RX_FFT_RE[kb + c]; oq[c] = RX_FFT_IM[kb + c];
+        let k = bb_bin(c);
+        oi[c] = 2 * RX_BB_RE[k]; oq[c] = 2 * RX_BB_IM[k];
     }
     return [oi, oq];
 }
@@ -385,10 +473,16 @@ function utf8_encode(text) {
     return out;
 }
 
-// 发射：文本 → 定长packet序列 → 每packet独立封装为一个物理帧，逐帧拼接
+// 发射：文本 → 定长packet序列 → 基带槽流（每packet一帧：[SC][训练A][训练B][数据…]）
+// → 一次性多相内插 + IQ混频 → 逐帧归一化
 function modem_tx(text) {
     let payload = utf8_encode(text);
-    let coded = [], wave = [];
+    let coded = [];
+    let bb_re = [], bb_im = [];
+    const append_slot = (sym) => { // 附加一基带槽（CP + 符号）
+        for (let i = BB_FFT_LEN - CP_BB; i < BB_FFT_LEN; i++) { bb_re.push(sym[0][i]); bb_im.push(sym[1][i]); }
+        for (let i = 0; i < BB_FFT_LEN; i++) { bb_re.push(sym[0][i]); bb_im.push(sym[1][i]); }
+    };
     let n_packets = Math.max(1, Math.ceil(payload.length / PKT_PAYLOAD_MAX));
     for (let i = 0; i < n_packets; i++) {
         let chunk = payload.slice(i * PKT_PAYLOAD_MAX, (i + 1) * PKT_PAYLOAD_MAX);
@@ -399,7 +493,26 @@ function modem_tx(text) {
             pkt_coded = pkt_coded.concat(rs_encode(block.slice(b * RS_K, (b + 1) * RS_K)));
         coded = coded.concat(pkt_coded);
         let tx_bytes = scramble_stream(interleave(pkt_coded, PKT_SYMBOLS));
-        wave = wave.concat(modulate_frame(tx_bytes));
+        let pts = qam4_points(tx_bytes, IQ_AMP);
+        while (pts.length < FRAME_DATA_SYMBOLS * DATA_CARRIERS) pts.push([2 * IQ_AMP, -2 * IQ_AMP]);
+        for (let t = 0; t < SLOT_BB; t++) { bb_re.push(SC_BB[0][t]); bb_im.push(SC_BB[1][t]); } // SC 粗同步前导
+        append_slot(TRAINING_BB); // 训练A
+        append_slot(TRAINING_BB); // 训练B（与A相同，用于CFO/SFO估计）
+        for (let s = 0; s < FRAME_DATA_SYMBOLS; s++) {
+            append_slot(build_data_symbol_bb(pts.slice(s * DATA_CARRIERS, (s + 1) * DATA_CARRIERS), s));
+            if ((s + 1) % TRAINING_SYMBOL_INTERVAL === 0 && s + 1 < FRAME_DATA_SYMBOLS)
+                append_slot(TRAINING_BB);
+        }
+    }
+    let wave = passband_from_bb(bb_re, bb_im);
+    // 逐帧峰值归一化：SC 槽与帧体分别归一到 0.9
+    for (let f = 0; f < n_packets; f++) {
+        let base = f * FRAME_LENGTH;
+        for (let region of [[base, base + GROSS_SYMBOL_LENGTH], [base + GROSS_SYMBOL_LENGTH, base + FRAME_LENGTH]]) {
+            let peak = 0;
+            for (let n = region[0]; n < region[1]; n++) { let a = Math.abs(wave[n]); if (a > peak) peak = a; }
+            if (peak > 0) { let sc = 0.9 / peak; for (let n = region[0]; n < region[1]; n++) wave[n] *= sc; }
+        }
     }
     return { wave: wave, coded: coded, payload: payload };
 }
@@ -413,7 +526,7 @@ class Receiver {
         this.config = { vizRate: 5 };
         this.det_ring = new RingBuffer(DET_RING_CAP);   // SC检测历史
         this.buf_ring = new RingBuffer(BUF_RING_CAP);   // 帧接收缓冲
-        this.sym_scratch = new Float32Array(SYMBOL_LENGTH); // 符号波形暂存（避免逐符号堆分配）
+        this.sym_blk = new Float32Array(SYM_BLK_LEN); // 符号块暂存（含滤波器余量，避免逐符号堆分配）
         this.reset();
     }
     reset() {
@@ -679,7 +792,7 @@ class Receiver {
         // ---- 帧内逐槽消费 ----
         if (this.state !== "frame") return;
         let ab = this.buf_ring.buf, am = this.buf_ring.mask;
-        while (this.state === "frame" && this.buf_ring.len >= GROSS_SYMBOL_LENGTH + 2 * FINE_SEARCH_LEN) {
+        while (this.state === "frame" && this.buf_ring.len >= GROSS_SYMBOL_LENGTH + 2 * FINE_SEARCH_LEN + LPF_GD) {
             this.stall_count = 0;
             let as0 = this.buf_ring.start; // drop 会推进 start，每轮重取
             let type = FRAME_SCHEDULE[this.frame_slot - 1];
@@ -701,9 +814,10 @@ class Receiver {
                     this.state = "sync";
                     break;
                 }
-                this.buf_ring.read_to(this.sym_scratch, fbd + CP_LENGTH, SYMBOL_LENGTH);
+                // 取符号块（含滤波器余量）→ 混频+抽取+FFT；块绝对序号供混频相位
+                this.buf_ring.read_to(this.sym_blk, fbd + CP_LENGTH - LPF_GD, SYM_BLK_LEN);
                 this.buf_ring.drop(fbd + GROSS_SYMBOL_LENGTH - FINE_SEARCH_LEN);
-                let tr_iq = demodulate_ofdm_symbol(this.sym_scratch);
+                let tr_iq = demodulate_ofdm_symbol(this.sym_blk);
                 if (this.frame_slot === 1) {
                     this.trA_iq = tr_iq; // 暂存训练A，等待B配对
                 } else if (this.frame_slot === 2) {
@@ -727,15 +841,15 @@ class Receiver {
                 }
             } else {
                 // 数据槽：显式CFO/SFO补偿 → 散布导频相位/信道跟踪 → 均衡 → 解映射
-                this.buf_ring.read_to(this.sym_scratch, FINE_SEARCH_LEN + CP_LENGTH, SYMBOL_LENGTH);
+                this.buf_ring.read_to(this.sym_blk, FINE_SEARCH_LEN + CP_LENGTH - LPF_GD, SYM_BLK_LEN);
                 this.buf_ring.drop(GROSS_SYMBOL_LENGTH);
-                let frame_iq = demodulate_ofdm_symbol(this.sym_scratch);
+                let frame_iq = demodulate_ofdm_symbol(this.sym_blk);
                 this.derotate_iq(frame_iq, this.frame_slot - 2);
                 if (this.chan_hi !== null) {
                     this.pilot_track(frame_iq, this.frame_data_idx);
                     this.equalize(frame_iq);
                 }
-                this.viz(this.sym_scratch, frame_iq);
+                this.viz(this.sym_blk.subarray(LPF_GD, LPF_GD + SYMBOL_LENGTH), frame_iq);
                 // 提取数据子载波（剔除本符号的散布导频点）
                 let po = pilot_offset(this.frame_data_idx);
                 let di = [], dq = [];

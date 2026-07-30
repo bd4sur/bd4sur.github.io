@@ -70,7 +70,8 @@ button:hover {
     <tr><td class="item_key">CP周期</td> <td class="item_value"><span id="cp_duration">-</span>ms（<span id="cp_length">-</span>samp.）</td></tr>
     <tr><td class="item_key">子载波数</td> <td class="item_value"><span id="carrier_number">-</span></td></tr>
     <tr><td class="item_key">占用带宽</td> <td class="item_value"><span id="bandwidth">-</span>Hz</td></tr>
-    <tr><td class="item_key">物理帧结构</td> <td class="item_value">22槽≈657ms：SC前导×1+训练×5+数据×16，净荷104B/帧，1024点FFT制式</td></tr>
+    <tr><td class="item_key">物理帧结构</td> <td class="item_value">22槽≈660ms：SC前导×1+训练×5+数据×16，净荷104B/帧</td></tr>
+    <tr><td class="item_key">基带链路</td> <td class="item_value">IQ混频（DDS任意载频）+×8抽取/内插→6kHz复信号+128点复FFT</td></tr>
     <tr><td class="item_key">散布导频</td> <td class="item_value">8点/符号，频域间隔8、时域步进3（类DRM时频散布）</td></tr>
     <tr><td class="item_key">CFO/SFO补偿</td> <td class="item_value">帧头双训练符号相位差拟合+散布导频逐符号相位跟踪</td></tr>
 </table>
@@ -169,7 +170,7 @@ try {
 const SAMPLE_RATE    = 48000;
 const BASE_FREQ      = 46.875;
 const CARRIER_NUMBER = 64;
-const CARRIER_FREQ   = 1992.1875;
+const CARRIER_FREQ   = 2000;
 const BANDWIDTH = BASE_FREQ * CARRIER_NUMBER;
 const SYMBOL_LENGTH = Math.round(SAMPLE_RATE / BASE_FREQ);
 const CP_LENGTH = Math.floor(0.4 * SYMBOL_LENGTH);
