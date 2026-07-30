@@ -549,7 +549,13 @@ class Receiver {
         // 信道估计与频偏补偿
         this.chan_hi = null; this.chan_hq = null;
         this.trA_iq = null;              // 训练A的原始IQ（与B求相位差以估计CFO/SFO）
-        this.cfo_a = 0; this.sfo_b = 0;  // 相位速率 φ(槽) = a + b·f
+        this.cfo_a = 0; this.sfo_b = 0;  // 相位速率 φ(槽) = a + b·f（b 为门控后的启用值）
+        this.sfo_b_ema = 0;              // SFO 斜率的跨帧 EMA 平滑值
+        this.sfo_enable_streak = 0;      // SFO 超门限连续帧数（迟滞确认）
+        this.cfo_ref_slot = 2;           // CFO/SFO补偿参考面所在槽号（逐训练槽推进）
+        this.tau_ref = 0;                // 信道估计的定时参考（最近训练槽细同步位置）
+        this.trainA_fbd = 0;             // 训练A的细同步位置（拟合扣除定时差用）
+        this.train_miss = 0;             // 训练符号连续失锁计数（容忍1次）
         this.lastVizTime = 0;
         this.lastBuflenTime = 0;
     }
@@ -641,27 +647,45 @@ class Receiver {
         }
         return [hi, hq];
     }
-    // 训练A/B逐载波相位差 → 按载波频率加权最小二乘拟合 φ(槽) = a + b·f
-    // a 对应公共载波频偏(CFO)，b 对应采样率偏差(SFO)
-    fit_cfo(h1, h2) {
+    // 训练A/B逐载波相位差 → 拟合相位速率 φ(槽) = a + b·f（a≈CFO，b≈SFO）
+    // 关键：相位差中含两段训练细同步的整数定时差 Δfbd 引起的线性斜坡 2πf·Δfbd/Fs，
+    // 与 SFO 不可区分，必须先扣除（dtau 参数），否则定时抖动(±1采样≈±1111ppm)被误判为SFO。
+    // 斜率项 b 跨帧 EMA 平滑（定时抖动零均值、真实SFO恒定相干积累），
+    // 并按影响门限启用：|b| 在最大外推跨度(6槽)带边上的相位影响 < ~0.1rad 时弃用，
+    // 避免低 SNR 下含噪斜率经多槽外推注入逐载波差异相位误差（导频只能校正公共相位）。
+    fit_cfo(h1, h2, dtau) {
         let sw = 0, swf = 0, swp = 0, swff = 0, swfp = 0;
         for (let c = 0; c < CARRIER_NUMBER; c++) {
             let dpr = h2[0][c] * h1[0][c] + h2[1][c] * h1[1][c]; // H2·conj(H1)
             let dpi = h2[1][c] * h1[0][c] - h2[0][c] * h1[1][c];
-            let phi = Math.atan2(dpi, dpr);
+            let phi = Math.atan2(dpi, dpr) + 2 * Math.PI * CARRIER_FREQS[c] * dtau / SAMPLE_RATE; // 扣除定时斜坡
             let w = Math.sqrt(dpr * dpr + dpi * dpi); // |H1||H2| 加权，深衰落载波降权
             let f = CARRIER_FREQS[c];
             sw += w; swf += w * f; swp += w * phi; swff += w * f * f; swfp += w * f * phi;
         }
         if (sw < 1e-12) return;
         let det = sw * swff - swf * swf;
-        if (Math.abs(det) < 1e-12) { this.cfo_a = swp / sw; this.sfo_b = 0; }
+        let a, b;
+        if (Math.abs(det) < 1e-12) { a = swp / sw; b = 0; }
         else {
-            this.cfo_a = (swp * swff - swf * swfp) / det;
-            this.sfo_b = (sw * swfp - swf * swp) / det;
+            a = (swp * swff - swf * swfp) / det;
+            b = (sw * swfp - swf * swp) / det;
         }
-        this.log("CFO/SFO 估计：CFO=" + (this.cfo_a / (2 * Math.PI * T_SLOT)).toFixed(3) +
-                 "Hz，SFO=" + (this.sfo_b / (2 * Math.PI * T_SLOT) * 1e6).toFixed(1) + "ppm");
+        this.cfo_a = a;
+        // SFO 斜率项：跨帧 EMA 平滑（定时抖动零均值，真实 SFO 相干积累），
+        // 高门限（500ppm）+连续2帧确认的迟滞启用——实测表明 ≤300ppm 时被动跟踪
+        // （细同步步进+每6槽信道重估+散布导频）已足够稳健，含噪斜率经多槽外推
+        // 反而注入误差；门限仅作为病态大频偏的安全阀。
+        this.sfo_b_ema = 0.75 * this.sfo_b_ema + 0.25 * b;
+        let ppm = this.sfo_b_ema / (2 * Math.PI * T_SLOT) * 1e6;
+        // 高门限(500ppm) + 连续2帧确认的迟滞，仅病态大频偏才启用显式斜率补偿
+        if (Math.abs(ppm) >= 500) this.sfo_enable_streak = Math.min(this.sfo_enable_streak + 1, 3);
+        else this.sfo_enable_streak = 0;
+        let ppm_used = (this.sfo_enable_streak >= 2) ? Math.max(-600, Math.min(600, ppm)) : 0;
+        this.sfo_b = ppm_used * (2 * Math.PI * T_SLOT) / 1e6;
+        this.log("CFO/SFO 估计：CFO=" + (a / (2 * Math.PI * T_SLOT)).toFixed(3) +
+                 "Hz，SFO=" + (b / (2 * Math.PI * T_SLOT) * 1e6).toFixed(1) +
+                 "ppm（平滑后 " + ppm.toFixed(1) + (ppm_used === 0 ? "，被动跟踪" : "，启用补偿") + "）");
     }
     // 对IQ施加显式CFO/SFO补偿：各子载波乘以 e^{-j(a+b·f)·slots}
     derotate_iq(iq, slots) {
@@ -779,7 +803,8 @@ class Receiver {
                     this.state = "frame";
                     this.frame_slot = 1; this.frame_data_idx = 0; this.pkt_buf = [];
                     this.chan_hi = null; this.trA_iq = null;
-                    this.cfo_a = 0; this.sfo_b = 0;
+                    this.cfo_a = 0; this.sfo_b = 0; this.cfo_ref_slot = 2;
+                    this.train_miss = 0;
                     this.stall_count = 0;
                     if (!this.round_stat) this.round_stat = { pre_err: 0, pre_total: 0, post_err: 0, post_total: 0, corrected: 0, fail_blocks: 0, bad_frames: 0 };
                     this.log("SC 粗同步 @" + t_offset + "（精化度量 " + validate_metric.toFixed(3) + "）");
@@ -810,9 +835,18 @@ class Receiver {
                     if (m > fbm) { fbm = m; fbd = d; }
                 }
                 if (fbm < 0.5) {
-                    this.log("训练符号失锁（相关度 " + fbm.toFixed(3) + "），中止本帧，重新搜索前导");
-                    this.state = "sync";
-                    break;
+                    // 失锁容忍：一次失锁按标称定时继续（定时偏差可由CP吸收），连续两次才中止本帧
+                    this.train_miss++;
+                    if (this.train_miss >= 2) {
+                        this.log("训练网格连续失锁（相关度 " + fbm.toFixed(3) + "），中止本帧，重新搜索前导");
+                        this.state = "sync";
+                        this.train_miss = 0;
+                        break;
+                    }
+                    this.log("训练符号相关度偏低（ " + fbm.toFixed(3) + "），按标称定时继续");
+                    fbd = FINE_SEARCH_LEN;
+                } else {
+                    this.train_miss = 0;
                 }
                 // 取符号块（含滤波器余量）→ 混频+抽取+FFT；块绝对序号供混频相位
                 this.buf_ring.read_to(this.sym_blk, fbd + CP_LENGTH - LPF_GD, SYM_BLK_LEN);
@@ -820,31 +854,38 @@ class Receiver {
                 let tr_iq = demodulate_ofdm_symbol(this.sym_blk);
                 if (this.frame_slot === 1) {
                     this.trA_iq = tr_iq; // 暂存训练A，等待B配对
+                    this.trainA_fbd = fbd;
                 } else if (this.frame_slot === 2) {
                     let h1 = this.channel_from_training(this.trA_iq);
                     let h2 = this.channel_from_training(tr_iq);
-                    this.fit_cfo(h1, h2);          // 显式CFO/SFO估计
-                    this.chan_hi = h2[0]; this.chan_hq = h2[1]; // 信道参考面：槽2
+                    this.fit_cfo(h1, h2, fbd - this.trainA_fbd); // 显式CFO/SFO估计（扣除定时差）
+                    this.chan_hi = h2[0]; this.chan_hq = h2[1]; // 信道参考面：槽2、定时 fbd
+                    this.cfo_ref_slot = 2;
+                    this.tau_ref = fbd;
                     this.trA_iq = null;
                 } else {
-                    // 帧中训练：相位对齐到参考面（槽2）后融合更新
+                    // 帧中训练：先把信道参考面推进到本槽（漂移项 + 定时差旋转），再融合
                     let h = this.channel_from_training(tr_iq);
-                    let slots = this.frame_slot - 2;
+                    let dt = this.frame_slot - this.cfo_ref_slot;
                     for (let c = 0; c < CARRIER_NUMBER; c++) {
-                        let ph = (this.cfo_a + this.sfo_b * CARRIER_FREQS[c]) * slots;
-                        let cr = Math.cos(ph), ci = Math.sin(ph);
-                        let hr = h[0][c] * cr + h[1][c] * ci;
-                        let hi2 = h[1][c] * cr - h[0][c] * ci;
-                        this.chan_hi[c] = 0.5 * this.chan_hi[c] + 0.5 * hr;
-                        this.chan_hq[c] = 0.5 * this.chan_hq[c] + 0.5 * hi2;
+                        let ph = (this.cfo_a + this.sfo_b * CARRIER_FREQS[c]) * dt;
+                        let tq = 2 * Math.PI * CARRIER_FREQS[c] * (fbd - this.tau_ref) / SAMPLE_RATE;
+                        let cr = Math.cos(ph - tq), ci = Math.sin(ph - tq);
+                        let hi = this.chan_hi[c], hq = this.chan_hq[c];
+                        this.chan_hi[c] = hi * cr - hq * ci;
+                        this.chan_hq[c] = hi * ci + hq * cr;
+                        this.chan_hi[c] = 0.5 * this.chan_hi[c] + 0.5 * h[0][c];
+                        this.chan_hq[c] = 0.5 * this.chan_hq[c] + 0.5 * h[1][c];
                     }
+                    this.cfo_ref_slot = this.frame_slot;
+                    this.tau_ref = fbd;
                 }
             } else {
                 // 数据槽：显式CFO/SFO补偿 → 散布导频相位/信道跟踪 → 均衡 → 解映射
                 this.buf_ring.read_to(this.sym_blk, FINE_SEARCH_LEN + CP_LENGTH - LPF_GD, SYM_BLK_LEN);
                 this.buf_ring.drop(GROSS_SYMBOL_LENGTH);
                 let frame_iq = demodulate_ofdm_symbol(this.sym_blk);
-                this.derotate_iq(frame_iq, this.frame_slot - 2);
+                this.derotate_iq(frame_iq, this.frame_slot - this.cfo_ref_slot);
                 if (this.chan_hi !== null) {
                     this.pilot_track(frame_iq, this.frame_data_idx);
                     this.equalize(frame_iq);
