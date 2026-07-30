@@ -2,35 +2,114 @@
 // OFDM Modem Core (AudioWorklet) / BD4SUR 2026-07
 // 独立的调制解调器核：发射（文本→OFDM波形）与接收（波形→文本）。
 // 设计目标：与嵌入式 C 实现同构（流式状态机 + 环形缓冲），可直接对照移植。
+//
+// 物理层：定长中等帧广播（类DRM）。
+//   每个数据packet独立封装为一个物理帧，帧结构固定为22槽（≈825ms）：
+//     [SC粗同步前导][训练A][训练B][5×数据][训练][5×数据][训练][5×数据][训练][1×数据]
+//   - 每帧都有完整粗同步头 + 周期性块状训练符号（细同步/信道估计），
+//     接收机每帧重新执行粗细同步，可随时开机切入（冷启动）；
+//   - 数据符号内嵌时频二维散布导频（频域间隔8、时域步进3），
+//     用于逐符号相位跟踪与信道跟踪；
+//   - 利用帧头两个相同训练符号的相位差按载波频率拟合相位速率，
+//     显式估计并补偿载波频偏(CFO)与采样率偏差(SFO)。
+//   调制/解调采用 FFT 制式：载波梳对齐 1024 点基2 FFT 的整数 bin，
+//   调制=共轭对称填 bin + IFFT（直接得通带实信号），解调=实 FFT + 读 bin。
 // ============================================================================
 
 // ---------------- 系统参数 ----------------
 const SAMPLE_RATE    = 48000;
-const BASE_FREQ      = 40;    // 子载波间隔(Hz)
+const BASE_FREQ      = 46.875;    // 子载波间隔(Hz)
 const CARRIER_NUMBER = 64;    // 正交子载波数
-const CARRIER_FREQ   = 2000; // 通带载波频率(Hz)：复基带经 IQ 调制搬移到 fc，频谱以 fc 为中心
+const CARRIER_FREQ   = 1992.1875; // 通带中心频率(Hz)：= 46.875×42.5，使载波梳对齐 FFT 整数 bin（bin 11~74）
 const BANDWIDTH = BASE_FREQ * CARRIER_NUMBER;
 const SYMBOL_LENGTH = Math.round(SAMPLE_RATE / BASE_FREQ); // 符号长度（采样点）
-const CP_LENGTH = Math.floor(0.5 * SYMBOL_LENGTH);         // 循环前缀长度
+const CP_LENGTH = Math.floor(0.4 * SYMBOL_LENGTH);         // 循环前缀长度
 const GROSS_SYMBOL_LENGTH = SYMBOL_LENGTH + CP_LENGTH;     // 槽长（符号+CP）
-const TRAINING_SYMBOL_INTERVAL = 5; // 每几个数据符号插入一个训练符号
-const TRAINING_PERIOD = TRAINING_SYMBOL_INTERVAL + 1;
+const TRAINING_SYMBOL_INTERVAL = 5; // 帧内每几个数据符号插入一个块状训练符号
 const IQ_AMP = 0.02;
+const T_SLOT = GROSS_SYMBOL_LENGTH / SAMPLE_RATE;          // 槽长（秒）
 
-const AUDIO_BUFFER_LENGTH = TRAINING_PERIOD * 2 * GROSS_SYMBOL_LENGTH; // 接收缓冲区长度
-
-// ---------------- 码表：子载波本振（fc±20,±60,…,±1260Hz，半间隔偏置避开 DC） ----------------
-const CARRIER_I = [];
-const CARRIER_Q = [];
-for (let c = 0; c < CARRIER_NUMBER; c++) {
-    let f = CARRIER_FREQ + (c - (CARRIER_NUMBER - 1) / 2) * BASE_FREQ;
-    let ci = [], cq = [];
-    for (let t = 0; t < SYMBOL_LENGTH; t++) {
-        ci[t] = Math.cos(2 * Math.PI * f * t / SAMPLE_RATE);
-        cq[t] = Math.sin(2 * Math.PI * f * t / SAMPLE_RATE);
+// ---------------- 物理帧结构 ----------------
+const FRAME_DATA_SYMBOLS = 16;  // 每帧数据符号数
+// 帧内槽调度（SC前导之后）：2个帧头训练 + 数据/中间训练
+const FRAME_SCHEDULE = (function () {
+    let s = ["T", "T"];
+    for (let i = 0; i < FRAME_DATA_SYMBOLS; i++) {
+        s.push("D");
+        if ((i + 1) % TRAINING_SYMBOL_INTERVAL === 0 && i + 1 < FRAME_DATA_SYMBOLS) s.push("T");
     }
-    CARRIER_I[c] = ci;
-    CARRIER_Q[c] = cq;
+    return s; // 长度21：T,T, D×5,T, D×5,T, D×5,T, D
+})();
+const FRAME_SLOTS = 1 + FRAME_SCHEDULE.length;             // 22槽（含SC前导）
+const FRAME_LENGTH = FRAME_SLOTS * GROSS_SYMBOL_LENGTH;    // 帧长（采样点）
+
+// ---------------- 散布导频（类DRM时频二维散布） ----------------
+const PILOT_SPACING = 8;  // 频域间隔：每8个子载波1个导频点
+const PILOT_SHIFT   = 3;  // 时域步进：导频位置随数据符号索引滑动（与8互素，8符号遍历全部余数）
+const PILOT_NUMBER  = CARRIER_NUMBER / PILOT_SPACING;      // 8个导频点/符号
+const DATA_CARRIERS = CARRIER_NUMBER - PILOT_NUMBER;       // 56个数据子载波/符号
+const BYTES_PER_SYMBOL = DATA_CARRIERS * 2 / 8;            // QAM4 → 14字节/符号
+function pilot_offset(s) { return (PILOT_SHIFT * s) % PILOT_SPACING; }
+
+// ---------------- 环形缓冲（定容、O(1)写入/丢弃、稳态零堆分配） ----------------
+// 同构于嵌入式C的静态环形缓冲：float buf[CAP] + start/len 索引，2的幂次容量用位掩码回卷
+function next_pow2(n) { let p = 1; while (p < n) p <<= 1; return p; }
+const DET_RING_CAP = next_pow2(4 * GROSS_SYMBOL_LENGTH + 4096);   // SC检测历史缓冲容量
+const BUF_RING_CAP = next_pow2(FRAME_LENGTH + GROSS_SYMBOL_LENGTH); // 帧接收缓冲容量
+class RingBuffer {
+    constructor(cap) {
+        this.cap = cap; this.mask = cap - 1;
+        this.buf = new Float32Array(cap);
+        this.start = 0; this.len = 0;
+    }
+    clear() { this.start = 0; this.len = 0; }
+    write(x) { // x: 任意 array-like（Array 或 Float32Array）；满时覆盖最旧采样
+        for (let i = 0; i < x.length; i++) {
+            if (this.len < this.cap) { this.buf[(this.start + this.len) & this.mask] = x[i]; this.len++; }
+            else { this.buf[this.start] = x[i]; this.start = (this.start + 1) & this.mask; }
+        }
+    }
+    drop(n) { n = Math.min(n, this.len); this.start = (this.start + n) & this.mask; this.len -= n; }
+    read_to(out, off, n) { let j = this.start + off; for (let i = 0; i < n; i++) out[i] = this.buf[(j + i) & this.mask]; }
+}
+
+// ---------------- FFT 制式：载波梳与 bin 栅格对齐 ----------------
+// 符号长度必须为 2 的幂（基2 FFT）；各子载波频率必须为 BASE_FREQ 的整数倍，
+// 即恰好落在 FFT 的整数 bin 上（bin = CARRIER_BIN_BASE + c），调制=IFFT、解调=FFT。
+const FFT_LEN = SYMBOL_LENGTH; // 1024 = 2^10
+const CARRIER_BIN_BASE = CARRIER_FREQ / BASE_FREQ - (CARRIER_NUMBER - 1) / 2;
+if ((FFT_LEN & (FFT_LEN - 1)) !== 0 || Math.abs(CARRIER_BIN_BASE - Math.round(CARRIER_BIN_BASE)) > 1e-9)
+    throw new Error("FFT 制式要求：符号长度为 2 的幂且载波梳对齐整数 bin");
+const CARRIER_FREQS = []; // 各子载波频率(Hz)，CFO/SFO 拟合用
+for (let c = 0; c < CARRIER_NUMBER; c++)
+    CARRIER_FREQS[c] = CARRIER_FREQ + (c - (CARRIER_NUMBER - 1) / 2) * BASE_FREQ;
+
+// 基2复数 FFT（原地；正变换 e^{-j2πkn/N}，逆变换 e^{+j} 并乘 1/N）
+// 蝶形旋转因子用递推生成，便于对照移植嵌入式C（亦可换预存旋转因子表）
+function fft_radix2(re, im, inverse) {
+    let n = re.length;
+    for (let i = 1, j = 0; i < n; i++) {
+        let bit = n >> 1;
+        for (; j & bit; bit >>= 1) j ^= bit;
+        j ^= bit;
+        if (i < j) { let t = re[i]; re[i] = re[j]; re[j] = t; t = im[i]; im[i] = im[j]; im[j] = t; }
+    }
+    for (let len = 2; len <= n; len <<= 1) {
+        let ang = 2 * Math.PI / len * (inverse ? 1 : -1);
+        let wr = Math.cos(ang), wi = Math.sin(ang);
+        for (let i = 0; i < n; i += len) {
+            let cwr = 1, cwi = 0;
+            for (let j = 0; j < len / 2; j++) {
+                let ur = re[i + j], ui = im[i + j];
+                let vr = re[i + j + len / 2] * cwr - im[i + j + len / 2] * cwi;
+                let vi = re[i + j + len / 2] * cwi + im[i + j + len / 2] * cwr;
+                re[i + j] = ur + vr; im[i + j] = ui + vi;
+                re[i + j + len / 2] = ur - vr; im[i + j + len / 2] = ui - vi;
+                let nwr = cwr * wr - cwi * wi; cwi = cwr * wi + cwi * wr; cwr = nwr;
+            }
+        }
+    }
+    if (inverse) { for (let i = 0; i < n; i++) { re[i] /= n; im[i] /= n; } }
 }
 
 // ---------------- 码表：训练符号频域图案（伪随机 QPSK，LCG） ----------------
@@ -42,6 +121,17 @@ const TRAINING_I = [], TRAINING_Q = [];
     for (let c = 0; c < CARRIER_NUMBER; c++) {
         TRAINING_I[c] = (trnd() < 0.5) ? -A1 : A1;
         TRAINING_Q[c] = (trnd() < 0.5) ? -A1 : A1;
+    }
+}
+
+// ---------------- 码表：散布导频取值（伪随机 QPSK，逐载波固定、收发已知） ----------------
+const PILOT_I = [], PILOT_Q = [];
+{
+    let pseed = 24680;
+    let prnd = () => (pseed = (pseed * 1103515245 + 12345) & 0x7fffffff) / 0x7fffffff;
+    for (let c = 0; c < CARRIER_NUMBER; c++) {
+        PILOT_I[c] = (prnd() < 0.5) ? -A1 : A1;
+        PILOT_Q[c] = (prnd() < 0.5) ? -A1 : A1;
     }
 }
 
@@ -59,15 +149,19 @@ function add_cyclic_prefix(wave, cp_length) {
     for (let i = 0; i < wave.length; i++) out[cp_length + i] = wave[i];
     return out;
 }
+// 生成一个OFDM符号：64个子载波IQ填入共轭对称bin，IFFT直接得到通带实信号
+// 标度与旧直相关制式一致：x[n] = (2/N)Σ_c [si·cos(2πf_c·n/Fs) − sq·sin(2πf_c·n/Fs)]
 function generate_symbol_wave(symbol_iq, has_cp) {
     let [si, sq] = symbol_iq;
-    let w = new Array(SYMBOL_LENGTH).fill(0);
-    for (let c = 0; c < CARRIER_NUMBER; c++)
-        for (let t = 0; t < SYMBOL_LENGTH; t++)
-            w[t] += si[c] * CARRIER_I[c][t] - sq[c] * CARRIER_Q[c][t];
-    let norm = 2 / SYMBOL_LENGTH;
-    for (let t = 0; t < SYMBOL_LENGTH; t++) w[t] *= norm;
-    let out = has_cp ? add_cyclic_prefix(w, CP_LENGTH) : w.slice();
+    let re = new Float32Array(FFT_LEN), im = new Float32Array(FFT_LEN);
+    for (let c = 0; c < CARRIER_NUMBER; c++) {
+        let k = Math.round(CARRIER_BIN_BASE) + c;
+        re[k] = si[c]; im[k] = sq[c];          // X[k] = si + j·sq
+        re[FFT_LEN - k] = si[c]; im[FFT_LEN - k] = -sq[c]; // 共轭对称 → 实时域
+    }
+    fft_radix2(re, im, true);
+    let w = Array.from(re);
+    let out = has_cp ? add_cyclic_prefix(w, CP_LENGTH) : w;
     return raised_cosine_window(out, 0.01);
 }
 
@@ -98,13 +192,12 @@ const SC_VALIDATE_THRESHOLD = 0.35;
 const FINE_SEARCH_LEN = 16;
 
 // ---------------- QAM4 映射/解映射 ----------------
-function qam4_mapping(byte_stream, amp) {
+function qam4_points(byte_stream, amp) {
     let a = 2 * amp;
     const M = [[a, a], [a, -a], [-a, a], [-a, -a]];
     let iq = [];
     for (let byte of byte_stream)
         iq.push(M[(byte & 192) >> 6], M[(byte & 48) >> 4], M[(byte & 12) >> 2], M[byte & 3]);
-    while (iq.length % CARRIER_NUMBER !== 0) iq.push([a, -a]);
     return iq;
 }
 function qam4_decoding(input_i, input_q) {
@@ -119,30 +212,44 @@ function qam4_decoding(input_i, input_q) {
 }
 
 // ---------------- OFDM 调制/解调 ----------------
-function OFDM_Modulate(byte_stream, amp) {
-    let iq = qam4_mapping(byte_stream, amp);
-    let wave = [];
-    for (let i = 0; i < iq.length / CARRIER_NUMBER; i++) {
-        let si = iq.slice(i * CARRIER_NUMBER, (i + 1) * CARRIER_NUMBER).map(p => p[0]);
-        let sq = iq.slice(i * CARRIER_NUMBER, (i + 1) * CARRIER_NUMBER).map(p => p[1]);
-        for (let v of generate_symbol_wave([si, sq], true)) wave.push(v);
-        if ((i + 1) % TRAINING_SYMBOL_INTERVAL === 0)
-            for (let v of TRAINING_SYMBOL_TIME) wave.push(v);
-    }
-    let peak = 0;
-    for (let v of wave) { let x = Math.abs(v); if (x > peak) peak = x; }
-    if (peak > 0) { let scale = 0.9 / peak; for (let t = 0; t < wave.length; t++) wave[t] *= scale; }
-    return wave;
-}
-function demodulate_ofdm_symbol(symbol_wave) {
-    let oi = [], oq = [];
+// 数据符号：56个数据子载波承载QAM4数据，8个散布导频点承载已知导频
+function build_data_symbol_wave(points, s) {
+    let si = new Array(CARRIER_NUMBER), sq = new Array(CARRIER_NUMBER);
+    let po = pilot_offset(s), di = 0;
     for (let c = 0; c < CARRIER_NUMBER; c++) {
-        let si = 0, sq = 0;
-        for (let t = 0; t < SYMBOL_LENGTH; t++) {
-            si += symbol_wave[t] * CARRIER_I[c][t];
-            sq -= symbol_wave[t] * CARRIER_Q[c][t];
-        }
-        oi[c] = si; oq[c] = sq;
+        if (c % PILOT_SPACING === po) { si[c] = PILOT_I[c]; sq[c] = PILOT_Q[c]; }
+        else { si[c] = points[di][0]; sq[c] = points[di][1]; di++; }
+    }
+    return generate_symbol_wave([si, sq], true);
+}
+// 单个物理帧波形：[SC前导][训练A][训练B][数据符号（每5个后插训练）]
+function modulate_frame(tx_bytes) {
+    let pts = qam4_points(tx_bytes, IQ_AMP);
+    while (pts.length < FRAME_DATA_SYMBOLS * DATA_CARRIERS) pts.push([2 * IQ_AMP, -2 * IQ_AMP]);
+    let body = [];
+    for (let v of TRAINING_SYMBOL_TIME) body.push(v); // 训练A
+    for (let v of TRAINING_SYMBOL_TIME) body.push(v); // 训练B（与A相同，用于CFO/SFO估计）
+    for (let s = 0; s < FRAME_DATA_SYMBOLS; s++) {
+        for (let v of build_data_symbol_wave(pts.slice(s * DATA_CARRIERS, (s + 1) * DATA_CARRIERS), s)) body.push(v);
+        if ((s + 1) % TRAINING_SYMBOL_INTERVAL === 0 && s + 1 < FRAME_DATA_SYMBOLS)
+            for (let v of TRAINING_SYMBOL_TIME) body.push(v);
+    }
+    // 帧体峰值归一化（与前导幅度齐平）
+    let peak = 0;
+    for (let v of body) { let x = Math.abs(v); if (x > peak) peak = x; }
+    if (peak > 0) { let scale = 0.9 / peak; for (let t = 0; t < body.length; t++) body[t] *= scale; }
+    return SC_PREAMBLE.concat(body);
+}
+// 解调一个OFDM符号：FFT 后直读载波 bin，bin 复值即 (si + j·sq)（与旧直相关输出完全一致）
+// RX_FFT_RE/IM 为模块级暂存，稳态零堆分配
+const RX_FFT_RE = new Float32Array(FFT_LEN), RX_FFT_IM = new Float32Array(FFT_LEN);
+function demodulate_ofdm_symbol(symbol_wave) {
+    RX_FFT_RE.set(symbol_wave); RX_FFT_IM.fill(0);
+    fft_radix2(RX_FFT_RE, RX_FFT_IM, false);
+    let oi = new Array(CARRIER_NUMBER), oq = new Array(CARRIER_NUMBER);
+    let kb = Math.round(CARRIER_BIN_BASE);
+    for (let c = 0; c < CARRIER_NUMBER; c++) {
+        oi[c] = RX_FFT_RE[kb + c]; oq[c] = RX_FFT_IM[kb + c];
     }
     return [oi, oq];
 }
@@ -257,9 +364,14 @@ function scramble_stream(data) {
     return out;
 }
 
-// ---------------- 帧结构 ----------------
+// ---------------- 帧结构（packet = 一个物理帧的净荷） ----------------
 const PKT_MAGIC = [0x42, 0x44, 0x34, 0x53, 0x55, 0x52]; // "BD4SUR"
-const PKT_HEADER_LEN = 8, PKT_PAYLOAD_MAX = 24, PKT_WIRE_LEN = 64, PKT_SYMBOLS = 4;
+const PKT_HEADER_LEN = 8;
+const PKT_SYMBOLS = FRAME_DATA_SYMBOLS;                  // 交织行数 = 每帧数据符号数
+const PKT_WIRE_LEN = FRAME_DATA_SYMBOLS * BYTES_PER_SYMBOL; // 224线字节/帧
+const PKT_RS_BLOCKS = PKT_WIRE_LEN / RS_N;               // 7个RS(32,16)块
+const PKT_UNCODED_LEN = PKT_RS_BLOCKS * RS_K;            // 112字节（编码前）
+const PKT_PAYLOAD_MAX = PKT_UNCODED_LEN - PKT_HEADER_LEN;   // 104字节净荷/帧
 
 // UTF-8 编码（AudioWorkletGlobalScope 不提供 TextEncoder，自实现）
 function utf8_encode(text) {
@@ -273,59 +385,60 @@ function utf8_encode(text) {
     return out;
 }
 
-// 发射：文本 → 完整一轮 OFDM 波形 [SC前导][训练符号][分帧数据符号…]
+// 发射：文本 → 定长packet序列 → 每packet独立封装为一个物理帧，逐帧拼接
 function modem_tx(text) {
     let payload = utf8_encode(text);
-    let tx_bytes = [], coded = [];
-    let n_packets = Math.ceil(payload.length / PKT_PAYLOAD_MAX);
+    let coded = [], wave = [];
+    let n_packets = Math.max(1, Math.ceil(payload.length / PKT_PAYLOAD_MAX));
     for (let i = 0; i < n_packets; i++) {
         let chunk = payload.slice(i * PKT_PAYLOAD_MAX, (i + 1) * PKT_PAYLOAD_MAX);
         let block = PKT_MAGIC.concat([chunk.length, i % 256], chunk);
-        while (block.length < RS_N) block.push(0);
-        let pkt_coded = rs_encode(block.slice(0, RS_K)).concat(rs_encode(block.slice(RS_K, RS_N)));
+        while (block.length < PKT_UNCODED_LEN) block.push(0);
+        let pkt_coded = [];
+        for (let b = 0; b < PKT_RS_BLOCKS; b++)
+            pkt_coded = pkt_coded.concat(rs_encode(block.slice(b * RS_K, (b + 1) * RS_K)));
         coded = coded.concat(pkt_coded);
-        tx_bytes = tx_bytes.concat(scramble_stream(interleave(pkt_coded, PKT_SYMBOLS)));
+        let tx_bytes = scramble_stream(interleave(pkt_coded, PKT_SYMBOLS));
+        wave = wave.concat(modulate_frame(tx_bytes));
     }
-    let tp = 0;
-    for (let v of TRAINING_SYMBOL_TIME) { let a = Math.abs(v); if (a > tp) tp = a; }
-    let training_leveled = TRAINING_SYMBOL_TIME.map(v => v * (0.9 / tp));
-    let preamble = SC_PREAMBLE.concat(training_leveled);
-    let wave = preamble.concat(OFDM_Modulate(tx_bytes, IQ_AMP));
     return { wave: wave, coded: coded, payload: payload };
 }
 
 // ============================================================================
-// 接收机（流式状态机）
+// 接收机（流式状态机："sync" 搜索SC前导 ⇄ "frame" 帧内逐槽接收）
 // ============================================================================
 class Receiver {
     constructor(post) {
         this.post = post; // 事件上报回调
         this.config = { vizRate: 5 };
+        this.det_ring = new RingBuffer(DET_RING_CAP);   // SC检测历史
+        this.buf_ring = new RingBuffer(BUF_RING_CAP);   // 帧接收缓冲
+        this.sym_scratch = new Float32Array(SYMBOL_LENGTH); // 符号波形暂存（避免逐符号堆分配）
         this.reset();
     }
     reset() {
-        this.is_need_sync = true;
-        this.sync_countdown = 10000;
-        this.AUDIO_BUFFER = [];
-        this.symbol_count = 0;
-        this.symbols_until_resync = 1e9;
-        this.train_miss = 0;
+        this.state = "sync"; // "sync"=搜索SC前导 / "frame"=帧内逐槽接收
+        this.det_ring.clear(); this.buf_ring.clear();
+        this.stall_count = 0;
         this.signal_power = 1;
         this.wave_len = 0;
         this.is_soft_loop = false;
-        this.ofdm_wave = null;
         this.fec_info = null;
         // SC 检测器
-        this.det_hist = []; this.feed_abs = 0; this.searched_upto = 0;
+        this.feed_abs = 0; this.searched_upto = 0;
         this.best_metric = -1; this.best_offset = 0;
-        // 分帧接收状态
-        this.pkt_buf = []; this.pkt_index = 0; this.last_seq = -1;
+        // 帧内状态
+        this.frame_slot = 0;      // 已消费到的槽号（0=SC前导，1..=FRAME_SCHEDULE）
+        this.frame_data_idx = 0;  // 帧内数据符号索引（决定散布导频位置）
+        this.pkt_buf = [];
+        this.last_seq = -1;
         this.round_stat = null;
-        // 快捕状态
-        this.acq_state = 0; this.acq_stream = []; this.acq_slots = 0; this.acq_try_countdown = 0;
-        // 信道估计
+        // 信道估计与频偏补偿
         this.chan_hi = null; this.chan_hq = null;
+        this.trA_iq = null;              // 训练A的原始IQ（与B求相位差以估计CFO/SFO）
+        this.cfo_a = 0; this.sfo_b = 0;  // 相位速率 φ(槽) = a + b·f
         this.lastVizTime = 0;
+        this.lastBuflenTime = 0;
     }
     log(msg) { this.post({ cmd: "log", msg: msg }); }
     viz(wave, iq) {
@@ -356,7 +469,7 @@ class Receiver {
         let pkt = scramble_stream(pkt_raw);
         let rx_coded = deinterleave(pkt, PKT_SYMBOLS);
         let block = [], corrected = 0, fail_blocks = 0;
-        for (let b = 0; b < PKT_WIRE_LEN / RS_N; b++) {
+        for (let b = 0; b < PKT_RS_BLOCKS; b++) {
             let dec = rs_decode(rx_coded.slice(b * RS_N, (b + 1) * RS_N));
             corrected += dec.corrected;
             if (dec.fail) fail_blocks++;
@@ -367,26 +480,33 @@ class Receiver {
         let len = Math.min(block[6], PKT_PAYLOAD_MAX);
         return { ok: true, seq: block[7], payload: block.slice(PKT_HEADER_LEN, PKT_HEADER_LEN + len), rx_coded: rx_coded, corrected: corrected, fail_blocks: fail_blocks };
     }
-    decode_packet(pkt_raw, index) {
+    // 帧尾解包：一个物理帧 = 一个packet
+    decode_frame(pkt_raw) {
         let r = this.try_decode_packet(pkt_raw);
         let rx_coded = r.ok ? r.rx_coded : deinterleave(scramble_stream(pkt_raw), PKT_SYMBOLS);
+        let index = r.ok ? r.seq : (this.last_seq + 1) % 256;
+        // 软环路新一轮：收到0号帧 → 清空显示与统计
+        if (this.is_soft_loop && r.ok && r.seq === 0) {
+            this.post({ cmd: "text", bytes: new Uint8Array(0), roundReset: true });
+            this.round_stat = { pre_err: 0, pre_total: 0, post_err: 0, post_total: 0, corrected: 0, fail_blocks: 0, bad_frames: 0 };
+        }
+        if (!this.round_stat) this.round_stat = { pre_err: 0, pre_total: 0, post_err: 0, post_total: 0, corrected: 0, fail_blocks: 0, bad_frames: 0 };
         if (this.fec_info && (index + 1) * PKT_WIRE_LEN <= this.fec_info.coded.length) {
             let s = this.compute_ber(rx_coded, this.fec_info.coded.slice(index * PKT_WIRE_LEN, (index + 1) * PKT_WIRE_LEN));
             this.round_stat.pre_err += s.errors; this.round_stat.pre_total += s.total;
         }
         if (!r.ok) {
-            this.round_stat.fail_blocks += 2;
+            this.round_stat.fail_blocks += PKT_RS_BLOCKS;
             this.round_stat.bad_frames++;
             let hex = r.block ? r.block.slice(0, 10).map(b => b.toString(16).padStart(2, "0")).join(" ") : "-";
-            this.log("坏帧 #" + index + "（magic 不符，丢弃）头部=[" + hex + "] RS失败块=" + r.fail_blocks);
+            this.log("坏帧（magic 不符，丢弃）头部=[" + hex + "] RS失败块=" + r.fail_blocks);
         } else {
             this.round_stat.corrected += r.corrected;
             this.round_stat.fail_blocks += r.fail_blocks;
-            let seq = r.seq;
-            if (this.last_seq >= 0 && seq !== (this.last_seq + 1) % 256) {
-                this.log("帧序号不连续：" + this.last_seq + " → " + seq + "（丢帧）");
+            if (this.last_seq >= 0 && r.seq !== 0 && r.seq !== (this.last_seq + 1) % 256) {
+                this.log("帧序号不连续：" + this.last_seq + " → " + r.seq + "（丢帧）");
             }
-            this.last_seq = seq;
+            this.last_seq = r.seq;
             if (this.fec_info) {
                 let s = this.compute_ber(r.payload, this.fec_info.payload.slice(index * PKT_PAYLOAD_MAX, index * PKT_PAYLOAD_MAX + r.payload.length));
                 this.round_stat.post_err += s.errors; this.round_stat.post_total += s.total;
@@ -396,57 +516,143 @@ class Receiver {
         this.update_stat();
     }
 
+    // ---- 信道估计与频偏补偿 ----
+    // 由训练符号IQ估计各子载波信道响应 H = rx/tx
+    channel_from_training(tr_iq) {
+        let hi = new Array(CARRIER_NUMBER), hq = new Array(CARRIER_NUMBER);
+        for (let c = 0; c < CARRIER_NUMBER; c++) {
+            let ti = TRAINING_I[c], tq = TRAINING_Q[c];
+            let denom = ti * ti + tq * tq;
+            hi[c] = (tr_iq[0][c] * ti + tr_iq[1][c] * tq) / denom;
+            hq[c] = (tr_iq[1][c] * ti - tr_iq[0][c] * tq) / denom;
+        }
+        return [hi, hq];
+    }
+    // 训练A/B逐载波相位差 → 按载波频率加权最小二乘拟合 φ(槽) = a + b·f
+    // a 对应公共载波频偏(CFO)，b 对应采样率偏差(SFO)
+    fit_cfo(h1, h2) {
+        let sw = 0, swf = 0, swp = 0, swff = 0, swfp = 0;
+        for (let c = 0; c < CARRIER_NUMBER; c++) {
+            let dpr = h2[0][c] * h1[0][c] + h2[1][c] * h1[1][c]; // H2·conj(H1)
+            let dpi = h2[1][c] * h1[0][c] - h2[0][c] * h1[1][c];
+            let phi = Math.atan2(dpi, dpr);
+            let w = Math.sqrt(dpr * dpr + dpi * dpi); // |H1||H2| 加权，深衰落载波降权
+            let f = CARRIER_FREQS[c];
+            sw += w; swf += w * f; swp += w * phi; swff += w * f * f; swfp += w * f * phi;
+        }
+        if (sw < 1e-12) return;
+        let det = sw * swff - swf * swf;
+        if (Math.abs(det) < 1e-12) { this.cfo_a = swp / sw; this.sfo_b = 0; }
+        else {
+            this.cfo_a = (swp * swff - swf * swfp) / det;
+            this.sfo_b = (sw * swfp - swf * swp) / det;
+        }
+        this.log("CFO/SFO 估计：CFO=" + (this.cfo_a / (2 * Math.PI * T_SLOT)).toFixed(3) +
+                 "Hz，SFO=" + (this.sfo_b / (2 * Math.PI * T_SLOT) * 1e6).toFixed(1) + "ppm");
+    }
+    // 对IQ施加显式CFO/SFO补偿：各子载波乘以 e^{-j(a+b·f)·slots}
+    derotate_iq(iq, slots) {
+        if (slots === 0 || (this.cfo_a === 0 && this.sfo_b === 0)) return;
+        for (let c = 0; c < CARRIER_NUMBER; c++) {
+            let ph = (this.cfo_a + this.sfo_b * CARRIER_FREQS[c]) * slots;
+            let cr = Math.cos(ph), ci = Math.sin(ph);
+            let ii = iq[0][c], qq = iq[1][c];
+            iq[0][c] = ii * cr + qq * ci;
+            iq[1][c] = qq * cr - ii * ci;
+        }
+    }
+    // 散布导频：估计本符号残余公共相位并去旋转，同时在导频点跟踪更新信道
+    pilot_track(iq, s) {
+        let po = pilot_offset(s);
+        let zr = 0, zi = 0;
+        for (let c = 0; c < CARRIER_NUMBER; c++) {
+            if (c % PILOT_SPACING !== po) continue;
+            // 期望接收值 = H·P
+            let er = this.chan_hi[c] * PILOT_I[c] - this.chan_hq[c] * PILOT_Q[c];
+            let ei = this.chan_hi[c] * PILOT_Q[c] + this.chan_hq[c] * PILOT_I[c];
+            zr += iq[0][c] * er + iq[1][c] * ei; // Σ rx·conj(期望)
+            zi += iq[1][c] * er - iq[0][c] * ei;
+        }
+        let theta = Math.atan2(zi, zr);
+        if (Math.abs(theta) > 1e-9) {
+            let cr = Math.cos(theta), ci = Math.sin(theta);
+            for (let c = 0; c < CARRIER_NUMBER; c++) {
+                let ii = iq[0][c], qq = iq[1][c];
+                iq[0][c] = ii * cr + qq * ci;
+                iq[1][c] = qq * cr - ii * ci;
+            }
+        }
+        // 导频点信道跟踪（相位已对齐，α=0.25 指数融合）
+        const ALPHA = 0.25;
+        for (let c = 0; c < CARRIER_NUMBER; c++) {
+            if (c % PILOT_SPACING !== po) continue;
+            let pr = PILOT_I[c], pq = PILOT_Q[c], denom = pr * pr + pq * pq;
+            let hr = (iq[0][c] * pr + iq[1][c] * pq) / denom;
+            let hq = (iq[1][c] * pr - iq[0][c] * pq) / denom;
+            this.chan_hi[c] = (1 - ALPHA) * this.chan_hi[c] + ALPHA * hr;
+            this.chan_hq[c] = (1 - ALPHA) * this.chan_hq[c] + ALPHA * hq;
+        }
+    }
+    // 单抽头频域均衡
+    equalize(iq) {
+        for (let c = 0; c < CARRIER_NUMBER; c++) {
+            let hi = this.chan_hi[c], hq = this.chan_hq[c];
+            let denom = hi * hi + hq * hq;
+            if (denom < 1e-6) denom = 1e-6;
+            let ii = iq[0][c], qq = iq[1][c];
+            iq[0][c] = (ii * hi + qq * hq) / denom;
+            iq[1][c] = (qq * hi - ii * hq) / denom;
+        }
+    }
+
     // 主喂入入口：一帧采样（软环路帧或麦克风音频块；信道损伤由上游完成）
+    // frame 可为 Array 或 Float32Array；全程环形缓冲 O(1) 写入/丢弃，稳态零堆分配
     feed(frame) {
         this.feed_abs += frame.length;
-        this.det_hist = this.det_hist.concat(frame);
-        if (!this.is_need_sync && this.det_hist.length > 2 * GROSS_SYMBOL_LENGTH) {
-            let kf = Math.max(this.searched_upto, this.feed_abs - 2 * GROSS_SYMBOL_LENGTH);
-            if (this.best_metric >= 0 && this.best_offset - 360 < kf) kf = Math.max(0, this.best_offset - 360);
-            this.det_hist.splice(0, Math.max(0, kf - (this.feed_abs - this.det_hist.length)));
+        this.det_ring.write(frame);
+        this.buf_ring.write(frame);
+        let now = Date.now();
+        if (now - this.lastBuflenTime >= 100) { // 遥测降频，避免小块音频时刷屏主线程
+            this.lastBuflenTime = now;
+            this.post({ cmd: "buflen", n: this.buf_ring.len });
         }
-        for (let i = 0; i < frame.length; i++) {
-            this.AUDIO_BUFFER.push(frame[i]);
-            if (this.AUDIO_BUFFER.length > AUDIO_BUFFER_LENGTH * 4) this.AUDIO_BUFFER.shift();
-        }
-        this.post({ cmd: "buflen", n: this.AUDIO_BUFFER.length });
 
-        // ---- 流式粗同步 + 快速捕获 ----
-        if (this.is_soft_loop ? (this.is_need_sync || this.acq_state === 1 || (this.sync_countdown <= 0)) : true) {
-            let base = this.feed_abs - this.det_hist.length;
+        // ---- 流式粗同步：SC前导检测（增量滑动自相关，每采样仅约12次乘加） ----
+        if (this.state === "sync") {
+            let rb = this.det_ring.buf, rm = this.det_ring.mask, rs = this.det_ring.start;
+            let base = this.feed_abs - this.det_ring.len;
             let d_begin = Math.max(this.searched_upto, base);
             let d_max = this.feed_abs - 2 * SC_HALF_LEN;
             if (d_max >= d_begin) {
-                let i0 = d_begin - base, P = 0, R = 0, E1 = 0;
+                let i0 = rs + (d_begin - base), P = 0, R = 0, E1 = 0;
                 for (let n = 0; n < SC_HALF_LEN; n++) {
-                    P += this.det_hist[i0 + n] * this.det_hist[i0 + n + SC_HALF_LEN];
-                    R += this.det_hist[i0 + n + SC_HALF_LEN] * this.det_hist[i0 + n + SC_HALF_LEN];
-                    E1 += this.det_hist[i0 + n] * this.det_hist[i0 + n];
+                    let x1 = rb[(i0 + n) & rm], x2 = rb[(i0 + n + SC_HALF_LEN) & rm];
+                    P += x1 * x2; R += x2 * x2; E1 += x1 * x1;
                 }
                 for (let d = d_begin; d <= d_max; d += 4) {
-                    let i = d - base;
                     let metric = (P * P) / (E1 * R + 1e-12);
                     if (metric > this.best_metric) { this.best_metric = metric; this.best_offset = d; }
                     let steps = Math.min(4, d_max - d);
+                    let j0 = rs + (d - base);
                     for (let s = 0; s < steps; s++) {
-                        let j = i + s;
-                        P += -this.det_hist[j] * this.det_hist[j + SC_HALF_LEN] + this.det_hist[j + SC_HALF_LEN] * this.det_hist[j + 2 * SC_HALF_LEN];
-                        R += -this.det_hist[j + SC_HALF_LEN] * this.det_hist[j + SC_HALF_LEN] + this.det_hist[j + 2 * SC_HALF_LEN] * this.det_hist[j + 2 * SC_HALF_LEN];
-                        E1 += -this.det_hist[j] * this.det_hist[j] + this.det_hist[j + SC_HALF_LEN] * this.det_hist[j + SC_HALF_LEN];
+                        let j = j0 + s;
+                        let x0 = rb[j & rm], x1 = rb[(j + SC_HALF_LEN) & rm], x2 = rb[(j + 2 * SC_HALF_LEN) & rm];
+                        P += -x0 * x1 + x1 * x2;
+                        R += -x1 * x1 + x2 * x2;
+                        E1 += -x0 * x0 + x1 * x1;
                     }
                 }
                 this.searched_upto = d_max + 1;
             }
             if (this.best_metric >= SC_DETECT_THRESHOLD && this.searched_upto > this.best_offset + SC_HALF_LEN) {
                 let t_offset = this.best_offset, validate_metric = -1;
-                let base2 = this.feed_abs - this.det_hist.length;
-                let d0 = Math.max(this.best_offset - 360, base2);
+                let d0 = Math.max(this.best_offset - 360, base);
                 let d1 = Math.min(this.best_offset + 360, this.feed_abs - 2 * SC_HALF_LEN);
                 for (let d = d0; d <= d1; d++) {
-                    let i = d - base2, corr = 0, e = 0;
+                    let j0 = rs + (d - base), corr = 0, e = 0;
                     for (let t = 0; t < 2 * SC_HALF_LEN; t++) {
-                        corr += this.det_hist[i + t] * SC_PREAMBLE[t];
-                        e += this.det_hist[i + t] * this.det_hist[i + t];
+                        let x = rb[(j0 + t) & rm];
+                        corr += x * SC_PREAMBLE[t]; e += x * x;
                     }
                     let m = (corr * corr) / (e * SC_ENERGY + 1e-12);
                     if (m > validate_metric) { validate_metric = m; t_offset = d; }
@@ -454,191 +660,110 @@ class Receiver {
                 if (validate_metric < SC_VALIDATE_THRESHOLD) {
                     this.best_metric = -1;
                 } else {
-                    let drop = t_offset + GROSS_SYMBOL_LENGTH - FINE_SEARCH_LEN - (this.feed_abs - this.AUDIO_BUFFER.length);
-                    if (drop > 0) this.AUDIO_BUFFER.splice(0, Math.min(drop, this.AUDIO_BUFFER.length));
+                    let drop = t_offset + GROSS_SYMBOL_LENGTH - FINE_SEARCH_LEN - (this.feed_abs - this.buf_ring.len);
+                    if (drop > 0) this.buf_ring.drop(drop);
                     this.post({ cmd: "offset", v: t_offset });
-                    this.sync_countdown = 10000;
-                    this.symbol_count = 0;
-                    this.is_need_sync = false;
-                    this.symbols_until_resync = this.wave_len > 0 ? Math.round(this.wave_len / GROSS_SYMBOL_LENGTH) - 1 : 1e9;
+                    this.state = "frame";
+                    this.frame_slot = 1; this.frame_data_idx = 0; this.pkt_buf = [];
+                    this.chan_hi = null; this.trA_iq = null;
+                    this.cfo_a = 0; this.sfo_b = 0;
+                    this.stall_count = 0;
+                    if (!this.round_stat) this.round_stat = { pre_err: 0, pre_total: 0, post_err: 0, post_total: 0, corrected: 0, fail_blocks: 0, bad_frames: 0 };
                     this.log("SC 粗同步 @" + t_offset + "（精化度量 " + validate_metric.toFixed(3) + "）");
                     this.best_metric = -1;
-                    if (!this.is_soft_loop) this.post({ cmd: "text", bytes: new Uint8Array(0), roundReset: true });
-                    this.pkt_buf = []; this.pkt_index = 0; this.last_seq = -1;
-                    this.round_stat = { pre_err: 0, pre_total: 0, post_err: 0, post_total: 0, corrected: 0, fail_blocks: 0, bad_frames: 0 };
-                    this.acq_state = 0; this.acq_stream = []; this.acq_slots = 0;
                 }
             }
-            // 快速捕获：训练符号模板搜索
-            if (this.is_need_sync) {
-                this.acq_try_countdown--;
-                if (this.acq_try_countdown <= 0 && this.AUDIO_BUFFER.length >= 2 * GROSS_SYMBOL_LENGTH) {
-                    this.acq_try_countdown = 2;
-                    let d_end = this.AUDIO_BUFFER.length - GROSS_SYMBOL_LENGTH;
-                    let d_begin = Math.max(0, d_end - (GROSS_SYMBOL_LENGTH + 800));
-                    let acq_best_m = -1, acq_best_d = -1;
-                    for (let d = d_begin; d <= d_end; d += 4) {
-                        let corr = 0, e = 0;
-                        for (let t = 0; t < GROSS_SYMBOL_LENGTH; t++) {
-                            let s = this.AUDIO_BUFFER[d + t];
-                            corr += s * TRAINING_SYMBOL_TIME[t];
-                            e += s * s;
-                        }
-                        let m = (corr * corr) / (e * TRAINING_TPL_ENERGY + 1e-12);
-                        if (m > acq_best_m) { acq_best_m = m; acq_best_d = d; }
-                    }
-                    for (let d = Math.max(d_begin, acq_best_d - 4); d <= Math.min(d_end, acq_best_d + 4); d++) {
-                        let corr = 0, e = 0;
-                        for (let t = 0; t < GROSS_SYMBOL_LENGTH; t++) {
-                            let s = this.AUDIO_BUFFER[d + t];
-                            corr += s * TRAINING_SYMBOL_TIME[t];
-                            e += s * s;
-                        }
-                        let m = (corr * corr) / (e * TRAINING_TPL_ENERGY + 1e-12);
-                        if (m > acq_best_m) { acq_best_m = m; acq_best_d = d; }
-                    }
-                    if (acq_best_m >= 0.3) {
-                        this.AUDIO_BUFFER.splice(0, Math.min(acq_best_d + GROSS_SYMBOL_LENGTH - FINE_SEARCH_LEN, this.AUDIO_BUFFER.length));
-                        this.symbol_count = 1;
-                        this.symbols_until_resync = 1e9;
-                        this.is_need_sync = false;
-                        this.acq_state = 1;
-                        this.acq_stream = []; this.acq_slots = 0;
-                        if (!this.round_stat) this.round_stat = { pre_err: 0, pre_total: 0, post_err: 0, post_total: 0, corrected: 0, fail_blocks: 0, bad_frames: 0 };
-                        this.log("快速捕获：锁定训练网格（相关度 " + acq_best_m.toFixed(3) + "）");
-                    }
-                }
-            }
-            let keep_from = this.searched_upto;
-            if (this.best_metric >= 0 && this.best_offset - 360 < keep_from) keep_from = Math.max(0, this.best_offset - 360);
-            let skip = keep_from - (this.feed_abs - this.det_hist.length);
-            if (skip > 0) this.det_hist.splice(0, skip);
+            // 注：环形缓冲定容后自动覆盖最旧采样，无需手动裁剪
         }
 
-        // ---- 未锁定：仅检测 ----
-        if (this.is_need_sync) return;
-        // ---- 等待符号 ----
-        if ((this.sync_countdown > 0) && (this.AUDIO_BUFFER.length < GROSS_SYMBOL_LENGTH + 2 * FINE_SEARCH_LEN)) {
-            this.sync_countdown--;
-            return;
-        }
-        // ---- 消费符号 ----
-        while ((this.sync_countdown > 0) && (this.AUDIO_BUFFER.length >= GROSS_SYMBOL_LENGTH + 2 * FINE_SEARCH_LEN)) {
-            if (this.is_soft_loop && this.symbols_until_resync <= 0) {
-                this.post({ cmd: "text", bytes: new Uint8Array(0), roundReset: true });
-                this.is_need_sync = true;
-                this.acq_state = 0; this.acq_stream = [];
-                break;
-            }
-            let symbol_wave = null, frame_iq = null;
-            if (this.symbol_count % TRAINING_PERIOD === 0) {
-                // 训练槽：细同步 + 信道估计
+        // ---- 帧内逐槽消费 ----
+        if (this.state !== "frame") return;
+        let ab = this.buf_ring.buf, am = this.buf_ring.mask;
+        while (this.state === "frame" && this.buf_ring.len >= GROSS_SYMBOL_LENGTH + 2 * FINE_SEARCH_LEN) {
+            this.stall_count = 0;
+            let as0 = this.buf_ring.start; // drop 会推进 start，每轮重取
+            let type = FRAME_SCHEDULE[this.frame_slot - 1];
+            if (type === "T") {
+                // 训练槽：细同步 + 信道估计（帧头A/B另用于CFO/SFO估计）
                 let fbm = -1, fbd = FINE_SEARCH_LEN;
                 for (let d = 0; d <= 2 * FINE_SEARCH_LEN; d++) {
-                    let corr = 0, energy = 0;
+                    let j0 = as0 + d, corr = 0, energy = 0;
                     for (let t = 0; t < GROSS_SYMBOL_LENGTH; t++) {
-                        let s = this.AUDIO_BUFFER[d + t];
-                        corr += s * TRAINING_SYMBOL_TIME[t];
-                        energy += s * s;
+                        let x = ab[(j0 + t) & am];
+                        corr += x * TRAINING_SYMBOL_TIME[t];
+                        energy += x * x;
                     }
                     let m = (corr * corr) / (energy * TRAINING_TPL_ENERGY + 1e-12);
                     if (m > fbm) { fbm = m; fbd = d; }
                 }
                 if (fbm < 0.5) {
-                    this.train_miss++;
-                    fbd = FINE_SEARCH_LEN;
-                    if (this.train_miss >= 2) {
-                        this.log("训练网格连续失锁（相关度 " + fbm.toFixed(3) + "），触发重新捕获");
-                        this.is_need_sync = true;
-                        this.acq_state = 0; this.acq_stream = [];
-                        this.train_miss = 0;
-                        break;
-                    }
+                    this.log("训练符号失锁（相关度 " + fbm.toFixed(3) + "），中止本帧，重新搜索前导");
+                    this.state = "sync";
+                    break;
+                }
+                this.buf_ring.read_to(this.sym_scratch, fbd + CP_LENGTH, SYMBOL_LENGTH);
+                this.buf_ring.drop(fbd + GROSS_SYMBOL_LENGTH - FINE_SEARCH_LEN);
+                let tr_iq = demodulate_ofdm_symbol(this.sym_scratch);
+                if (this.frame_slot === 1) {
+                    this.trA_iq = tr_iq; // 暂存训练A，等待B配对
+                } else if (this.frame_slot === 2) {
+                    let h1 = this.channel_from_training(this.trA_iq);
+                    let h2 = this.channel_from_training(tr_iq);
+                    this.fit_cfo(h1, h2);          // 显式CFO/SFO估计
+                    this.chan_hi = h2[0]; this.chan_hq = h2[1]; // 信道参考面：槽2
+                    this.trA_iq = null;
                 } else {
-                    this.train_miss = 0;
-                }
-                symbol_wave = this.AUDIO_BUFFER.slice(fbd + CP_LENGTH, fbd + CP_LENGTH + SYMBOL_LENGTH);
-                this.AUDIO_BUFFER.splice(0, fbd + GROSS_SYMBOL_LENGTH - FINE_SEARCH_LEN);
-                let tr_iq = demodulate_ofdm_symbol(symbol_wave);
-                if (this.chan_hi === null) { this.chan_hi = []; this.chan_hq = []; }
-                for (let c = 0; c < CARRIER_NUMBER; c++) {
-                    let ti = TRAINING_I[c], tq = TRAINING_Q[c];
-                    let denom = ti * ti + tq * tq;
-                    let hi = (tr_iq[0][c] * ti + tr_iq[1][c] * tq) / denom;
-                    let hq = (tr_iq[1][c] * ti - tr_iq[0][c] * tq) / denom;
-                    if (this.chan_hi[c] === undefined) { this.chan_hi[c] = hi; this.chan_hq[c] = hq; }
-                    else {
-                        this.chan_hi[c] = 0.5 * this.chan_hi[c] + 0.5 * hi;
-                        this.chan_hq[c] = 0.5 * this.chan_hq[c] + 0.5 * hq;
+                    // 帧中训练：相位对齐到参考面（槽2）后融合更新
+                    let h = this.channel_from_training(tr_iq);
+                    let slots = this.frame_slot - 2;
+                    for (let c = 0; c < CARRIER_NUMBER; c++) {
+                        let ph = (this.cfo_a + this.sfo_b * CARRIER_FREQS[c]) * slots;
+                        let cr = Math.cos(ph), ci = Math.sin(ph);
+                        let hr = h[0][c] * cr + h[1][c] * ci;
+                        let hi2 = h[1][c] * cr - h[0][c] * ci;
+                        this.chan_hi[c] = 0.5 * this.chan_hi[c] + 0.5 * hr;
+                        this.chan_hq[c] = 0.5 * this.chan_hq[c] + 0.5 * hi2;
                     }
-                }
-                this.symbol_count++;
-                this.symbols_until_resync--;
-                continue;
-            }
-            // 数据槽
-            symbol_wave = this.AUDIO_BUFFER.slice(FINE_SEARCH_LEN + CP_LENGTH, FINE_SEARCH_LEN + CP_LENGTH + SYMBOL_LENGTH);
-            this.AUDIO_BUFFER.splice(0, GROSS_SYMBOL_LENGTH);
-            frame_iq = demodulate_ofdm_symbol(symbol_wave);
-            if (this.chan_hi !== null) {
-                for (let c = 0; c < CARRIER_NUMBER; c++) {
-                    let hi = this.chan_hi[c], hq = this.chan_hq[c];
-                    let denom = hi * hi + hq * hq;
-                    if (denom < 1e-6) denom = 1e-6;
-                    let ii = frame_iq[0][c], qq = frame_iq[1][c];
-                    frame_iq[0][c] = (ii * hi + qq * hq) / denom;
-                    frame_iq[1][c] = (qq * hi - ii * hq) / denom;
-                }
-            }
-            this.viz(symbol_wave, frame_iq);
-            let frame_bytes = qam4_decoding(frame_iq[0], frame_iq[1]);
-            if (this.acq_state === 1) {
-                for (let n = 0; n < frame_bytes.length; n++) this.acq_stream.push(frame_bytes[n]);
-                this.acq_slots++;
-                while (this.acq_stream.length >= PKT_WIRE_LEN && this.acq_state === 1) {
-                    let locked = false;
-                    for (let off = 0; off <= 3 * 16 && off + PKT_WIRE_LEN <= this.acq_stream.length; off += 16) {
-                        let r = this.try_decode_packet(this.acq_stream.slice(off, off + PKT_WIRE_LEN));
-                        if (r.ok) {
-                            this.acq_state = 2;
-                            let validated = this.acq_stream.slice(off, off + PKT_WIRE_LEN);
-                            this.pkt_buf = this.acq_stream.slice(off + PKT_WIRE_LEN);
-                            this.acq_stream = [];
-                            this.pkt_index = r.seq;
-                            this.decode_packet(validated, this.pkt_index);
-                            this.pkt_index++;
-                            let n_next = 4 * r.seq + 4 + this.pkt_buf.length / 16;
-                            let s_next = 1 + Math.floor(n_next / TRAINING_SYMBOL_INTERVAL) * TRAINING_PERIOD + (n_next % TRAINING_SYMBOL_INTERVAL);
-                            this.symbol_count = s_next - 1;
-                            this.symbols_until_resync = this.wave_len > 0 ? Math.round(this.wave_len / GROSS_SYMBOL_LENGTH) - 1 - s_next + 1 : 1e9;
-                            this.log("快速捕获：帧锁定 #" + r.seq + "，接管稳态");
-                            locked = true;
-                            break;
-                        }
-                    }
-                    if (!locked) {
-                        if (this.acq_stream.length > PKT_WIRE_LEN + 3 * 16) this.acq_stream.splice(0, 16);
-                        break;
-                    }
-                }
-                if (this.acq_state === 1 && this.acq_slots > (this.wave_len > 0 ? 2 * this.wave_len / GROSS_SYMBOL_LENGTH : 500)) {
-                    this.is_need_sync = true;
-                    this.acq_state = 0; this.acq_stream = [];
-                    this.log("快速捕获：超时，回退等待前导");
                 }
             } else {
-                for (let n = 0; n < frame_bytes.length; n++) {
-                    this.pkt_buf.push(frame_bytes[n]);
-                    if (this.pkt_buf.length === PKT_WIRE_LEN) {
-                        this.decode_packet(this.pkt_buf, this.pkt_index);
-                        this.pkt_buf = []; this.pkt_index++;
-                    }
+                // 数据槽：显式CFO/SFO补偿 → 散布导频相位/信道跟踪 → 均衡 → 解映射
+                this.buf_ring.read_to(this.sym_scratch, FINE_SEARCH_LEN + CP_LENGTH, SYMBOL_LENGTH);
+                this.buf_ring.drop(GROSS_SYMBOL_LENGTH);
+                let frame_iq = demodulate_ofdm_symbol(this.sym_scratch);
+                this.derotate_iq(frame_iq, this.frame_slot - 2);
+                if (this.chan_hi !== null) {
+                    this.pilot_track(frame_iq, this.frame_data_idx);
+                    this.equalize(frame_iq);
                 }
+                this.viz(this.sym_scratch, frame_iq);
+                // 提取数据子载波（剔除本符号的散布导频点）
+                let po = pilot_offset(this.frame_data_idx);
+                let di = [], dq = [];
+                for (let c = 0; c < CARRIER_NUMBER; c++) {
+                    if (c % PILOT_SPACING !== po) { di.push(frame_iq[0][c]); dq.push(frame_iq[1][c]); }
+                }
+                let frame_bytes = qam4_decoding(di, dq);
+                for (let n = 0; n < frame_bytes.length; n++) this.pkt_buf.push(frame_bytes[n]);
+                this.frame_data_idx++;
             }
-            this.symbol_count++;
-            if (this.symbols_until_resync < 1e9) this.symbols_until_resync--;
+            this.frame_slot++;
+            if (this.frame_slot > FRAME_SCHEDULE.length) {
+                // 帧尾：解包，随后回到同步搜索，等待下一帧（定期重启同步/冷启动切入）
+                if (this.pkt_buf.length === PKT_WIRE_LEN) this.decode_frame(this.pkt_buf);
+                else this.log("帧长度异常（" + this.pkt_buf.length + "B），丢弃");
+                this.pkt_buf = [];
+                this.state = "sync";
+            }
         }
-        this.sync_countdown--;
+        // 停滞看门狗：帧接收中途信号长时间中断则回同步搜索
+        if (this.state === "frame") {
+            this.stall_count++;
+            if (this.stall_count > 500) {
+                this.log("帧接收停滞，回到同步搜索");
+                this.state = "sync";
+                this.stall_count = 0;
+            }
+        }
     }
 }
 
@@ -662,7 +787,7 @@ class OFDMModemProcessor extends AudioWorkletProcessor {
                 this.receiver.signal_power = d.signal_power;
                 this.receiver.fec_info = { coded: d.coded, payload: d.payload };
             } else if (d.cmd === "soft") {
-                this.receiver.feed(Array.from(d.samples));
+                this.receiver.feed(d.samples);
             } else if (d.cmd === "mic_start") {
                 this.receiver.is_soft_loop = false;
                 this.receiver.wave_len = 0;
@@ -678,7 +803,7 @@ class OFDMModemProcessor extends AudioWorkletProcessor {
     process(inputs) {
         let input = inputs[0];
         if (input && input[0] && input[0].length > 0) {
-            this.receiver.feed(Array.from(input[0]));
+            this.receiver.feed(input[0]); // Float32Array 直传，零拷贝
         }
         return true;
     }
