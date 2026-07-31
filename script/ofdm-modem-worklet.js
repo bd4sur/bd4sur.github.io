@@ -22,7 +22,7 @@
 const SAMPLE_RATE    = 48000;
 const BASE_FREQ      = 46.875;    // 子载波间隔(Hz)
 const CARRIER_NUMBER = 64;    // 正交子载波数
-const CARRIER_FREQ   = 2000; // 通带中心频率(Hz)：DDS混频，可任意配置（仅需满足物理边界）
+const CARRIER_FREQ   = 4000; // 通带中心频率(Hz)：DDS混频，可任意配置（仅需满足物理边界）
 const BANDWIDTH = BASE_FREQ * CARRIER_NUMBER;
 // ---- FFT 制式推导：IQ混频 + ×DECIM 抽取/内插 + 基带复IFFT/FFT ----
 // 可配置项：SAMPLE_RATE / BASE_FREQ / CARRIER_NUMBER / CARRIER_FREQ，约束：
