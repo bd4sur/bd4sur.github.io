@@ -113,7 +113,13 @@
 <template class="index" id="index">
 
     <div style="text-align: center;">
-        <img id="cover_image" src="./image/miku2024.jpg" style="max-width: 90%; max-height: 270px; margin: 59px auto 39px auto; border-radius: 10px;">
+        <img id="cover_image" src="./image/miku-eb200.jpg" style="max-width: 90%; max-height: 360px; margin: 27px auto 27px auto; border-radius: 10px;
+            --cover-fade-width: 72px;
+            --cover-fade-height: 36px;
+            -webkit-mask-image: linear-gradient(to right, transparent, #000 var(--cover-fade-width), #000 calc(100% - var(--cover-fade-width)), transparent), linear-gradient(to bottom, transparent, #000 var(--cover-fade-height), #000 calc(100% - var(--cover-fade-height)), transparent);
+            -webkit-mask-composite: source-in;
+            mask-image: linear-gradient(to right, transparent, #000 var(--cover-fade-width), #000 calc(100% - var(--cover-fade-width)), transparent), linear-gradient(to bottom, transparent, #000 var(--cover-fade-height), #000 calc(100% - var(--cover-fade-height)), transparent);
+            mask-composite: intersect;">
     </div>
 
     <details>
