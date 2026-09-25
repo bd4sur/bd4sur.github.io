@@ -533,6 +533,9 @@ let enable_equatorial_coord = false;
 let enable_horizontal_coord = 0; // 0-不启用；1-仅方位角文字；2-方位角+坐标圈
 // 是否启用星芒效果
 let enable_star_burst = true;
+// 体积云天空（模型4）：内建太阳镜头光晕开关（关闭后仅剩外部绘制的太阳盘与星芒；
+// 太阳圆盘 draw_sun 与星芒 star_burst_filter 始终叠加在体积云渲染结果之上）
+let enable_cloud_sun_lens = true;
 // 大气散射模型（0-不启用；1-简化模型；2-一次散射；3-二次散射；4-体积云天空）
 let enable_atmospheric_scattering = 3;
 // 是否显示天体名称（0-不显示；1-仅恒星；2-仅行星；3-全部）
@@ -3783,7 +3786,10 @@ function scatter_model_3(ray_vec, sun_vec) {
 //   · CPU 回退路径为保帧率，云步进 128/12 降为 64/6（GLSL 版保持 128/12）；
 //   · ui_cloud.c 的多重散射 LUT 调用传入 sampleCountFixed=0（积分 0 步，
 //     LUT 恒为 0），移植时修正为 MS_SAMPLE_STEPS 步采样；
-//   · 镜头光晕所需太阳屏幕位置由 fisheye_project 求得（两种投影均支持）。
+//   · 镜头光晕所需太阳屏幕位置由 fisheye_project 求得（两种投影均支持）；
+//   · 内建不含太阳星芒（ui_cloud.c 的 starburst 已移除），太阳圆盘与星芒由
+//     页面 draw_sun()/star_burst_filter() 绘制并叠加在本模型渲染结果之上；
+//     内建 HDR 镜头光晕可用页面全局变量 enable_cloud_sun_lens 开关（默认开）。
 // ============================================
 
 // ---- 大气与云参数（ui_cloud.c cloud_default_scene 直译） ----
@@ -5024,22 +5030,8 @@ function cloud_sky_ring_c(vx, vy, sunx, suny, dist, chroma, blur, out) {
     out[2] = Math.max(0.0, 1.0 / (1.0 + 250.0 * Math.pow(l2, blur))) * 1.5;
 }
 
-// 星芒（lens.glsl anflares2() 的各向异性十字思路）：
-// 竖直+水平两条亮臂，外加两条 45° 弱臂，形成星光
-function cloud_sky_starburst_c(vx, vy, sunx, suny, armLen, armW, brightness, out) {
-    const dx = vx - sunx, dy = vy - suny;
-    const ax = Math.abs(dx), ay = Math.abs(dy);
-    const rv = Math.max(0.0, 1.0 - ax / armW) * Math.max(0.0, 1.0 - ay / armLen);
-    const rh = Math.max(0.0, 1.0 - ax / armLen) * Math.max(0.0, 1.0 - ay / armW);
-    const r45 = Math.max(0.0, 1.0 - (ax + ay) / (armLen * 1.6)) *
-        Math.max(0.0, 1.0 - Math.abs(ax - ay) / armW);
-    let sx = rv + rh, sy = rv + rh, sz = rv + rh;
-    sx += r45 * 0.45; sy += r45 * 0.45; sz += r45 * 0.45;
-    sx *= brightness; sy *= brightness; sz *= brightness;
-    out[0] = sx * sx; out[1] = sy * sy; out[2] = sz * sz; // 尖峰化
-}
-
 // HDR 太阳光晕：返回待累加到场景 HDR 的增量；(ux,uy)/(sux,suy) 为 NDC 坐标（±1）
+// 注：星芒（starburst）已移除——太阳星芒由页面外部 star_burst_filter 叠加绘制
 function cloud_sky_lens_hdr(ux, uy, sux, suy, sunVis, out) {
     out[0] = 0.0; out[1] = 0.0; out[2] = 0.0;
     if (sunVis <= 0.004) return;
@@ -5072,9 +5064,9 @@ function cloud_sky_lens_hdr(ux, uy, sux, suy, sunVis, out) {
         l_b += tmp[2] * 0.15 * j;
     }
 
-    // 衍射环 + 数个色散光斑（flower lens.glsl 中相同参数族）
+    // 衍射环 + 数个色散光斑（flower lens.glsl 中相同参数族；环强度较原值加强）
     cloud_sky_ring_c(ux, uy, sux, suy, 1.0, 0.02, 1.4, tmp);
-    l_r += tmp[0] * 0.02; l_g += tmp[1] * 0.02; l_b += tmp[2] * 0.02;
+    l_r += tmp[0] * 0.05; l_g += tmp[1] * 0.05; l_b += tmp[2] * 0.05;
     cloud_sky_flare_c(ux, uy, sux, suy, -2.00, 0.05, size * 0.05, 1.0, tmp);
     l_r += tmp[0] * 0.5; l_g += tmp[1] * 0.5; l_b += tmp[2] * 0.5;
     cloud_sky_flare_c(ux, uy, sux, suy, -0.90, 0.02, size * 0.03, 1.0, tmp);
@@ -5088,7 +5080,7 @@ function cloud_sky_lens_hdr(ux, uy, sux, suy, sunVis, out) {
     cloud_sky_flare_c(ux, uy, sux, suy, 1.20, 0.03, size * 0.10, 1.0, tmp);
     l_r += tmp[0] * 0.5; l_g += tmp[1] * 0.5; l_b += tmp[2] * 0.5;
 
-    // 太阳眩光辐射（lens.glsl glare 公式）
+    // 太阳眩光辐射（lens.glsl glare 公式；较原值加强，补足移除星芒后的近日观感）
     const gd = Math.hypot(ux - sux, uy - suy) * 25.0 / fovFactor;
     const gd2 = gd * gd;
     const phaseAng = Math.atan2(uy - suy, ux - sux) + 0.131;
@@ -5096,20 +5088,14 @@ function cloud_sky_lens_hdr(ux, uy, sux, suy, sunVis, out) {
     gl = gl * gl;
     gl *= 3e-4 / (gd2 * gd2 + 1e-6);
 
-    const ghost_r = s.sunColor[0] * gl * 0.1;
-    const ghost_g = s.sunColor[1] * gl * 0.1;
-    const ghost_b = s.sunColor[2] * gl * 0.1;
+    const ghost_r = s.sunColor[0] * gl * 0.15;
+    const ghost_g = s.sunColor[1] * gl * 0.15;
+    const ghost_b = s.sunColor[2] * gl * 0.15;
 
-    // 星芒（十字 + 45° 次臂）
-    cloud_sky_starburst_c(ux, uy, sux, suy, 0.14, 0.045, 1.0, tmp);
-    let star_r = tmp[0] + tmp[0] * 2.0;
-    let star_g = tmp[1] + tmp[1] * 2.0;
-    let star_b = tmp[2] + tmp[2] * 2.0;
-
-    let o_r = core_r + l_r + ghost_r + star_r;
-    let o_g = core_g + l_g + ghost_g + star_g;
-    let o_b = core_b + l_b + ghost_b + star_b;
-    const k = sunVis * 3.0; // 可见性（云透射）× 曝光增益
+    let o_r = core_r + l_r + ghost_r;
+    let o_g = core_g + l_g + ghost_g;
+    let o_b = core_b + l_b + ghost_b;
+    const k = sunVis * 4.0; // 可见性（云透射）× 曝光增益（较原值 3.0 加强）
     out[0] = o_r * k; out[1] = o_g * k; out[2] = o_b * k;
 }
 
@@ -5273,10 +5259,11 @@ function cloud_sky_prepare_frame(
     }
 
     // 太阳镜头光晕可见性（每帧一次）：太阳在相机前方（角距 < ~89°）且投影位于
-    // 画面附近时，求沿太阳方向的云透射率（等价 lens_visible.glsl 的 cloudColor.a）
+    // 画面附近时，求沿太阳方向的云透射率（等价 lens_visible.glsl 的 cloudColor.a）。
+    // enable_cloud_sun_lens 为关时跳过全部计算（JS 与 GLSL 两路共用此状态）
     state.sunVisible = false;
     state.sunVis = 0.0;
-    if (state.viewCache !== null && !state.viewCache.degenerate) {
+    if (enable_cloud_sun_lens && state.viewCache !== null && !state.viewCache.degenerate) {
         // 前向判定：太阳方向与视线方向夹角（等价 C 的 sc.z > 0.02；两系方位度量一致）。
         // sunDirection 为云系 (x, y上, z)，视线 va 为页面地平系 (x, y, z上)：换算后点积
         const sv = cloudSkyScene.sunDirection;
@@ -6591,17 +6578,7 @@ const CloudSkyWebGL = {
                 max(0.0, 1.0 / (1.0 + 250.0 * pow(l2, blur))) * 1.5);
         }
 
-        vec3 cloudStarburstC(vec2 v, vec2 sun, float armLen, float armW, float brightness) {
-            vec2 d = v - sun;
-            float ax = abs(d.x), ay = abs(d.y);
-            float rv = max(0.0, 1.0 - ax / armW) * max(0.0, 1.0 - ay / armLen);
-            float rh = max(0.0, 1.0 - ax / armLen) * max(0.0, 1.0 - ay / armW);
-            float r45 = max(0.0, 1.0 - (ax + ay) / (armLen * 1.6)) *
-                        max(0.0, 1.0 - abs(ax - ay) / armW);
-            vec3 s = vec3(rv + rh + r45 * 0.45) * brightness;
-            return s * s; // 尖峰化
-        }
-
+        // 太阳光晕（星芒已移除：由页面外部 star_burst_filter 叠加绘制）
         vec3 cloudLensHdr(float ux, float uy, float sux, float suy, float sunVis) {
             if (sunVis <= 0.004) return vec3(0.0);
 
@@ -6626,8 +6603,8 @@ const CloudSkyWebGL = {
                 l += cloudFlareC(vec2(ux, uy), vec2(sux, suy), offset, (j / 6.0) * 0.5, ss, ss) * (0.15 * j);
             }
 
-            // 衍射环 + 色散光斑
-            l += cloudRingC(vec2(ux, uy), vec2(sux, suy), 1.0, 0.02, 1.4) * 0.02;
+            // 衍射环 + 色散光斑（环强度较原值加强）
+            l += cloudRingC(vec2(ux, uy), vec2(sux, suy), 1.0, 0.02, 1.4) * 0.05;
             l += cloudFlareC(vec2(ux, uy), vec2(sux, suy), -2.00, 0.05, size * 0.05, 1.0) * 0.5;
             l += cloudFlareC(vec2(ux, uy), vec2(sux, suy), -0.90, 0.02, size * 0.03, 1.0) * 0.25;
             l += cloudFlareC(vec2(ux, uy), vec2(sux, suy), -0.35, 0.02, size * 0.04, 1.0) * 1.0;
@@ -6635,21 +6612,17 @@ const CloudSkyWebGL = {
             l += cloudFlareC(vec2(ux, uy), vec2(sux, suy), 0.30, 0.02, size * 0.20, 1.0) * 0.8;
             l += cloudFlareC(vec2(ux, uy), vec2(sux, suy), 1.20, 0.03, size * 0.10, 1.0) * 0.5;
 
-            // 太阳眩光辐射（glare 公式）
+            // 太阳眩光辐射（glare 公式；较原值加强，补足移除星芒后的近日观感）
             float gd = length(vec2(ux - sux, uy - suy)) * 25.0 / fovFactor;
             float gd2 = gd * gd;
             float phaseAng = atan(uy - suy, ux - sux) + 0.131;
             float glv = 2.0 - min(1.0, gd) + sin(phaseAng * 12.0) * min(1.0, max(0.0, gd * 2.5 - 0.2));
             glv = glv * glv;
             glv *= 3e-4 / (gd2 * gd2 + 1e-6);
-            vec3 ghost = u_sun_color * (glv * 0.1);
+            vec3 ghost = u_sun_color * (glv * 0.15);
 
-            // 星芒
-            vec3 star = cloudStarburstC(vec2(ux, uy), vec2(sux, suy), 0.14, 0.045, 1.0);
-            star += star * 2.0;
-
-            vec3 o = core + l + ghost + star;
-            return o * (sunVis * 3.0);
+            vec3 o = core + l + ghost;
+            return o * (sunVis * 4.0); // 可见性（云透射）× 曝光增益（较原值 3.0 加强）
         }
 
         // Narkowicz 2015 ACES filmic 近似
@@ -8674,13 +8647,12 @@ function render_all(
 
     const sun_radius = Math.round(RADIUS * 0.01);
 
-    // 模型 4 的太阳与镜头光晕已由体积云着色器 HDR 合成（含云体遮挡），跳过 2D 太阳盘
-    if (enable_atmospheric_scattering !== 4) {
-        draw_sun(frame_buffer, FB_WIDTH, FB_HEIGHT, sun_proj_xy[0], sun_proj_xy[1], sun_alt, sun_radius);
-    }
+    // 太阳圆盘与星芒由页面绘制，叠加在体积云天空（模型4）渲染结果之上；
+    // 体积云内部仅保留 HDR 镜头光晕（enable_cloud_sun_lens 可关）
+    draw_sun(frame_buffer, FB_WIDTH, FB_HEIGHT, sun_proj_xy[0], sun_proj_xy[1], sun_alt, sun_radius);
 
     // 绘制星芒
-    if (enable_star_burst && sun_alt > 0 && enable_atmospheric_scattering !== 4) {
+    if (enable_star_burst && sun_alt > 0) {
         star_burst_filter(frame_buffer, FB_WIDTH, FB_HEIGHT, sun_proj_xy[0], sun_proj_xy[1], 0, 0.97, 160);
     }
 
