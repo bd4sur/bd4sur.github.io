@@ -268,6 +268,13 @@ a {
             <button class="setting_button" id="toggle_landscape">地景<br><span class="status_label" id="landscape_status">-</span></button>
         </div>
 
+        <!-- 体积云天空（大气散射模型4）专属调节：云量/云类/云亮度（其他模型时隐藏） -->
+        <div class="setting_buttons_container" id="cloud_sky_controller" style="display: none;">
+            <button class="setting_button" id="toggle_cloud_coverage">云量<br><span class="status_label" id="cloud_coverage_status">-</span></button>
+            <button class="setting_button" id="toggle_cloud_layer">云类<br><span class="status_label" id="cloud_layer_status">-</span></button>
+            <button class="setting_button" id="toggle_cloud_brightness">云亮度<br><span class="status_label" id="cloud_brightness_status">-</span></button>
+        </div>
+
         <canvas class="mainCanvas" id="skyCanvas" width="400" height="300" style="width: 100%; max-width: 400px;"></canvas>
 
         <div class="info_box_container">
@@ -495,6 +502,7 @@ a {
                     <li>二次散射计算量较大，速度较慢。</li>
                     <li>体积云渲染非常慢，请按需启用。</li>
                     <li>"体积云天空"为大气散射的第四种模型（Bruneton 天空 + 三层体积云），支持 JS 与 GLSL 双实现；GPU 路径需要 WebGL2，首次启用需生成噪声纹理（约 1 秒），无 WebGL2 时自动回退到较慢的 JS 渲染。</li>
+                    <li>选择"体积云天空"后，可用其下的"云量/云类/云亮度"按钮调节云的档位（6档）、显示种类（按层掩码 0-7 共 8 种组合：无云/仅低层/仅中层/低+中/仅高层/低+高/中+高/所有云）与亮度（0.5~2.0）。</li>
                     <li>本系统由 Kimi K2.7、K3、本地部署的 DeepSeek-V4-Flash、GLM5.3-Flash 辅助编码。</li>
                 </ul>
             </div>
@@ -3877,8 +3885,39 @@ function cloud_sky_apply_brightness(b) {
     cloudSkyScene.cloudMultiScatterScatter = 0.65 + 0.85 * t;
     cloudSkyScene.cloudMultiScatterExtinction = 0.26 - 0.13 * t;
     cloudSkyScene.cloudAmbientScale = 0.5 + 1.0 * t;
+    cloudSkyScene.brightness = b; // 当前亮度观感值（0.5..2.0，供 UI 显示）
 }
 cloud_sky_apply_brightness(CLOUD_SKY_BRIGHTNESS_DEFAULT);
+
+// 云量档位应用（ui_cloud.c cloud_apply_coverage_level 直译；档位循环回绕）
+// 档位按实测响应标定（云占比 ≈ 0/25/45/65/85/97%）：晴空→疏云→半云→多云→阴天→满云
+function cloud_sky_apply_coverage_level(level) {
+    const num = CLOUD_SKY_COVERAGE_LEVELS.length;
+    if (level < 0) level = num - 1;
+    if (level >= num) level = 0;
+    cloudSkyState.coverageLevel = level;
+    cloudSkyScene.cloudCoverage = CLOUD_SKY_COVERAGE_LEVELS[level];
+    return level;
+}
+
+// 云层种类应用：补全层掩码的全部 8 种组合（ui_cloud.c 按键1 的 5 档扩展），
+// 按掩码 0-7 排序并取模卷绕。序号 idx 即掩码值（bit0 低层 / bit1 中层 / bit2 高层）。
+const CLOUD_SKY_LAYER_NAMES = [
+    "无云",     // 0: ——
+    "仅低层",   // 1: LAYER0
+    "仅中层",   // 2: LAYER1
+    "低+中",    // 3: LAYER0|LAYER1
+    "仅高层",   // 4: LAYER2
+    "低+高",    // 5: LAYER0|LAYER2
+    "中+高",    // 6: LAYER1|LAYER2
+    "所有云",   // 7: LAYER0|LAYER1|LAYER2
+];
+function cloud_sky_apply_layer_kind(idx) {
+    idx = ((idx % 8) + 8) % 8;
+    cloudSkyState.layerIdx = idx;
+    cloudSkyState.layerMask = idx; // 序号与掩码一一对应（0-7）
+    return idx;
+}
 
 // 每帧状态
 const cloudSkyState = {
@@ -3893,6 +3932,8 @@ const cloudSkyState = {
     frameIndex: 0,
     lastNow: 0.0,
     layerMask: 7,               // 云层显示掩码（bit0 低层 / bit1 中层 / bit2 高层）
+    layerIdx: 7,                // 云层种类序号 = 层掩码（0-7，bit0 低层 / bit1 中层 / bit2 高层）
+    coverageLevel: CLOUD_SKY_COVERAGE_DEFAULT_LEVEL, // 云量档位（0..5）
     groundUpwelling: [0.0, 0.0, 0.0],
     // 太阳镜头光晕（每帧由相机决定一次）
     sunVisible: false,
@@ -9320,6 +9361,29 @@ function refresh_button_status() {
     document.getElementById("scattering_status").innerHTML = status;
 
 
+    // 体积云天空（模型4）专属：云量/云类/云亮度（其他大气散射模型时隐藏该行）
+    const cloud_sky_ctl = document.getElementById("cloud_sky_controller");
+    if (enable_atmospheric_scattering === 4) {
+        cloud_sky_ctl.style.display = "flex";
+
+        // 云量（6 档，同 ui_cloud.c 档位表：晴空→疏云→半云→多云→阴天→满云）
+        const coverage_names = ["晴空", "疏云", "半云", "多云", "阴天", "满云"];
+        status = `<span class="switch_active">${coverage_names[cloudSkyState.coverageLevel]} ${cloudSkyState.coverageLevel + 1}/6</span>`;
+        document.getElementById("cloud_coverage_status").innerHTML = status;
+
+        // 云类（层掩码 0-7 共 8 种组合，按掩码排序）
+        status = `<span class="switch_active">${CLOUD_SKY_LAYER_NAMES[cloudSkyState.layerIdx]}</span>`;
+        document.getElementById("cloud_layer_status").innerHTML = status;
+
+        // 云亮度（0.5..2.0，步长 0.15，同 ui_cloud.c）
+        status = `<span class="switch_active">${cloudSkyScene.brightness.toFixed(2)}</span>`;
+        document.getElementById("cloud_brightness_status").innerHTML = status;
+    }
+    else {
+        cloud_sky_ctl.style.display = "none";
+    }
+
+
     // toggle_landscape
     if (landscape_index === 0) {
         status = `<span class="switch_off">关闭</span>`;
@@ -9467,6 +9531,25 @@ function init() {
             default: enable_atmospheric_scattering = 3;
         }
         // 循环顺序：0(关闭) → 3(二次散射) → 2(一次散射) → 4(体积云天空) → 0
+        refresh_button_status();
+    });
+
+    // ---- 体积云天空（模型4）专属：云量/云类/云亮度 ----
+    // 云量：6 档循环（ui_cloud.c 按键4/6 的加档逻辑；档位表 cloud_apply_coverage_level）
+    document.getElementById("toggle_cloud_coverage").addEventListener("click", function(e) {
+        cloud_sky_apply_coverage_level(cloudSkyState.coverageLevel + 1);
+        refresh_button_status();
+    });
+    // 云类：按层掩码 0-7 排序的 8 种组合循环卷绕（ui_cloud.c 按键1 的 5 档扩展）
+    document.getElementById("toggle_cloud_layer").addEventListener("click", function(e) {
+        cloud_sky_apply_layer_kind(cloudSkyState.layerIdx + 1);
+        refresh_button_status();
+    });
+    // 云亮度：每击 +0.15，超过 2.0 回绕到 0.5（ui_cloud.c 按键2/8 的步长与限幅）
+    document.getElementById("toggle_cloud_brightness").addEventListener("click", function(e) {
+        let b = cloudSkyScene.brightness + 0.15;
+        if (b > 2.0) b = 0.5;
+        cloud_sky_apply_brightness(b);
         refresh_button_status();
     });
 
