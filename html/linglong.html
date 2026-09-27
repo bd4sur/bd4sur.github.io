@@ -950,7 +950,10 @@ function fisheye_project(azimuth_deg, altitude_deg, R, center_x, center_y, view_
     // else {
         let zenith = [0, 0, 1];
         let proj = scale(v_view, dot(zenith, v_view));
-        y_v = norm(sub(zenith, proj));
+        const yv_raw = sub(zenith, proj);
+        const yv_len2 = yv_raw[0] * yv_raw[0] + yv_raw[1] * yv_raw[1] + yv_raw[2] * yv_raw[2];
+        // 与 fisheye_unproject 同款万向锁防护：视线平行天顶时改用固定水平参考轴
+        y_v = (yv_len2 < 1e-12) ? [0.0, 1.0, 0.0] : norm(yv_raw); // 屏幕上=北
     // }
 
     x_v = cross(y_v, v_view);
@@ -1026,10 +1029,13 @@ function fisheye_unproject(scr_x, scr_y, R, center_x, center_y, view_alt, view_a
         Math.sin(V_alt_rad)
     ];
 
-    // 构建y'轴
+    // 构建y'轴（视角奇点防护：视线（反）平行天顶时此向量为零向量——万向锁，
+    // 全屏会退化映射到同一视线；改用固定水平参考轴，保证全屏方向连续分布、
+    // 且与 fisheye_project 的映射一致、正/逆互逆）
     let dot = v[2]; // dot(zenith=[0,0,1], v) => vz
-    let y_prime = [-dot * v[0], -dot * v[1], 1.0 - dot * v[2]];
-    y_prime = norm(y_prime);
+    let y_raw = [-dot * v[0], -dot * v[1], 1.0 - dot * v[2]];
+    let y_len2 = y_raw[0] * y_raw[0] + y_raw[1] * y_raw[1] + y_raw[2] * y_raw[2];
+    let y_prime = (y_len2 < 1e-12) ? [0.0, 1.0, 0.0] : norm(y_raw); // 奇点处屏幕上=北（与默认视角方位习惯一致，fisheye_project 同步）
 
     // 构建x'轴
     let x_prime = cross(y_prime, v);
@@ -6137,14 +6143,17 @@ const CloudSkyWebGL = {
                 sin(V_alt_rad)
             );
 
-            // 构建 y' 轴（天顶/天底奇点时退化为零向量，与 JS 实现一致）
+            // 构建 y' 轴（视角奇点防护：视线（反）平行天顶时此向量为零向量——万向锁，
+            // 会令全屏退化到同一视线；改用固定水平参考轴，与 JS fisheye_unproject 一致）
             float dot_vz = v.z;
             vec3 y_prime = vec3(-dot_vz * v.x, -dot_vz * v.y, 1.0 - dot_vz * v.z);
             if (dot(y_prime, y_prime) > 1e-12) {
                 y_prime = normalize(y_prime);
+            } else {
+                y_prime = vec3(0.0, 1.0, 0.0); // 屏幕上=北
             }
 
-            // 构建 x' 轴（与 JS 实现一致：零向量时不加 epsilon，保持退化行为）
+            // 构建 x' 轴
             vec3 x_prime = cross(y_prime, v);
             if (dot(x_prime, x_prime) > 1e-18) {
                 x_prime = normalize(x_prime);
