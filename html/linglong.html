@@ -273,6 +273,7 @@ a {
             <button class="setting_button" id="toggle_cloud_coverage">云量<br><span class="status_label" id="cloud_coverage_status">-</span></button>
             <button class="setting_button" id="toggle_cloud_layer">云类<br><span class="status_label" id="cloud_layer_status">-</span></button>
             <button class="setting_button" id="toggle_cloud_brightness">云亮度<br><span class="status_label" id="cloud_brightness_status">-</span></button>
+            <button class="setting_button" id="toggle_cloud_lens">镜头光晕<br><span class="status_label" id="cloud_lens_status">-</span></button>
         </div>
 
         <canvas class="mainCanvas" id="skyCanvas" width="400" height="300" style="width: 100%; max-width: 400px;"></canvas>
@@ -5192,7 +5193,7 @@ function cloud_sky_lens_hdr(ux, uy, sux, suy, sunVis, out) {
     const fovFactor = 2.0; // 1/tan(fovy/2) 下限，与 flower 一致
     const size = 0.5 * fovFactor * 0.9;
 
-    // orb 序列（lens.glsl orb() 精简为 4 阶）
+    // orb 序列（lens.glsl orb() 精简为 4 阶；较原值加强使之更明显）
     let l_r = 0.0, l_g = 0.0, l_b = 0.0;
     const tmp = [0.0, 0.0, 0.0];
     for (let i = 0; i < 4; i++) {
@@ -5200,26 +5201,26 @@ function cloud_sky_lens_hdr(ux, uy, sux, suy, sunVis, out) {
         const offset = j / (j + 0.1);
         const ss = size / (j + 1.0);
         cloud_sky_flare_c(ux, uy, sux, suy, offset, (j / 6.0) * 0.5, ss, ss, tmp);
-        l_r += tmp[0] * 0.15 * j;
-        l_g += tmp[1] * 0.15 * j;
-        l_b += tmp[2] * 0.15 * j;
+        l_r += tmp[0] * 0.25 * j;
+        l_g += tmp[1] * 0.25 * j;
+        l_b += tmp[2] * 0.25 * j;
     }
 
-    // 衍射环 + 数个色散光斑（flower lens.glsl 中相同参数族；环强度较原值加强）
+    // 衍射环 + 数个色散光斑（flower lens.glsl 中相同参数族；较原值加强）
     cloud_sky_ring_c(ux, uy, sux, suy, 1.0, 0.02, 1.4, tmp);
-    l_r += tmp[0] * 0.05; l_g += tmp[1] * 0.05; l_b += tmp[2] * 0.05;
+    l_r += tmp[0] * 0.08; l_g += tmp[1] * 0.08; l_b += tmp[2] * 0.08;
     cloud_sky_flare_c(ux, uy, sux, suy, -2.00, 0.05, size * 0.05, 1.0, tmp);
-    l_r += tmp[0] * 0.5; l_g += tmp[1] * 0.5; l_b += tmp[2] * 0.5;
-    cloud_sky_flare_c(ux, uy, sux, suy, -0.90, 0.02, size * 0.03, 1.0, tmp);
-    l_r += tmp[0] * 0.25; l_g += tmp[1] * 0.25; l_b += tmp[2] * 0.25;
-    cloud_sky_flare_c(ux, uy, sux, suy, -0.35, 0.02, size * 0.04, 1.0, tmp);
-    l_r += tmp[0] * 1.0; l_g += tmp[1] * 1.0; l_b += tmp[2] * 1.0;
-    cloud_sky_flare_c(ux, uy, sux, suy, -0.25, 0.01, size * 0.15, 1.0, tmp);
-    l_r += tmp[0] * 0.6; l_g += tmp[1] * 0.6; l_b += tmp[2] * 0.6;
-    cloud_sky_flare_c(ux, uy, sux, suy, 0.30, 0.02, size * 0.20, 1.0, tmp);
     l_r += tmp[0] * 0.8; l_g += tmp[1] * 0.8; l_b += tmp[2] * 0.8;
+    cloud_sky_flare_c(ux, uy, sux, suy, -0.90, 0.02, size * 0.03, 1.0, tmp);
+    l_r += tmp[0] * 0.4; l_g += tmp[1] * 0.4; l_b += tmp[2] * 0.4;
+    cloud_sky_flare_c(ux, uy, sux, suy, -0.35, 0.02, size * 0.04, 1.0, tmp);
+    l_r += tmp[0] * 1.5; l_g += tmp[1] * 1.5; l_b += tmp[2] * 1.5;
+    cloud_sky_flare_c(ux, uy, sux, suy, -0.25, 0.01, size * 0.15, 1.0, tmp);
+    l_r += tmp[0] * 0.9; l_g += tmp[1] * 0.9; l_b += tmp[2] * 0.9;
+    cloud_sky_flare_c(ux, uy, sux, suy, 0.30, 0.02, size * 0.20, 1.0, tmp);
+    l_r += tmp[0] * 1.2; l_g += tmp[1] * 1.2; l_b += tmp[2] * 1.2;
     cloud_sky_flare_c(ux, uy, sux, suy, 1.20, 0.03, size * 0.10, 1.0, tmp);
-    l_r += tmp[0] * 0.5; l_g += tmp[1] * 0.5; l_b += tmp[2] * 0.5;
+    l_r += tmp[0] * 0.8; l_g += tmp[1] * 0.8; l_b += tmp[2] * 0.8;
 
     // 太阳眩光辐射（lens.glsl glare 公式；较原值加强，补足移除星芒后的近日观感）
     const gd = Math.hypot(ux - sux, uy - suy) * 25.0 / fovFactor;
@@ -5229,14 +5230,14 @@ function cloud_sky_lens_hdr(ux, uy, sux, suy, sunVis, out) {
     gl = gl * gl;
     gl *= 3e-4 / (gd2 * gd2 + 1e-6);
 
-    const ghost_r = s.sunColor[0] * gl * 0.15;
-    const ghost_g = s.sunColor[1] * gl * 0.15;
-    const ghost_b = s.sunColor[2] * gl * 0.15;
+    const ghost_r = s.sunColor[0] * gl * 0.25;
+    const ghost_g = s.sunColor[1] * gl * 0.25;
+    const ghost_b = s.sunColor[2] * gl * 0.25;
 
     let o_r = core_r + l_r + ghost_r;
     let o_g = core_g + l_g + ghost_g;
     let o_b = core_b + l_b + ghost_b;
-    const k = sunVis * 4.0; // 可见性（云透射）× 曝光增益（较原值 3.0 加强）
+    const k = sunVis * 6.0; // 可见性（云透射）× 曝光增益（较原值 4.0 进一步加强对光晕可见度）
     out[0] = o_r * k; out[1] = o_g * k; out[2] = o_b * k;
 }
 
@@ -5424,9 +5425,10 @@ function cloud_sky_prepare_frame(
     // 太阳镜头光晕可见性（每帧一次）：太阳在相机前方（角距 < ~89°）且投影位于
     // 画面附近时，求沿太阳方向的云透射率（等价 lens_visible.glsl 的 cloudColor.a）。
     // enable_cloud_sun_lens 为关时跳过全部计算（JS 与 GLSL 两路共用此状态）
+    // 太阳低于地平线（sun_alt < 0）时无条件关闭光晕
     state.sunVisible = false;
     state.sunVis = 0.0;
-    if (enable_cloud_sun_lens && state.viewCache !== null && !state.viewCache.degenerate) {
+    if (enable_cloud_sun_lens && sun_alt >= 0 && state.viewCache !== null && !state.viewCache.degenerate) {
         // 前向判定：太阳方向与视线方向夹角（等价 C 的 sc.z > 0.02；两系方位度量一致）。
         // sunDirection 为云系 (x, y上, z)，视线 va 为页面地平系 (x, y, z上)：换算后点积
         const sv = cloudSkyScene.sunDirection;
@@ -6793,23 +6795,23 @@ const CloudSkyWebGL = {
             const float fovFactor = 2.0;
             float size = 0.5 * fovFactor * 0.9;
 
-            // orb 序列（4 阶）
+            // orb 序列（4 阶；较原值加强使之更明显）
             vec3 l = vec3(0.0);
             for (int i = 0; i < 4; i++) {
                 float j = float(i) + 1.0;
                 float offset = j / (j + 0.1);
                 float ss = size / (j + 1.0);
-                l += cloudFlareC(vec2(ux, uy), vec2(sux, suy), offset, (j / 6.0) * 0.5, ss, ss) * (0.15 * j);
+                l += cloudFlareC(vec2(ux, uy), vec2(sux, suy), offset, (j / 6.0) * 0.5, ss, ss) * (0.25 * j);
             }
 
-            // 衍射环 + 色散光斑（环强度较原值加强）
-            l += cloudRingC(vec2(ux, uy), vec2(sux, suy), 1.0, 0.02, 1.4) * 0.05;
-            l += cloudFlareC(vec2(ux, uy), vec2(sux, suy), -2.00, 0.05, size * 0.05, 1.0) * 0.5;
-            l += cloudFlareC(vec2(ux, uy), vec2(sux, suy), -0.90, 0.02, size * 0.03, 1.0) * 0.25;
-            l += cloudFlareC(vec2(ux, uy), vec2(sux, suy), -0.35, 0.02, size * 0.04, 1.0) * 1.0;
-            l += cloudFlareC(vec2(ux, uy), vec2(sux, suy), -0.25, 0.01, size * 0.15, 1.0) * 0.6;
-            l += cloudFlareC(vec2(ux, uy), vec2(sux, suy), 0.30, 0.02, size * 0.20, 1.0) * 0.8;
-            l += cloudFlareC(vec2(ux, uy), vec2(sux, suy), 1.20, 0.03, size * 0.10, 1.0) * 0.5;
+            // 衍射环 + 色散光斑（较原值加强）
+            l += cloudRingC(vec2(ux, uy), vec2(sux, suy), 1.0, 0.02, 1.4) * 0.08;
+            l += cloudFlareC(vec2(ux, uy), vec2(sux, suy), -2.00, 0.05, size * 0.05, 1.0) * 0.8;
+            l += cloudFlareC(vec2(ux, uy), vec2(sux, suy), -0.90, 0.02, size * 0.03, 1.0) * 0.4;
+            l += cloudFlareC(vec2(ux, uy), vec2(sux, suy), -0.35, 0.02, size * 0.04, 1.0) * 1.5;
+            l += cloudFlareC(vec2(ux, uy), vec2(sux, suy), -0.25, 0.01, size * 0.15, 1.0) * 0.9;
+            l += cloudFlareC(vec2(ux, uy), vec2(sux, suy), 0.30, 0.02, size * 0.20, 1.0) * 1.2;
+            l += cloudFlareC(vec2(ux, uy), vec2(sux, suy), 1.20, 0.03, size * 0.10, 1.0) * 0.8;
 
             // 太阳眩光辐射（glare 公式；较原值加强，补足移除星芒后的近日观感）
             float gd = length(vec2(ux - sux, uy - suy)) * 25.0 / fovFactor;
@@ -6818,10 +6820,10 @@ const CloudSkyWebGL = {
             float glv = 2.0 - min(1.0, gd) + sin(phaseAng * 12.0) * min(1.0, max(0.0, gd * 2.5 - 0.2));
             glv = glv * glv;
             glv *= 3e-4 / (gd2 * gd2 + 1e-6);
-            vec3 ghost = u_sun_color * (glv * 0.15);
+            vec3 ghost = u_sun_color * (glv * 0.25);
 
             vec3 o = core + l + ghost;
-            return o * (sunVis * 4.0); // 可见性（云透射）× 曝光增益（较原值 3.0 加强）
+            return o * (sunVis * 6.0); // 可见性（云透射）× 曝光增益（较原值 4.0 加强）
         }
 
         // Narkowicz 2015 ACES filmic 近似
@@ -9536,6 +9538,12 @@ function refresh_button_status() {
         // 云亮度（0.5..2.0，步长 0.15，同 ui_cloud.c）
         status = `<span class="switch_active">${cloudSkyScene.brightness.toFixed(2)}</span>`;
         document.getElementById("cloud_brightness_status").innerHTML = status;
+
+        // 镜头光晕开关（enable_cloud_sun_lens）
+        status = (enable_cloud_sun_lens)
+            ? `<span class="switch_on">开启</span>`
+            : `<span class="switch_off">关闭</span>`;
+        document.getElementById("cloud_lens_status").innerHTML = status;
     }
     else {
         cloud_sky_ctl.style.display = "none";
@@ -9708,6 +9716,11 @@ function init() {
         let b = cloudSkyScene.brightness + 0.15;
         if (b > 2.0) b = 0.5;
         cloud_sky_apply_brightness(b);
+        refresh_button_status();
+    });
+    // 镜头光晕开关（仅影响体积云天空内建 HDR 光晕；太阳低于地平线时不受此开关控制、恒不显示）
+    document.getElementById("toggle_cloud_lens").addEventListener("click", function(e) {
+        enable_cloud_sun_lens = !enable_cloud_sun_lens;
         refresh_button_status();
     });
 
