@@ -3811,6 +3811,10 @@ function scatter_model_3(ray_vec, sun_vec) {
 //     还原“蓝小时”观感；≥0° 与曲线一致、正午不变。云光照与日冕仍用 sunColor 曲线；
 //   · 多重散射 LUT 采用变步长二次采样单遍构建（CLOUD_SKY_MS_ITERATIONS=1，迭代
 //     结构保留但实测对直射主导区无改善且耗时成倍）。
+//   · 云直射光衰减（根因修复，替代原先“-18° 云光源掩码”workaround）：云样本点
+//     处太阳低于其几何地平（cosz<-sqrt(1-(R_bottom/r)^2)）后直射光平滑衰减到 0，
+//     0→cosz_hor 用 smoothstep——曙暮光红→暗临界连续、物理合理；环境补光改用
+//     中性化透射率（取三通道最大），夜间残余不为红。
 // ============================================
 
 // ---- 大气与云参数（ui_cloud.c cloud_default_scene 直译） ----
@@ -4888,6 +4892,20 @@ function cloud_sky_powderEffectNew(depth, height, VoL) {
     return depth * height;
 }
 
+// 云的直射光随“样本点处太阳低于其几何地平”的衰减（根因修复）：
+// 旧实现对 cosz<0 的透射率 LUT 查询越界钳制为深红地平列，使夜间残留红色伪直射光；
+// 实际物理是：太阳低于样本点几何地平（cosz<=cosz_hor）后直射光不存在。
+// 在 0 → cosz_hor 之间用 smoothstep 平滑过渡，保证曙暮光“红→暗”临界连续、
+// 物理合理（渐入夜色），高层云地平凹陷角更小、可看夕阳更久——符合实际。
+function cloud_sky_cloud_direct_fade(sunZenithCos, radiusKm) {
+    const ratio = CLOUD_SKY_BOTTOM_RADIUS / radiusKm;
+    const coszHor = -Math.sqrt(Math.max(0.0, 1.0 - ratio * ratio));
+    if (sunZenithCos >= 0.0) return 1.0;
+    if (sunZenithCos <= coszHor) return 0.0;
+    const t = (sunZenithCos - coszHor) / (0.0 - coszHor);
+    return t * t * (3.0 - 2.0 * t); // smoothstep
+}
+
 // 地面上涌光（每帧由天顶天空亮度更新）
 // flower cloudColorCompute 直译（剔除场景深度、Froxel 等装饰贴图依赖）
 // out: [0..2]=color(HDR), [3]=transmittance
@@ -4946,8 +4964,8 @@ function cloud_sky_cloudPixelCompute(wpx, wpy, wpz, wdx, wdy, wdz, appTime, jitt
 
     let sampleT = tMin + 0.001 * stepT + stepT * cloud_sky_saturate(jitter);
 
-    const sunColor = s.sunColor;
-    const sunIntensity = s.sunIntensity;
+    const sunColor = s.skySunColor;      // 云直射光用解耦后的天空光（暮光段与天空散射一致）
+    const sunIntensity = s.skySunIntensity;
     const sdx = s.sunDirection[0], sdy = s.sunDirection[1], sdz = s.sunDirection[2];
     const VoL = wdx * sdx + wdy * sdy + wdz * sdz;
 
@@ -5016,19 +5034,30 @@ function cloud_sky_cloudPixelCompute(wpx, wpy, wpz, wdx, wdy, wdz, appTime, jitt
             const verticalProbability = Math.pow(cloud_sky_remap(actualH01, 0.07, 0.22, 0.1, 1.0), 0.8);
             const powderEffect = cloud_sky_powderEffectNew(depthProbability, verticalProbability, VoL);
 
-            const sunlightTerm_r = atmosphereTransmittance_r * sunColor[0] * sunIntensity * s.cloudShadingSunLightScale;
-            const sunlightTerm_g = atmosphereTransmittance_g * sunColor[1] * sunIntensity * s.cloudShadingSunLightScale;
-            const sunlightTerm_b = atmosphereTransmittance_b * sunColor[2] * sunIntensity * s.cloudShadingSunLightScale;
+            // 样本点-太阳几何：低于样本点几何地平后直射光平滑衰减到 0（根因修复，
+            // 替代原先“-18° 云光源掩码”的 workaround；夜间仅余中性环境补光）
+            const sampleRadius = Math.hypot(spx, spy, spz);
+            const sunZenithCosAtSample = (sdx * spx + sdy * spy + sdz * spz) / sampleRadius;
+            const directFade = cloud_sky_cloud_direct_fade(sunZenithCosAtSample, sampleRadius);
+
+            const sunlightTerm_r = atmosphereTransmittance_r * sunColor[0] * sunIntensity * s.cloudShadingSunLightScale * directFade;
+            const sunlightTerm_g = atmosphereTransmittance_g * sunColor[1] * sunIntensity * s.cloudShadingSunLightScale * directFade;
+            const sunlightTerm_b = atmosphereTransmittance_b * sunColor[2] * sunIntensity * s.cloudShadingSunLightScale * directFade;
+
+            // 环境补光用“中性化透射率”（取三通道最大）——环境光是天穹下行光，
+            // 其颜色应由上涌光决定，不应继承“朝太阳透射率 LUT”在 cosz<0 时的
+            // 深红钳制；否则夜间环境残余会被染红（下要求“残余不得为红”）
+            const atmosphereNeutral = Math.max(atmosphereTransmittance_r, atmosphereTransmittance_g, atmosphereTransmittance_b);
 
             const horizonFactor = 1.0 - sdy * sdy;
             const ambientFade = cloud_sky_saturate(1.0 - transmittance);
             const upwell = cloudSkyState.groundUpwelling;
             const ambientLit_r = upwell[0] * powderEffect * s.cloudAmbientScale * horizonFactor *
-                cloud_sky_mix(atmosphereTransmittance_r, 1.0, ambientFade);
+                cloud_sky_mix(atmosphereNeutral, 1.0, ambientFade);
             const ambientLit_g = upwell[1] * powderEffect * s.cloudAmbientScale * horizonFactor *
-                cloud_sky_mix(atmosphereTransmittance_g, 1.0, ambientFade);
+                cloud_sky_mix(atmosphereNeutral, 1.0, ambientFade);
             const ambientLit_b = upwell[2] * powderEffect * s.cloudAmbientScale * horizonFactor *
-                cloud_sky_mix(atmosphereTransmittance_b, 1.0, ambientFade);
+                cloud_sky_mix(atmosphereNeutral, 1.0, ambientFade);
 
             const sigmaS = stepCloudDensity;
             const sigmaE = Math.max(sigmaS, 1e-8);
@@ -6535,6 +6564,18 @@ const CloudSkyWebGL = {
             return depth * height;
         }
 
+        // 云的直射光随“样本点处太阳低于其几何地平”衰减（与 JS 版一致）：
+        // 太阳低于样本点几何地平后直射光不存在；0 → cosz_hor 用 smoothstep 平滑过渡，
+        // 保证曙暮光“红→暗”临界连续、物理合理
+        float cloudDirectFade(float sunZenithCos, float radiusKm) {
+            float ratio = kEarthBottomRadius / radiusKm;
+            float coszHor = -sqrt(max(0.0, 1.0 - ratio * ratio));
+            if (sunZenithCos >= 0.0) return 1.0;
+            if (sunZenithCos <= coszHor) return 0.0;
+            float t = (sunZenithCos - coszHor) / (0.0 - coszHor);
+            return t * t * (3.0 - 2.0 * t);
+        }
+
         // flower cloudColorCompute 直译；返回 vec4(rgb=散射光 HDR, a=透射率)
         vec4 cloudPixelCompute(vec3 worldPos, vec3 worldDir, vec3 sunDirection, float appTime, float jitter) {
             float radiusCloudStart = kCloudAreaStartHeight;
@@ -6644,11 +6685,20 @@ const CloudSkyWebGL = {
                     float verticalProbability = pow(remap_(actualH01, 0.07, 0.22, 0.1, 1.0), 0.8);
                     float powderEffect = powderEffectNew(depthProbability, verticalProbability, VoL);
 
-                    vec3 sunlightTerm = atmosphereTransmittance * u_sun_color * u_sun_intensity * u_sun_light_scale;
+                    // 样本点-太阳几何：低于样本点几何地平后直射光平滑衰减到 0
+                    // （根因修复，替代原先 -18° 云光源掩码 workaround；夜间仅余中性环境补光）
+                    float sunZenithCosAtSample = dot(sunDirection, samplePos) / sampleHeight;
+                    float directFade = cloudDirectFade(sunZenithCosAtSample, sampleHeight);
 
+                    vec3 sunlightTerm = atmosphereTransmittance * u_sky_light * u_sun_light_scale * directFade;
+
+                    // 环境补光用中性化透射率（取三通道最大），避免继承 LUT 在 cosz<0
+                    // 时的深红钳制而把夜间残余染红
+                    float atmosphereNeutral = max(atmosphereTransmittance.r,
+                                                  max(atmosphereTransmittance.g, atmosphereTransmittance.b));
                     vec3 ambientLit = u_ground_upwelling * powderEffect *
                         (u_ambient_scale * (1.0 - sunDirection.y * sunDirection.y)) *
-                        mix(atmosphereTransmittance, vec3(1.0), sat_(1.0 - transmittance));
+                        mix(vec3(atmosphereNeutral), vec3(1.0), sat_(1.0 - transmittance));
 
                     float sigmaS = stepCloudDensity;
                     float sigmaE = max(sigmaS, 1e-8);
