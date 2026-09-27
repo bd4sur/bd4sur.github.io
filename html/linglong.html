@@ -3793,11 +3793,24 @@ function scatter_model_3(ray_vec, sun_vec) {
 //     移植自 ui_cloud_sun_color()；观测点位于地面之上 2km（同 ui_cloud.c）；
 //   · CPU 回退路径为保帧率，云步进 128/12 降为 64/6（GLSL 版保持 128/12）；
 //   · ui_cloud.c 的多重散射 LUT 调用传入 sampleCountFixed=0（积分 0 步，
-//     LUT 恒为 0），移植时修正为 MS_SAMPLE_STEPS 步采样；
+//     LUT 恒为 0），移植时修正为 MS_SAMPLE_STEPS 步采样，后又改为变步长二次
+//     采样（CLOUD_SKY_MS_VIEW_STEPS_INI=14），确保曙暮光“照亮带”被采样到——
+//     否则固定均匀 12 步对阴影界上方数公里厚的光照层欠采样，多次散射补光缺失；
+//   · 地球阴影判定修正：JS 版移植误把“沿法线上移偏移量”当作半径参数传入
+//     7 参求交函数（多余实参被忽略，阴影恒为真），已按 GLSL 版语义修正
+//     （起点=采样点沿法线上移 21m、半径=地球半径）；
+//   · 地面回弹增加地球阴影判定（JS/GLSL 同步）：曙暮光地面位于地影内，
+//     回弹应≈0，避免将太阳低于地平时越界钳制的深红地平线透射率注入环境光
+//     （此前把 MS-LUT 阴影区 texel 染成 R/B≈128 的纯红，是暮光偏红的主因）；
 //   · 镜头光晕所需太阳屏幕位置由 fisheye_project 求得（两种投影均支持）；
 //   · 内建不含太阳星芒（ui_cloud.c 的 starburst 已移除），太阳圆盘与星芒由
 //     页面 draw_sun()/star_burst_filter() 绘制并叠加在本模型渲染结果之上；
 //     内建 HDR 镜头光晕可用页面全局变量 enable_cloud_sun_lens 开关（默认开）。
+//   · 天空散射光源（globalL）与圆盘观感曲线解耦：skySunColor/skySunIntensity，
+//     暮光段（太阳≤0°）用近白光并以蓝紫基调过渡（0°..-8°：R-22%、G-6%、B+45%），
+//     还原“蓝小时”观感；≥0° 与曲线一致、正午不变。云光照与日冕仍用 sunColor 曲线；
+//   · 多重散射 LUT 采用变步长二次采样单遍构建（CLOUD_SKY_MS_ITERATIONS=1，迭代
+//     结构保留但实测对直射主导区无改善且耗时成倍）。
 // ============================================
 
 // ---- 大气与云参数（ui_cloud.c cloud_default_scene 直译） ----
@@ -3809,7 +3822,14 @@ const CLOUD_SKY_TRANS_LUT_H = 16;
 const CLOUD_SKY_MS_LUT_W = 48;
 const CLOUD_SKY_MS_LUT_H = 24;
 const CLOUD_SKY_MS_DIR_N = 16;      // 4x4 球面方向采样
-const CLOUD_SKY_MS_STEPS = 12;      // 多重散射 LUT 积分步数
+// 多重散射 LUT 积分步数（旧固定步长 12 采样不足：对曙暮光几何，阴影界上方
+// 几公里厚的“照亮带”在近水平方向上一个采样都落不进去；现改为与逐像素路径
+// 一致的变步长二次分布 sampleCountIni=14，近端加密，见 cloud_sky_compute_multiscatter_lut）
+const CLOUD_SKY_MS_STEPS = 12;      // 保留：固定步数备选（未使用）
+const CLOUD_SKY_MS_VIEW_STEPS_INI = 14; // MS-LUT 每条方向积分的初始采样数（变步长）
+// MS-LUT 迭代构建遍数：把上一遍 LUT 作为环境源喂回积分，累积“照亮带→阴影”的
+// 更高阶蓝色输运（修正常规单遍的暮光红色不足/污染；遍数越多输运越足，构建越慢）
+const CLOUD_SKY_MS_ITERATIONS = 1;  // 迭代构建实测对暮光直射主导区无改善且耗时成倍，默认单遍（结构保留）
 const CLOUD_SKY_SATURATION_BOOST = 1.25; // 补偿逐通道 ACES 的去饱和
 // 云量档位（ui_cloud.c CLOUD_COVERAGE_LEVELS：档间云量递进均匀、最高档不进入变暗区）
 const CLOUD_SKY_COVERAGE_LEVELS = [0.000, 0.325, 0.340, 0.353, 0.368, 0.395];
@@ -3865,6 +3885,10 @@ const cloudSkyScene = {
     sunDirection: [0.0, 1.0, 0.0], // 指向太阳（云世界系，y 轴向上）
     sunColor: [1.0, 1.0, 1.0],
     sunIntensity: 48.0,
+    // 天空散射光源颜色/强度（与圆盘观感曲线解耦：暮光段用近白光，红化→透射率物理承担；
+    // 由 prepare_frame 每帧按太阳仰角平滑计算；云光照与太阳盘仍用 sunColor/日冕曲线）
+    skySunColor: [1.0, 1.0, 1.0],
+    skySunIntensity: 48.0,
 };
 {
     const d = cloudSkyScene.cloudDirection;
@@ -4378,9 +4402,9 @@ function cloud_sky_integrateScatteredLuminance(
     const cosTheta = sdx * wdx + sdy * wdy + sdz * wdz;
     const miePhaseValue = cloud_sky_hgPhase(s.miePhaseG, -cosTheta);
     const rayleighPhaseValue = cloud_sky_rayleighPhase(cosTheta);
-    const globalL_r = s.sunColor[0] * s.sunIntensity;
-    const globalL_g = s.sunColor[1] * s.sunIntensity;
-    const globalL_b = s.sunColor[2] * s.sunIntensity;
+    const globalL_r = s.skySunColor[0] * s.skySunIntensity;
+    const globalL_g = s.skySunColor[1] * s.skySunIntensity;
+    const globalL_b = s.skySunColor[2] * s.skySunIntensity;
 
     let L_r = 0.0, L_g = 0.0, L_b = 0.0;
     let tp_r = 1.0, tp_g = 1.0, tp_b = 1.0;
@@ -4433,10 +4457,12 @@ function cloud_sky_integrateScatteredLuminance(
             pts_b = medium[11] * uniformPhase;
         }
 
-        // 地球阴影
-        const tEarth = cloud_sky_raySphereIntersectNearest(px, py, pz, sdx, sdy, sdz,
-            upx * CLOUD_SKY_PLANET_RADIUS_OFFSET, upy * CLOUD_SKY_PLANET_RADIUS_OFFSET, upz * CLOUD_SKY_PLANET_RADIUS_OFFSET,
-            CLOUD_SKY_BOTTOM_RADIUS);
+        // 地球阴影（修复：原调用把偏移量误作半径传入 7 参函数——多余实参被忽略，
+        // 球半径实为 0.021km，阴影判定恒为 1 从未生效；现按 GLSL 一致的
+        // “起点=采样点沿法线上移偏移量、半径=地球半径”的正确语义）
+        const tEarth = cloud_sky_raySphereIntersectNearest(
+            px + upx * CLOUD_SKY_PLANET_RADIUS_OFFSET, py + upy * CLOUD_SKY_PLANET_RADIUS_OFFSET, pz + upz * CLOUD_SKY_PLANET_RADIUS_OFFSET,
+            sdx, sdy, sdz, CLOUD_SKY_BOTTOM_RADIUS);
         const earthShadow = (tEarth >= 0.0) ? 0.0 : 1.0;
 
         // 多重散射近似（LUT）
@@ -4469,7 +4495,9 @@ function cloud_sky_integrateScatteredLuminance(
     }
 
     if (bGround && tMax === tBottom && tBottom > 0.0) {
-        // 地面回弹
+        // 地面回弹（修复：加入地球阴影判定——曙暮光时地面位于地影内，
+        // 回弹应≈0；此前无判定且太阳低于地平时透射率 LUT 查询越界被钳制到
+        // 地平线掠射列（最深红），把纯红环境光注入 MS-LUT 的阴影区 texel）
         const px = wpx + wdx * tBottom, py = wpy + wdy * tBottom, pz = wpz + wdz * tBottom;
         const pHeight = Math.hypot(px, py, pz);
         const upx = px / pHeight, upy = py / pHeight, upz = pz / pHeight;
@@ -4477,9 +4505,14 @@ function cloud_sky_integrateScatteredLuminance(
         cloud_sky_lutTransmittanceParamsToUv(pHeight, sunZenithCosAngle, uvTmp);
         cloud_sky_sampleLut2D(cloudSkyState.transLut, CLOUD_SKY_TRANS_LUT_W, CLOUD_SKY_TRANS_LUT_H, uvTmp[0], uvTmp[1], lutC);
         const NdotL = cloud_sky_saturate(upx * sdx + upy * sdy + upz * sdz);
-        const bounce_r = globalL_r * lutC[0] * tp_r * (NdotL * s.groundAlbedo[0] / CLOUD_SKY_PI);
-        const bounce_g = globalL_g * lutC[1] * tp_g * (NdotL * s.groundAlbedo[1] / CLOUD_SKY_PI);
-        const bounce_b = globalL_b * lutC[2] * tp_b * (NdotL * s.groundAlbedo[2] / CLOUD_SKY_PI);
+        // 地面点的地球阴影（物理上与主循环一致的 0/1 阴影，回弹仅在日照下成立）
+        const ge = cloud_sky_raySphereIntersectNearest(
+            px + upx * CLOUD_SKY_PLANET_RADIUS_OFFSET, py + upy * CLOUD_SKY_PLANET_RADIUS_OFFSET, pz + upz * CLOUD_SKY_PLANET_RADIUS_OFFSET,
+            sdx, sdy, sdz, CLOUD_SKY_BOTTOM_RADIUS);
+        const bounceShadow = (ge >= 0.0) ? 0.0 : 1.0;
+        const bounce_r = bounceShadow * globalL_r * lutC[0] * tp_r * (NdotL * s.groundAlbedo[0] / CLOUD_SKY_PI);
+        const bounce_g = bounceShadow * globalL_g * lutC[1] * tp_g * (NdotL * s.groundAlbedo[1] / CLOUD_SKY_PI);
+        const bounce_b = bounceShadow * globalL_b * lutC[2] * tp_b * (NdotL * s.groundAlbedo[2] / CLOUD_SKY_PI);
         L_r += bounce_r; L_g += bounce_g; L_b += bounce_b;
     }
 
@@ -4523,58 +4556,90 @@ function cloud_sky_compute_transmittance_lut() {
     }
 }
 
-// 预计算多重散射 LUT（flower MULTI_SCATTER_PASS：球面 4x4=16 方向采样）
+// 预计算多重散射 LUT（flower MULTI_SCATTER_PASS 的迭代增强）：
+// 球面 4x4=16 方向采样；变步长二次积分（近端加密，曙暮光“照亮带”可被采样到）。
+// 迭代替换：第 0 遍以零环境光求一阶散射场；之后每遍把上一遍 LUT 作为环境源
+// 喂回积分（S += msL·σ），把“高层照亮带 → 阴影区”的更高阶蓝色输运逐步累积
+// （Hillaire 2020 多阶的近迭代近似；修正常规单遍 MS-LUT 的暮光红色污染与输运不足）。
 function cloud_sky_compute_multiscatter_lut() {
-    const lut = cloudSkyState.msLut;
-    const sphereSolidAngle = 4.0 * CLOUD_SKY_PI;
-    const isotropicPhase = 1.0 / sphereSolidAngle;
-    const kSqrtSampleCount = 4;
-    const invSC = 1.0 / (kSqrtSampleCount * kSqrtSampleCount);
+    const W = CLOUD_SKY_MS_LUT_W, H = CLOUD_SKY_MS_LUT_H;
+    const iterations = Math.max(1, CLOUD_SKY_MS_ITERATIONS | 0);
+    const dest = cloudSkyState.msLut;                 // 最终写入目标
+    const scratch1 = new Float32Array(W * H * 3);     // 迭代 0 的零环境光读取缓冲
+    const scratch2 = new Float32Array(W * H * 3);     // 交替写入缓冲
 
-    for (let y = 0; y < CLOUD_SKY_MS_LUT_H; y++) {
-        for (let x = 0; x < CLOUD_SKY_MS_LUT_W; x++) {
-            const u = (x + 0.5) / CLOUD_SKY_MS_LUT_W;
-            const v = (y + 0.5) / CLOUD_SKY_MS_LUT_H;
-            const cosSunZenithAngle = u * 2.0 - 1.0;
-            const sdx = 0.0, sdy = cosSunZenithAngle, sdz = Math.sqrt(Math.max(0.0, 1.0 - cosSunZenithAngle * cosSunZenithAngle));
-            const viewHeight = CLOUD_SKY_BOTTOM_RADIUS +
-                cloud_sky_saturate(v + CLOUD_SKY_PLANET_RADIUS_OFFSET) *
-                (CLOUD_SKY_TOP_RADIUS - CLOUD_SKY_BOTTOM_RADIUS - CLOUD_SKY_PLANET_RADIUS_OFFSET);
+    const buildPass = (readLut, writeLut) => {
+        cloudSkyState.msLut = readLut;                // 本遍积分采样的环境光场
+        const sphereSolidAngle = 4.0 * CLOUD_SKY_PI;
+        const isotropicPhase = 1.0 / sphereSolidAngle;
+        const kSqrtSampleCount = 4;
+        const invSC = 1.0 / (kSqrtSampleCount * kSqrtSampleCount);
+        for (let y = 0; y < H; y++) {
+            for (let x = 0; x < W; x++) {
+                const u = (x + 0.5) / W;
+                const v = (y + 0.5) / H;
+                const cosSunZenithAngle = u * 2.0 - 1.0;
+                const sdx = 0.0, sdy = cosSunZenithAngle, sdz = Math.sqrt(Math.max(0.0, 1.0 - cosSunZenithAngle * cosSunZenithAngle));
+                const viewHeight = CLOUD_SKY_BOTTOM_RADIUS +
+                    cloud_sky_saturate(v + CLOUD_SKY_PLANET_RADIUS_OFFSET) *
+                    (CLOUD_SKY_TOP_RADIUS - CLOUD_SKY_BOTTOM_RADIUS - CLOUD_SKY_PLANET_RADIUS_OFFSET);
 
-            let ms1_r = 0.0, ms1_g = 0.0, ms1_b = 0.0;
-            let sc_r = 0.0, sc_g = 0.0, sc_b = 0.0;
-            for (let f = 0; f < kSqrtSampleCount * kSqrtSampleCount; f++) {
-                const i = 0.5 + Math.floor(f / kSqrtSampleCount);
-                const j = 0.5 + (f % kSqrtSampleCount);
-                const randA = i / kSqrtSampleCount;
-                const randB = j / kSqrtSampleCount;
-                const theta = 2.0 * CLOUD_SKY_PI * randA;
-                const phi = Math.acos(1.0 - 2.0 * randB);
-                const cosPhi = Math.cos(phi), sinPhi = Math.sin(phi);
-                const cosTheta = Math.cos(theta), sinTheta = Math.sin(theta);
-                const wdx = cosTheta * sinPhi, wdy = cosPhi, wdz = sinTheta * sinPhi;
+                let ms1_r = 0.0, ms1_g = 0.0, ms1_b = 0.0;
+                let sc_r = 0.0, sc_g = 0.0, sc_b = 0.0;
+                for (let f = 0; f < kSqrtSampleCount * kSqrtSampleCount; f++) {
+                    const i = 0.5 + Math.floor(f / kSqrtSampleCount);
+                    const j = 0.5 + (f % kSqrtSampleCount);
+                    const randA = i / kSqrtSampleCount;
+                    const randB = j / kSqrtSampleCount;
+                    const theta = 2.0 * CLOUD_SKY_PI * randA;
+                    const phi = Math.acos(1.0 - 2.0 * randB);
+                    const cosPhi = Math.cos(phi), sinPhi = Math.sin(phi);
+                    const cosTheta = Math.cos(theta), sinTheta = Math.sin(theta);
+                    const wdx = cosTheta * sinPhi, wdy = cosPhi, wdz = sinTheta * sinPhi;
 
-                cloud_sky_integrateScatteredLuminance(
-                    0.0, viewHeight, 0.0, wdx, wdy, wdz, sdx, sdy, sdz,
-                    1, 0, CLOUD_SKY_MS_STEPS, 0, 9e6, CLOUD_SKY_MS_STEPS, cloudSkyScatTmp);
-                ms1_r += cloudSkyScatTmp[9] * sphereSolidAngle * invSC;
-                ms1_g += cloudSkyScatTmp[10] * sphereSolidAngle * invSC;
-                ms1_b += cloudSkyScatTmp[11] * sphereSolidAngle * invSC;
-                sc_r += cloudSkyScatTmp[0] * sphereSolidAngle * invSC;
-                sc_g += cloudSkyScatTmp[1] * sphereSolidAngle * invSC;
-                sc_b += cloudSkyScatTmp[2] * sphereSolidAngle * invSC;
+                    // 变步长二次采样（与逐像素天空积分一致）：近端加密，
+                    // 使曙暮光“照亮带”能被采样到；固定步数 CLOUD_SKY_MS_STEPS 弃用
+                    cloud_sky_integrateScatteredLuminance(
+                        0.0, viewHeight, 0.0, wdx, wdy, wdz, sdx, sdy, sdz,
+                        1, 0, 0, 1, 9e6, CLOUD_SKY_MS_VIEW_STEPS_INI, cloudSkyScatTmp);
+                    ms1_r += cloudSkyScatTmp[9] * sphereSolidAngle * invSC;
+                    ms1_g += cloudSkyScatTmp[10] * sphereSolidAngle * invSC;
+                    ms1_b += cloudSkyScatTmp[11] * sphereSolidAngle * invSC;
+                    sc_r += cloudSkyScatTmp[0] * sphereSolidAngle * invSC;
+                    sc_g += cloudSkyScatTmp[1] * sphereSolidAngle * invSC;
+                    sc_b += cloudSkyScatTmp[2] * sphereSolidAngle * invSC;
+                }
+
+                const factor_r = 1.0 / Math.max(1e-4, 1.0 - ms1_r * isotropicPhase);
+                const factor_g = 1.0 / Math.max(1e-4, 1.0 - ms1_g * isotropicPhase);
+                const factor_b = 1.0 / Math.max(1e-4, 1.0 - ms1_b * isotropicPhase);
+                const idx = (y * W + x) * 3;
+                writeLut[idx] = sc_r * isotropicPhase * factor_r * cloudSkyScene.multipleScatteringFactor;
+                writeLut[idx + 1] = sc_g * isotropicPhase * factor_g * cloudSkyScene.multipleScatteringFactor;
+                writeLut[idx + 2] = sc_b * isotropicPhase * factor_b * cloudSkyScene.multipleScatteringFactor;
             }
-
-            const factor_r = 1.0 / Math.max(1e-4, 1.0 - ms1_r * isotropicPhase);
-            const factor_g = 1.0 / Math.max(1e-4, 1.0 - ms1_g * isotropicPhase);
-            const factor_b = 1.0 / Math.max(1e-4, 1.0 - ms1_b * isotropicPhase);
-            const idx = (y * CLOUD_SKY_MS_LUT_W + x) * 3;
-            lut[idx] = sc_r * isotropicPhase * factor_r * cloudSkyScene.multipleScatteringFactor;
-            lut[idx + 1] = sc_g * isotropicPhase * factor_g * cloudSkyScene.multipleScatteringFactor;
-            lut[idx + 2] = sc_b * isotropicPhase * factor_b * cloudSkyScene.multipleScatteringFactor;
         }
+        cloudSkyState.msLut = null; // 由外层统一还原
+    };
+
+    if (iterations <= 1) {
+        // 单遍：以零环境光求一阶场（不再读取上一太阳的陈旧 LUT）
+        buildPass(scratch1, dest);
+    } else {
+        let readLut, writeLut;
+        // 交替读写：第 0 遍零环境光读 scratch1、写 scratch2；此后每遍读上一遍结果
+        for (let it = 0; it < iterations; it++) {
+            if (it === 0) { readLut = scratch1; writeLut = scratch2; }
+            else if (it % 2 === 1) { readLut = scratch2; writeLut = scratch1; }
+            else { readLut = scratch1; writeLut = scratch2; }
+            buildPass(readLut, writeLut);
+        }
+        dest.set(writeLut);
     }
+    // 还原最终 LUT 引用（buildPass 内部临时切换过）
+    cloudSkyState.msLut = dest;
 }
+
 const cloudSkyScatTmp = new Float64Array(12);
 const cloudSkyMedTmp = new Float64Array(15);
 const cloudSkyLutTmp = [0.0, 0.0, 0.0];
@@ -5227,6 +5292,28 @@ function cloud_sky_prepare_frame(
     cloudSkyScene.sunColor = [sunCol[0], sunCol[1], sunCol[2]];
     cloudSkyScene.sunIntensity = sunCol[3];
 
+    // 天空散射光源：暮光段（太阳≤0°）用近白光，0°..4°平滑过渡到圆盘曲线，
+    // ≥4° 起与曲线一致（正午仍是白）。物理动机：天空散射的太阳光谱本应恒定，
+    // 温度红化由逐采样透射率（LUT/路径积分）承担；曲线是“地面观测太阳圆盘”
+    // 观感，直接用作天空光源会在暮光段“曲线红 × 透射率红”双重叠红（可见的天色偏红主因）。
+    // 圆盘/日冕（内部 HDR core + 页面 draw_sun）与云光照仍用 sunColor 曲线，日落云色不变。
+    {
+        const tMix = cloud_sky_saturate(sun_alt / 4.0);
+        let sl_r = cloud_sky_mix(1.0, sunCol[0], tMix);
+        let sl_g = cloud_sky_mix(1.0, sunCol[1], tMix);
+        let sl_b = cloud_sky_mix(1.0, sunCol[2], tMix);
+        // 暮光蓝紫基调（工程近似：真实曙暮光的蓝紫来自高空二次/多次散射与臭氧
+        // Chappuis 吸收，本模型单遍 MS-LUT 无法输运到阴影区，故对太阳≤0° 的天空
+        // 散射光施加平滑的蓝紫偏置以还原“蓝小时”观感）：太阳 0°→-8° 渐变，
+        // R 略降、B 提升；≥0° 不受影响（正午/白昼无变化）
+        const kTwl = cloud_sky_saturate((0.0 - sun_alt) / 8.0);
+        sl_r *= (1.0 - 0.22 * kTwl);
+        sl_g *= (1.0 - 0.06 * kTwl);
+        sl_b *= (1.0 + 0.45 * kTwl);
+        cloudSkyScene.skySunColor = [sl_r, sl_g, sl_b];
+        cloudSkyScene.skySunIntensity = sunCol[3]; // 强度沿用曲线（无亮度跳变）
+    }
+
     // LUT 重算（太阳方向/颜色变化超过阈值时）
     let dAlt = Math.abs(sun_alt - state.lastSunAlt);
     let dAzi = Math.abs(sun_azi - state.lastSunAzi);
@@ -5600,6 +5687,7 @@ const CloudSkyWebGL = {
             u_frame_index: gl.getUniformLocation(this.program, 'u_frame_index'),
             u_ground_upwelling: gl.getUniformLocation(this.program, 'u_ground_upwelling'),
             u_sun_color: gl.getUniformLocation(this.program, 'u_sun_color'),
+            u_sky_light: gl.getUniformLocation(this.program, 'u_sky_light'),
             u_sun_intensity: gl.getUniformLocation(this.program, 'u_sun_intensity'),
             u_sun_u: gl.getUniformLocation(this.program, 'u_sun_u'),
             u_sun_v: gl.getUniformLocation(this.program, 'u_sun_v'),
@@ -5771,6 +5859,11 @@ const CloudSkyWebGL = {
             cloudSkyState.groundUpwelling[0], cloudSkyState.groundUpwelling[1], cloudSkyState.groundUpwelling[2]);
         gl.uniform3f(this.uniforms.u_sun_color,
             cloudSkyScene.sunColor[0], cloudSkyScene.sunColor[1], cloudSkyScene.sunColor[2]);
+        // 天空散射光源（暮光段近白；u_sun_color 仍留给日冕 core/光晕与云光照用）
+        gl.uniform3f(this.uniforms.u_sky_light,
+            cloudSkyScene.skySunColor[0] * cloudSkyScene.skySunIntensity,
+            cloudSkyScene.skySunColor[1] * cloudSkyScene.skySunIntensity,
+            cloudSkyScene.skySunColor[2] * cloudSkyScene.skySunIntensity);
         gl.uniform1f(this.uniforms.u_sun_intensity, cloudSkyScene.sunIntensity);
         gl.uniform1f(this.uniforms.u_sun_u, cloudSkyState.sunU);
         gl.uniform1f(this.uniforms.u_sun_v, cloudSkyState.sunV);
@@ -5906,6 +5999,7 @@ const CloudSkyWebGL = {
         uniform int u_frame_index;
         uniform vec3 u_ground_upwelling;
         uniform vec3 u_sun_color;
+        uniform vec3 u_sky_light;    // 天空散射光源（= skySunColor×skySunIntensity，暮光段近白）
         uniform float u_sun_intensity;
         uniform float u_sun_u;
         uniform float u_sun_v;
@@ -6158,7 +6252,7 @@ const CloudSkyWebGL = {
             float cosTheta = dot(sunDir, worldDir);
             float miePhaseValue = hgPhase(kMiePhaseG, -cosTheta);
             float rayleighPhaseValue = rayleighPhase(cosTheta);
-            vec3 globalL = u_sun_color * u_sun_intensity;
+            vec3 globalL = u_sky_light;
 
             vec3 L = vec3(0.0);
             vec3 throughput = vec3(1.0);
@@ -6236,8 +6330,13 @@ const CloudSkyWebGL = {
                 vec2 uu = lutTransmittanceParamsToUv(pHeight, sunZenithCosAngle);
                 vec3 transmittanceToSun = texture(u_trans_lut, uu).rgb;
                 float NdotL = sat_(dot(normalize(upVector), normalize(sunDir)));
+                // 地面回弹的地球阴影判定（与 JS 版本同步的修复：曙暮光时地面
+                // 位于地影内，回弹应≈0，避免把深红钳制透射率注入地基环境光）
+                float tEarthG = raySphereIntersectNearest(
+                    P + upVector * kAtmospherePlanetRadiusOffset, sunDir, kEarthBottomRadius);
+                float bounceShadow = (tEarthG >= 0.0) ? 0.0 : 1.0;
                 vec3 groundTerm = NdotL * kGroundAlbedo / PI;
-                L += globalL * transmittanceToSun * throughput * groundTerm;
+                L += bounceShadow * globalL * transmittanceToSun * throughput * groundTerm;
             }
 
             r.scatteredLight = L;
