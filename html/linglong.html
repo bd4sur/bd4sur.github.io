@@ -505,7 +505,7 @@ a {
                     <li>体积云渲染非常慢，请按需启用。</li>
                     <li>"体积云天空"为大气散射的第四种模型（Bruneton 天空 + 三层体积云），支持 JS 与 GLSL 双实现；GPU 路径需要 WebGL2，首次启用需生成噪声纹理（约 1 秒），无 WebGL2 时自动回退到较慢的 JS 渲染。</li>
                     <li>选择"体积云天空"后，可用其下的"云量/云类/云亮度"按钮调节云的档位（6档）、显示种类（按层掩码 0-7 共 8 种组合：无云/仅低层/仅中层/低+中/仅高层/低+高/中+高/所有云）与亮度（0.5~2.0）。</li>
-                    <li>"雷达云图"开启后（默认开启），体积云天空的初始云模式取自中央气象台组合反射率图（radar.png 减 radar_background.png 底图、形态学去地图元素、色标反演 dBZ），雷达 256km 范围与地平圈直接对齐；处理全部在页面内完成，图片缺失或处理失败时自动回退程序化云图。</li>
+                    <li>"雷达云图"开启后（默认开启），体积云天空的初始云模式取自中央气象台组合反射率图（radar.png 减 radar_background.png 底图、形态学去地图元素、色标反演 dBZ），雷达 256km 范围与地平圈直接对齐；dBZ 经三通道调制云场：覆盖率决定有无疏密（封顶 35/45/55dBZ）、云顶高度决定类别（弱回波压扁为层云、强回波发展为全塔积雨云）、密度系数决定厚薄；中高度云另以双频噪声调制破碎边缘、消除周期感；处理全部在页面内完成，图片缺失或处理失败时自动回退程序化云图。</li>
                     <li>本系统由 Kimi K2.7、K3、本地部署的 DeepSeek-V4-Flash、GLM5.3-Flash 辅助编码。</li>
                 </ul>
             </div>
@@ -3995,6 +3995,10 @@ function cloud_sky_mix(a, b, t) { return a + (b - a) * t; }
 function cloud_sky_remap(value, oMin, oMax, nMin, nMax) {
     return nMin + cloud_sky_saturate((value - oMin) / (oMax - oMin)) * (nMax - nMin);
 }
+function cloud_sky_smoothstep(e0, e1, x) {
+    const t = cloud_sky_saturate((x - e0) / (e1 - e0));
+    return t * t * (3.0 - 2.0 * t);
+}
 function cloud_sky_fract(x) { return x - Math.floor(x); }
 const CLOUD_SKY_PI = 3.14159265358979323846;
 
@@ -4299,13 +4303,19 @@ function cloud_sky_generate_noise() {
 // ---------------------------------------------------------------------------
 const RADAR_CLOUD_GRID_N = 128;        // dBZ 网格边长（128² → 4km/格）
 const RADAR_CLOUD_SPAN_KM = 512.0;     // 雷达图范围（256km 半径 × 2）
-// 各云层的 dBZ→覆盖率标定：coverage=sat((dbz-dbz0)/scale)（dbz0 起云，dbz0+scale 满覆盖）
-//   低层：8dBZ 起云、22dBZ 满覆盖（降水回波即低云）；
-//   中层：12dBZ 起云、28dBZ 满覆盖；高层：25dBZ 起云、40dBZ 满覆盖（强对流冰晶砧）
-// 标定依据：本引擎 coverage→密度为阈值截取（remap(basicNoise,1-c,1)），
-//   需 c≈0.4-0.5 才有可见云量（与程序化天气图 blobs 的响应区间一致）
-const RADAR_CLOUD_LAYER_DBZ0  = [8.0, 12.0, 25.0];
-const RADAR_CLOUD_LAYER_SCALE = [14.0, 16.0, 15.0];
+// dBZ → 云性质三通道标定（实测推导）：
+//   通道1 覆盖率（膝盖曲线，仅承载"有无/疏密"）：引擎 coverage→密度为阈值截取
+//     remap(basicNoise×g, 1−c, 1)，L0 的 coverage'<0.4 时密度恒零（可见性地板），
+//     故各层快速升至 0.9（dbzMid）再缓爬到封顶 dbzMax（35/45/55dBZ，匹配实际回波分布）；
+//   通道2 云顶高度（承载"类别"）：hTop01 = 0.10+0.90×sat((dbz−6)/49)，
+//     6dBZ→≈4km 薄层云，25dBZ→≈6.5km 雨层云，45dBZ+→11km 全塔积雨云；
+//   通道3 密度系数（承载"厚薄"）：kDbz = 0.6+1.6×sat((dbz−6)/49)，上限 2.2 防死黑
+//     （coverage 趋 1 时云内遮蔽积分全零、云底死黑；实测密度峰值 0.014×2.2 仍安全）
+// 中高层另加双频噪声乘性调制（local 纹理 ~0.8km 细扰动 + ~15km 粗调制）：
+//   打散 4km 网格阶梯边、破坏基础噪声 1.7km 平铺周期感；乘性保证无回波处恒无云
+const RADAR_CLOUD_KNEE_DBZ0   = [6.0, 10.0, 18.0];   // 各层起云 dBZ
+const RADAR_CLOUD_KNEE_DBZMID = [14.0, 20.0, 30.0];  // 各层覆盖率达 0.9 的 dBZ
+const RADAR_CLOUD_KNEE_DBZMAX = [35.0, 45.0, 55.0];  // 各层满覆盖 dBZ（封顶）
 
 const radarCloudState = {
     enabled: true,          // 雷达云图开关（关则回退程序化天气图）
@@ -4531,12 +4541,28 @@ function cloud_sky_sampleRadarDbz(ux, vy) {
     return cloud_sky_mix(cloud_sky_mix(c00, c10, fx), cloud_sky_mix(c01, c11, fx), fy);
 }
 
-// 雷达覆盖率：posKm 水平坐标 (东kx, 北kz) km → 指定层的覆盖率 [0,1]
-function cloud_sky_radarCoverage(kx, kz, layer) {
-    const dbz = cloud_sky_sampleRadarDbz(
+// 雷达列 dBZ 采样：posKm 水平坐标 (东kx, 北kz) km → dBZ（无回波/域外为 0）
+function cloud_sky_radarDbzAt(kx, kz) {
+    return cloud_sky_sampleRadarDbz(
         0.5 + kx / RADAR_CLOUD_SPAN_KM, 0.5 - kz / RADAR_CLOUD_SPAN_KM);
+}
+
+// 通道1：dBZ → 层天气覆盖率（膝盖曲线：dbz0 起云 → dbzMid 达 0.9 过可见性地板 → dbzMax 封顶）
+function cloud_sky_radarWeather(dbz, layer) {
     if (dbz <= 0.0) return 0.0;
-    return cloud_sky_saturate((dbz - RADAR_CLOUD_LAYER_DBZ0[layer]) / RADAR_CLOUD_LAYER_SCALE[layer]);
+    const d0 = RADAR_CLOUD_KNEE_DBZ0[layer], dm = RADAR_CLOUD_KNEE_DBZMID[layer], dx = RADAR_CLOUD_KNEE_DBZMAX[layer];
+    if (dbz <= dm) return cloud_sky_saturate((dbz - d0) / (dm - d0) * 0.9);
+    return Math.min(1.0, 0.9 + (dbz - dm) / (dx - dm) * 0.1);
+}
+
+// 通道2：dBZ → 云顶高度（云壳归一化 [0.10, 1.0]；6dBZ≈4km 薄层云，45dBZ+→11km 全塔）
+function cloud_sky_radarTopH(dbz) {
+    return 0.10 + 0.90 * cloud_sky_saturate((dbz - 6.0) / 49.0);
+}
+
+// 通道3：dBZ → 密度系数（0.6~2.2；上限防光学厚度过大、云底死黑）
+function cloud_sky_radarDensityScale(dbz) {
+    return 0.6 + 1.6 * cloud_sky_saturate((dbz - 6.0) / 49.0);
 }
 
 // ---------------------------------------------------------------------------
@@ -4957,13 +4983,21 @@ function cloud_sky_cloudMap0(px, py, pz, normalizeHeight, appTime) {
     let localCoverage = cloud_sky_sampleWrap2D(cloudSkyNoise.local, CLOUD_SKY_CURL_DIM,
         (wA + mx) * 0.000001 + 0.5, (wA + mz) * 0.000001 + 0.5);
     localCoverage = cloud_sky_saturate(localCoverage * 3.0 - 0.75) * 0.2;
-    // 雷达云图模式：以实测回波覆盖率替代程序化天气图（局部扰动置零，保持雷达结构）
+    // 雷达云图三通道（dBZ 同时决定有无/类别/厚薄；程序化路径不受影响）：
+    //   覆盖率=膝盖曲线（有无/疏密）；云顶高度窗（类别：弱回波压扁、强回波全塔）；
+    //   密度系数（厚薄），在尾部乘到最终密度
+    let radarTopWindow = 1.0, radarDensScale = 1.0;
     if (radarCloudState.enabled && radarCloudState.ready) {
-        weatherValue = cloud_sky_radarCoverage(kx, kz, 0);
+        const dbz = cloud_sky_radarDbzAt(kx, kz);
+        weatherValue = cloud_sky_radarWeather(dbz, 0);
         localCoverage = 0.0;
+        const shellH = normalizeHeight * 0.4;   // 本层 → 云壳归一化高度
+        const hTop = cloud_sky_radarTopH(dbz);
+        radarTopWindow = 1.0 - cloud_sky_smoothstep(hTop - 0.08, hTop, shellH);
+        radarDensScale = cloud_sky_radarDensityScale(dbz);
     }
 
-    const coverage = cloud_sky_saturate(kCoverage * (localCoverage + weatherValue));
+    const coverage = cloud_sky_saturate(kCoverage * (localCoverage + weatherValue) * radarTopWindow);
     const gradienShape = cloud_sky_remap(normalizeHeight, 0.10, 0.80, s.cloudCoverage * 1.9, 0.2) *
         cloud_sky_remap(normalizeHeight, 0.00, 0.1, 0.5, 1.0);
 
@@ -4985,7 +5019,7 @@ function cloud_sky_cloudMap0(px, py, pz, normalizeHeight, appTime) {
         cloud_sky_remap(normalizeHeight, 0.7, 1.0, 1.0, 0.0);
 
     let cd = densityShape * cloud_sky_remap(basicCloudWithCoverage, detailNoiseMixByHeight, 1.0, 0.0, 1.0);
-    cd = Math.pow(cd, cloud_sky_saturate(1.0 - normalizeHeight) * 0.4 + 0.1) * kDensity * 0.1;
+    cd = Math.pow(cd, cloud_sky_saturate(1.0 - normalizeHeight) * 0.4 + 0.1) * kDensity * 0.1 * radarDensScale;
     return cloud_sky_saturate(cd);
 }
 
@@ -5018,27 +5052,49 @@ function cloud_sky_cloudMap1(px, py, pz, normalizeHeight, appTime) {
     let localCoverage = cloud_sky_sampleWrap2D(cloudSkyNoise.local, CLOUD_SKY_CURL_DIM,
         (wA + mx) * 0.000001 - 0.11, (wA + mz) * 0.000001 - 0.11);
     localCoverage = cloud_sky_saturate(localCoverage * 4.0 - 2.0) * 0.5;
-    // 雷达云图模式（中层约 12dBZ 起云，见 RADAR_CLOUD_LAYER_DBZ0）
+    // 雷达云图三通道（中层；结构同低层，壳归一化高度 = 0.4+nH×0.4）
+    // + 双频噪声乘性调制（修复中高度云大尺度规律性与网格直边）：
+    //   local 纹理 ~0.8km 细扰动打散 4km 网格阶梯边、~15km 粗调制破坏平铺周期感；
+    //   乘性保证无回波处恒无云；weatherValue 封顶 1.0 不越过已验证的安全覆盖率
+    let radarTopWindow = 1.0, radarDensScale = 1.0;
     if (radarCloudState.enabled && radarCloudState.ready) {
-        weatherValue = cloud_sky_radarCoverage(kx, kz, 1);
+        const dbz = cloud_sky_radarDbzAt(kx, kz);
+        const localCoarse = cloud_sky_sampleWrap2D(cloudSkyNoise.local, CLOUD_SKY_CURL_DIM,
+            (wA + mx) * 0.000001 - 0.11, (wA + mz) * 0.000001 - 0.11);
+        const localFine = cloud_sky_sampleWrap2D(cloudSkyNoise.local, CLOUD_SKY_CURL_DIM,
+            (wA + mx) * 0.00002 - 0.11, (wA + mz) * 0.00002 - 0.11);
+        weatherValue = cloud_sky_saturate(cloud_sky_radarWeather(dbz, 1) *
+            (0.6 + 0.8 * localFine) * (0.7 + 0.6 * localCoarse));
         localCoverage = 0.0;
+        const shellH = 0.4 + normalizeHeight * 0.4;
+        const hTop = cloud_sky_radarTopH(dbz);
+        radarTopWindow = 1.0 - cloud_sky_smoothstep(hTop - 0.08, hTop, shellH);
+        radarDensScale = cloud_sky_radarDensityScale(dbz) * (0.7 + 0.6 * localCoarse);
     }
 
     // 中层覆盖增益：程序化 basic 噪声分布集中于中低段，flower 原门槛 1-coverage
     // 下有效云面积趋零。对 weather+local 掩膜放大 1.5 倍恢复中层云合理占比（同 ui_cloud.c）
-    const coverage = cloud_sky_saturate(kCoverage * (localCoverage + weatherValue) * 1.5);
+    const coverage = cloud_sky_saturate(kCoverage * (localCoverage + weatherValue) * radarTopWindow * 1.5);
     const gradienShape = cloud_sky_remap(normalizeHeight, 0.00, 0.01, 0.1, 1.0) *
         cloud_sky_remap(normalizeHeight, 0.10, 0.80, 0.7, 0.2);
 
+    // 域扭曲破平铺（程序化/雷达路径共用）：basic/detail 噪声为 64³/32³ tileable 纹理，
+    // 本层平铺周期 1.7km/0.8km，大尺度观看呈周期重复。用 local 噪声两个去相关通道
+    // （~0.8km 特征）把采样域在 x/z 方向逐格错开 ±0.5 纹理周期，相邻瓦片错相
+    const warpU1 = cloud_sky_sampleWrap2D(cloudSkyNoise.local, CLOUD_SKY_CURL_DIM,
+        (wA + mx) * 0.00002 + 0.17, (wA + mz) * 0.00002 + 0.17) - 0.5;
+    const warpV1 = cloud_sky_sampleWrap2D(cloudSkyNoise.local, CLOUD_SKY_CURL_DIM,
+        (wA + mx) * 0.00002 + 0.53, (wA + mz) * 0.00002 + 0.53) - 0.5;
+
     const basicNoise = cloud_sky_sampleWrap3D(cloudSkyNoise.basic, CLOUD_SKY_BASIC_DIM,
-        (kx + wx) * s.cloudBasicNoiseScale * 2.0, (ky + wy) * s.cloudBasicNoiseScale * 2.0, (kz + wz) * s.cloudBasicNoiseScale * 2.0);
+        (kx + wx) * s.cloudBasicNoiseScale * 2.0 + warpU1, (ky + wy) * s.cloudBasicNoiseScale * 2.0, (kz + wz) * s.cloudBasicNoiseScale * 2.0 + warpV1);
 
     const basicCloudNoise = gradienShape * basicNoise;
     const basicCloudWithCoverage = coverage * cloud_sky_remap(basicCloudNoise, 1.0 - coverage, 1.0, 0.0, 1.0);
 
     const dnx = kx - wx * 0.15, dny = ky - wy * 0.15, dnz = kz - wz * 0.15;
     const detailNoiseComposite = cloud_sky_sampleWrap3D(cloudSkyNoise.detail, CLOUD_SKY_DETAIL_DIM,
-        dnx * s.cloudDetailNoiseScale * 2.0, dny * s.cloudDetailNoiseScale * 2.0, dnz * s.cloudDetailNoiseScale * 2.0);
+        dnx * s.cloudDetailNoiseScale * 2.0 + warpU1, dny * s.cloudDetailNoiseScale * 2.0, dnz * s.cloudDetailNoiseScale * 2.0 + warpV1);
     const detailNoiseMixByHeight = 0.2 * cloud_sky_mix(detailNoiseComposite, 1.0 - detailNoiseComposite,
         cloud_sky_saturate(normalizeHeight * 10.0));
 
@@ -5047,7 +5103,7 @@ function cloud_sky_cloudMap1(px, py, pz, normalizeHeight, appTime) {
         cloud_sky_remap(normalizeHeight, 0.7, 1.0, 1.0, 0.0);
 
     let cd = densityShape * cloud_sky_remap(basicCloudWithCoverage, detailNoiseMixByHeight, 1.0, 0.0, 1.0);
-    cd = Math.pow(cd, cloud_sky_saturate(1.0 - normalizeHeight) * 0.4 + 0.1) * kDensity * 0.1;
+    cd = Math.pow(cd, cloud_sky_saturate(1.0 - normalizeHeight) * 0.4 + 0.1) * kDensity * 0.1 * radarDensScale;
     return cloud_sky_saturate(cd);
 }
 
@@ -5080,18 +5136,36 @@ function cloud_sky_cloudMap2(px, py, pz, normalizeHeight, appTime) {
     let localCoverage = cloud_sky_sampleWrap2D(cloudSkyNoise.local, CLOUD_SKY_CURL_DIM,
         (wA + mx) * 0.000001 - 0.39, (wA + mz) * 0.000001 - 0.39);
     localCoverage = cloud_sky_saturate(1.0 - Math.pow(cloud_sky_clamp(localCoverage, 0.0, 1.0), 8.0));
-    // 雷达云图模式（高层约 25dBZ 起云强对流，见 RADAR_CLOUD_LAYER_DBZ0）
+    // 雷达云图三通道（高层；结构同低层，壳归一化高度 = 0.8+nH×0.2）
+    // + 双频噪声乘性调制（同中层分支注释）
+    let radarTopWindow = 1.0, radarDensScale = 1.0;
     if (radarCloudState.enabled && radarCloudState.ready) {
-        weatherValue = cloud_sky_radarCoverage(kx, kz, 2);
+        const dbz = cloud_sky_radarDbzAt(kx, kz);
+        const localCoarse = cloud_sky_sampleWrap2D(cloudSkyNoise.local, CLOUD_SKY_CURL_DIM,
+            (wA + mx) * 0.000001 - 0.39, (wA + mz) * 0.000001 - 0.39);
+        const localFine = cloud_sky_sampleWrap2D(cloudSkyNoise.local, CLOUD_SKY_CURL_DIM,
+            (wA + mx) * 0.00002 - 0.39, (wA + mz) * 0.00002 - 0.39);
+        weatherValue = cloud_sky_saturate(cloud_sky_radarWeather(dbz, 2) *
+            (0.6 + 0.8 * localFine) * (0.7 + 0.6 * localCoarse));
         localCoverage = 0.0;
+        const shellH = 0.8 + normalizeHeight * 0.2;
+        const hTop = cloud_sky_radarTopH(dbz);
+        radarTopWindow = 1.0 - cloud_sky_smoothstep(hTop - 0.08, hTop, shellH);
+        radarDensScale = cloud_sky_radarDensityScale(dbz) * (0.7 + 0.6 * localCoarse);
     }
 
-    const coverage = cloud_sky_saturate(kCoverage * (localCoverage + weatherValue));
+    const coverage = cloud_sky_saturate(kCoverage * (localCoverage + weatherValue) * radarTopWindow);
     const gradienShape = cloud_sky_remap(normalizeHeight, 0.00, 0.01, 0.1, 1.0) *
         cloud_sky_remap(normalizeHeight, 0.10, 0.20, 0.8, 0.5);
 
+    // 域扭曲破平铺（同 cloudMap1 注释；本层 basic 平铺周期 1.1km）
+    const warpU2 = cloud_sky_sampleWrap2D(cloudSkyNoise.local, CLOUD_SKY_CURL_DIM,
+        (wA + mx) * 0.00002 + 0.29, (wA + mz) * 0.00002 + 0.29) - 0.5;
+    const warpV2 = cloud_sky_sampleWrap2D(cloudSkyNoise.local, CLOUD_SKY_CURL_DIM,
+        (wA + mx) * 0.00002 + 0.61, (wA + mz) * 0.00002 + 0.61) - 0.5;
+
     const basicNoise = cloud_sky_sampleWrap3D(cloudSkyNoise.basic, CLOUD_SKY_BASIC_DIM,
-        (kx + wx + 0.39) * s.cloudBasicNoiseScale * 3.0, (ky + wy + 0.39) * s.cloudBasicNoiseScale * 3.0, (kz + wz + 0.39) * s.cloudBasicNoiseScale * 3.0);
+        (kx + wx + 0.39) * s.cloudBasicNoiseScale * 3.0 + warpU2, (ky + wy + 0.39) * s.cloudBasicNoiseScale * 3.0, (kz + wz + 0.39) * s.cloudBasicNoiseScale * 3.0 + warpV2);
 
     const basicCloudNoise = gradienShape * basicNoise;
     const basicCloudWithCoverage = coverage * cloud_sky_remap(basicCloudNoise, 1.0 - coverage, 1.0, 0.0, 1.0);
@@ -5100,7 +5174,7 @@ function cloud_sky_cloudMap2(px, py, pz, normalizeHeight, appTime) {
         cloud_sky_remap(normalizeHeight, 0.0, 0.3, 0.0, 1.0) *
         cloud_sky_remap(normalizeHeight, 0.7, 1.0, 1.0, 0.0);
 
-    const cd = densityShape * basicCloudWithCoverage * kDensity;
+    const cd = densityShape * basicCloudWithCoverage * kDensity * radarDensScale;
     return cloud_sky_saturate(cd);
 }
 
@@ -6693,16 +6767,22 @@ const CloudSkyWebGL = {
         // -----------------------------------------------------------------
         // 云形状（flower cloud_render_common.glsl cloudMap0/1/2 直译）
         // -----------------------------------------------------------------
-        // 雷达回波覆盖率（与 JS cloud_sky_radarCoverage 一致）：
-        // posKmXZ=(东,北) km，域 ±256km 直接对齐玲珑仪地平圈，域外=0；
-        // coverage=sat((dbz-dbz0)/scale)，dbz0/scale 为层起云点与斜率
-        float radarCoverage(vec2 posKmXZ, float dbz0, float scale) {
+        // 雷达云图三通道（与 JS cloud_sky_radar* 一致）：
+        // posKmXZ=(东,北) km，域 ±256km 直接对齐玲珑仪地平圈，域外 dBZ=0
+        float radarDbz(vec2 posKmXZ) {
             vec2 uv = vec2(0.5 + posKmXZ.x / 512.0, 0.5 - posKmXZ.y / 512.0);
             if (uv.x < 0.0 || uv.x > 1.0 || uv.y < 0.0 || uv.y > 1.0) return 0.0;
-            float dbz = texture(u_radar_map, uv).r * 70.0;
-            if (dbz <= 0.0) return 0.0;
-            return sat_((dbz - dbz0) / scale);
+            return texture(u_radar_map, uv).r * 70.0;
         }
+        // 通道1：dBZ → 层天气覆盖率（膝盖曲线：dbz0 起云 → dbzMid 达 0.9 → dbzMax 封顶）
+        float radarWeather(float dbz, float dbz0, float dbzMid, float dbzMax) {
+            if (dbz <= 0.0) return 0.0;
+            if (dbz <= dbzMid) return sat_((dbz - dbz0) / (dbzMid - dbz0) * 0.9);
+            return min(1.0, 0.9 + (dbz - dbzMid) / (dbzMax - dbzMid) * 0.1);
+        }
+        // 通道2：dBZ → 云顶高度（云壳归一化）；通道3：dBZ → 密度系数（≤2.2 防死黑）
+        float radarTopH(float dbz) { return 0.10 + 0.90 * sat_((dbz - 6.0) / 49.0); }
+        float radarDensityScale(float dbz) { return 0.6 + 1.6 * sat_((dbz - 6.0) / 49.0); }
 
         float cloudMap0(vec3 posMeter, float normalizeHeight, float appTime) {
             const float kCoverage = 0.5;
@@ -6724,13 +6804,19 @@ const CloudSkyWebGL = {
                 (appTime * kCloudSpeed * 50.0 + posMeter.x) * 0.000001 + 0.5,
                 (appTime * kCloudSpeed * 50.0 + posMeter.z) * 0.000001 + 0.5)).r;
             localCoverage = sat_(localCoverage * 3.0 - 0.75) * 0.2;
-            // 雷达云图模式：以实测回波覆盖率替代程序化天气图
+            // 雷达云图三通道（同 JS cloud_sky_cloudMap0 雷达分支）
+            float radarTopWindow = 1.0, radarDensScale = 1.0;
             if (u_radar_enable > 0.5) {
-                weatherValue = radarCoverage(posKm.xz, 8.0, 14.0);
+                float dbz = radarDbz(posKm.xz);
+                weatherValue = radarWeather(dbz, 6.0, 14.0, 35.0);
                 localCoverage = 0.0;
+                float shellH = normalizeHeight * 0.4;   // 本层 → 云壳归一化高度
+                float hTop = radarTopH(dbz);
+                radarTopWindow = 1.0 - smoothstep(hTop - 0.08, hTop, shellH);
+                radarDensScale = radarDensityScale(dbz);
             }
 
-            float coverage = sat_(kCoverage * (localCoverage + weatherValue));
+            float coverage = sat_(kCoverage * (localCoverage + weatherValue) * radarTopWindow);
             float gradienShape = remap_(normalizeHeight, 0.10, 0.80, u_coverage * 1.9, 0.2) *
                                  remap_(normalizeHeight, 0.00, 0.1, 0.5, 1.0);
 
@@ -6748,7 +6834,7 @@ const CloudSkyWebGL = {
                 remap_(normalizeHeight, 0.7, 1.0, 1.0, 0.0);
 
             float cloudDensity = densityShape * remap_(basicCloudWithCoverage, detailNoiseMixByHeight, 1.0, 0.0, 1.0);
-            cloudDensity = pow(cloudDensity, sat_(1.0 - normalizeHeight) * 0.4 + 0.1) * kDensity * 0.1;
+            cloudDensity = pow(cloudDensity, sat_(1.0 - normalizeHeight) * 0.4 + 0.1) * kDensity * 0.1 * radarDensScale;
             return sat_(cloudDensity);
         }
 
@@ -6774,23 +6860,46 @@ const CloudSkyWebGL = {
                 (appTime * kCloudSpeed * 50.0 + posMeter.x) * 0.000001 - 0.11,
                 (appTime * kCloudSpeed * 50.0 + posMeter.z) * 0.000001 - 0.11)).r;
             localCoverage = sat_(localCoverage * 4.0 - 2.0) * 0.5;
-            // 雷达云图模式（中层约 12dBZ 起云）
+            // 雷达云图三通道（中层；壳归一化高度 = 0.4+nH×0.4）
+            // + 双频噪声乘性调制（同 JS cloud_sky_cloudMap1 雷达分支注释）
+            float radarTopWindow = 1.0, radarDensScale = 1.0;
             if (u_radar_enable > 0.5) {
-                weatherValue = radarCoverage(posKm.xz, 12.0, 16.0);
+                float dbz = radarDbz(posKm.xz);
+                float localCoarse = texture(u_local_noise, vec2(
+                    (appTime * kCloudSpeed * 50.0 + posMeter.x) * 0.000001 - 0.11,
+                    (appTime * kCloudSpeed * 50.0 + posMeter.z) * 0.000001 - 0.11)).r;
+                float localFine = texture(u_local_noise, vec2(
+                    (appTime * kCloudSpeed * 50.0 + posMeter.x) * 0.00002 - 0.11,
+                    (appTime * kCloudSpeed * 50.0 + posMeter.z) * 0.00002 - 0.11)).r;
+                weatherValue = sat_(radarWeather(dbz, 10.0, 20.0, 45.0) *
+                    (0.6 + 0.8 * localFine) * (0.7 + 0.6 * localCoarse));
                 localCoverage = 0.0;
+                float shellH = 0.4 + normalizeHeight * 0.4;
+                float hTop = radarTopH(dbz);
+                radarTopWindow = 1.0 - smoothstep(hTop - 0.08, hTop, shellH);
+                radarDensScale = radarDensityScale(dbz) * (0.7 + 0.6 * localCoarse);
             }
 
             // 中层覆盖增益（同 ui_cloud.c：恢复中层云合理占比）
-            float coverage = sat_(kCoverage * (localCoverage + weatherValue) * 1.5);
+            float coverage = sat_(kCoverage * (localCoverage + weatherValue) * radarTopWindow * 1.5);
             float gradienShape = remap_(normalizeHeight, 0.00, 0.01, 0.1, 1.0) *
                                  remap_(normalizeHeight, 0.10, 0.80, 0.7, 0.2);
 
-            float basicNoise = texture(u_basic_noise, (posKm + windOffset) * (kCloudBasicNoiseScale * 2.0)).r;
+            // 域扭曲破平铺（同 JS cloud_sky_cloudMap1 注释；本层平铺周期 1.7km/0.8km）
+            float warpU1 = texture(u_local_noise, vec2(
+                (appTime * kCloudSpeed * 50.0 + posMeter.x) * 0.00002 + 0.17,
+                (appTime * kCloudSpeed * 50.0 + posMeter.z) * 0.00002 + 0.17)).r - 0.5;
+            float warpV1 = texture(u_local_noise, vec2(
+                (appTime * kCloudSpeed * 50.0 + posMeter.x) * 0.00002 + 0.53,
+                (appTime * kCloudSpeed * 50.0 + posMeter.z) * 0.00002 + 0.53)).r - 0.5;
+            vec3 warp1 = vec3(warpU1, 0.0, warpV1);
+
+            float basicNoise = texture(u_basic_noise, (posKm + windOffset) * (kCloudBasicNoiseScale * 2.0) + warp1).r;
             float basicCloudNoise = gradienShape * basicNoise;
             float basicCloudWithCoverage = coverage * remap_(basicCloudNoise, 1.0 - coverage, 1.0, 0.0, 1.0);
 
             vec3 sampleDetailNoise = posKm - windOffset * 0.15;
-            float detailNoiseComposite = texture(u_detail_noise, sampleDetailNoise * (kCloudDetailNoiseScale * 2.0)).r;
+            float detailNoiseComposite = texture(u_detail_noise, sampleDetailNoise * (kCloudDetailNoiseScale * 2.0) + warp1).r;
             float detailNoiseMixByHeight = 0.2 * mix(detailNoiseComposite, 1.0 - detailNoiseComposite,
                                                      sat_(normalizeHeight * 10.0));
 
@@ -6799,7 +6908,7 @@ const CloudSkyWebGL = {
                 remap_(normalizeHeight, 0.7, 1.0, 1.0, 0.0);
 
             float cloudDensity = densityShape * remap_(basicCloudWithCoverage, detailNoiseMixByHeight, 1.0, 0.0, 1.0);
-            cloudDensity = pow(cloudDensity, sat_(1.0 - normalizeHeight) * 0.4 + 0.1) * kDensity * 0.1;
+            cloudDensity = pow(cloudDensity, sat_(1.0 - normalizeHeight) * 0.4 + 0.1) * kDensity * 0.1 * radarDensScale;
             return sat_(cloudDensity);
         }
 
@@ -6825,18 +6934,40 @@ const CloudSkyWebGL = {
                 (appTime * kCloudSpeed * 50.0 + posMeter.x) * 0.000001 - 0.39,
                 (appTime * kCloudSpeed * 50.0 + posMeter.z) * 0.000001 - 0.39)).r;
             localCoverage = sat_(1.0 - pow(sat_(localCoverage), 8.0));
-            // 雷达云图模式（高层约 25dBZ 起云）
+            // 雷达云图三通道（高层；壳归一化高度 = 0.8+nH×0.2）
+            // + 双频噪声乘性调制（同 JS cloud_sky_cloudMap2 雷达分支注释）
+            float radarTopWindow = 1.0, radarDensScale = 1.0;
             if (u_radar_enable > 0.5) {
-                weatherValue = radarCoverage(posKm.xz, 25.0, 15.0);
+                float dbz = radarDbz(posKm.xz);
+                float localCoarse = texture(u_local_noise, vec2(
+                    (appTime * kCloudSpeed * 50.0 + posMeter.x) * 0.000001 - 0.39,
+                    (appTime * kCloudSpeed * 50.0 + posMeter.z) * 0.000001 - 0.39)).r;
+                float localFine = texture(u_local_noise, vec2(
+                    (appTime * kCloudSpeed * 50.0 + posMeter.x) * 0.00002 - 0.39,
+                    (appTime * kCloudSpeed * 50.0 + posMeter.z) * 0.00002 - 0.39)).r;
+                weatherValue = sat_(radarWeather(dbz, 18.0, 30.0, 55.0) *
+                    (0.6 + 0.8 * localFine) * (0.7 + 0.6 * localCoarse));
                 localCoverage = 0.0;
+                float shellH = 0.8 + normalizeHeight * 0.2;
+                float hTop = radarTopH(dbz);
+                radarTopWindow = 1.0 - smoothstep(hTop - 0.08, hTop, shellH);
+                radarDensScale = radarDensityScale(dbz) * (0.7 + 0.6 * localCoarse);
             }
 
-            float coverage = sat_(kCoverage * (localCoverage + weatherValue));
+            float coverage = sat_(kCoverage * (localCoverage + weatherValue) * radarTopWindow);
             float gradienShape = remap_(normalizeHeight, 0.00, 0.01, 0.1, 1.0) *
                                  remap_(normalizeHeight, 0.10, 0.20, 0.8, 0.5);
 
+            // 域扭曲破平铺（同 cloudMap1；本层 basic 平铺周期 1.1km）
+            float warpU2 = texture(u_local_noise, vec2(
+                (appTime * kCloudSpeed * 50.0 + posMeter.x) * 0.00002 + 0.29,
+                (appTime * kCloudSpeed * 50.0 + posMeter.z) * 0.00002 + 0.29)).r - 0.5;
+            float warpV2 = texture(u_local_noise, vec2(
+                (appTime * kCloudSpeed * 50.0 + posMeter.x) * 0.00002 + 0.61,
+                (appTime * kCloudSpeed * 50.0 + posMeter.z) * 0.00002 + 0.61)).r - 0.5;
+
             float basicNoise = texture(u_basic_noise,
-                (posKm + windOffset + vec3(0.39)) * (kCloudBasicNoiseScale * 3.0)).r;
+                (posKm + windOffset + vec3(0.39)) * (kCloudBasicNoiseScale * 3.0) + vec3(warpU2, 0.0, warpV2)).r;
             float basicCloudNoise = gradienShape * basicNoise;
             float basicCloudWithCoverage = coverage * remap_(basicCloudNoise, 1.0 - coverage, 1.0, 0.0, 1.0);
 
@@ -6844,7 +6975,7 @@ const CloudSkyWebGL = {
                 remap_(normalizeHeight, 0.0, 0.3, 0.0, 1.0) *
                 remap_(normalizeHeight, 0.7, 1.0, 1.0, 0.0);
 
-            float cloudDensity = densityShape * basicCloudWithCoverage * kDensity;
+            float cloudDensity = densityShape * basicCloudWithCoverage * kDensity * radarDensScale;
             return sat_(cloudDensity);
         }
 
