@@ -274,6 +274,7 @@ a {
             <button class="setting_button" id="toggle_cloud_layer">云类<br><span class="status_label" id="cloud_layer_status">-</span></button>
             <button class="setting_button" id="toggle_cloud_brightness">云亮度<br><span class="status_label" id="cloud_brightness_status">-</span></button>
             <button class="setting_button" id="toggle_cloud_lens">镜头光晕<br><span class="status_label" id="cloud_lens_status">-</span></button>
+            <button class="setting_button" id="toggle_radar_cloud">雷达云图<br><span class="status_label" id="radar_cloud_status">-</span></button>
         </div>
 
         <canvas class="mainCanvas" id="skyCanvas" width="400" height="300" style="width: 100%; max-width: 400px;"></canvas>
@@ -504,6 +505,7 @@ a {
                     <li>体积云渲染非常慢，请按需启用。</li>
                     <li>"体积云天空"为大气散射的第四种模型（Bruneton 天空 + 三层体积云），支持 JS 与 GLSL 双实现；GPU 路径需要 WebGL2，首次启用需生成噪声纹理（约 1 秒），无 WebGL2 时自动回退到较慢的 JS 渲染。</li>
                     <li>选择"体积云天空"后，可用其下的"云量/云类/云亮度"按钮调节云的档位（6档）、显示种类（按层掩码 0-7 共 8 种组合：无云/仅低层/仅中层/低+中/仅高层/低+高/中+高/所有云）与亮度（0.5~2.0）。</li>
+                    <li>"雷达云图"开启后（默认开启），体积云天空的初始云模式取自中央气象台组合反射率图（radar.png 减 radar_background.png 底图、形态学去地图元素、色标反演 dBZ），雷达 256km 范围与地平圈直接对齐；处理全部在页面内完成，图片缺失或处理失败时自动回退程序化云图。</li>
                     <li>本系统由 Kimi K2.7、K3、本地部署的 DeepSeek-V4-Flash、GLM5.3-Flash 辅助编码。</li>
                 </ul>
             </div>
@@ -4280,6 +4282,264 @@ function cloud_sky_generate_noise() {
 }
 
 // ---------------------------------------------------------------------------
+// 雷达回波云图（体积云天空的初始云模式，替代程序化天气覆盖率图）
+// 数据源：中央气象台组合反射率拼图 radar.png 与无底图背景 radar_background.png，
+// 全部图像处理在页面内完成：
+//   1) 地图区定位：右侧信息栏与地图之间有贯通全图的黑色竖线，其左侧正方形
+//      即地图区（边长 S px ↔ 512km，256km 半径回波圈内接，圆心=地图中心≈雷达站）；
+//   2) dBZ 调色板提取：右侧栏内饱和度最高的竖条即色标，顶=70dBZ、底=0dBZ 线性；
+//   3) 背景差分：|radar-background| 逐像素最大通道差 > 24 → 回波掩膜
+//      （文字/边界/河流等地图元素两图一致，差分自动消去）；
+//   4) 形态学：3×3 开运算去除残余孤岛（抗锯齿残差、站标等），3×3 闭运算填补小孔；
+//   5) 色彩→dBZ：回波像素颜色与色标逐行颜色最近邻匹配（欧氏距离）；
+//   6) 网格化：RADAR_CLOUD_GRID_N² 单元内回波占比 ≥15% 时取 90 分位 dBZ
+//      （保留对流核心），否则置 0（兼作最终清理）。
+// 采样约定：云世界系水平坐标 posKm=(东x, 北z)，单位 km；
+//   uv=(0.5+x/512, 0.5-z/512)，网格行 0=北，域外 dBZ=0。
+// ---------------------------------------------------------------------------
+const RADAR_CLOUD_GRID_N = 128;        // dBZ 网格边长（128² → 4km/格）
+const RADAR_CLOUD_SPAN_KM = 512.0;     // 雷达图范围（256km 半径 × 2）
+// 各云层的 dBZ→覆盖率标定：coverage=sat((dbz-dbz0)/scale)（dbz0 起云，dbz0+scale 满覆盖）
+//   低层：8dBZ 起云、22dBZ 满覆盖（降水回波即低云）；
+//   中层：12dBZ 起云、28dBZ 满覆盖；高层：25dBZ 起云、40dBZ 满覆盖（强对流冰晶砧）
+// 标定依据：本引擎 coverage→密度为阈值截取（remap(basicNoise,1-c,1)），
+//   需 c≈0.4-0.5 才有可见云量（与程序化天气图 blobs 的响应区间一致）
+const RADAR_CLOUD_LAYER_DBZ0  = [8.0, 12.0, 25.0];
+const RADAR_CLOUD_LAYER_SCALE = [14.0, 16.0, 15.0];
+
+const radarCloudState = {
+    enabled: true,          // 雷达云图开关（关则回退程序化天气图）
+    ready: false,           // dBZ 网格是否已生成
+    failed: false,          // 图片加载或处理失败（回退程序化）
+    dbzGrid: null,          // Float32Array(N×N)，行 0=北
+    dbzBytes: null,         // Uint8Array(N×N)，dbz/70*255（GPU 用）
+};
+
+// 启动加载雷达图与背景图（两图齐备后自动处理）
+function radar_cloud_start_loading() {
+    const radarImg = new Image();
+    const bgImg = new Image();
+    let radarOk = false, bgOk = false;
+    const tryProcess = () => {
+        if (!radarOk || !bgOk) return;
+        try {
+            radar_cloud_process(radarImg, bgImg);
+            radarCloudState.ready = true;
+        } catch (e) {
+            console.warn('雷达云图处理失败，回退程序化云图:', e);
+            radarCloudState.failed = true;
+        }
+        refresh_button_status();
+    };
+    radarImg.onload = () => { radarOk = true; tryProcess(); };
+    bgImg.onload = () => { bgOk = true; tryProcess(); };
+    radarImg.onerror = bgImg.onerror = () => {
+        console.warn('雷达云图图片加载失败，回退程序化云图');
+        radarCloudState.failed = true;
+    };
+    radarImg.src = '../image/radar.png';
+    bgImg.src = '../image/radar_background.png';
+}
+
+// 3×3 二值形态学（size×size 掩膜，原地写入 out）
+function radar_cloud_erode3(mask, out, size) {
+    for (let y = 0; y < size; y++) {
+        for (let x = 0; x < size; x++) {
+            let v = 1;
+            for (let dy = -1; dy <= 1 && v; dy++) {
+                const yy = y + dy;
+                if (yy < 0 || yy >= size) { v = 0; break; }
+                const row = yy * size;
+                for (let dx = -1; dx <= 1; dx++) {
+                    const xx = x + dx;
+                    if (xx < 0 || xx >= size || !mask[row + xx]) { v = 0; break; }
+                }
+            }
+            out[y * size + x] = v;
+        }
+    }
+}
+function radar_cloud_dilate3(mask, out, size) {
+    for (let y = 0; y < size; y++) {
+        for (let x = 0; x < size; x++) {
+            let v = 0;
+            for (let dy = -1; dy <= 1 && !v; dy++) {
+                const yy = y + dy;
+                if (yy < 0 || yy >= size) continue;
+                const row = yy * size;
+                for (let dx = -1; dx <= 1; dx++) {
+                    const xx = x + dx;
+                    if (xx >= 0 && xx < size && mask[row + xx]) { v = 1; break; }
+                }
+            }
+            out[y * size + x] = v;
+        }
+    }
+}
+
+// 核心处理：radar - background → dBZ 网格（见模块头注释的流水线）
+function radar_cloud_process(radarImg, bgImg) {
+    const W = radarImg.width, H = radarImg.height;
+    if (bgImg.width !== W || bgImg.height !== H) {
+        throw new Error('radar 与 background 尺寸不一致');
+    }
+    const readPixels = (img) => {
+        const cv = document.createElement('canvas');
+        cv.width = W; cv.height = H;
+        const cx = cv.getContext('2d', { willReadFrequently: true });
+        cx.drawImage(img, 0, 0);
+        return cx.getImageData(0, 0, W, H).data;
+    };
+    const rp = readPixels(radarImg);
+    const bp = readPixels(bgImg);
+
+    // 1) 地图区：右半幅中贯通全图的黑色竖线为地图/信息栏分界
+    let S = -1, bestBlack = 0;
+    for (let x = W >> 1; x < W; x++) {
+        let cnt = 0;
+        for (let y = 0; y < H; y++) {
+            const i = (y * W + x) * 4;
+            if (bp[i] < 40 && bp[i + 1] < 40 && bp[i + 2] < 40) cnt++;
+        }
+        if (cnt > bestBlack) { bestBlack = cnt; S = x; }
+    }
+    if (S < H * 0.5 || bestBlack < H * 0.8) throw new Error('未找到地图区分界线');
+    S = Math.min(S, H); // 地图区为正方形 [0,S)×[0,S)
+
+    // 2) 色标：信息栏内饱和度（max-min 通道）>100 像素最多的列
+    let bx = -1, bestSat = 0;
+    for (let x = S + 1; x < W; x++) {
+        let cnt = 0;
+        for (let y = 0; y < H; y++) {
+            const i = (y * W + x) * 4;
+            const mx = Math.max(bp[i], bp[i + 1], bp[i + 2]);
+            const mn = Math.min(bp[i], bp[i + 1], bp[i + 2]);
+            if (mx - mn > 100) cnt++;
+        }
+        if (cnt > bestSat) { bestSat = cnt; bx = x; }
+    }
+    if (bx < 0 || bestSat < 100) throw new Error('未找到 dBZ 色标');
+    let y0 = -1, y1 = -1;
+    for (let y = 0; y < H; y++) {
+        const i = (y * W + bx) * 4;
+        const mx = Math.max(bp[i], bp[i + 1], bp[i + 2]);
+        const mn = Math.min(bp[i], bp[i + 1], bp[i + 2]);
+        if (mx - mn > 100) { if (y0 < 0) y0 = y; y1 = y; }
+    }
+    if (y1 - y0 < 100) throw new Error('dBZ 色标过短');
+    // 调色板：逐行取色标中心 5 列均值；dBZ 顶 70 → 底 0 线性
+    const palN = y1 - y0 + 1;
+    const palR = new Float32Array(palN), palG = new Float32Array(palN), palB = new Float32Array(palN);
+    const palDbz = new Float32Array(palN);
+    const x0 = Math.max(0, bx - 2), x1 = Math.min(W - 1, bx + 2);
+    for (let k = 0; k < palN; k++) {
+        let r = 0, g = 0, b = 0;
+        for (let x = x0; x <= x1; x++) {
+            const i = ((y0 + k) * W + x) * 4;
+            r += bp[i]; g += bp[i + 1]; b += bp[i + 2];
+        }
+        const n = x1 - x0 + 1;
+        palR[k] = r / n; palG[k] = g / n; palB[k] = b / n;
+        palDbz[k] = 70.0 * (1.0 - k / (palN - 1));
+    }
+    // 精确颜色 → dBZ 哈希（回波为纯色填充，绝大多数像素直接命中；未命中再走最近邻）
+    const exactDbz = new Map();
+    for (let k = 0; k < palN; k++) {
+        exactDbz.set((Math.round(palR[k]) << 16) | (Math.round(palG[k]) << 8) | Math.round(palB[k]), palDbz[k]);
+    }
+    const nearestDbz = (r, g, b) => {
+        const key = (r << 16) | (g << 8) | b;
+        const hit = exactDbz.get(key);
+        if (hit !== undefined) return hit;
+        let best = 0, bestD = Infinity;
+        for (let k = 0; k < palN; k++) {
+            const dr = r - palR[k], dg = g - palG[k], db = b - palB[k];
+            const d = dr * dr + dg * dg + db * db;
+            if (d < bestD) { bestD = d; best = k; }
+        }
+        return palDbz[best];
+    };
+
+    // 3) 背景差分 → 回波掩膜（地图区 S×S）
+    let mask = new Uint8Array(S * S);
+    for (let y = 0; y < S; y++) {
+        for (let x = 0; x < S; x++) {
+            const i = (y * W + x) * 4;
+            const dr = rp[i] - bp[i], dg = rp[i + 1] - bp[i + 1], db = rp[i + 2] - bp[i + 2];
+            const d = Math.max(dr < 0 ? -dr : dr, dg < 0 ? -dg : dg, db < 0 ? -db : db);
+            mask[y * S + x] = (d > 24) ? 1 : 0;
+        }
+    }
+
+    // 4) 形态学：开运算去孤岛，闭运算填小孔
+    const tmp = new Uint8Array(S * S);
+    radar_cloud_erode3(mask, tmp, S);
+    radar_cloud_dilate3(tmp, mask, S);
+    radar_cloud_dilate3(mask, tmp, S);
+    radar_cloud_erode3(tmp, mask, S);
+
+    // 5)+6) 回波像素 → dBZ，网格化（占比≥15% 的单元取 90 分位）
+    const N = RADAR_CLOUD_GRID_N;
+    const cell = S / N;
+    const dbzGrid = new Float32Array(N * N);
+    const cellVals = [];
+    for (let gy = 0; gy < N; gy++) {
+        const py0 = Math.floor(gy * cell), py1 = Math.min(S, Math.floor((gy + 1) * cell));
+        for (let gx = 0; gx < N; gx++) {
+            const px0 = Math.floor(gx * cell), px1 = Math.min(S, Math.floor((gx + 1) * cell));
+            cellVals.length = 0;
+            const total = (py1 - py0) * (px1 - px0);
+            for (let y = py0; y < py1; y++) {
+                for (let x = px0; x < px1; x++) {
+                    if (mask[y * S + x]) {
+                        const i = (y * W + x) * 4;
+                        cellVals.push(nearestDbz(rp[i], rp[i + 1], rp[i + 2]));
+                    }
+                }
+            }
+            if (cellVals.length >= Math.max(2, total * 0.15)) {
+                cellVals.sort((a, b) => a - b);
+                dbzGrid[gy * N + gx] = cellVals[Math.min(cellVals.length - 1, Math.floor(cellVals.length * 0.9))];
+            }
+        }
+    }
+
+    const dbzBytes = new Uint8Array(N * N);
+    for (let i = 0; i < N * N; i++) {
+        dbzBytes[i] = Math.round(cloud_sky_clamp(dbzGrid[i] / 70.0, 0.0, 1.0) * 255.0);
+    }
+    radarCloudState.dbzGrid = dbzGrid;
+    radarCloudState.dbzBytes = dbzBytes;
+    console.log('雷达云图就绪: 地图区 ' + S + 'px↔512km, 色标 ' + palN + ' 行, 回波单元 ' +
+        dbzGrid.reduce((n, v) => n + (v > 0 ? 1 : 0), 0) + '/' + (N * N));
+}
+
+// dBZ 双线性采样（linearClampEdge 等效；uv 域外返回 0）
+function cloud_sky_sampleRadarDbz(ux, vy) {
+    if (!radarCloudState.ready) return 0.0;
+    if (ux < 0.0 || ux > 1.0 || vy < 0.0 || vy > 1.0) return 0.0;
+    const N = RADAR_CLOUD_GRID_N, tex = radarCloudState.dbzGrid;
+    let cx = ux * N - 0.5, cy = vy * N - 0.5;
+    let ix = Math.floor(cx), iy = Math.floor(cy);
+    const fx = cx - ix, fy = cy - iy;
+    const ix1 = ix < 0 ? 0 : (ix >= N ? N - 1 : ix);
+    const iy1 = iy < 0 ? 0 : (iy >= N ? N - 1 : iy);
+    const ix2 = ix + 1 < 0 ? 0 : (ix + 1 >= N ? N - 1 : ix + 1);
+    const iy2 = iy + 1 < 0 ? 0 : (iy + 1 >= N ? N - 1 : iy + 1);
+    const c00 = tex[iy1 * N + ix1], c10 = tex[iy1 * N + ix2];
+    const c01 = tex[iy2 * N + ix1], c11 = tex[iy2 * N + ix2];
+    return cloud_sky_mix(cloud_sky_mix(c00, c10, fx), cloud_sky_mix(c01, c11, fx), fy);
+}
+
+// 雷达覆盖率：posKm 水平坐标 (东kx, 北kz) km → 指定层的覆盖率 [0,1]
+function cloud_sky_radarCoverage(kx, kz, layer) {
+    const dbz = cloud_sky_sampleRadarDbz(
+        0.5 + kx / RADAR_CLOUD_SPAN_KM, 0.5 - kz / RADAR_CLOUD_SPAN_KM);
+    if (dbz <= 0.0) return 0.0;
+    return cloud_sky_saturate((dbz - RADAR_CLOUD_LAYER_DBZ0[layer]) / RADAR_CLOUD_LAYER_SCALE[layer]);
+}
+
+// ---------------------------------------------------------------------------
 // 透射率 LUT 与多重散射 LUT（flower sky_render.glsl 直译）
 // ---------------------------------------------------------------------------
 
@@ -4691,12 +4951,17 @@ function cloud_sky_cloudMap0(px, py, pz, normalizeHeight, appTime) {
 
     const woT = appTime * cloudSpeed;
     const wx = wdx * woT, wy = (wdy + 0.1) * woT, wz = wdz * woT;
-    const weatherValue = cloud_sky_sampleWrap2D(cloudSkyNoise.weather, CLOUD_SKY_CURL_DIM,
+    let weatherValue = cloud_sky_sampleWrap2D(cloudSkyNoise.weather, CLOUD_SKY_CURL_DIM,
         kx * s.cloudWeatherUVScale[0], kz * s.cloudWeatherUVScale[1]);
 
     let localCoverage = cloud_sky_sampleWrap2D(cloudSkyNoise.local, CLOUD_SKY_CURL_DIM,
         (wA + mx) * 0.000001 + 0.5, (wA + mz) * 0.000001 + 0.5);
     localCoverage = cloud_sky_saturate(localCoverage * 3.0 - 0.75) * 0.2;
+    // 雷达云图模式：以实测回波覆盖率替代程序化天气图（局部扰动置零，保持雷达结构）
+    if (radarCloudState.enabled && radarCloudState.ready) {
+        weatherValue = cloud_sky_radarCoverage(kx, kz, 0);
+        localCoverage = 0.0;
+    }
 
     const coverage = cloud_sky_saturate(kCoverage * (localCoverage + weatherValue));
     const gradienShape = cloud_sky_remap(normalizeHeight, 0.10, 0.80, s.cloudCoverage * 1.9, 0.2) *
@@ -4748,11 +5013,16 @@ function cloud_sky_cloudMap1(px, py, pz, normalizeHeight, appTime) {
     let wuvU = kx * s.cloudWeatherUVScale[0] * 0.5 + 0.39;
     let wuvV = kz * s.cloudWeatherUVScale[1] * 0.5 + 0.39;
     wuvV *= 2.0;
-    const weatherValue = cloud_sky_sampleWrap2D(cloudSkyNoise.weather, CLOUD_SKY_CURL_DIM, wuvU, wuvV);
+    let weatherValue = cloud_sky_sampleWrap2D(cloudSkyNoise.weather, CLOUD_SKY_CURL_DIM, wuvU, wuvV);
 
     let localCoverage = cloud_sky_sampleWrap2D(cloudSkyNoise.local, CLOUD_SKY_CURL_DIM,
         (wA + mx) * 0.000001 - 0.11, (wA + mz) * 0.000001 - 0.11);
     localCoverage = cloud_sky_saturate(localCoverage * 4.0 - 2.0) * 0.5;
+    // 雷达云图模式（中层约 12dBZ 起云，见 RADAR_CLOUD_LAYER_DBZ0）
+    if (radarCloudState.enabled && radarCloudState.ready) {
+        weatherValue = cloud_sky_radarCoverage(kx, kz, 1);
+        localCoverage = 0.0;
+    }
 
     // 中层覆盖增益：程序化 basic 噪声分布集中于中低段，flower 原门槛 1-coverage
     // 下有效云面积趋零。对 weather+local 掩膜放大 1.5 倍恢复中层云合理占比（同 ui_cloud.c）
@@ -4805,11 +5075,16 @@ function cloud_sky_cloudMap2(px, py, pz, normalizeHeight, appTime) {
     let wuvU = kx * s.cloudWeatherUVScale[0] * 0.6 + 0.739;
     let wuvV = kz * s.cloudWeatherUVScale[1] * 0.6 + 0.739;
     wuvV *= 6.0;
-    const weatherValue = cloud_sky_sampleWrap2D(cloudSkyNoise.weather, CLOUD_SKY_CURL_DIM, wuvU, wuvV);
+    let weatherValue = cloud_sky_sampleWrap2D(cloudSkyNoise.weather, CLOUD_SKY_CURL_DIM, wuvU, wuvV);
 
     let localCoverage = cloud_sky_sampleWrap2D(cloudSkyNoise.local, CLOUD_SKY_CURL_DIM,
         (wA + mx) * 0.000001 - 0.39, (wA + mz) * 0.000001 - 0.39);
     localCoverage = cloud_sky_saturate(1.0 - Math.pow(cloud_sky_clamp(localCoverage, 0.0, 1.0), 8.0));
+    // 雷达云图模式（高层约 25dBZ 起云强对流，见 RADAR_CLOUD_LAYER_DBZ0）
+    if (radarCloudState.enabled && radarCloudState.ready) {
+        weatherValue = cloud_sky_radarCoverage(kx, kz, 2);
+        localCoverage = 0.0;
+    }
 
     const coverage = cloud_sky_saturate(kCoverage * (localCoverage + weatherValue));
     const gradienShape = cloud_sky_remap(normalizeHeight, 0.00, 0.01, 0.1, 1.0) *
@@ -5674,6 +5949,16 @@ const CloudSkyWebGL = {
         gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
         gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
 
+        // 雷达回波 dBZ 纹理（128^2 R8，数据异步就绪后由 uploadRadar 上传；先占位 1x1 零值）
+        this.texRadar = gl.createTexture();
+        gl.bindTexture(gl.TEXTURE_2D, this.texRadar);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+        gl.texImage2D(gl.TEXTURE_2D, 0, gl.R8, 1, 1, 0, gl.RED, gl.UNSIGNED_BYTE, new Uint8Array(1));
+        this.radarUploaded = false;
+
         // 输出纹理与帧缓冲
         this.texture = gl.createTexture();
         gl.bindTexture(gl.TEXTURE_2D, this.texture);
@@ -5703,6 +5988,7 @@ const CloudSkyWebGL = {
         gl.uniform1i(gl.getUniformLocation(this.program, 'u_weather_noise'), 4);
         gl.uniform1i(gl.getUniformLocation(this.program, 'u_trans_lut'), 5);
         gl.uniform1i(gl.getUniformLocation(this.program, 'u_ms_lut'), 6);
+        gl.uniform1i(gl.getUniformLocation(this.program, 'u_radar_map'), 7);
 
         // 获取 uniform 位置
         this.uniforms = {
@@ -5736,7 +6022,8 @@ const CloudSkyWebGL = {
             u_ms_extinction: gl.getUniformLocation(this.program, 'u_ms_extinction'),
             u_ambient_scale: gl.getUniformLocation(this.program, 'u_ambient_scale'),
             u_march_steps: gl.getUniformLocation(this.program, 'u_march_steps'),
-            u_light_steps: gl.getUniformLocation(this.program, 'u_light_steps')
+            u_light_steps: gl.getUniformLocation(this.program, 'u_light_steps'),
+            u_radar_enable: gl.getUniformLocation(this.program, 'u_radar_enable')
         };
 
         console.log('WebGL2 cloud sky initialized');
@@ -5803,6 +6090,18 @@ const CloudSkyWebGL = {
         this.noiseUploaded = true;
     },
 
+    // 上传雷达回波 dBZ 网格（异步处理就绪后调用一次；幂等）
+    uploadRadar: function() {
+        const gl = this.gl;
+        if (!radarCloudState.ready || !radarCloudState.dbzBytes) return;
+        gl.activeTexture(gl.TEXTURE7);
+        gl.bindTexture(gl.TEXTURE_2D, this.texRadar);
+        gl.texImage2D(gl.TEXTURE_2D, 0, gl.R8,
+            RADAR_CLOUD_GRID_N, RADAR_CLOUD_GRID_N, 0, gl.RED, gl.UNSIGNED_BYTE, radarCloudState.dbzBytes);
+        this.radarUploaded = true;
+    },
+
+
     // 上传（刷新）LUT 纹理内容（LUT 随太阳变化重算，逐帧同步成本可忽略）
     updateLuts: function() {
         const gl = this.gl;
@@ -5854,6 +6153,7 @@ const CloudSkyWebGL = {
             cloudSkyState.noiseReady = true;
         }
         if (!this.noiseUploaded) this.uploadNoise();
+        if (!this.radarUploaded && radarCloudState.ready) this.uploadRadar();
         this.updateLuts();
 
         // 调整输出纹理尺寸
@@ -5913,6 +6213,8 @@ const CloudSkyWebGL = {
         gl.uniform1f(this.uniforms.u_ambient_scale, cloudSkyScene.cloudAmbientScale);
         gl.uniform1i(this.uniforms.u_march_steps, cloudSkyScene.cloudMarchingStepNum);
         gl.uniform1i(this.uniforms.u_light_steps, cloudSkyScene.cloudLightStepNum);
+        gl.uniform1f(this.uniforms.u_radar_enable,
+            (radarCloudState.enabled && radarCloudState.ready && this.radarUploaded) ? 1.0 : 0.0);
 
         // 绑定纹理单元
         gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_3D, this.texBasic);
@@ -5922,6 +6224,7 @@ const CloudSkyWebGL = {
         gl.activeTexture(gl.TEXTURE4); gl.bindTexture(gl.TEXTURE_2D, this.texWeather);
         gl.activeTexture(gl.TEXTURE5); gl.bindTexture(gl.TEXTURE_2D, this.texTransLut);
         gl.activeTexture(gl.TEXTURE6); gl.bindTexture(gl.TEXTURE_2D, this.texMsLut);
+        gl.activeTexture(gl.TEXTURE7); gl.bindTexture(gl.TEXTURE_2D, this.texRadar);
 
         gl.drawArrays(gl.TRIANGLES, 0, 6);
 
@@ -6058,6 +6361,8 @@ const CloudSkyWebGL = {
         uniform highp sampler2D u_weather_noise; // 64^2 天气覆盖率
         uniform highp sampler2D u_trans_lut;     // 64x16 透射率 LUT
         uniform highp sampler2D u_ms_lut;        // 48x24 多重散射 LUT
+        uniform highp sampler2D u_radar_map;     // 128^2 雷达回波 dBZ/70（行0=北）
+        uniform float u_radar_enable;            // 雷达云图模式开关
 
         const float PI = 3.14159265358979323846;
         const float kEarthBottomRadius = 6360.0;
@@ -6388,6 +6693,17 @@ const CloudSkyWebGL = {
         // -----------------------------------------------------------------
         // 云形状（flower cloud_render_common.glsl cloudMap0/1/2 直译）
         // -----------------------------------------------------------------
+        // 雷达回波覆盖率（与 JS cloud_sky_radarCoverage 一致）：
+        // posKmXZ=(东,北) km，域 ±256km 直接对齐玲珑仪地平圈，域外=0；
+        // coverage=sat((dbz-dbz0)/scale)，dbz0/scale 为层起云点与斜率
+        float radarCoverage(vec2 posKmXZ, float dbz0, float scale) {
+            vec2 uv = vec2(0.5 + posKmXZ.x / 512.0, 0.5 - posKmXZ.y / 512.0);
+            if (uv.x < 0.0 || uv.x > 1.0 || uv.y < 0.0 || uv.y > 1.0) return 0.0;
+            float dbz = texture(u_radar_map, uv).r * 70.0;
+            if (dbz <= 0.0) return 0.0;
+            return sat_((dbz - dbz0) / scale);
+        }
+
         float cloudMap0(vec3 posMeter, float normalizeHeight, float appTime) {
             const float kCoverage = 0.5;
             const float kDensity = kCloudDensity * 2.0;
@@ -6408,6 +6724,11 @@ const CloudSkyWebGL = {
                 (appTime * kCloudSpeed * 50.0 + posMeter.x) * 0.000001 + 0.5,
                 (appTime * kCloudSpeed * 50.0 + posMeter.z) * 0.000001 + 0.5)).r;
             localCoverage = sat_(localCoverage * 3.0 - 0.75) * 0.2;
+            // 雷达云图模式：以实测回波覆盖率替代程序化天气图
+            if (u_radar_enable > 0.5) {
+                weatherValue = radarCoverage(posKm.xz, 8.0, 14.0);
+                localCoverage = 0.0;
+            }
 
             float coverage = sat_(kCoverage * (localCoverage + weatherValue));
             float gradienShape = remap_(normalizeHeight, 0.10, 0.80, u_coverage * 1.9, 0.2) *
@@ -6453,6 +6774,11 @@ const CloudSkyWebGL = {
                 (appTime * kCloudSpeed * 50.0 + posMeter.x) * 0.000001 - 0.11,
                 (appTime * kCloudSpeed * 50.0 + posMeter.z) * 0.000001 - 0.11)).r;
             localCoverage = sat_(localCoverage * 4.0 - 2.0) * 0.5;
+            // 雷达云图模式（中层约 12dBZ 起云）
+            if (u_radar_enable > 0.5) {
+                weatherValue = radarCoverage(posKm.xz, 12.0, 16.0);
+                localCoverage = 0.0;
+            }
 
             // 中层覆盖增益（同 ui_cloud.c：恢复中层云合理占比）
             float coverage = sat_(kCoverage * (localCoverage + weatherValue) * 1.5);
@@ -6499,6 +6825,11 @@ const CloudSkyWebGL = {
                 (appTime * kCloudSpeed * 50.0 + posMeter.x) * 0.000001 - 0.39,
                 (appTime * kCloudSpeed * 50.0 + posMeter.z) * 0.000001 - 0.39)).r;
             localCoverage = sat_(1.0 - pow(sat_(localCoverage), 8.0));
+            // 雷达云图模式（高层约 25dBZ 起云）
+            if (u_radar_enable > 0.5) {
+                weatherValue = radarCoverage(posKm.xz, 25.0, 15.0);
+                localCoverage = 0.0;
+            }
 
             float coverage = sat_(kCoverage * (localCoverage + weatherValue));
             float gradienShape = remap_(normalizeHeight, 0.00, 0.01, 0.1, 1.0) *
@@ -9544,6 +9875,20 @@ function refresh_button_status() {
             ? `<span class="switch_on">开启</span>`
             : `<span class="switch_off">关闭</span>`;
         document.getElementById("cloud_lens_status").innerHTML = status;
+
+        // 雷达云图开关（radarCloudState.enabled；未就绪时显示来源状态）
+        if (radarCloudState.failed) {
+            status = `<span class="switch_off">无图</span>`;
+        }
+        else if (!radarCloudState.ready) {
+            status = `<span class="switch_off">加载中</span>`;
+        }
+        else {
+            status = (radarCloudState.enabled)
+                ? `<span class="switch_on">开启</span>`
+                : `<span class="switch_off">程序化</span>`;
+        }
+        document.getElementById("radar_cloud_status").innerHTML = status;
     }
     else {
         cloud_sky_ctl.style.display = "none";
@@ -9593,6 +9938,7 @@ function refresh_button_status() {
 
 
 load_landscape_texture(landscape_index);
+radar_cloud_start_loading();
 
 
 function clamp_view_angle() {
@@ -9721,6 +10067,11 @@ function init() {
     // 镜头光晕开关（仅影响体积云天空内建 HDR 光晕；太阳低于地平线时不受此开关控制、恒不显示）
     document.getElementById("toggle_cloud_lens").addEventListener("click", function(e) {
         enable_cloud_sun_lens = !enable_cloud_sun_lens;
+        refresh_button_status();
+    });
+    // 雷达云图开关（体积云天空初始云模式：实测回波 ↔ 程序化天气图）
+    document.getElementById("toggle_radar_cloud").addEventListener("click", function(e) {
+        radarCloudState.enabled = !radarCloudState.enabled;
         refresh_button_status();
     });
 
