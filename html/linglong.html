@@ -505,7 +505,7 @@ a {
                     <li>体积云渲染非常慢，请按需启用。</li>
                     <li>"体积云天空"为大气散射的第四种模型（Bruneton 天空 + 三层体积云），支持 JS 与 GLSL 双实现；GPU 路径需要 WebGL2，首次启用需生成噪声纹理（约 1 秒），无 WebGL2 时自动回退到较慢的 JS 渲染。</li>
                     <li>选择"体积云天空"后，可用其下的"云量/云类/云亮度"按钮调节云的档位（6档）、显示种类（按层掩码 0-7 共 8 种组合：无云/仅低层/仅中层/低+中/仅高层/低+高/中+高/所有云）与亮度（0.5~2.0）。</li>
-                    <li>"雷达云图"开启后（默认开启），体积云天空的初始云模式取自中央气象台组合反射率图（radar.png 减 radar_background.png 底图、形态学去地图元素、色标反演 dBZ），雷达 256km 范围与地平圈直接对齐；dBZ 经三通道调制云场：覆盖率决定有无疏密（封顶 35/45/55dBZ）、云顶高度决定类别（弱回波压扁为层云、强回波发展为全塔积雨云）、密度系数决定厚薄；中高度云另以双频噪声调制破碎边缘、消除周期感；处理全部在页面内完成，图片缺失或处理失败时自动回退程序化云图。</li>
+                    <li>"雷达云图"开启后（默认开启），体积云天空的初始云模式取自中央气象台组合反射率图（radar.png 减 radar_background.png 底图、形态学去地图元素、色标反演 dBZ），雷达 256km 范围与地平圈直接对齐；dBZ 经三通道调制云场：覆盖率决定有无疏密（封顶 35/45/55dBZ）、云顶高度决定类别（弱回波压扁为层云、强回波发展为全塔积雨云）、密度系数决定厚薄；中高度云另以双频噪声调制破碎边缘、消除周期感，并对回波轮廓做域扭曲（~2.5km 特征）与高频 dBZ 抖动，使大片云的平直硬边变成曲折破碎的自然边缘；处理全部在页面内完成，图片缺失或处理失败时自动回退程序化云图。</li>
                     <li>本系统由 Kimi K2.7、K3、本地部署的 DeepSeek-V4-Flash、GLM5.3-Flash 辅助编码。</li>
                 </ul>
             </div>
@@ -3848,6 +3848,12 @@ const CLOUD_SKY_SATURATION_BOOST = 1.25; // 补偿逐通道 ACES 的去饱和
 const CLOUD_SKY_COVERAGE_LEVELS = [0.000, 0.325, 0.340, 0.353, 0.368, 0.395];
 const CLOUD_SKY_COVERAGE_DEFAULT_LEVEL = 2;
 const CLOUD_SKY_BRIGHTNESS_DEFAULT = 1.4;
+// 雷达云图边缘破碎化（仅中/高层）：radar 回波轮廓经 4km 网格量化后大片云
+// 边缘呈整齐平直的直线。用非平铺多频值噪声做域扭曲（~2.5km 特征）把回波等值线
+// 扭成曲折形，再叠加高频 dBZ 抖动（~0.9km）让边界向外/向内啮咬、碎裂成
+// 自然的不规则边缘（无回波处 dbz≈0，抖动幅度 << 起云阈值，仍不产生云）。
+const CLOUD_SKY_EDGE_WARP_KM = 8.0;   // 域扭曲幅度（km）
+const CLOUD_SKY_EDGE_JIT_DBZ = 8.0;   // dBZ 抖动幅度
 // CPU 回退路径的降档步进（GLSL 版保持 flower 默认 128/12）
 const CLOUD_SKY_CPU_MARCH_STEPS = 64;
 const CLOUD_SKY_CPU_LIGHT_STEPS = 6;
@@ -4197,6 +4203,43 @@ function cloud_sky_sampleWrap2D3(tex, dim, ux, uy, out) {
         const c11 = tex[base + iy1 * dim + ix1];
         out[c] = cloud_sky_mix(cloud_sky_mix(c00, c10, fx), cloud_sky_mix(c01, c11, fx), fy);
     }
+}
+
+// ---------------------------------------------------------------------------
+// 非平铺哈希值噪声（2D）
+// 纹理采样必须 wrap，因而 tileable 纹理的采样结果天然按纹理周期（如 local
+// 纹理的 50km/1000km）重复；域扭曲与雷达边缘调制若基于它，就会把该周期注入
+// 云场，使中层云在大尺度上呈现规律性周期性。改用不经过纹理 wrap 的哈希值噪声
+// （格点由整数哈希决定，无平铺周期），即可在任意尺度上消除重复。
+// 取哈希高 24 位以保证 float/GLSL 可精确表示，并与 GLSL 实现逐位一致。
+// ---------------------------------------------------------------------------
+function cloud_sky_hashFloat(ix, iz, seed) {
+    // 末尾 avalanche 混合（同 MurmurHash3 finalizer）：仅 x 变化时 hashT
+    // 高 24 位变化不足（相邻格点哈希几乎相同），必须充分扩散到高位
+    let t = cloud_sky_hashT(ix, iz, seed);
+    t = (t ^ (t >>> 16)) >>> 0;
+    t = Math.imul(t, 2246822507) >>> 0;
+    t = (t ^ (t >>> 13)) >>> 0;
+    t = Math.imul(t, 3266489909) >>> 0;
+    t = (t ^ (t >>> 16)) >>> 0;
+    return (t >>> 8) / 16777215.0;
+}
+function cloud_sky_valueNoise2(x, z, seed) {
+    const ix = Math.floor(x), iz = Math.floor(z);
+    const fx = x - ix, fz = z - iz;
+    const ux = fx * fx * (3.0 - 2.0 * fx);
+    const uz = fz * fz * (3.0 - 2.0 * fz);
+    const n00 = cloud_sky_hashFloat(ix, iz, seed);
+    const n10 = cloud_sky_hashFloat(ix + 1, iz, seed);
+    const n01 = cloud_sky_hashFloat(ix, iz + 1, seed);
+    const n11 = cloud_sky_hashFloat(ix + 1, iz + 1, seed);
+    const a = n00 + (n10 - n00) * ux;
+    const b = n01 + (n11 - n01) * ux;
+    return a + (b - a) * uz;
+}
+function cloud_sky_valueNoise2Fbm(x, z, seed) {
+    return cloud_sky_valueNoise2(x, z, seed) * 0.65 +
+        cloud_sky_valueNoise2(x * 2.0, z * 2.0, seed + 17) * 0.35;
 }
 
 // 噪声图生成（ui_cloud.c cloud_generate_noise_textures 直译；仅调用一次）
@@ -5058,11 +5101,16 @@ function cloud_sky_cloudMap1(px, py, pz, normalizeHeight, appTime) {
     //   乘性保证无回波处恒无云；weatherValue 封顶 1.0 不越过已验证的安全覆盖率
     let radarTopWindow = 1.0, radarDensScale = 1.0;
     if (radarCloudState.enabled && radarCloudState.ready) {
-        const dbz = cloud_sky_radarDbzAt(kx, kz);
-        const localCoarse = cloud_sky_sampleWrap2D(cloudSkyNoise.local, CLOUD_SKY_CURL_DIM,
-            (wA + mx) * 0.000001 - 0.11, (wA + mz) * 0.000001 - 0.11);
-        const localFine = cloud_sky_sampleWrap2D(cloudSkyNoise.local, CLOUD_SKY_CURL_DIM,
-            (wA + mx) * 0.00002 - 0.11, (wA + mz) * 0.00002 - 0.11);
+        // 边缘破碎化：域扭曲 + 高频 dBZ 抖动（非平铺多频值噪声）
+        const edgeWarpX = cloud_sky_valueNoise2Fbm(kx / 2.5, kz / 2.5, 501) - 0.5;
+        const edgeWarpZ = cloud_sky_valueNoise2Fbm(kx / 2.5 + 7.3, kz / 2.5 + 2.9, 503) - 0.5;
+        const edgeJit = cloud_sky_valueNoise2Fbm((wA + mx) / 900.0, (wA + mz) / 900.0, 601) - 0.5;
+        const dbz = cloud_sky_radarDbzAt(
+            kx + edgeWarpX * CLOUD_SKY_EDGE_WARP_KM,
+            kz + edgeWarpZ * CLOUD_SKY_EDGE_WARP_KM) + edgeJit * CLOUD_SKY_EDGE_JIT_DBZ;
+        // 非平铺值噪声取代 local 纹理：粗约 15km / 细约 0.8km，避免 50km 平铺周期
+        const localCoarse = cloud_sky_valueNoise2Fbm((wA + mx) / 15600.0, (wA + mz) / 15600.0, 307);
+        const localFine = cloud_sky_valueNoise2Fbm((wA + mx) / 800.0, (wA + mz) / 800.0, 409);
         weatherValue = cloud_sky_saturate(cloud_sky_radarWeather(dbz, 1) *
             (0.6 + 0.8 * localFine) * (0.7 + 0.6 * localCoarse));
         localCoverage = 0.0;
@@ -5079,12 +5127,11 @@ function cloud_sky_cloudMap1(px, py, pz, normalizeHeight, appTime) {
         cloud_sky_remap(normalizeHeight, 0.10, 0.80, 0.7, 0.2);
 
     // 域扭曲破平铺（程序化/雷达路径共用）：basic/detail 噪声为 64³/32³ tileable 纹理，
-    // 本层平铺周期 1.7km/0.8km，大尺度观看呈周期重复。用 local 噪声两个去相关通道
-    // （~0.8km 特征）把采样域在 x/z 方向逐格错开 ±0.5 纹理周期，相邻瓦片错相
-    const warpU1 = cloud_sky_sampleWrap2D(cloudSkyNoise.local, CLOUD_SKY_CURL_DIM,
-        (wA + mx) * 0.00002 + 0.17, (wA + mz) * 0.00002 + 0.17) - 0.5;
-    const warpV1 = cloud_sky_sampleWrap2D(cloudSkyNoise.local, CLOUD_SKY_CURL_DIM,
-        (wA + mx) * 0.00002 + 0.53, (wA + mz) * 0.00002 + 0.53) - 0.5;
+    // 本层平铺周期 1.7km/0.8km，大尺度观看呈周期重复。用非平铺哈希值噪声两个去相关
+    // 通道（~0.8km 特征）把采样域在 x/z 方向逐格错开 ±0.5 纹理周期，相邻瓦片错相；
+    // 值噪声无 wrap 周期，故不会像原 local 纹理那样每 50km 复现同一个扭曲场
+    const warpU1 = cloud_sky_valueNoise2Fbm((wA + mx) / 800.0 + 0.17, (wA + mz) / 800.0 + 0.17, 101) - 0.5;
+    const warpV1 = cloud_sky_valueNoise2Fbm((wA + mx) / 800.0 + 0.53, (wA + mz) / 800.0 + 0.53, 211) - 0.5;
 
     const basicNoise = cloud_sky_sampleWrap3D(cloudSkyNoise.basic, CLOUD_SKY_BASIC_DIM,
         (kx + wx) * s.cloudBasicNoiseScale * 2.0 + warpU1, (ky + wy) * s.cloudBasicNoiseScale * 2.0, (kz + wz) * s.cloudBasicNoiseScale * 2.0 + warpV1);
@@ -5140,11 +5187,16 @@ function cloud_sky_cloudMap2(px, py, pz, normalizeHeight, appTime) {
     // + 双频噪声乘性调制（同中层分支注释）
     let radarTopWindow = 1.0, radarDensScale = 1.0;
     if (radarCloudState.enabled && radarCloudState.ready) {
-        const dbz = cloud_sky_radarDbzAt(kx, kz);
-        const localCoarse = cloud_sky_sampleWrap2D(cloudSkyNoise.local, CLOUD_SKY_CURL_DIM,
-            (wA + mx) * 0.000001 - 0.39, (wA + mz) * 0.000001 - 0.39);
-        const localFine = cloud_sky_sampleWrap2D(cloudSkyNoise.local, CLOUD_SKY_CURL_DIM,
-            (wA + mx) * 0.00002 - 0.39, (wA + mz) * 0.00002 - 0.39);
+        // 边缘破碎化：域扭曲 + 高频 dBZ 抖动（同中层）
+        const edgeWarpX = cloud_sky_valueNoise2Fbm(kx / 2.5, kz / 2.5, 511) - 0.5;
+        const edgeWarpZ = cloud_sky_valueNoise2Fbm(kx / 2.5 + 3.7, kz / 2.5 + 8.1, 513) - 0.5;
+        const edgeJit = cloud_sky_valueNoise2Fbm((wA + mx) / 900.0, (wA + mz) / 900.0, 611) - 0.5;
+        const dbz = cloud_sky_radarDbzAt(
+            kx + edgeWarpX * CLOUD_SKY_EDGE_WARP_KM,
+            kz + edgeWarpZ * CLOUD_SKY_EDGE_WARP_KM) + edgeJit * CLOUD_SKY_EDGE_JIT_DBZ;
+        // 非平铺值噪声取代 local 纹理（同中层）：避免 50km 平铺周期
+        const localCoarse = cloud_sky_valueNoise2Fbm((wA + mx) / 15600.0, (wA + mz) / 15600.0, 311);
+        const localFine = cloud_sky_valueNoise2Fbm((wA + mx) / 800.0, (wA + mz) / 800.0, 419);
         weatherValue = cloud_sky_saturate(cloud_sky_radarWeather(dbz, 2) *
             (0.6 + 0.8 * localFine) * (0.7 + 0.6 * localCoarse));
         localCoverage = 0.0;
@@ -5159,10 +5211,9 @@ function cloud_sky_cloudMap2(px, py, pz, normalizeHeight, appTime) {
         cloud_sky_remap(normalizeHeight, 0.10, 0.20, 0.8, 0.5);
 
     // 域扭曲破平铺（同 cloudMap1 注释；本层 basic 平铺周期 1.1km）
-    const warpU2 = cloud_sky_sampleWrap2D(cloudSkyNoise.local, CLOUD_SKY_CURL_DIM,
-        (wA + mx) * 0.00002 + 0.29, (wA + mz) * 0.00002 + 0.29) - 0.5;
-    const warpV2 = cloud_sky_sampleWrap2D(cloudSkyNoise.local, CLOUD_SKY_CURL_DIM,
-        (wA + mx) * 0.00002 + 0.61, (wA + mz) * 0.00002 + 0.61) - 0.5;
+    // 用非平铺哈希值噪声，避免 local 纹理 wrap 带来的 50km 重复
+    const warpU2 = cloud_sky_valueNoise2Fbm((wA + mx) / 800.0 + 0.29, (wA + mz) / 800.0 + 0.29, 121) - 0.5;
+    const warpV2 = cloud_sky_valueNoise2Fbm((wA + mx) / 800.0 + 0.61, (wA + mz) / 800.0 + 0.61, 223) - 0.5;
 
     const basicNoise = cloud_sky_sampleWrap3D(cloudSkyNoise.basic, CLOUD_SKY_BASIC_DIM,
         (kx + wx + 0.39) * s.cloudBasicNoiseScale * 3.0 + warpU2, (ky + wy + 0.39) * s.cloudBasicNoiseScale * 3.0, (kz + wz + 0.39) * s.cloudBasicNoiseScale * 3.0 + warpV2);
@@ -5832,11 +5883,16 @@ function scatter_model_4(ray_vec, sun_vec, sky_only) {
 
     if (!sky_only && state.noiseReady) {
         // 体积云（球壳 ray-march）
-        // per-sample 蓝噪抖动（对应 flower 网格化 blue noise 种子旋转；以方向+帧号散列）
+        // per-pixel 时空去相关抖动（替代原 IGN + 线性帧偏移）：
+        // 原实现对每帧给整个 IGN 图案施加一个全局平移，当平移量 > 一个空间周期时
+        // 发生时间混叠，表现为"水波纹"式方向性滚动干扰。现改为对 (量化方向, 帧号)
+        // 做 full-avalanche 哈希：像素位置与帧号均为独立哈希输入，帧间/像素间抖动
+        // 互不相关，只呈现无结构的沸腾噪声，不再出现可辨识的滚动/水波图案。
+        // （JS 路径无屏幕像素坐标，以视线方向量化代理像素位置；与 GLSL 语义一致）
         const fj = state.frameIndex % 9973;
-        const njx = (cloud_sky_fract(rdx * 0.3751 + rdz * 0.2587) * 997.0) + fj * 32.705; // 0.695*47
-        const njy = (cloud_sky_fract(rdz * 0.4396 + rdy * 0.1171) * 997.0) + fj * 11.815; // 0.695*17
-        const jitter = cloud_sky_fract(52.9829189 * cloud_sky_fract(njx * 0.06711056 + njy * 0.00583715));
+        const jx = Math.round(rdx * 4096.0);
+        const jy = Math.round(rdy * 4096.0);
+        const jitter = cloud_sky_hashFloat(jx, jy, fj + 1013);
 
         const cloud = cloudSkyCloudTmp;
         cloud_sky_cloudPixelCompute(
@@ -6391,6 +6447,7 @@ const CloudSkyWebGL = {
     // 片段着色器：体积云 + 天空散射（ui_cloud.c / flower 算法的 GLSL 移植）
     fragmentShaderSource: `#version 300 es
         precision highp float;
+        precision highp int;   // uint 哈希需完整 32 位精度
 
         in vec2 v_texCoord;
         out vec4 fragColor;
@@ -6455,6 +6512,9 @@ const CloudSkyWebGL = {
         const float kCloudTracingStartMaxDistance = 350.0;
         const float kCloudBasicNoiseScale = 0.3;
         const float kCloudDetailNoiseScale = 0.6;
+        // 雷达云图边缘破碎化（同 JS CLOUD_SKY_EDGE_*）：域扭曲 + dBZ 抖动
+        const float kEdgeWarpKm = 8.0;
+        const float kEdgeJitDbz = 8.0;
         const float kCloudPhaseForward = 0.5;
         const float kCloudPhaseBackward = -0.5;
         const float kCloudPhaseMixFactor = 0.5;
@@ -6784,6 +6844,39 @@ const CloudSkyWebGL = {
         float radarTopH(float dbz) { return 0.10 + 0.90 * sat_((dbz - 6.0) / 49.0); }
         float radarDensityScale(float dbz) { return 0.6 + 1.6 * sat_((dbz - 6.0) / 49.0); }
 
+        // 非平铺哈希值噪声（2D）：与 JS cloud_sky_valueNoise2 逐位一致。
+        // 不经过纹理 wrap，因而不引入 local 纹理的 50km/1000km 平铺周期
+        uint cloudHashT(int px, int py, int pz) {
+            uint x = uint(px) * 1597334673u;
+            uint y = uint(py) * 3812015801u;
+            uint z = uint(pz) * 2798796415u;
+            return x ^ y ^ z;
+        }
+        float cloudHashFloat(int ix, int iz, int seed) {
+            // 末尾 avalanche 混合（与 JS cloud_sky_hashFloat 逐位一致）
+            uint t = cloudHashT(ix, iz, seed);
+            t = (t ^ (t >> 16u));
+            t = t * 2246822507u;
+            t = (t ^ (t >> 13u));
+            t = t * 3266489909u;
+            t = (t ^ (t >> 16u));
+            return float(t >> 8u) * (1.0 / 16777215.0);
+        }
+        float valueNoise2(vec2 p, int seed) {
+            vec2 ip = floor(p);
+            vec2 fp = fract(p);
+            vec2 u = fp * fp * (3.0 - 2.0 * fp);
+            int ix = int(ip.x), iz = int(ip.y);
+            float n00 = cloudHashFloat(ix, iz, seed);
+            float n10 = cloudHashFloat(ix + 1, iz, seed);
+            float n01 = cloudHashFloat(ix, iz + 1, seed);
+            float n11 = cloudHashFloat(ix + 1, iz + 1, seed);
+            return mix(mix(n00, n10, u.x), mix(n01, n11, u.x), u.y);
+        }
+        float valueNoise2Fbm(vec2 p, int seed) {
+            return valueNoise2(p, seed) * 0.65 + valueNoise2(p * 2.0, seed + 17) * 0.35;
+        }
+
         float cloudMap0(vec3 posMeter, float normalizeHeight, float appTime) {
             const float kCoverage = 0.5;
             const float kDensity = kCloudDensity * 2.0;
@@ -6864,13 +6957,20 @@ const CloudSkyWebGL = {
             // + 双频噪声乘性调制（同 JS cloud_sky_cloudMap1 雷达分支注释）
             float radarTopWindow = 1.0, radarDensScale = 1.0;
             if (u_radar_enable > 0.5) {
-                float dbz = radarDbz(posKm.xz);
-                float localCoarse = texture(u_local_noise, vec2(
-                    (appTime * kCloudSpeed * 50.0 + posMeter.x) * 0.000001 - 0.11,
-                    (appTime * kCloudSpeed * 50.0 + posMeter.z) * 0.000001 - 0.11)).r;
-                float localFine = texture(u_local_noise, vec2(
-                    (appTime * kCloudSpeed * 50.0 + posMeter.x) * 0.00002 - 0.11,
-                    (appTime * kCloudSpeed * 50.0 + posMeter.z) * 0.00002 - 0.11)).r;
+                // 边缘破碎化：域扭曲 + 高频 dBZ 抖动（非平铺多频值噪声）
+                float ewX = valueNoise2Fbm(vec2(posKm.x / 2.5, posKm.z / 2.5), 501) - 0.5;
+                float ewZ = valueNoise2Fbm(vec2(posKm.x / 2.5 + 7.3, posKm.z / 2.5 + 2.9), 503) - 0.5;
+                float ej = valueNoise2Fbm(vec2(
+                    (appTime * kCloudSpeed * 50.0 + posMeter.x) / 900.0,
+                    (appTime * kCloudSpeed * 50.0 + posMeter.z) / 900.0), 601) - 0.5;
+                float dbz = radarDbz(posKm.xz + vec2(ewX, ewZ) * kEdgeWarpKm) + ej * kEdgeJitDbz;
+                // 非平铺值噪声取代 local 纹理：粗约 15km / 细约 0.8km，避免 50km 平铺周期
+                float localCoarse = valueNoise2Fbm(vec2(
+                    (appTime * kCloudSpeed * 50.0 + posMeter.x) / 15600.0,
+                    (appTime * kCloudSpeed * 50.0 + posMeter.z) / 15600.0), 307);
+                float localFine = valueNoise2Fbm(vec2(
+                    (appTime * kCloudSpeed * 50.0 + posMeter.x) / 800.0,
+                    (appTime * kCloudSpeed * 50.0 + posMeter.z) / 800.0), 409);
                 weatherValue = sat_(radarWeather(dbz, 10.0, 20.0, 45.0) *
                     (0.6 + 0.8 * localFine) * (0.7 + 0.6 * localCoarse));
                 localCoverage = 0.0;
@@ -6886,12 +6986,13 @@ const CloudSkyWebGL = {
                                  remap_(normalizeHeight, 0.10, 0.80, 0.7, 0.2);
 
             // 域扭曲破平铺（同 JS cloud_sky_cloudMap1 注释；本层平铺周期 1.7km/0.8km）
-            float warpU1 = texture(u_local_noise, vec2(
-                (appTime * kCloudSpeed * 50.0 + posMeter.x) * 0.00002 + 0.17,
-                (appTime * kCloudSpeed * 50.0 + posMeter.z) * 0.00002 + 0.17)).r - 0.5;
-            float warpV1 = texture(u_local_noise, vec2(
-                (appTime * kCloudSpeed * 50.0 + posMeter.x) * 0.00002 + 0.53,
-                (appTime * kCloudSpeed * 50.0 + posMeter.z) * 0.00002 + 0.53)).r - 0.5;
+            // 用非平铺哈希值噪声，避免 local 纹理 wrap 带来的 50km 重复
+            float warpU1 = valueNoise2Fbm(vec2(
+                (appTime * kCloudSpeed * 50.0 + posMeter.x) / 800.0 + 0.17,
+                (appTime * kCloudSpeed * 50.0 + posMeter.z) / 800.0 + 0.17), 101) - 0.5;
+            float warpV1 = valueNoise2Fbm(vec2(
+                (appTime * kCloudSpeed * 50.0 + posMeter.x) / 800.0 + 0.53,
+                (appTime * kCloudSpeed * 50.0 + posMeter.z) / 800.0 + 0.53), 211) - 0.5;
             vec3 warp1 = vec3(warpU1, 0.0, warpV1);
 
             float basicNoise = texture(u_basic_noise, (posKm + windOffset) * (kCloudBasicNoiseScale * 2.0) + warp1).r;
@@ -6938,13 +7039,20 @@ const CloudSkyWebGL = {
             // + 双频噪声乘性调制（同 JS cloud_sky_cloudMap2 雷达分支注释）
             float radarTopWindow = 1.0, radarDensScale = 1.0;
             if (u_radar_enable > 0.5) {
-                float dbz = radarDbz(posKm.xz);
-                float localCoarse = texture(u_local_noise, vec2(
-                    (appTime * kCloudSpeed * 50.0 + posMeter.x) * 0.000001 - 0.39,
-                    (appTime * kCloudSpeed * 50.0 + posMeter.z) * 0.000001 - 0.39)).r;
-                float localFine = texture(u_local_noise, vec2(
-                    (appTime * kCloudSpeed * 50.0 + posMeter.x) * 0.00002 - 0.39,
-                    (appTime * kCloudSpeed * 50.0 + posMeter.z) * 0.00002 - 0.39)).r;
+                // 边缘破碎化：域扭曲 + 高频 dBZ 抖动（同中层）
+                float ewX = valueNoise2Fbm(vec2(posKm.x / 2.5, posKm.z / 2.5), 511) - 0.5;
+                float ewZ = valueNoise2Fbm(vec2(posKm.x / 2.5 + 3.7, posKm.z / 2.5 + 8.1), 513) - 0.5;
+                float ej = valueNoise2Fbm(vec2(
+                    (appTime * kCloudSpeed * 50.0 + posMeter.x) / 900.0,
+                    (appTime * kCloudSpeed * 50.0 + posMeter.z) / 900.0), 611) - 0.5;
+                float dbz = radarDbz(posKm.xz + vec2(ewX, ewZ) * kEdgeWarpKm) + ej * kEdgeJitDbz;
+                // 非平铺值噪声取代 local 纹理（同中层）：避免 50km 平铺周期
+                float localCoarse = valueNoise2Fbm(vec2(
+                    (appTime * kCloudSpeed * 50.0 + posMeter.x) / 15600.0,
+                    (appTime * kCloudSpeed * 50.0 + posMeter.z) / 15600.0), 311);
+                float localFine = valueNoise2Fbm(vec2(
+                    (appTime * kCloudSpeed * 50.0 + posMeter.x) / 800.0,
+                    (appTime * kCloudSpeed * 50.0 + posMeter.z) / 800.0), 419);
                 weatherValue = sat_(radarWeather(dbz, 18.0, 30.0, 55.0) *
                     (0.6 + 0.8 * localFine) * (0.7 + 0.6 * localCoarse));
                 localCoverage = 0.0;
@@ -6959,12 +7067,13 @@ const CloudSkyWebGL = {
                                  remap_(normalizeHeight, 0.10, 0.20, 0.8, 0.5);
 
             // 域扭曲破平铺（同 cloudMap1；本层 basic 平铺周期 1.1km）
-            float warpU2 = texture(u_local_noise, vec2(
-                (appTime * kCloudSpeed * 50.0 + posMeter.x) * 0.00002 + 0.29,
-                (appTime * kCloudSpeed * 50.0 + posMeter.z) * 0.00002 + 0.29)).r - 0.5;
-            float warpV2 = texture(u_local_noise, vec2(
-                (appTime * kCloudSpeed * 50.0 + posMeter.x) * 0.00002 + 0.61,
-                (appTime * kCloudSpeed * 50.0 + posMeter.z) * 0.00002 + 0.61)).r - 0.5;
+            // 用非平铺哈希值噪声，避免 local 纹理 wrap 带来的 50km 重复
+            float warpU2 = valueNoise2Fbm(vec2(
+                (appTime * kCloudSpeed * 50.0 + posMeter.x) / 800.0 + 0.29,
+                (appTime * kCloudSpeed * 50.0 + posMeter.z) / 800.0 + 0.29), 121) - 0.5;
+            float warpV2 = valueNoise2Fbm(vec2(
+                (appTime * kCloudSpeed * 50.0 + posMeter.x) / 800.0 + 0.61,
+                (appTime * kCloudSpeed * 50.0 + posMeter.z) / 800.0 + 0.61), 223) - 0.5;
 
             float basicNoise = texture(u_basic_noise,
                 (posKm + windOffset + vec3(0.39)) * (kCloudBasicNoiseScale * 3.0) + vec3(warpU2, 0.0, warpV2)).r;
@@ -7314,11 +7423,12 @@ const CloudSkyWebGL = {
             SingleScatteringResult sky = integrateScatteredLuminance(
                 kCamPos, ray_dir, sun_dir, true, true, 0.0, true, 9e6, 14.0);
 
-            // per-pixel 蓝噪抖动（对应 flower 网格化 blue noise 种子旋转）
-            int fj = u_frame_index;
-            float njx = scr_pos.x + float(fj) * 0.695 * 47.0;
-            float njy = scr_pos.y + float(fj) * 0.695 * 17.0;
-            float jitter = fract(52.9829189 * fract(njx * 0.06711056 + njy * 0.00583715));
+            // per-pixel 时空去相关抖动（替代原 IGN + 线性帧偏移）：
+            // 原实现对每帧给整个 IGN 图案施加一个全局平移，当平移量 > 一个空间周期
+            // 时发生时间混叠，表现为"水波纹"式方向性滚动干扰。现改为对 (整数像素坐标,
+            // 帧号) 做 full-avalanche 哈希：像素与帧号均为独立哈希输入，帧间/像素间
+            // 抖动互不相关，只呈现无结构的沸腾噪声，不再有可辨识的滚动/水波图案。
+            float jitter = cloudHashFloat(int(scr_pos.x), int(scr_pos.y), u_frame_index + 1013);
 
             // 体积云（球壳 ray-march）
             vec4 cloud = cloudPixelCompute(kCamPos, ray_dir, sun_dir, u_app_time, jitter);
