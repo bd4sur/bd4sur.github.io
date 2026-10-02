@@ -333,7 +333,7 @@ a {
             <button class="setting_button" id="toggle_landscape">地景<br><span class="status_label" id="landscape_status">-</span></button>
         </div>
 
-        <!-- 体积云天空（大气散射模型5）专属调节：云量/云类/云亮度（其他模型时隐藏） -->
+        <!-- 体积云（解耦自模型5，全散射模型可用）专属调节：云量/云类/云亮度/镜头光晕/雷达云图 -->
         <div class="setting_buttons_container" id="cloud_sky_controller" style="display: none;">
             <button class="setting_button" id="toggle_cloud_coverage">云量<br><span class="status_label" id="cloud_coverage_status">-</span></button>
             <button class="setting_button" id="toggle_cloud_layer">云类<br><span class="status_label" id="cloud_layer_status">-</span></button>
@@ -569,8 +569,8 @@ a {
                     <li>二次散射（Nishita）计算量较大，速度较慢。</li>
                     <li>「二次散射改」在大气散射模型 3 的物理内核基础上改用透射率 LUT + 多重散射 LUT + 解析地影 + 地面回弹（Bruneton/Hillaire 工程优化），并去掉 global_gain / 夜天光经验补丁、改用 ACES 色调映射；暮光/地影更真实，且速度远快于二次散射（LUT 首次构建约数十毫秒，之后逐帧只查表）。</li>
                     <li>体积云渲染非常慢，请按需启用。</li>
-                    <li>"体积云天空"为大气散射的第五种模型（Bruneton 天空 + 三层体积云），支持 JS 与 GLSL 双实现；GPU 路径需要 WebGL2，首次启用需生成噪声纹理（约 1 秒），无 WebGL2 时自动回退到较慢的 JS 渲染。</li>
-                    <li>选择"体积云天空"后，可用其下的"云量/云类/云亮度"按钮调节云的档位（6档）、显示种类（按层掩码 0-7 共 8 种组合：无云/仅低层/仅中层/低+中/仅高层/低+高/中+高/所有云）与亮度（0.5~2.0）。</li>
+                    <li>「体积云」按钮启用三层体积云层（算法解耦自「体积云天空」模型，支持 JS 与 GLSL 双实现，可在任意大气散射模型上叠加；模型 5 默认内建启用，关闭后模型 5 退化为纯 Bruneton 天空）。GPU 路径需要 WebGL2，首次启用需生成噪声纹理（约 1 秒），无 WebGL2 时自动回退到较慢的 JS 渲染。</li>
+                    <li>启用体积云后，可用其下的"云量/云类/云亮度"按钮调节云的档位（6档）、显示种类（按层掩码 0-7 共 8 种组合：无云/仅低层/仅中层/低+中/仅高层/低+高/中+高/所有云）与亮度（0.5~2.0）。</li>
                     <li>"雷达云图"开启后（默认开启），体积云天空的初始云模式取自中央气象台组合反射率图（radar.png 减 radar_background.png 底图、形态学去地图元素、色标反演 dBZ），雷达 256km 范围与地平圈直接对齐；dBZ 经三通道调制云场：覆盖率决定有无疏密（封顶 35/45/55dBZ）、云顶高度决定类别（弱回波压扁为层云、强回波发展为全塔积雨云）、密度系数决定厚薄；中高度云另以双频噪声调制破碎边缘、消除周期感，并对回波轮廓做域扭曲（~2.5km 特征）与高频 dBZ 抖动，使大片云的平直硬边变成曲折破碎的自然边缘；处理全部在页面内完成，图片缺失或处理失败时自动回退程序化云图。</li>
                     <li>本系统由 Kimi K2.7、K3、本地部署的 DeepSeek-V4-Flash、GLM5.3-Flash 辅助编码。</li>
                 </ul>
@@ -611,7 +611,7 @@ let enable_equatorial_coord = false;
 let enable_horizontal_coord = 0; // 0-不启用；1-仅方位角文字；2-方位角+坐标圈
 // 是否启用星芒效果
 let enable_star_burst = true;
-// 体积云天空（模型5）：内建太阳镜头光晕开关（关闭后仅剩外部绘制的太阳盘与星芒；
+// 体积云（解耦自模型5，全散射模型可用）：内建太阳镜头光晕开关（关闭后仅剩外部绘制的太阳盘与星芒；
 // 太阳圆盘 draw_sun 与星芒 star_burst_filter 始终叠加在体积云渲染结果之上）
 let enable_cloud_sun_lens = true;
 // 大气散射模型（0-不启用；1-简化模型；2-一次散射；3-二次散射；4-二次散射改；5-体积云天空）
@@ -642,8 +642,8 @@ let enable_opt_bilinear = false;
 // 地景选项：0-无地景；1-地形生成
 let landscape_index = 2;
 
-// 是否启用体积云
-let enable_volumetric_cloud = false;
+// 是否启用体积云（解耦自模型5的体积云算法，任意散射模型下均可用；模型5默认内建启用）
+let enable_volumetric_cloud = true;
 
 // 是否启用重力感应
 let enable_gyro = false;
@@ -1851,445 +1851,6 @@ function generate_landscape(frame_buffer, fb_width, fb_height, seed = 123, scale
 
 
 
-
-// ============================================
-// 体积云渲染相关函数
-// ============================================
-
-// 体积云渲染参数
-const cloudParams = {
-    densityScale: 0.6,    // 云密度缩放
-    extinction: 0.36,      // 消光系数
-    scattering: 0.72,      // 散射系数
-    steps: 16,            // 光线步进步数
-    windSpeed: 0.008,     // 风速（云团移动速度）
-    ambientLight: 0.3    // 环境光强度（天光照明阴影侧）
-};
-
-// 体积云时间偏移（用于动画）
-let cloudTimeOffset = 0;
-
-// 定义离散的云团（2-3朵）
-// 每个云团有中心位置、半径和形状参数
-const cloudClusters = [
-    {
-        center: { x: 20, y: 20, z: 10 },  // 云团中心位置（地平坐标系）
-        radius: 10.0,                       // 水平半径（增大以容纳更多细节）
-        height: 4.0,                       // 垂直厚度
-        seed: 1234                         // 随机种子
-    },
-    {
-        center: { x: 20, y: -20, z: 10 },
-        radius: 16.0,
-        height: 5.0,
-        seed: 5678
-    },
-    {
-        center: { x: -20, y: -20, z: 10 },
-        radius: 16.0,
-        height: 6.0,
-        seed: 9012
-    }
-];
-
-// 简单的哈希函数用于生成云团内部细节
-const hash31 = (p, seed) => {
-    let x = p.x * 0.32 + seed;
-    let y = p.y * 0.43 + seed;
-    let z = p.z * 0.27 + seed;
-    let h = Math.sin(x * 12.9898 + y * 78.233 + z * 45.164) * 43758.5453;
-    return h - Math.floor(h);
-};
-
-// 三维噪声函数（简化版）
-const simpleNoise3D = (x, y, z, seed) => {
-    const X = Math.floor(x);
-    const Y = Math.floor(y);
-    const Z = Math.floor(z);
-    const fx = x - X;
-    const fy = y - Y;
-    const fz = z - Z;
-    
-    // 双线性插值
-    const h000 = hash31({x: X, y: Y, z: Z}, seed);
-    const h100 = hash31({x: X+1, y: Y, z: Z}, seed);
-    const h010 = hash31({x: X, y: Y+1, z: Z}, seed);
-    const h110 = hash31({x: X+1, y: Y+1, z: Z}, seed);
-    const h001 = hash31({x: X, y: Y, z: Z+1}, seed);
-    const h101 = hash31({x: X+1, y: Y, z: Z+1}, seed);
-    const h011 = hash31({x: X, y: Y+1, z: Z+1}, seed);
-    const h111 = hash31({x: X+1, y: Y+1, z: Z+1}, seed);
-    
-    const h00 = h000 * (1-fx) + h100 * fx;
-    const h01 = h010 * (1-fx) + h110 * fx;
-    const h10 = h001 * (1-fx) + h101 * fx;
-    const h11 = h011 * (1-fx) + h111 * fx;
-    
-    const h0 = h00 * (1-fy) + h01 * fy;
-    const h1 = h10 * (1-fy) + h11 * fy;
-    
-    return h0 * (1-fz) + h1 * fz;
-};
-
-// 云密度函数 - 生成离散的云团
-const getCloudDensity = (pos, time) => {
-    let totalDensity = 0;
-    
-    // 风向偏移（云团随风移动）
-    const windOffsetX = time * cloudParams.windSpeed * 0.5;
-    const windOffsetY = time * cloudParams.windSpeed * 0.3;
-    
-    for (const cloud of cloudClusters) {
-        // 计算云团随风移动后的中心
-        const cx = cloud.center.x + windOffsetX;
-        const cy = cloud.center.y + windOffsetY;
-        const cz = cloud.center.z;
-        
-        // 计算到云团中心的距离
-        const dx = pos[0] - cx;
-        const dy = pos[1] - cy;
-        const dz = pos[2] - cz;
-        
-        // 水平距离和垂直距离
-        const distHorizontal = Math.sqrt(dx*dx + dy*dy);
-        const distVertical = Math.abs(dz);
-        
-        // 如果在云团范围外，跳过
-        if (distHorizontal > cloud.radius || distVertical > cloud.height) continue;
-        
-        // 计算距离因子（从中心到边界逐渐衰减）
-        const hFactor = 1 - distHorizontal / cloud.radius;
-        const vFactor = 1 - distVertical / cloud.height;
-        
-        // 使用平滑曲线让云团边缘更自然
-        const smoothH = hFactor * hFactor * (3 - 2 * hFactor);
-        const smoothV = vFactor * vFactor * (3 - 2 * vFactor);
-        
-        // 基础形状密度（减少平滑度，保留更多粗糙边缘）
-        let baseDensity = hFactor * vFactor;
-        
-        // 添加内部细节噪声（增加频率和振幅变化以产生破碎效果）
-        const noiseScale = 0.05;  // 增加噪声频率（从0.05提高到0.25）
-        const nx = pos[0] * noiseScale;
-        const ny = pos[1] * noiseScale;
-        const nz = pos[2] * noiseScale;
-        
-        // 增加更多噪声层，高频噪声权重更大以产生破碎细节
-        const noise1 = simpleNoise3D(nx, ny, nz, cloud.seed);
-        const noise2 = simpleNoise3D(nx * 2.3, ny * 2.3, nz * 2.3, cloud.seed + 1);
-        const noise3 = simpleNoise3D(nx * 5.1, ny * 5.1, nz * 5.1, cloud.seed + 2);
-        const noise4 = simpleNoise3D(nx * 10.7, ny * 10.7, nz * 10.7, cloud.seed + 3);
-        
-        // 分形噪声：高频成分权重更高以产生破碎、粗糙的边缘
-        const detailNoise = noise1 * 0.20 + noise2 * 0.25 + noise3 * 0.30 + noise4 * 0.25;
-        
-        // 组合基础形状和细节：噪声对最终密度的影响更大
-        // 使用乘法混合让厚薄更不均匀
-        let density = baseDensity * detailNoise * 1.5;
-        
-        // 应用密度阈值，让云团内部更有层次
-        density = Math.max(0, density - 0.15) / 0.85;
-        
-        // 累加密度（云团可能重叠）
-        totalDensity = Math.max(totalDensity, density * cloudParams.densityScale);
-    }
-    
-    return Math.min(totalDensity, 1.0);
-};
-
-// 计算云的光照（返回直射光透射率，用于阴影计算）
-const computeCloudShadow = (pos, sunDir, time) => {
-    const shadowSteps = 8;
-    const shadowStepSize = 0.8;
-    let shadowTransmittance = 1.0;
-    
-    let shadowPos = [pos[0], pos[1], pos[2]];
-    
-    for (let i = 0; i < shadowSteps; i++) {
-        shadowPos[0] += sunDir[0] * shadowStepSize;
-        shadowPos[1] += sunDir[1] * shadowStepSize;
-        shadowPos[2] += sunDir[2] * shadowStepSize;
-        
-        const density = getCloudDensity(shadowPos, time);
-        if (density > 0.01) {
-            const shadowExtinction = cloudParams.extinction * 2.0;
-            shadowTransmittance *= Math.exp(-density * shadowExtinction * shadowStepSize);
-            if (shadowTransmittance < 0.01) {
-                shadowTransmittance = 0;
-                break;
-            }
-        }
-    }
-    
-    return shadowTransmittance;
-};
-
-// 计算向上方向的Ambient Trace（增加背光部细节）
-// 从位置向上步进，计算天空透射率，这样背光面不会一片黑色
-const computeAmbientTrace = (pos, time) => {
-    const ambientSteps = 6;
-    const ambientStepSize = 1.0;
-    let ambientTransmittance = 1.0;
-    
-    let tracePos = [pos[0], pos[1], pos[2]];
-    const upDir = [0, 0, 1]; // 向上方向（地平坐标系的天顶方向）
-    
-    for (let i = 0; i < ambientSteps; i++) {
-        tracePos[0] += upDir[0] * ambientStepSize;
-        tracePos[1] += upDir[1] * ambientStepSize;
-        tracePos[2] += upDir[2] * ambientStepSize;
-        
-        const density = getCloudDensity(tracePos, time);
-        if (density > 0.01) {
-            const extinction = cloudParams.extinction * 1.5;
-            ambientTransmittance *= Math.exp(-density * extinction * ambientStepSize);
-            if (ambientTransmittance < 0.05) {
-                ambientTransmittance = 0;
-                break;
-            }
-        }
-    }
-    
-    // 返回天空可见度（越接近天空，值越高）
-    return ambientTransmittance;
-};
-
-
-// 计算天光颜色（环境光）
-const getNormalizedColor = (sky_r, sky_g, sky_b) => {
-    // 将天光归一化
-    const maxVal = Math.max(sky_r, sky_g, sky_b, 1);
-    // 天光通常是蓝色调，用于照明云的阴影侧
-    return [sky_r / maxVal, sky_g / maxVal, sky_b / maxVal];
-};
-
-// 计算所有云团的整体包围盒
-function getCloudBoundingBox(time) {
-    const windOffsetX = time * cloudParams.windSpeed * 0.5;
-    const windOffsetY = time * cloudParams.windSpeed * 0.3;
-    
-    let minZ = Infinity, maxZ = -Infinity;
-    
-    for (const cloud of cloudClusters) {
-        const cz = cloud.center.z;
-        minZ = Math.min(minZ, cz - cloud.height);
-        maxZ = Math.max(maxZ, cz + cloud.height);
-    }
-    
-    return { minZ: Math.max(5, minZ), maxZ }; // 最低不低于5
-}
-
-// 体积云渲染函数
-// CPU 体积云渲染（回退方案）
-function render_volumetric_clouds_cpu(
-    frame_buffer, fb_width, fb_height,
-    sky_radius, center_x, center_y,
-    view_alt, view_azi, view_roll, f,
-    sun_alt, sun_azi, time,
-    sky_r, sky_g, sky_b,
-    sunlight_r, sunlight_g, sunlight_b
-) {
-    // 计算太阳方向向量（在地平坐标系中）
-    const sun_alt_rad = to_rad(sun_alt);
-    const sun_azi_rad = to_rad(sun_azi);
-    const sunDir = [
-        Math.cos(sun_alt_rad) * Math.sin(sun_azi_rad),
-        Math.cos(sun_alt_rad) * Math.cos(sun_azi_rad),
-        Math.sin(sun_alt_rad)
-    ];
-    
-    // 如果太阳在地平线以下，减弱云的亮度
-    const sunElevationFactor = Math.max(0, Math.min(1, (sun_alt + 6) / 12));
-    
-    // 获取太阳光颜色（直射光）- 随太阳高度变化
-    const sunColor = getNormalizedColor(sunlight_r, sunlight_g, sunlight_b);
-    // 获取天光颜色（环境光）- 照明阴影侧
-    const skyColor = getNormalizedColor(sky_r, sky_g, sky_b);
-    
-    // 获取云团整体包围盒
-    const bbox = getCloudBoundingBox(cloudTimeOffset);
-    
-    // 遍历所有像素（不做圆形边界假设，适应任意视角）
-    for (let y = 0; y < fb_height; y++) {
-        for (let x = 0; x < fb_width; x++) {
-            // 使用fisheye_unproject获取视线方向（已经在地平坐标系中）
-            let ray_vec = fisheye_unproject(x, y, sky_radius, center_x, center_y, view_alt, view_azi, view_roll, f);
-            
-            // 检查是否反解成功（如果失败会返回零向量或极小值）
-            const ray_len = Math.sqrt(ray_vec[0] * ray_vec[0] + ray_vec[1] * ray_vec[1] + ray_vec[2] * ray_vec[2]);
-            if (ray_len < 1e-10) continue;
-            
-            // 归一化视线方向
-            const rayDir = [ray_vec[0] / ray_len, ray_vec[1] / ray_len, ray_vec[2] / ray_len];
-            
-            // 只处理朝上的视线（z > 0表示在地平线以上）
-            if (rayDir[2] <= 0.01) continue;
-            
-            // 计算视线与云团整体包围盒的交点
-            const tEnter = bbox.minZ / rayDir[2];
-            const tExit = bbox.maxZ / rayDir[2];
-            
-            // 确保交点在视线正方向上
-            if (tEnter < 0 || tExit < 0 || tExit <= tEnter) continue;
-            
-            // 光线步进参数
-            let transmittance = 1.0;
-            let accumR = 0, accumG = 0, accumB = 0;
-            const stepSize = (tExit - tEnter) / cloudParams.steps;
-            
-            // 随机偏移避免条纹效应
-            const offset = Math.random() * stepSize;
-            let t = tEnter + offset;
-            
-            for (let step = 0; step < cloudParams.steps; step++) {
-                const pos = [
-                    rayDir[0] * t,
-                    rayDir[1] * t,
-                    rayDir[2] * t
-                ];
-                
-                const density = getCloudDensity(pos, time);
-                
-                if (density > 0.01) {
-                    // 计算直射光阴影
-                    const directLightShadow = computeCloudShadow(pos, sunDir, time);
-                    
-                    // 直射光照度（太阳光，随太阳高度变色）
-                    const directLight = directLightShadow * sunElevationFactor;
-                    
-                    // 计算向上Ambient Trace（增加背光部细节）
-                    // 这样即使云密度高，背光面也不会一片黑色
-                    const ambientTrace = computeAmbientTrace(pos, time);
-                    // 环境光 = 基础天光 + 向上Trace增强
-                    // ambientTrace越高（越接近天空），环境光越强
-                    const ambientLight = cloudParams.ambientLight * (0.2 + 0.8 * ambientTrace);
-                    
-                    // 散射计算
-                    const scatter = density * cloudParams.scattering;
-                    
-                    // 直射光贡献（使用太阳光颜色）
-                    const directR = scatter * directLight * sunColor[0];
-                    const directG = scatter * directLight * sunColor[1];
-                    const directB = scatter * directLight * sunColor[2];
-                    
-                    // 环境光贡献（使用天光颜色，球谐光照明背光面）
-                    const ambientR = scatter * ambientLight * skyColor[0];
-                    const ambientG = scatter * ambientLight * skyColor[1];
-                    const ambientB = scatter * ambientLight * skyColor[2];
-                    
-                    // 合并两种光照
-                    const cloudR = directR + ambientR;
-                    const cloudG = directG + ambientG;
-                    const cloudB = directB + ambientB;
-                    
-                    // 累积颜色
-                    accumR += cloudR * transmittance;
-                    accumG += cloudG * transmittance;
-                    accumB += cloudB * transmittance;
-                    
-                    // 更新透射率
-                    const attenuation = Math.exp(-cloudParams.extinction * density * stepSize);
-                    transmittance *= attenuation;
-                    
-                    // 提早终止
-                    if (transmittance < 0.01) break;
-                }
-                
-                t += stepSize;
-            }
-            
-            // 如果有云贡献，混合到帧缓冲区
-            if (accumR > 0 || accumG > 0 || accumB > 0) {
-                const idx = (y * fb_width + x) * 4;
-                
-                // 读取背景颜色
-                const bgR = frame_buffer[idx] / 255;
-                const bgG = frame_buffer[idx + 1] / 255;
-                const bgB = frame_buffer[idx + 2] / 255;
-                
-                // 混合：云颜色 + 背景色 * 透射率
-                const finalR = Math.min(1, accumR + bgR * transmittance);
-                const finalG = Math.min(1, accumG + bgG * transmittance);
-                const finalB = Math.min(1, accumB + bgB * transmittance);
-                
-                frame_buffer[idx] = Math.round(finalR * 255);
-                frame_buffer[idx + 1] = Math.round(finalG * 255);
-                frame_buffer[idx + 2] = Math.round(finalB * 255);
-            }
-        }
-    }
-}
-
-// 体积云渲染函数（WebGL 版本，自动回退到 CPU）
-function render_volumetric_clouds(
-    frame_buffer, fb_width, fb_height,
-    sky_radius, center_x, center_y,
-    view_alt, view_azi, view_roll, f,
-    sun_alt, sun_azi, time,
-    sky_r, sky_g, sky_b,
-    sunlight_r, sunlight_g, sunlight_b
-) {
-    if (!enable_volumetric_cloud) return;
-    
-    // 尝试使用 WebGL 加速渲染
-    const useWebGL = initVolumetricCloudWebGL();
-    
-    if (enable_webgl && useWebGL) {
-        // 使用 WebGL 渲染体积云
-        const bbox = getCloudBoundingBox(time);
-        
-        // 归一化颜色
-        const maxSun = Math.max(sunlight_r, sunlight_g, sunlight_b, 1);
-        const maxSky = Math.max(sky_r, sky_g, sky_b, 1);
-        
-        const webglParams = {
-            fb_width: fb_width,
-            fb_height: fb_height,
-            sky_radius: sky_radius,
-            center_x: center_x,
-            center_y: center_y,
-            view_alt: -view_alt,
-            view_azi: view_azi,
-            view_roll: -view_roll,
-            f: f,
-            sun_alt: sun_alt,
-            sun_azi: sun_azi,
-            time: time,
-            density_scale: cloudParams.densityScale,
-            extinction: cloudParams.extinction,
-            scattering: cloudParams.scattering,
-            steps: cloudParams.steps,
-            wind_speed: cloudParams.windSpeed,
-            ambient_light: cloudParams.ambientLight,
-            sun_color: [sunlight_r / maxSun, sunlight_g / maxSun, sunlight_b / maxSun],
-            sky_color: [sky_r / maxSky, sky_g / maxSky, sky_b / maxSky],
-            cloud_bbox_min: bbox.minZ,
-            cloud_bbox_max: bbox.maxZ,
-            cloud_clusters: cloudClusters
-        };
-        
-        const gl_pixels = VolumetricCloudWebGL.render(webglParams, frame_buffer);
-        
-        if (gl_pixels) {
-            // 将 WebGL 渲染结果复制回帧缓冲区
-            for (let i = 0; i < fb_width * fb_height * 4; i++) {
-                frame_buffer[i] = gl_pixels[i];
-            }
-            return;
-        }
-        // WebGL 渲染失败，回退到 CPU 渲染
-    }
-    
-    // 使用 CPU 渲染（原有的 JavaScript 实现作为回退）
-    render_volumetric_clouds_cpu(
-        frame_buffer, fb_width, fb_height,
-        sky_radius, center_x, center_y,
-        view_alt, view_azi, view_roll, f,
-        sun_alt, sun_azi, time,
-        sky_r, sky_g, sky_b,
-        sunlight_r, sunlight_g, sunlight_b
-    );
-}
 
 /**
  * 将正方形平面图像映射为圆形鱼眼图像
@@ -4202,7 +3763,7 @@ function scatter_model_4(ray_vec, sun_vec) {
 // 算法：Bruneton 天空散射 LUT + 三层体积云 ray-march + HDR 镜头光晕
 // ============================================
 // ============================================
-// 大气散射模型 5：体积云 + 天空散射
+// 大气散射模型 5：Bruneton 天空散射 + 内建三层体积云（云层已解耦，可叠加于任意模型）
 // ============================================
 // 参照 linglong/ui_cloud.c 移植（其算法核心来自 flower 引擎）：
 //   · 云形状：tileable Perlin-Worley / Worley FBM 噪声，低/中/高三层高度分层
@@ -4270,7 +3831,7 @@ const CLOUD_SKY_SATURATION_BOOST = 1.25; // 补偿逐通道 ACES 的去饱和
 // 云量档位（ui_cloud.c CLOUD_COVERAGE_LEVELS：档间云量递进均匀、最高档不进入变暗区）
 const CLOUD_SKY_COVERAGE_LEVELS = [0.000, 0.325, 0.340, 0.353, 0.368, 0.395];
 const CLOUD_SKY_COVERAGE_DEFAULT_LEVEL = 2;
-const CLOUD_SKY_BRIGHTNESS_DEFAULT = 1.4;
+const CLOUD_SKY_BRIGHTNESS_DEFAULT = 0.5;
 // 雷达云图边缘破碎化（仅中/高层）：radar 回波轮廓经 4km 网格量化后大片云
 // 边缘呈整齐平直的直线。用非平铺多频值噪声做域扭曲（~2.5km 特征）把回波等值线
 // 扭成曲折形，再叠加高频 dBZ 抖动（~0.9km）让边界向外/向内啮咬、碎裂成
@@ -4784,7 +4345,7 @@ const RADAR_CLOUD_KNEE_DBZMID = [14.0, 20.0, 30.0];  // 各层覆盖率达 0.9 �
 const RADAR_CLOUD_KNEE_DBZMAX = [35.0, 45.0, 55.0];  // 各层满覆盖 dBZ（封顶）
 
 const radarCloudState = {
-    enabled: true,          // 雷达云图开关（关则回退程序化天气图）
+    enabled: false,          // 雷达云图开关（关则回退程序化天气图）
     ready: false,           // dBZ 网格是否已生成
     failed: false,          // 图片加载或处理失败（回退程序化）
     dbzGrid: null,          // Float32Array(N×N)，行 0=北
@@ -6304,7 +5865,8 @@ function scatter_model_5(ray_vec, sun_vec, sky_only) {
 
     let fr = sky[0], fg = sky[1], fb = sky[2];
 
-    if (!sky_only && state.noiseReady) {
+    // 体积云与镜头光晕由"体积云"开关统一控制（解耦后任意模型可用；模型5关闸时退化为纯天空）
+    if (!sky_only && state.noiseReady && enable_volumetric_cloud) {
         // 体积云（球壳 ray-march）
         // per-pixel 时空去相关抖动（替代原 IGN + 线性帧偏移）：
         // 原实现对每帧给整个 IGN 图案施加一个全局平移，当平移量 > 一个空间周期时
@@ -6367,6 +5929,107 @@ function cloud_sky_ray_to_ndc(rx, ry, rz) {
     } else {
         if (vzz <= 1e-6) return null;
         return [-fR * vx / vzz * fRatioX, fR * vy / vzz * fRatioY];
+    }
+}
+
+// ---------------------------------------------------------------------------
+// 解耦体积云渲染（原散射模型 5 的体积云算法，供任意散射模型叠加使用）
+// 在当前帧缓冲（天空 + 已绘制天体）之上合成模型 5 的三层体积云：
+//   · GLSL 路径：CloudSkyWebGL 以 sky_source=2 仅渲染云层（低分辨率 ray-march +
+//     双线性放大），rgb=显示空间云色（含 HDR 光晕）、alpha=云透射率，CPU 侧按
+//     final = base*alpha + rgb 合成，保留原散射模型的观感；
+//   · JS 路径：低分辨率网格逐像素 cloud_sky_cloudPixelCompute 后双线性合成。
+// ---------------------------------------------------------------------------
+function render_decoupled_volumetric_clouds(
+    frame_buffer, fb_width, fb_height,
+    sky_radius, center_x, center_y,
+    view_alt, view_azi, view_roll, f,
+    sun_alt, sun_azi
+) {
+    // 帧预处理（噪声图/LUT/太阳状态/视图缓存/光晕可见性）——与模型 5 共用
+    cloud_sky_prepare_frame(sun_alt, sun_azi, fb_width, fb_height, sky_radius, center_x, center_y, view_alt, view_azi, view_roll, f);
+
+    // GLSL 路径（WebGL2）
+    let gl_pixels = null;
+    let C = 8;
+    if (enable_webgl && initCloudSkyWebGL()) {
+        C = (enable_opt_bilinear) ? 2 : 1;
+        gl_pixels = CloudSkyWebGL.render({
+            fb_width: fb_width,
+            fb_height: fb_height,
+            sky_radius: sky_radius,
+            center_x: center_x,
+            center_y: center_y,
+            view_alt: view_alt,
+            view_azi: view_azi,
+            view_roll: view_roll,
+            f: f,
+            sun_alt: sun_alt,
+            sun_azi: sun_azi,
+            downsample: C,
+            sky_source: 2
+        });
+    }
+
+    if (gl_pixels) {
+        // 全幅云层合成：rgb 已双线性放大，alpha = 云透射率（帧缓冲为 Uint8ClampedArray，自动钳位）
+        for (let i = 0; i < fb_width * fb_height * 4; i += 4) {
+            const a = gl_pixels[i + 3] / 255.0;
+            frame_buffer[i]     = frame_buffer[i]     * a + gl_pixels[i];
+            frame_buffer[i + 1] = frame_buffer[i + 1] * a + gl_pixels[i + 1];
+            frame_buffer[i + 2] = frame_buffer[i + 2] * a + gl_pixels[i + 2];
+            frame_buffer[i + 3] = 255;
+        }
+        return;
+    }
+
+    // JS 回退路径：低分辨率网格逐像素 ray-march + 双线性合成
+    const C4 = 8;
+    const ds_w = Math.max(1, Math.ceil(fb_width / C4));
+    const ds_h = Math.max(1, Math.ceil(fb_height / C4));
+    const ds = new Float32Array(ds_w * ds_h * 4); // rgb(0..1，显示空间) + a(云透射率)
+    const cloud = new Float64Array(4);
+    const px = new Float64Array(3);
+    const fj = cloudSkyState.frameIndex % 9973;
+
+    for (let gy = 0; gy < ds_h; gy++) {
+        for (let gx = 0; gx < ds_w; gx++) {
+            const x = gx * C4, y = gy * C4;
+            const di = (gy * ds_w + gx) * 4;
+            const ray_vec = fisheye_unproject(x, y, sky_radius, center_x, center_y, view_alt, view_azi, view_roll, f);
+            const rl = Math.hypot(ray_vec[0], ray_vec[1], ray_vec[2]);
+            if (rl < 1e-10) { ds[di] = 0; ds[di + 1] = 0; ds[di + 2] = 0; ds[di + 3] = 1; continue; }
+            // 坐标系换算 (x, y, z) -> (x, z, y)：z 上 → y 上（与 scatter_model_5 一致）
+            const rdx = ray_vec[0] / rl, rdy = ray_vec[2] / rl, rdz = ray_vec[1] / rl;
+            const jitter = cloud_sky_hashFloat(x, y, fj + 1013);
+            cloud_sky_cloudPixelCompute(
+                CLOUD_SKY_CAM_POS[0], CLOUD_SKY_CAM_POS[1], CLOUD_SKY_CAM_POS[2],
+                rdx, rdy, rdz, cloudSkyState.appTime, jitter, cloudSkyState.marchSteps, cloud);
+            cloud_sky_write_pixel(cloud[0], cloud[1], cloud[2], px);
+            ds[di] = px[0]; ds[di + 1] = px[1]; ds[di + 2] = px[2];
+            ds[di + 3] = cloud[3];
+        }
+    }
+
+    // 双线性放大并合成：final = base*alpha + rgb
+    for (let y = 0; y < fb_height; y++) {
+        const gy = Math.min(ds_h - 1, Math.floor(y / C4));
+        const gy1 = Math.min(ds_h - 1, gy + 1);
+        const v = (y - gy * C4) / C4;
+        for (let x = 0; x < fb_width; x++) {
+            const gx = Math.min(ds_w - 1, Math.floor(x / C4));
+            const gx1 = Math.min(ds_w - 1, gx + 1);
+            const u = (x - gx * C4) / C4;
+            const i00 = (gy * ds_w + gx) * 4, i10 = (gy * ds_w + gx1) * 4;
+            const i01 = (gy1 * ds_w + gx) * 4, i11 = (gy1 * ds_w + gx1) * 4;
+            const w00 = (1 - u) * (1 - v), w10 = u * (1 - v), w01 = (1 - u) * v, w11 = u * v;
+            const a = ds[i00 + 3] * w00 + ds[i10 + 3] * w10 + ds[i01 + 3] * w01 + ds[i11 + 3] * w11;
+            const idx = (y * fb_width + x) * 4;
+            frame_buffer[idx]     = frame_buffer[idx]     * a + (ds[i00] * w00 + ds[i10] * w10 + ds[i01] * w01 + ds[i11] * w11) * 255;
+            frame_buffer[idx + 1] = frame_buffer[idx + 1] * a + (ds[i00 + 1] * w00 + ds[i10 + 1] * w10 + ds[i01 + 1] * w01 + ds[i11 + 1] * w11) * 255;
+            frame_buffer[idx + 2] = frame_buffer[idx + 2] * a + (ds[i00 + 2] * w00 + ds[i10 + 2] * w10 + ds[i01 + 2] * w01 + ds[i11 + 2] * w11) * 255;
+            frame_buffer[idx + 3] = 255;
+        }
     }
 }
 
@@ -6575,6 +6238,7 @@ const CloudSkyWebGL = {
             u_ms_extinction: gl.getUniformLocation(this.program, 'u_ms_extinction'),
             u_ambient_scale: gl.getUniformLocation(this.program, 'u_ambient_scale'),
             u_march_steps: gl.getUniformLocation(this.program, 'u_march_steps'),
+            u_sky_source: gl.getUniformLocation(this.program, 'u_sky_source'),
             u_light_steps: gl.getUniformLocation(this.program, 'u_light_steps'),
             u_radar_enable: gl.getUniformLocation(this.program, 'u_radar_enable')
         };
@@ -6768,6 +6432,9 @@ const CloudSkyWebGL = {
         gl.uniform1i(this.uniforms.u_light_steps, cloudSkyScene.cloudLightStepNum);
         gl.uniform1f(this.uniforms.u_radar_enable,
             (radarCloudState.enabled && radarCloudState.ready && this.radarUploaded) ? 1.0 : 0.0);
+        // 天空源：0-模型5内建（天空+云一体）；1-纯天空（云关）；2-解耦云叠加（输出 alpha）
+        gl.uniform1i(this.uniforms.u_sky_source,
+            (params.sky_source === 1 || params.sky_source === 2) ? params.sky_source : 0);
 
         // 绑定纹理单元
         gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_3D, this.texBasic);
@@ -6848,7 +6515,8 @@ const CloudSkyWebGL = {
                         result[dst_idx + 0] = Math.round((1 - u) * (1 - v) * r11 + u * (1 - v) * r12 + (1 - u) * v * r21 + u * v * r22);
                         result[dst_idx + 1] = Math.round((1 - u) * (1 - v) * g11 + u * (1 - v) * g12 + (1 - u) * v * g21 + u * v * g22);
                         result[dst_idx + 2] = Math.round((1 - u) * (1 - v) * b11 + u * (1 - v) * b12 + (1 - u) * v * b21 + u * v * b22);
-                        result[dst_idx + 3] = 255;
+                        // alpha 一并插值：解耦云叠加模式下 alpha = 云透射率，供 CPU 侧合成
+                        result[dst_idx + 3] = Math.round((1 - u) * (1 - v) * ds_pixels[idx_11 + 3] + u * (1 - v) * ds_pixels[idx_12 + 3] + (1 - u) * v * ds_pixels[idx_21 + 3] + u * v * ds_pixels[idx_22 + 3]);
                     }
                 }
             }
@@ -6917,6 +6585,7 @@ const CloudSkyWebGL = {
         uniform highp sampler2D u_ms_lut;        // 48x24 多重散射 LUT
         uniform highp sampler2D u_radar_map;     // 128^2 雷达回波 dBZ/70（行0=北）
         uniform float u_radar_enable;            // 雷达云图模式开关
+        uniform int u_sky_source;                // 天空源：0-内建天空+云（模型5）；1-纯天空（云关）；2-解耦云叠加（输出 alpha）
 
         const float PI = 3.14159265358979323846;
         const float kEarthBottomRadius = 6360.0;
@@ -7833,6 +7502,39 @@ const CloudSkyWebGL = {
             vec3 ray_ll = fisheye_unproject(scr_pos);
             vec3 ray_dir = normalize(vec3(ray_ll.x, ray_ll.z, ray_ll.y));
 
+            // per-pixel 时空去相关抖动（替代原 IGN + 线性帧偏移）：
+            // 原实现对每帧给整个 IGN 图案施加一个全局平移，当平移量 > 一个空间周期时
+            // 发生时间混叠，表现为"水波纹"式方向性滚动干扰。现改为对 (整数像素坐标,
+            // 帧号) 做 full-avalanche 哈希：像素与帧号均为独立哈希输入，帧间/像素间
+            // 抖动互不相关，只呈现无结构的沸腾噪声，不再有可辨识的滚动/水波图案。
+            float jitter = cloudHashFloat(int(scr_pos.x), int(scr_pos.y), u_frame_index + 1013);
+
+            // ---- 解耦体积云模式（u_sky_source==2）：仅渲染云层，供任意散射模型叠加 ----
+            // rgb = 显示空间云色（含 HDR 镜头光晕，单独色调映射），alpha = 云透射率；
+            // 背景天空由 CPU 侧按 final = base*alpha + rgb 合成，保留原散射模型观感。
+            if (u_sky_source == 2) {
+                float sun_alt_rad2 = radians(u_sun_alt);
+                float sun_azi_rad2 = radians(u_sun_azi);
+                vec3 sun_dir2 = vec3(
+                    cos(sun_alt_rad2) * sin(sun_azi_rad2),
+                    sin(sun_alt_rad2),
+                    cos(sun_alt_rad2) * cos(sun_azi_rad2)
+                );
+                vec4 cloud = cloudPixelCompute(kCamPos, ray_dir, sun_dir2, u_app_time, jitter);
+                vec3 hdr = cloud.rgb;
+                if (u_sun_visible == 1) {
+                    float uu = v_texCoord.x * 2.0 - 1.0;
+                    float vv = 1.0 - v_texCoord.y * 2.0;
+                    hdr += cloudLensHdr(uu, vv, u_sun_u, u_sun_v, u_sun_vis);
+                }
+                vec3 t2 = acesFilm(hdr);
+                float lum2 = dot(t2, vec3(0.2126, 0.7152, 0.0722));
+                t2 = clamp(vec3(lum2) + (t2 - vec3(lum2)) * SATURATION_BOOST, 0.0, 1.0);
+                t2 = pow(t2, vec3(1.0 / 2.2));
+                fragColor = vec4(t2, cloud.a);
+                return;
+            }
+
             // 太阳方向（云世界系）
             float sun_alt_rad = radians(u_sun_alt);
             float sun_azi_rad = radians(u_sun_azi);
@@ -7846,21 +7548,17 @@ const CloudSkyWebGL = {
             SingleScatteringResult sky = integrateScatteredLuminance(
                 kCamPos, ray_dir, sun_dir, true, true, 0.0, true, 9e6, 14.0);
 
-            // per-pixel 时空去相关抖动（替代原 IGN + 线性帧偏移）：
-            // 原实现对每帧给整个 IGN 图案施加一个全局平移，当平移量 > 一个空间周期
-            // 时发生时间混叠，表现为"水波纹"式方向性滚动干扰。现改为对 (整数像素坐标,
-            // 帧号) 做 full-avalanche 哈希：像素与帧号均为独立哈希输入，帧间/像素间
-            // 抖动互不相关，只呈现无结构的沸腾噪声，不再有可辨识的滚动/水波图案。
-            float jitter = cloudHashFloat(int(scr_pos.x), int(scr_pos.y), u_frame_index + 1013);
-
-            // 体积云（球壳 ray-march）
-            vec4 cloud = cloudPixelCompute(kCamPos, ray_dir, sun_dir, u_app_time, jitter);
+            // 体积云（球壳 ray-march）；u_sky_source==1 时纯天空，跳过 ray-march
+            vec4 cloud = vec4(0.0, 0.0, 0.0, 1.0);
+            if (u_sky_source == 0) {
+                cloud = cloudPixelCompute(kCamPos, ray_dir, sun_dir, u_app_time, jitter);
+            }
 
             // 合成：天空透过后方云层 + 云本身散射
             vec3 finalColor = sky.scatteredLight * cloud.a + cloud.rgb;
 
-            // 太阳镜头光晕（HDR 叠加，色调映射前）
-            if (u_sun_visible == 1) {
+            // 太阳镜头光晕（HDR 叠加，色调映射前）；纯天空模式下不叠加（与 JS 实现一致）
+            if (u_sun_visible == 1 && u_sky_source != 1) {
                 float uu = v_texCoord.x * 2.0 - 1.0;
                 float vv = 1.0 - v_texCoord.y * 2.0;
                 finalColor += cloudLensHdr(uu, vv, u_sun_u, u_sun_v, u_sun_vis);
@@ -7886,623 +7584,6 @@ function initCloudSkyWebGL() {
     }
     return CloudSkyWebGL.gl !== null;
 }
-
-// ============================================
-// WebGL 体积云渲染器
-// ============================================
-
-const VolumetricCloudWebGL = {
-    gl: null,
-    program: null,
-    positionBuffer: null,
-    texture: null,
-    framebuffer: null,
-    uniforms: {},
-    
-    // 初始化 WebGL
-    init: function() {
-        const canvas = document.createElement('canvas');
-        canvas.width = FB_WIDTH;
-        canvas.height = FB_HEIGHT;
-        
-        this.gl = canvas.getContext('webgl', {
-            preserveDrawingBuffer: true,
-            alpha: false,
-            antialias: false,
-            depth: false,
-            stencil: false
-        });
-        
-        if (!this.gl) {
-            console.warn('WebGL not supported for volumetric clouds');
-            return false;
-        }
-        
-        const gl = this.gl;
-        
-        // 创建着色器程序
-        const vsSource = this.vertexShaderSource;
-        const fsSource = this.fragmentShaderSource;
-        
-        const vertexShader = this.compileShader(gl.VERTEX_SHADER, vsSource);
-        const fragmentShader = this.compileShader(gl.FRAGMENT_SHADER, fsSource);
-        
-        if (!vertexShader || !fragmentShader) {
-            console.warn('Volumetric cloud shader compilation failed');
-            return false;
-        }
-        
-        this.program = gl.createProgram();
-        gl.attachShader(this.program, vertexShader);
-        gl.attachShader(this.program, fragmentShader);
-        gl.linkProgram(this.program);
-        
-        if (!gl.getProgramParameter(this.program, gl.LINK_STATUS)) {
-            console.warn('Volumetric cloud shader program linking failed:', gl.getProgramInfoLog(this.program));
-            return false;
-        }
-        
-        gl.useProgram(this.program);
-        
-        // 设置顶点缓冲区（全屏四边形）
-        this.positionBuffer = gl.createBuffer();
-        gl.bindBuffer(gl.ARRAY_BUFFER, this.positionBuffer);
-        gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([
-            -1.0, -1.0,
-             1.0, -1.0,
-            -1.0,  1.0,
-            -1.0,  1.0,
-             1.0, -1.0,
-             1.0,  1.0
-        ]), gl.STATIC_DRAW);
-        
-        // 获取 attribute 和 uniform 位置
-        const positionLocation = gl.getAttribLocation(this.program, 'a_position');
-        gl.enableVertexAttribArray(positionLocation);
-        gl.vertexAttribPointer(positionLocation, 2, gl.FLOAT, false, 0, 0);
-        
-        this.uniforms = {
-            u_fb_width: gl.getUniformLocation(this.program, 'u_fb_width'),
-            u_fb_height: gl.getUniformLocation(this.program, 'u_fb_height'),
-            u_sky_radius: gl.getUniformLocation(this.program, 'u_sky_radius'),
-            u_center_x: gl.getUniformLocation(this.program, 'u_center_x'),
-            u_center_y: gl.getUniformLocation(this.program, 'u_center_y'),
-            u_view_alt: gl.getUniformLocation(this.program, 'u_view_alt'),
-            u_view_azi: gl.getUniformLocation(this.program, 'u_view_azi'),
-            u_view_roll: gl.getUniformLocation(this.program, 'u_view_roll'),
-            u_f: gl.getUniformLocation(this.program, 'u_f'),
-            u_sun_alt: gl.getUniformLocation(this.program, 'u_sun_alt'),
-            u_sun_azi: gl.getUniformLocation(this.program, 'u_sun_azi'),
-            u_time: gl.getUniformLocation(this.program, 'u_time'),
-            u_density_scale: gl.getUniformLocation(this.program, 'u_density_scale'),
-            u_extinction: gl.getUniformLocation(this.program, 'u_extinction'),
-            u_scattering: gl.getUniformLocation(this.program, 'u_scattering'),
-            u_steps: gl.getUniformLocation(this.program, 'u_steps'),
-            u_wind_speed: gl.getUniformLocation(this.program, 'u_wind_speed'),
-            u_ambient_light: gl.getUniformLocation(this.program, 'u_ambient_light'),
-            u_sun_color: gl.getUniformLocation(this.program, 'u_sun_color'),
-            u_sky_color: gl.getUniformLocation(this.program, 'u_sky_color'),
-            u_cloud_bbox_min: gl.getUniformLocation(this.program, 'u_cloud_bbox_min'),
-            u_cloud_bbox_max: gl.getUniformLocation(this.program, 'u_cloud_bbox_max'),
-            u_cloud_clusters: gl.getUniformLocation(this.program, 'u_cloud_clusters'),
-            u_cloud_params: gl.getUniformLocation(this.program, 'u_cloud_params'),
-            u_background_texture: gl.getUniformLocation(this.program, 'u_background_texture'),
-            u_enable_fisheye_projection: gl.getUniformLocation(this.program, 'u_enable_fisheye_projection')
-        };
-        
-        // 创建输出纹理和帧缓冲区
-        this.texture = gl.createTexture();
-        gl.bindTexture(gl.TEXTURE_2D, this.texture);
-        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
-        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
-        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
-        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
-        
-        // 关键修复：立即分配纹理存储，否则帧缓冲区不完整
-        gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, FB_WIDTH, FB_HEIGHT, 0, gl.RGBA, gl.UNSIGNED_BYTE, null);
-        
-        this.framebuffer = gl.createFramebuffer();
-        gl.bindFramebuffer(gl.FRAMEBUFFER, this.framebuffer);
-        gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, this.texture, 0);
-        
-        // 验证帧缓冲区完整性
-        const status = gl.checkFramebufferStatus(gl.FRAMEBUFFER);
-        if (status !== gl.FRAMEBUFFER_COMPLETE) {
-            console.error('Volumetric cloud framebuffer incomplete:', status);
-            return false;
-        }
-        
-        gl.bindFramebuffer(gl.FRAMEBUFFER, null);
-        
-        console.log('WebGL volumetric clouds initialized');
-        return true;
-    },
-    
-    compileShader: function(type, source) {
-        const gl = this.gl;
-        const shader = gl.createShader(type);
-        gl.shaderSource(shader, source);
-        gl.compileShader(shader);
-        
-        if (!gl.getShaderParameter(shader, gl.COMPILE_STATUS)) {
-            console.error('Volumetric cloud shader compile error:', gl.getShaderInfoLog(shader));
-            gl.deleteShader(shader);
-            return null;
-        }
-        return shader;
-    },
-    
-    // 顶点着色器
-    vertexShaderSource: `
-        attribute vec2 a_position;
-        varying vec2 v_texCoord;
-        void main() {
-            v_texCoord = a_position * 0.5 + 0.5;
-            gl_Position = vec4(a_position, 0.0, 1.0);
-        }
-    `,
-    
-    // 片段着色器 - 体积云渲染
-    fragmentShaderSource: `
-        precision highp float;
-        
-        varying vec2 v_texCoord;
-        
-        uniform float u_fb_width;
-        uniform float u_fb_height;
-        uniform float u_sky_radius;
-        uniform float u_center_x;
-        uniform float u_center_y;
-        uniform float u_view_alt;
-        uniform float u_view_azi;
-        uniform float u_view_roll;
-        uniform float u_f;
-        uniform float u_sun_alt;
-        uniform float u_sun_azi;
-        uniform float u_time;
-        uniform float u_density_scale;
-        uniform float u_extinction;
-        uniform float u_scattering;
-        uniform int u_steps;
-        uniform float u_wind_speed;
-        uniform float u_ambient_light;
-        uniform vec3 u_sun_color;
-        uniform vec3 u_sky_color;
-        uniform float u_cloud_bbox_min;
-        uniform float u_cloud_bbox_max;
-        uniform sampler2D u_background_texture;
-        uniform int u_enable_fisheye_projection;
-        
-        // 云团数据：x, y, z, radius
-        uniform vec4 u_cloud_clusters[3];
-        // 云团数据：height, seed, 0, 0
-        uniform vec4 u_cloud_params[3];
-        
-        const float PI = 3.14159265358979323846;
-
-        float to_deg(float rad) {
-            return rad * (180.0 / PI);
-        }
-
-        float to_rad(float deg) {
-            return deg * (PI / 180.0);
-        }
-
-        // 向量工具函数
-        vec3 vNorm(vec3 v) { 
-            float l = length(v);
-            return l > 1e-12 ? v / l : vec3(0.0);
-        }
-        
-        // 哈希函数
-        float hash31(vec3 p, float seed) {
-            float x = p.x * 0.32 + seed;
-            float y = p.y * 0.43 + seed;
-            float z = p.z * 0.27 + seed;
-            float h = sin(x * 12.9898 + y * 78.233 + z * 45.164) * 43758.5453;
-            return h - floor(h);
-        }
-        
-        // 3D噪声函数
-        float simpleNoise3D(vec3 pos, float seed) {
-            vec3 i = floor(pos);
-            vec3 f = fract(pos);
-            
-            // 平滑插值 (对每个分量分别计算)
-            vec3 u = f * f * f * (f * (f * 6.0 - 15.0) + 10.0);
-            
-            float h000 = hash31(i + vec3(0.0, 0.0, 0.0), seed);
-            float h100 = hash31(i + vec3(1.0, 0.0, 0.0), seed);
-            float h010 = hash31(i + vec3(0.0, 1.0, 0.0), seed);
-            float h110 = hash31(i + vec3(1.0, 1.0, 0.0), seed);
-            float h001 = hash31(i + vec3(0.0, 0.0, 1.0), seed);
-            float h101 = hash31(i + vec3(1.0, 0.0, 1.0), seed);
-            float h011 = hash31(i + vec3(0.0, 1.0, 1.0), seed);
-            float h111 = hash31(i + vec3(1.0, 1.0, 1.0), seed);
-            
-            float h00 = mix(h000, h100, u.x);
-            float h01 = mix(h010, h110, u.x);
-            float h10 = mix(h001, h101, u.x);
-            float h11 = mix(h011, h111, u.x);
-            
-            float h0 = mix(h00, h01, u.y);
-            float h1 = mix(h10, h11, u.y);
-            
-            return mix(h0, h1, u.z);
-        }
-        
-        // 鱼眼投影反解：屏幕坐标 -> 3D方向向量
-        vec3 fisheye_unproject(vec2 scr_pos) {
-            float dx = u_center_x - scr_pos.x;
-            float dy = u_center_y - scr_pos.y;
-            float r = sqrt(dx * dx + dy * dy);
-            
-            float phi_prime = 0.0;
-            
-            if (r < 1e-6) {
-                phi_prime = 0.0;
-            }
-            else {
-                phi_prime = atan(dx, dy); // NOTE 此处不同
-            }
-            
-            float theta = 0.0;
-            if (u_enable_fisheye_projection == 0) {
-                theta = atan(r, u_f * u_sky_radius);
-            }
-            else {
-                theta = r * PI / (2.0 * u_f * u_sky_radius);
-            }
-            theta = clamp(theta, 0.0, PI);
-            float pxy = sin(theta);
-            vec3 p_prime = vec3(
-                pxy * sin(phi_prime),
-                pxy * cos(phi_prime),
-                cos(theta)
-            );
-            
-            // 构建视线向量 v
-            float view_alt = u_view_alt;
-            float view_azi = u_view_azi;
-            if (abs(view_alt + 90.0) < 1e-5) {
-                view_alt = -89.999;
-            }
-            else if (abs(view_alt - 90.0) < 1e-5) {
-                view_alt = 89.999;
-            }
-            if (abs(view_azi) < 1e-5) {
-                view_azi = 0.001;
-            }
-            else if (abs(view_azi - 360.0) < 1e-5) {
-                view_azi = 359.999;
-            }
-            float V_alt_rad = to_rad(view_alt);
-            float V_azi_rad = to_rad(view_azi);
-            vec3 v = vec3(
-                cos(V_alt_rad) * sin(V_azi_rad),
-                cos(V_alt_rad) * cos(V_azi_rad),
-                sin(V_alt_rad)
-            );
-            
-            // 构建 y' 轴
-            float dot_vz = v.z;
-            vec3 y_prime = normalize(vec3(-dot_vz * v.x, -dot_vz * v.y, 1.0 - dot_vz * v.z));
-            
-            // 构建 x' 轴
-            vec3 x_prime = normalize(cross(y_prime, v));
-            
-            // 应用滚转
-            float roll = to_rad(u_view_roll);
-            float cos_r = cos(roll);
-            float sin_r = sin(roll);
-            vec3 x_rot = x_prime * cos_r - y_prime * sin_r;
-            vec3 y_rot = x_prime * sin_r + y_prime * cos_r;
-            
-            // 转换到地平坐标
-            vec3 result = x_rot * p_prime.x + y_rot * p_prime.y + v * p_prime.z;
-            return normalize(result);
-        }
-        
-        // 云密度函数
-        float getCloudDensity(vec3 pos, float time) {
-            float totalDensity = 0.0;
-            
-            float windOffsetX = time * u_wind_speed * 0.5;
-            float windOffsetY = time * u_wind_speed * 0.3;
-            
-            for (int i = 0; i < 3; i++) {
-                vec4 cloud = u_cloud_clusters[i];
-                vec4 params = u_cloud_params[i];
-                float cx = cloud.x + windOffsetX;
-                float cy = cloud.y + windOffsetY;
-                float cz = cloud.z;
-                float radius = cloud.w;
-                float height = params.x;
-                float seed = params.y;
-                
-                float dx = pos.x - cx;
-                float dy = pos.y - cy;
-                float dz = pos.z - cz;
-                
-                float distHorizontal = sqrt(dx * dx + dy * dy);
-                float distVertical = abs(dz);
-                
-                if (distHorizontal > radius || distVertical > height) continue;
-                
-                float hFactor = 1.0 - distHorizontal / radius;
-                float vFactor = 1.0 - distVertical / height;
-                
-                float smoothH = hFactor * hFactor * (3.0 - 2.0 * hFactor);
-                float smoothV = vFactor * vFactor * (3.0 - 2.0 * vFactor);
-                
-                float baseDensity = hFactor * vFactor;
-                
-                float noiseScale = 0.25;
-                float nx = pos.x * noiseScale;
-                float ny = pos.y * noiseScale;
-                float nz = pos.z * noiseScale;
-                
-                float noise1 = simpleNoise3D(vec3(nx, ny, nz), seed);
-                float noise2 = simpleNoise3D(vec3(nx * 2.3, ny * 2.3, nz * 2.3), seed + 1.0);
-                float noise3 = simpleNoise3D(vec3(nx * 5.1, ny * 5.1, nz * 5.1), seed + 2.0);
-                float noise4 = simpleNoise3D(vec3(nx * 10.7, ny * 10.7, nz * 10.7), seed + 3.0);
-                
-                float detailNoise = noise1 * 0.20 + noise2 * 0.25 + noise3 * 0.30 + noise4 * 0.25;
-                
-                float density = baseDensity * detailNoise * 1.5;
-                density = max(0.0, density - 0.15) / 0.85;
-                
-                totalDensity = max(totalDensity, density * u_density_scale);
-            }
-            
-            return min(totalDensity, 1.0);
-        }
-        
-        // 计算云阴影（透射率）
-        float computeCloudShadow(vec3 pos, vec3 sunDir, float time) {
-            const int shadowSteps = 6;
-            float shadowStepSize = 0.8;
-            float shadowTransmittance = 1.0;
-            
-            vec3 shadowPos = pos;
-            
-            for (int i = 0; i < shadowSteps; i++) {
-                shadowPos += sunDir * shadowStepSize;
-                float density = getCloudDensity(shadowPos, time);
-                if (density > 0.01) {
-                    float shadowExtinction = u_extinction * 2.0;
-                    shadowTransmittance *= exp(-density * shadowExtinction * shadowStepSize);
-                    if (shadowTransmittance < 0.01) {
-                        shadowTransmittance = 0.0;
-                        break;
-                    }
-                }
-            }
-            
-            return shadowTransmittance;
-        }
-        
-        // 计算环境光追踪
-        float computeAmbientTrace(vec3 pos, float time) {
-            const int ambientSteps = 4;
-            float ambientStepSize = 1.0;
-            float ambientTransmittance = 1.0;
-            
-            vec3 tracePos = pos;
-            vec3 upDir = vec3(0.0, 0.0, 1.0);
-            
-            for (int i = 0; i < ambientSteps; i++) {
-                tracePos += upDir * ambientStepSize;
-                float density = getCloudDensity(tracePos, time);
-                if (density > 0.01) {
-                    float extinction = u_extinction * 1.5;
-                    ambientTransmittance *= exp(-density * extinction * ambientStepSize);
-                    if (ambientTransmittance < 0.05) {
-                        ambientTransmittance = 0.0;
-                        break;
-                    }
-                }
-            }
-            
-            return ambientTransmittance;
-        }
-        
-        void main() {
-            vec2 scr_pos = vec2(v_texCoord.x * u_fb_width, v_texCoord.y * u_fb_height);
-            
-            // 读取背景颜色
-            vec4 bgColor = texture2D(u_background_texture, v_texCoord);
-            
-            // 获取视线方向
-            vec3 rayDir = fisheye_unproject(scr_pos);
-            
-            // 只处理朝上的视线
-            if (rayDir.z <= 0.01) {
-                gl_FragColor = bgColor;
-                return;
-            }
-            
-            // 太阳方向
-            float sun_alt_rad = to_rad(u_sun_alt);
-            float sun_azi_rad = to_rad(u_sun_azi);
-            vec3 sunDir = vec3(
-                cos(sun_alt_rad) * sin(sun_azi_rad),
-                cos(sun_alt_rad) * cos(sun_azi_rad),
-                sin(sun_alt_rad)
-            );
-            
-            // 太阳高度因子
-            float sunElevationFactor = clamp((u_sun_alt + 6.0) / 12.0, 0.0, 1.0);
-            
-            // 计算与云团包围盒的交点
-            float tEnter = u_cloud_bbox_min / rayDir.z;
-            float tExit = u_cloud_bbox_max / rayDir.z;
-            
-            if (tEnter < 0.0 || tExit < 0.0 || tExit <= tEnter) {
-                gl_FragColor = bgColor;
-                return;
-            }
-            
-            // 光线步进
-            float transmittance = 1.0;
-            vec3 accumColor = vec3(0.0);
-            float stepSize = (tExit - tEnter) / float(u_steps);
-            float offset = fract(sin(dot(scr_pos, vec2(12.9898, 78.233))) * 43758.5453) * stepSize;
-            float t = tEnter + offset;
-            
-            for (int step = 0; step < 32; step++) {
-                if (step >= u_steps) break;
-                
-                vec3 pos = rayDir * t;
-                float density = getCloudDensity(pos, u_time);
-                
-                if (density > 0.01) {
-                    // 直射光阴影
-                    float directLightShadow = computeCloudShadow(pos, sunDir, u_time);
-                    float directLight = directLightShadow * sunElevationFactor;
-                    
-                    // 环境光
-                    float ambientTrace = computeAmbientTrace(pos, u_time);
-                    float ambientLight = u_ambient_light * (0.2 + 0.8 * ambientTrace);
-                    
-                    // 散射
-                    float scatter = density * u_scattering;
-                    
-                    // 直射光贡献
-                    vec3 directContrib = vec3(scatter * directLight) * u_sun_color;
-                    // 环境光贡献
-                    vec3 ambientContrib = vec3(scatter * ambientLight) * u_sky_color;
-                    
-                    vec3 cloudColor = directContrib + ambientContrib;
-                    
-                    // 累积颜色
-                    accumColor += cloudColor * transmittance;
-                    
-                    // 更新透射率
-                    float attenuation = exp(-u_extinction * density * stepSize);
-                    transmittance *= attenuation;
-                    
-                    // 提早终止
-                    if (transmittance < 0.01) break;
-                }
-                
-                t += stepSize;
-            }
-            
-            // 混合云和背景
-            vec3 finalColor = accumColor + bgColor.rgb * transmittance;
-            finalColor = clamp(finalColor, 0.0, 1.0);
-            
-            gl_FragColor = vec4(finalColor, 1.0);
-        }
-    `,
-    
-    // 渲染体积云
-    render: function(params, backgroundData) {
-        const gl = this.gl;
-        if (!gl || !this.program) return null;
-        
-        const { fb_width, fb_height, sky_radius, center_x, center_y, 
-                view_alt, view_azi, view_roll, f, sun_alt, sun_azi, time,
-                density_scale, extinction, scattering, steps, wind_speed, ambient_light,
-                sun_color, sky_color, cloud_bbox_min, cloud_bbox_max, cloud_clusters } = params;
-        
-        // 调整 canvas 和纹理大小
-        const canvas = gl.canvas;
-        canvas.width = fb_width;
-        canvas.height = fb_height;
-        gl.viewport(0, 0, fb_width, fb_height);
-        
-        // 更新输出纹理
-        gl.bindTexture(gl.TEXTURE_2D, this.texture);
-        gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, fb_width, fb_height, 0, gl.RGBA, gl.UNSIGNED_BYTE, null);
-        
-        // 关键修复：重新附加纹理到帧缓冲区（某些移动驱动需要）
-        gl.bindFramebuffer(gl.FRAMEBUFFER, this.framebuffer);
-        gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, this.texture, 0);
-        
-        // 验证帧缓冲区完整性
-        const fbStatus = gl.checkFramebufferStatus(gl.FRAMEBUFFER);
-        if (fbStatus !== gl.FRAMEBUFFER_COMPLETE) {
-            console.error('Volumetric cloud framebuffer incomplete in render:', fbStatus);
-            gl.bindFramebuffer(gl.FRAMEBUFFER, null);
-            return null;
-        }
-        
-        // 创建背景纹理
-        const bgTexture = gl.createTexture();
-        gl.activeTexture(gl.TEXTURE0);
-        gl.bindTexture(gl.TEXTURE_2D, bgTexture);
-        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
-        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
-        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
-        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
-        gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, fb_width, fb_height, 0, gl.RGBA, gl.UNSIGNED_BYTE, backgroundData);
-        
-        gl.bindFramebuffer(gl.FRAMEBUFFER, this.framebuffer);
-        
-        // 设置 uniform 值
-        gl.uniform1f(this.uniforms.u_fb_width, fb_width);
-        gl.uniform1f(this.uniforms.u_fb_height, fb_height);
-        gl.uniform1f(this.uniforms.u_sky_radius, sky_radius);
-        gl.uniform1f(this.uniforms.u_center_x, center_x);
-        gl.uniform1f(this.uniforms.u_center_y, center_y);
-        gl.uniform1f(this.uniforms.u_view_alt, -view_alt);
-        gl.uniform1f(this.uniforms.u_view_azi, view_azi);
-        gl.uniform1f(this.uniforms.u_view_roll, -view_roll);
-        gl.uniform1f(this.uniforms.u_f, f);
-        gl.uniform1f(this.uniforms.u_sun_alt, sun_alt);
-        gl.uniform1f(this.uniforms.u_sun_azi, sun_azi);
-        gl.uniform1f(this.uniforms.u_time, time);
-        gl.uniform1f(this.uniforms.u_density_scale, density_scale);
-        gl.uniform1f(this.uniforms.u_extinction, extinction);
-        gl.uniform1f(this.uniforms.u_scattering, scattering);
-        gl.uniform1i(this.uniforms.u_steps, steps);
-        gl.uniform1f(this.uniforms.u_wind_speed, wind_speed);
-        gl.uniform1f(this.uniforms.u_ambient_light, ambient_light);
-        gl.uniform3f(this.uniforms.u_sun_color, sun_color[0], sun_color[1], sun_color[2]);
-        gl.uniform3f(this.uniforms.u_sky_color, sky_color[0], sky_color[1], sky_color[2]);
-        gl.uniform1f(this.uniforms.u_cloud_bbox_min, cloud_bbox_min);
-        gl.uniform1f(this.uniforms.u_cloud_bbox_max, cloud_bbox_max);
-        gl.uniform1i(this.uniforms.u_background_texture, 0);
-        gl.uniform1i(this.uniforms.u_enable_fisheye_projection, (enable_fisheye_projection) ? 1 : 0);
-        
-        // 设置云团数据
-        for (let i = 0; i < 3; i++) {
-            const cluster = cloud_clusters[i];
-            gl.uniform4f(gl.getUniformLocation(this.program, `u_cloud_clusters[${i}]`), 
-                cluster.center.x, cluster.center.y, cluster.center.z, cluster.radius);
-            gl.uniform4f(gl.getUniformLocation(this.program, `u_cloud_params[${i}]`), 
-                cluster.height, cluster.seed, 0.0, 0.0);
-        }
-        
-        // 绘制全屏四边形
-        gl.drawArrays(gl.TRIANGLES, 0, 6);
-        
-        // 读取像素数据
-        const pixels = new Uint8Array(fb_width * fb_height * 4);
-        gl.readPixels(0, 0, fb_width, fb_height, gl.RGBA, gl.UNSIGNED_BYTE, pixels);
-        
-        gl.bindFramebuffer(gl.FRAMEBUFFER, null);
-        
-        // 清理
-        gl.deleteTexture(bgTexture);
-        
-        return pixels;
-    }
-};
-
-// 初始化体积云 WebGL
-let volumetricCloudWebGLInitialized = false;
-function initVolumetricCloudWebGL() {
-    if (!volumetricCloudWebGLInitialized) {
-        volumetricCloudWebGLInitialized = true;
-        return VolumetricCloudWebGL.init();
-    }
-    return VolumetricCloudWebGL.gl !== null;
-}
-
-
 
 // ============================================
 // WebGL 大气散射渲染器
@@ -9803,7 +8884,9 @@ function render_all(
                     f: f,
                     sun_alt: sun_alt,
                     sun_azi: sun_azi,
-                    downsample: C
+                    downsample: C,
+                    // 天空源：云开→内建天空+云一体；云关→纯 Bruneton 天空（跳过 ray-march）
+                    sky_source: (enable_volumetric_cloud) ? 0 : 1
                 });
             }
             // gl_pixels 为空（无 WebGL2 / 初始化失败）时走下方 CPU 回退
@@ -9976,7 +9059,7 @@ function render_all(
 
             let C4 = 8; // 降采样因子
             let force_bilinear = false;
-            if (enable_atmospheric_scattering === 5) {
+            if (enable_atmospheric_scattering === 5 && enable_volumetric_cloud) {
                 // 模型 5：CPU 回退的云体 march 较粗糙，固定 C=8 并强制双线性平滑
                 C4 = 8;
                 force_bilinear = true;
@@ -10133,20 +9216,15 @@ function render_all(
     }
 
 
-    // 更新体积云时间偏移
-    // cloudTimeOffset += 1000 / 60; // 假设60fps
-
-    // 渲染体积云（在大气散射之后，天体之前）
-    // 模型 5 的体积云已内建于散射着色（含正确的光照/遮挡），跳过旧的 2D 体积云叠加
-    if (enable_atmospheric_scattering !== 5) {
-        render_volumetric_clouds(
+    // 渲染解耦体积云（原散射模型 5 的体积云算法，已解耦为独立云层）：
+    // 叠加在任意散射模型（0-4）的天空与天体之上（云层正确遮挡月亮/太阳/恒星/行星）；
+    // 模型 5 的体积云仍内建于其着色流程，由同一"体积云"开关控制
+    if (enable_volumetric_cloud && enable_atmospheric_scattering !== 5) {
+        render_decoupled_volumetric_clouds(
             frame_buffer, fb_width, fb_height,
             sky_radius, center_x, center_y,
             view_alt, view_azi, view_roll, f,
-            sun_alt, sun_azi, cloudTimeOffset,
-            atmo_r, atmo_g, atmo_b,
-            // 255, 207, 164
-            sunlight_r, sunlight_g, sunlight_b
+            sun_alt, sun_azi
         );
     }
 
@@ -10748,9 +9826,9 @@ function refresh_button_status() {
     document.getElementById("scattering_status").innerHTML = status;
 
 
-    // 体积云天空（模型5）专属：云量/云类/云亮度（其他大气散射模型时隐藏该行）
+    // 体积云专属：云量/云类/云亮度/镜头光晕/雷达云图（云层启用时显示，全散射模型可用）
     const cloud_sky_ctl = document.getElementById("cloud_sky_controller");
-    if (enable_atmospheric_scattering === 5) {
+    if (enable_volumetric_cloud) {
         cloud_sky_ctl.style.display = "flex";
 
         // 云量（6 档，同 ui_cloud.c 档位表：晴空→疏云→半云→多云→阴天→满云）
@@ -11946,8 +11024,8 @@ function init() {
             initAtmosphericScatteringWebGL();
             if (enable_webgl) initCloudSkyWebGL();
 
-            // 阶段 2：生成体积云噪声纹理（仅模型 5 需要；约 1-2 秒）
-            if (enable_atmospheric_scattering === 5) {
+            // 阶段 2：生成体积云噪声纹理（模型 5 内建云层或"体积云"开关开启时需要；约 1-2 秒）
+            if (enable_atmospheric_scattering === 5 || enable_volumetric_cloud) {
                 loading_status.textContent = "正在生成体积云噪声纹理（约 1-2 秒）…";
                 await loading_yield();
                 if (!cloudSkyState.noiseReady) {
