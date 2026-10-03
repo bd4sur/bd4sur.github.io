@@ -4598,7 +4598,7 @@ function cloud_sky_radarDensityScale(dbz) {
 
 function cloud_sky_lutTransmittanceParamsToUv(viewHeight, viewZenithCosAngle, out) {
     const s = cloudSkyScene;
-    const H = Math.sqrt(Math.max(0.0, s.topH));
+    const H = Math.max(0.0, s.topH);
     const rho = Math.sqrt(Math.max(0.0, viewHeight * viewHeight - CLOUD_SKY_BOTTOM_RADIUS * CLOUD_SKY_BOTTOM_RADIUS));
     out[1] = rho / H;
     const discriminant = viewHeight * viewHeight * (viewZenithCosAngle * viewZenithCosAngle - 1.0) +
