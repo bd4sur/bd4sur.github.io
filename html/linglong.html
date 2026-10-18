@@ -82,6 +82,49 @@ a {
     flex-direction: row;
 }
 
+/* 实时海洋参数滑块（地景为实时海洋时显示于 canvas 上方） */
+.ocean_sliders {
+    display: none;
+    max-width: 420px;
+    margin: 3px auto;
+    padding: 5px 8px;
+    background: #1c2a3088;
+    border: 1px solid #2e4a5566;
+    border-radius: 6px;
+    flex-direction: column;
+    gap: 2px;
+}
+.ocean_slider_row {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    width: 100%;
+    font-size: 10px;
+    color: #ffffffcc;
+    line-height: 14px;
+}
+.ocean_slider_row .osl_name {
+    flex: none;
+    width: 60px;
+    text-align: right;
+    color: #ffffffcc;
+}
+.ocean_slider_row input[type="range"] {
+    flex: 1 1 auto;
+    min-width: 60px;
+    height: 10px;
+    accent-color: #35b8b8;
+    cursor: pointer;
+}
+.ocean_slider_row .osl_val {
+    flex: none;
+    width: 62px;
+    text-align: left;
+    color: #00ffff;
+    font-size: 10px;
+    font-family: monospace;
+}
+
 .joystick_buttons_container {
     margin: 0px auto;
     padding: 10px;
@@ -229,6 +272,37 @@ a {
     }
     .modal-text-box {
         max-width: 320px;
+        box-sizing: border-box;
+        /* 限定在视口内（上下各留 24px），内容滚动、按钮固定底部 */
+        max-height: calc(100vh - 48px);
+        max-height: calc(100dvh - 48px);
+        display: flex;
+        flex-direction: column;
+    }
+    .modal-text-box .modal-title {
+        flex: none;
+    }
+    .modal-text-box .modal-text-content {
+        flex: 1 1 auto;
+        min-height: 0;
+        overflow-y: auto;
+        overscroll-behavior: contain;
+        padding-right: 6px;
+        margin-right: -6px;
+    }
+    .modal-text-box .modal-text-content::-webkit-scrollbar {
+        width: 6px;
+    }
+    .modal-text-box .modal-text-content::-webkit-scrollbar-thumb {
+        background: #3a4a55;
+        border-radius: 3px;
+    }
+    .modal-text-box .modal-text-content::-webkit-scrollbar-thumb:hover {
+        background: #4a6a75;
+    }
+    .modal-text-box .modal-actions {
+        flex: none;
+        margin-top: 14px;
     }
     .modal-text-content {
         font-size: 12px;
@@ -341,6 +415,10 @@ a {
             <button class="setting_button" id="toggle_cloud_lens">镜头光晕<br><span class="status_label" id="cloud_lens_status">-</span></button>
             <button class="setting_button" id="toggle_radar_cloud">雷达云图<br><span class="status_label" id="radar_cloud_status">-</span></button>
         </div>
+
+        <!-- 实时海洋（web-ocean 移植）专属调节：风速/风向/风区/涌浪/泡沫/浑浊度/霾 -->
+        <!-- 地景设为“实时海洋”时显示于 canvas 上方；由 wo_init_sliders 动态填充 -->
+        <div class="setting_buttons_container ocean_sliders" id="ocean_controller"></div>
 
         <canvas class="mainCanvas" id="skyCanvas" width="400" height="300" style="width: 100%; max-width: 400px;"></canvas>
 
@@ -572,6 +650,8 @@ a {
                     <li>「体积云」按钮启用三层体积云层（算法解耦自「体积云天空」模型，支持 JS 与 GLSL 双实现，可在任意大气散射模型上叠加；模型 5 默认内建启用，关闭后模型 5 退化为纯 Bruneton 天空）。GPU 路径需要 WebGL2，首次启用需生成噪声纹理（约 1 秒），无 WebGL2 时自动回退到较慢的 JS 渲染。</li>
                     <li>启用体积云后，可用其下的"云量/云类/云亮度"按钮调节云的档位（6档）、显示种类（按层掩码 0-7 共 8 种组合：无云/仅低层/仅中层/低+中/仅高层/低+高/中+高/所有云）与亮度（0.5~2.0）。</li>
                     <li>"雷达云图"开启后（默认开启），体积云天空的初始云模式取自中央气象台组合反射率图（radar.png 减 radar_background.png 底图、形态学去地图元素、色标反演 dBZ），雷达 256km 范围与地平圈直接对齐；dBZ 经三通道调制云场：覆盖率决定有无疏密（封顶 35/45/55dBZ）、云顶高度决定类别（弱回波压扁为层云、强回波发展为全塔积雨云）、密度系数决定厚薄；中高度云另以双频噪声调制破碎边缘、消除周期感，并对回波轮廓做域扭曲（~2.5km 特征）与高频 dBZ 抖动，使大片云的平直硬边变成曲折破碎的自然边缘；处理全部在页面内完成，图片缺失或处理失败时自动回退程序化云图。</li>
+                    <li>「海洋天空」（模型 6）与「实时海洋」地景移植自开源项目 web-ocean（MIT）：Hillaire 式 LUT 大气（透射率/多重散射/天空视图三张 LUT，JS 与 GLSL 共享同一份数据）、JONSWAP 风浪谱+窄涌浪的解析波列级数（方差守恒，烘焙为可平铺波场纹理并按群速度平流）、各向异性高斯太阳耀光（Smith 掩蔽）、天空环境反射、水体上涌与波峰透射辉光、雅可比白帽、大气透视与 AgX 色调映射。观察者默认位于海平面以上 50 米（1.5 米~1 公里对数刻度可调）；无 WebGL2 时自动回退到较慢的 JS 逐像素渲染。</li>
+                    <li>地景设为「实时海洋」时，canvas 上方会出现海洋参数滑块（观察高度/风速/风向/风区/涌浪波高/涌浪波长/涌浪方向/泡沫强度/水体浑浊度/霾）：波浪与涌浪参数在停止拖动约 0.25 秒后重烘焙波场（约 0.1 秒）；「霾」与「观察高度」会重建大气 LUT（约 0.5 秒）；泡沫强度与水体浑浊度立即生效。风浪行进方向与涌浪方向以罗盘方位角表示（0=北，90=东）。</li>
                     <li>本系统由 Kimi K2.7、K3、本地部署的 DeepSeek-V4-Flash、GLM5.3-Flash 辅助编码。</li>
                 </ul>
             </div>
@@ -589,6 +669,7 @@ a {
                 <ol>
                     <li>Nishita T, et al. <b>Display of The Earth Taking into Account Atmospheric Scattering</b>. 1993.</li>
                     <li>Bruneton E, Neyret F. <b>Precomputed Atmospheric Scattering</b>. 2008；Hillaire S. <b>A Scalable and Production Ready Sky and Atmosphere Rendering Technique</b>. 2020.</li>
+                    <li>Tessendorf J. <b>Simulating Ocean Water</b>. 1999；海洋与「海洋天空」渲染移植自开源项目 web-ocean（MIT，JONSWAP 谱、LEAN 映射、AgX）。</li>
                     <li>Meeus J. <b>Astronomical Algorithms (Second Edition)</b>. 1998.</li>
                     <li>清代《钦定协纪辨方书》的Python实现：<a href="https://github.com/OPN48/cnlunar" target="_blank" style="color: #99ddff;">https://github.com/OPN48/cnlunar</a></li>
                 </ol>
@@ -614,7 +695,7 @@ let enable_star_burst = true;
 // 体积云（解耦自模型5，全散射模型可用）：内建太阳镜头光晕开关（关闭后仅剩外部绘制的太阳盘与星芒；
 // 太阳圆盘 draw_sun 与星芒 star_burst_filter 始终叠加在体积云渲染结果之上）
 let enable_cloud_sun_lens = true;
-// 大气散射模型（0-不启用；1-简化模型；2-一次散射；3-二次散射；4-二次散射改；5-体积云天空）
+// 大气散射模型（0-不启用；1-简化模型；2-一次散射；3-二次散射；4-二次散射改；5-体积云天空；6-海洋天空/web-ocean）
 let enable_atmospheric_scattering = 5;
 // 是否显示天体名称（0-不显示；1-仅恒星；2-仅行星；3-全部）
 let enable_star_name = 0;
@@ -639,8 +720,8 @@ let last_running_mode = 0;
 // 是否启用双线性插值
 let enable_opt_bilinear = false;
 
-// 地景选项：0-无地景；1-地形生成
-let landscape_index = 2;
+// 地景选项：0-无地景；1-地形生成；7-实时海洋（web-ocean 移植，类型字段=2）
+let landscape_index = 7;
 
 // 是否启用体积云（解耦自模型5的体积云算法，任意散射模型下均可用；模型5默认内建启用）
 let enable_volumetric_cloud = true;
@@ -716,6 +797,7 @@ const LANDSCAPES = [
     ["../image/H/landscape_2.jpg", "雪地", 1, 600, 600],
     ["../image/H/landscape_3.jpg", "海洋", 1, 600, 600],
     ["../image/H/nanjing_sat_1800.jpg", "南京", 0, 1800, 1800],
+    ["", "实时海洋", 2], // 类型2：web-ocean 实时渲染海面（JS 与 GLSL 双实现）
 ];
 
 
@@ -7585,6 +7667,1953 @@ function initCloudSkyWebGL() {
     return CloudSkyWebGL.gl !== null;
 }
 
+// === [WebOcean] ===
+// ============================================================
+// 海洋与天空渲染（web-ocean 移植）：大气散射模型 6 + 实时海洋地景
+// ============================================================
+// 移植自 web-ocean（WebGPU 实时海洋-天空渲染器）的天空与海洋部分（不含云）：
+//  · 天空（大气散射模型 6）：Hillaire 式 LUT 大气——透射率 LUT + 多重散射 LUT +
+//    天空视图 LUT + 气溶胶霾层。三张 LUT 均由 JS 统一计算：CPU 路径直接查表，
+//    WebGL 路径上传为 RGBA16F 纹理，两路共享同一份数据，保证渲染效果一致。
+//  · 海洋（实时渲染地景）：以方差守恒的解析波列级数替代 web-ocean 的 FFT 级联仿真
+//    （谱不变：JONSWAP 风浪 + Donelan-Banner 方向分布 + 窄涌浪 + 表面张力色散），
+//    波场烘焙为两级可平铺纹理（120m / 8m 级联，各含高度、两轴坡度与雅可比迹），
+//    按各波段群速度平流；着色管线逐条移植：LEAN 坡度统计 + 各向异性高斯坡度分布
+//    太阳耀光（Smith 掩蔽）、天空环境反射（粗糙度按半球均值混合近似）、
+//    水体上涌散射 + 背光波峰透射辉光、雅可比白帽 + 程序化泡沫纹理、大气透视。
+//  · 色调映射：AgX（web-ocean 合成链；去除 bloom/暗角/抖动以保证 JS 与 GLSL 输出一致）。
+//  · 坐标系：本节内部使用海洋系 (x 东, y 上, z 北)；页面地平系 (x 东, y 北, z 上)
+//    经 (x, z, y) 分量换算。观察者位于平均海平面以上 2.4 m（可由“观察高度”滑块调节）。
+// ============================================================
+
+const WO_PI = 3.141592653589793;
+
+// ---- 大气常数（与 web-ocean common.js ATMO_CORE_WGSL 一致）----
+const WO_RG = 6360.0;                 // 地球半径 km
+const WO_RT = 6460.0;                 // 大气顶半径 km
+const WO_RAY_S = [5.802e-3, 13.558e-3, 33.1e-3];
+const WO_MIE_S = 3.996e-3;
+const WO_MIE_E = 4.40e-3;
+const WO_OZO_A = [0.650e-3, 1.881e-3, 0.085e-3];
+const WO_SUN_ANG_R = 0.004675;        // 太阳角半径 rad
+let WO_HAZE = 3.0;                    // 气溶胶霾倍率（web-ocean 默认；可由“霾”滑块调节）
+const WO_SUN_SCALE = 14.0;            // 太阳辐照定标（web-ocean sunDir.w）
+let WO_CAM_ALT_KM = 0.05;             // 观察者高度（km；默认 50 m，随“观察高度”滑块联动，最高 1 km）
+let WO_CAM_Y = 50.0;                  // 平均海平面以上高度 m（观察高度，默认 50 m，最高 1 km）
+
+const WO_TRANS_W = 256, WO_TRANS_H = 64;
+const WO_MS_SIZE = 32;
+const WO_SKY_W = 256, WO_SKY_H = 144;
+
+// ---- 海况参数（与 web-ocean main.js 默认值一致；可由“实时海洋”滑块调节）----
+let WO_WIND_U = 7.0;                  // 10m 风速 m/s
+let WO_WIND_DIR = 118.0;              // 波浪行进罗盘方位角（0=北，90=东）
+let WO_FETCH = 90000.0;               // 风区长度 m
+let WO_SWELL_HS = 1.8;                // 涌浪有效波高 m
+let WO_SWELL_DIR = 94.0;
+let WO_SWELL_LEN = 120.0;             // 涌浪谱峰波长 m
+const WO_SWELL_SPREAD = 48.0;         // cos^2s 方向分布指数
+// 行进方向单位向量（海洋系 xz 平面：x 东，z 北；由 wo_update_derived_params 重算）
+let WO_WIND_VX = Math.sin(WO_WIND_DIR * WO_PI / 180.0), WO_WIND_VZ = Math.cos(WO_WIND_DIR * WO_PI / 180.0);
+let WO_SWELL_VX = Math.sin(WO_SWELL_DIR * WO_PI / 180.0), WO_SWELL_VZ = Math.cos(WO_SWELL_DIR * WO_PI / 180.0);
+
+// 波场级联（可平铺纹理）：L=patch 尺寸 m；nMin..nMax 整数波数环；rings×dirs 个采样波列
+const WO_TILES = [
+    { L: 120.0, N: 256, nMin: 1, nMax: 16, rings: 22, dirs: 2, gain: 1.0, cgroup: 4.2 },  // 涌浪+风浪（波长 7.5~120m）
+    { L: 8.0,   N: 256, nMin: 1, nMax: 16, rings: 18, dirs: 2, gain: 0.7, cgroup: 0.9 },  // 短波（0.5~8m）
+];
+const WO_HMAX = 2.2;                  // 波场最大高程估计（射线步进起点）
+const WO_MARCH_FAR = 900.0;           // 超过该距离波高远小于像素足迹，直接取平均海平面
+
+// web-ocean 着色常数（main.js writeFrame）
+let WO_TURBIDITY = 0.2;               // 水体浑浊度（0.2 深水暗蓝 ~ 3 浑浊近岸）
+let WO_WATER_COL = [0.016 * WO_TURBIDITY, 0.080 * WO_TURBIDITY, 0.096 * WO_TURBIDITY]; // 水体体散射色
+const WO_UNRES = 0.0024;              // 未解析坡度方差基线
+const WO_SSS_COL = [0.035, 0.120, 0.085];
+const WO_SSS_K = 2.6;
+const WO_FOAM_J_THRESH = 0.36 + 0.12 * 1.0;   // 雅可比白帽阈值
+const WO_FOAM_J_GAIN = 2.5;
+let WO_FOAM_INTENSITY = 0.0;   // 泡沫强度（默认 0：不显示白帽）
+let WO_FOG_EXT = [
+    (5.802e-3 + 4.40e-3 * WO_HAZE) * 1e-3,
+    (13.558e-3 + 4.40e-3 * WO_HAZE) * 1e-3,
+    (33.1e-3 + 4.40e-3 * WO_HAZE) * 1e-3];
+const WO_FOG_FLOOR = 1.1e-4;
+
+const WO_state = {
+    transLut: null, msLut: null, skyLut: null,   // Float32Array（RGB 交错）
+    sunAlt: null, sunAzi: null,                  // LUT 缓存对应的太阳位置
+    sunDir: [0.0, 1.0, 0.0],                     // 海洋系太阳方向（y 上）
+    lastNow: -1.0, appTime: 0.0,
+    pixAng: 0.01,                                // 每像素角尺寸 rad
+    wavesReady: false,
+    waveData: [null, null],                      // 每级联 Float32Array(N*N*4)：h, sx, sz, jtrace
+    waveList: [null, null],                      // 每级联 Float32Array：kx,kz,a·kx,a·kz,a·k²,ph 交叉存储
+    cov: [0.0, 0.0, 0.0],                        // 坡度协方差 (cxx, czz, cxz)
+    foamTex: null,                               // Uint8Array 256*256*4 程序化泡沫纹理
+    lutDirty: true,                              // GL 需重新上传 LUT
+    glWavesDirty: false,                         // GL 需重新上传波场纹理
+    glTransDirty: false,                         // GL 需重新上传透射率/多重散射 LUT
+    wavesDirtyAt: null,                          // 波场参数变更时刻（防抖后重烘焙）
+    hazeDirtyAt: null,                           // 霾变更时刻（防抖后重建 LUT）
+    camDirtyAt: null,                            // 观察高度变更时刻（防抖后重建天空视图 LUT）
+};
+
+function wo_saturate(x) { return x < 0.0 ? 0.0 : (x > 1.0 ? 1.0 : x); }
+function wo_clamp(x, a, b) { return x < a ? a : (x > b ? b : x); }
+function wo_mix(a, b, t) { return a + (b - a) * t; }
+function wo_smoothstep(e0, e1, x) {
+    const t = wo_saturate((x - e0) / (e1 - e0));
+    return t * t * (3.0 - 2.0 * t);
+}
+
+// ---- 大气介质（web-ocean medium()）----
+function wo_medium(h) {
+    const hh = Math.max(h, 0.0);
+    const dR = Math.exp(-hh / 8.0);
+    // 气溶胶：常规 1.2km 层 + 浓密海洋边界层
+    const dM = Math.exp(-hh / 1.2);
+    const dO = Math.max(0.0, 1.0 - Math.abs(hh - 25.0) / 15.0);
+    const rayS = [WO_RAY_S[0] * dR, WO_RAY_S[1] * dR, WO_RAY_S[2] * dR];
+    const mieS = WO_MIE_S * dM * WO_HAZE;
+    const ext = [
+        rayS[0] + WO_MIE_E * dM * WO_HAZE + WO_OZO_A[0] * dO,
+        rayS[1] + WO_MIE_E * dM * WO_HAZE + WO_OZO_A[1] * dO,
+        rayS[2] + WO_MIE_E * dM * WO_HAZE + WO_OZO_A[2] * dO];
+    return { rayS: rayS, mieS: mieS, ext: ext };
+}
+
+function wo_raySphere(ox, oy, oz, dx, dy, dz, R) {
+    const l = Math.sqrt(ox * ox + oy * oy + oz * oz);
+    const b = ox * dx + oy * dy + oz * dz;
+    const c = (l - R) * (l + R);
+    const d = b * b - c;
+    if (d < 0.0) return [-1.0, -1.0];
+    const s = Math.sqrt(d);
+    return [-b - s, -b + s];
+}
+
+function wo_rhoOf(r) { return Math.sqrt(Math.max(0.0, (r - WO_RG) * (r + WO_RG))); }
+
+function wo_transRMuToUV(r, mu) {
+    const H = Math.sqrt(WO_RT * WO_RT - WO_RG * WO_RG);
+    const rho = wo_rhoOf(r);
+    const disc = r * r * (mu * mu - 1.0) + WO_RT * WO_RT;
+    const d = Math.max(0.0, -r * mu + Math.sqrt(Math.max(disc, 0.0)));
+    const dMin = WO_RT - r;
+    const dMax = rho + H;
+    return [(d - dMin) / (dMax - dMin), rho / H];
+}
+
+function wo_transUVToRMu(u, v) {
+    const H = Math.sqrt(WO_RT * WO_RT - WO_RG * WO_RG);
+    const rho = H * v;
+    const r = Math.sqrt(rho * rho + WO_RG * WO_RG);
+    const dMin = WO_RT - r;
+    const dMax = rho + H;
+    const d = dMin + u * (dMax - dMin);
+    let mu = 1.0;
+    if (d > 0.0) mu = (H * H - rho * rho - d * d) / (2.0 * r * d);
+    return [r, wo_clamp(mu, -1.0, 1.0)];
+}
+
+function wo_fromUnitToSubUvs(u, res) { return (u + 0.5 / res) * (res / (res + 1.0)); }
+function wo_fromSubUvsToUnit(u, res) { return (u - 0.5 / res) * (res / (res - 1.0)); }
+
+function wo_phaseRayleigh(c) { return 3.0 / (16.0 * WO_PI) * (1.0 + c * c); }
+function wo_phaseMie(c, g) {
+    const g2 = g * g;
+    return 3.0 / (8.0 * WO_PI) * ((1.0 - g2) * (1.0 + c * c)) /
+        ((2.0 + g2) * Math.pow(Math.max(1.0 + g2 - 2.0 * g * c, 1e-4), 1.5));
+}
+
+// 观测点 r 处太阳是否低于几何地平
+function wo_sunBelowHorizon(r, mu) { return mu < -wo_rhoOf(r) / r; }
+
+// ---- 纹理中心双线性采样（与 GLSL LINEAR 采样约定一致）----
+function wo_bilinear3(lut, w, h, u, v, out) {
+    let x = u * w - 0.5, y = v * h - 0.5;
+    let x0 = Math.floor(x), y0 = Math.floor(y);
+    const fx = x - x0, fy = y - y0;
+    const x0c = wo_clamp(x0, 0, w - 1), x1c = wo_clamp(x0 + 1, 0, w - 1);
+    const y0c = wo_clamp(y0, 0, h - 1), y1c = wo_clamp(y0 + 1, 0, h - 1);
+    const i00 = (y0c * w + x0c) * 3, i10 = (y0c * w + x1c) * 3;
+    const i01 = (y1c * w + x0c) * 3, i11 = (y1c * w + x1c) * 3;
+    const w00 = (1 - fx) * (1 - fy), w10 = fx * (1 - fy), w01 = (1 - fx) * fy, w11 = fx * fy;
+    for (let c = 0; c < 3; c++) {
+        out[c] = lut[i00 + c] * w00 + lut[i10 + c] * w10 + lut[i01 + c] * w01 + lut[i11 + c] * w11;
+    }
+    return out;
+}
+
+function wo_sampleTransLut(r, mu, out) {
+    const uv = wo_transRMuToUV(r, mu);
+    return wo_bilinear3(WO_state.transLut, WO_TRANS_W, WO_TRANS_H, wo_clamp(uv[0], 0.0, 1.0), wo_clamp(uv[1], 0.0, 1.0), out);
+}
+
+// ---- 透射率 LUT（web-ocean TRANS_LUT）----
+function wo_build_trans_lut() {
+    const lut = new Float32Array(WO_TRANS_W * WO_TRANS_H * 3);
+    const STEPS = 64;
+    const od = [0.0, 0.0, 0.0];
+    for (let y = 0; y < WO_TRANS_H; y++) {
+        for (let x = 0; x < WO_TRANS_W; x++) {
+            const uv = [(x + 0.5) / WO_TRANS_W, (y + 0.5) / WO_TRANS_H];
+            const rm = wo_transUVToRMu(uv[0], uv[1]);
+            const ro = [0.0, rm[0], 0.0];
+            const rd = [Math.sqrt(Math.max(0.0, 1.0 - rm[1] * rm[1])), rm[1], 0.0];
+            const tMax = wo_raySphere(ro[0], ro[1], ro[2], rd[0], rd[1], rd[2], WO_RT)[1];
+            od[0] = 0.0; od[1] = 0.0; od[2] = 0.0;
+            const dt = tMax / STEPS;
+            for (let i = 0; i < STEPS; i++) {
+                const t = (i + 0.5) * dt;
+                const px = ro[0] + rd[0] * t, py = ro[1] + rd[1] * t, pz = ro[2] + rd[2] * t;
+                const m = wo_medium(Math.sqrt(px * px + py * py + pz * pz) - WO_RG);
+                od[0] += m.ext[0] * dt; od[1] += m.ext[1] * dt; od[2] += m.ext[2] * dt;
+            }
+            const idx = (y * WO_TRANS_W + x) * 3;
+            lut[idx] = Math.exp(-od[0]); lut[idx + 1] = Math.exp(-od[1]); lut[idx + 2] = Math.exp(-od[2]);
+        }
+    }
+    return lut;
+}
+
+// ---- 多重散射 LUT（web-ocean MS_LUT）----
+function wo_build_ms_lut() {
+    const lut = new Float32Array(WO_MS_SIZE * WO_MS_SIZE * 3);
+    const SQ = 8, STEPS = 20;
+    const transTmp = [0.0, 0.0, 0.0];
+    const sunT = [0.0, 0.0, 0.0];
+    for (let y = 0; y < WO_MS_SIZE; y++) {
+        for (let x = 0; x < WO_MS_SIZE; x++) {
+            let uvx = wo_fromSubUvsToUnit((x + 0.5) / WO_MS_SIZE, WO_MS_SIZE);
+            let uvy = wo_fromSubUvsToUnit((y + 0.5) / WO_MS_SIZE, WO_MS_SIZE);
+            const cosSun = uvx * 2.0 - 1.0;
+            const h = Math.max(uvy * (WO_RT - WO_RG), 0.01);
+            const r = WO_RG + h;
+            const ro = [0.0, r, 0.0];
+            const sun = [Math.sqrt(Math.max(0.0, 1.0 - cosSun * cosSun)), cosSun, 0.0];
+            let Lsum = [0.0, 0.0, 0.0], Fsum = [0.0, 0.0, 0.0];
+            for (let a = 0; a < SQ; a++) {
+                for (let b = 0; b < SQ; b++) {
+                    const th = Math.acos(1.0 - 2.0 * (b + 0.5) / SQ);
+                    const ph = 2.0 * WO_PI * (a + 0.5) / SQ;
+                    const rd = [Math.sin(th) * Math.cos(ph), Math.cos(th), Math.sin(th) * Math.sin(ph)];
+                    const tTop = wo_raySphere(ro[0], ro[1], ro[2], rd[0], rd[1], rd[2], WO_RT);
+                    const tGr = wo_raySphere(ro[0], ro[1], ro[2], rd[0], rd[1], rd[2], WO_RG);
+                    let tMax = tTop[1];
+                    const hitG = tGr[0] > 0.0;
+                    if (hitG) tMax = tGr[0];
+                    const dt = tMax / STEPS;
+                    let T = [1.0, 1.0, 1.0];
+                    let L = [0.0, 0.0, 0.0];
+                    let Fms = [0.0, 0.0, 0.0];
+                    for (let s = 0; s < STEPS; s++) {
+                        const t = (s + 0.5) * dt;
+                        const px = ro[0] + rd[0] * t, py = ro[1] + rd[1] * t, pz = ro[2] + rd[2] * t;
+                        const pr = Math.sqrt(px * px + py * py + pz * pz);
+                        const m = wo_medium(pr - WO_RG);
+                        const scat = [m.rayS[0] + m.mieS, m.rayS[1] + m.mieS, m.rayS[2] + m.mieS];
+                        const Ts = [Math.exp(-m.ext[0] * dt), Math.exp(-m.ext[1] * dt), Math.exp(-m.ext[2] * dt)];
+                        const smu = (px * sun[0] + py * sun[1] + pz * sun[2]) / pr;
+                        wo_sampleTransLut(pr, smu, sunT);
+                        if (wo_sunBelowHorizon(pr, smu)) { sunT[0] = 0.0; sunT[1] = 0.0; sunT[2] = 0.0; }
+                        for (let c = 0; c < 3; c++) {
+                            const ext = Math.max(m.ext[c], 1e-9);
+                            const S = scat[c] * sunT[c] / (4.0 * WO_PI);
+                            L[c] += T[c] * (S - S * Ts[c]) / ext;
+                            Fms[c] += T[c] * (scat[c] - scat[c] * Ts[c]) / ext;
+                            T[c] *= Ts[c];
+                        }
+                    }
+                    if (hitG) {
+                        const pgx = ro[0] + rd[0] * tMax, pgy = ro[1] + rd[1] * tMax, pgz = ro[2] + rd[2] * tMax;
+                        const ng = 1.0 / Math.sqrt(pgx * pgx + pgy * pgy + pgz * pgz);
+                        const smu = (pgx * sun[0] + pgy * sun[1] + pgz * sun[2]) * ng;
+                        wo_sampleTransLut(WO_RG, smu, transTmp);
+                        const gWgt = Math.max(smu, 0.0) * 0.06 / WO_PI;
+                        for (let c = 0; c < 3; c++) L[c] += T[c] * transTmp[c] * gWgt;
+                    }
+                    for (let c = 0; c < 3; c++) { Lsum[c] += L[c]; Fsum[c] += Fms[c]; }
+                }
+            }
+            const invN = 1.0 / (SQ * SQ);
+            const idx = (y * WO_MS_SIZE + x) * 3;
+            for (let c = 0; c < 3; c++) {
+                const L2 = Lsum[c] * invN;
+                const fms = Fsum[c] * invN;
+                lut[idx + c] = L2 / (1.0 - fms);
+            }
+        }
+    }
+    return lut;
+}
+
+// ---- 天空视图 LUT（web-ocean SKYVIEW_LUT，太阳变化时重算）----
+function wo_build_sky_lut() {
+    const lut = new Float32Array(WO_SKY_W * WO_SKY_H * 3);
+    const sunT = [0.0, 0.0, 0.0];
+    const ms = [0.0, 0.0, 0.0];
+    const smu = WO_state.sunDir[1];
+    const sun = [Math.sqrt(Math.max(0.0, 1.0 - smu * smu)), smu, 0.0];
+    const haze = WO_HAZE;
+    const r = WO_RG + WO_CAM_ALT_KM;
+    const vHorizon = wo_rhoOf(r);
+    const cosBeta = vHorizon / r;
+    const beta = Math.acos(wo_clamp(cosBeta, -1.0, 1.0));
+    const zha = WO_PI - beta;
+    for (let y = 0; y < WO_SKY_H; y++) {
+        for (let x = 0; x < WO_SKY_W; x++) {
+            const uvx = wo_fromSubUvsToUnit((x + 0.5) / WO_SKY_W, WO_SKY_W);
+            const uvy = wo_fromSubUvsToUnit((y + 0.5) / WO_SKY_H, WO_SKY_H);
+            let vza;
+            if (uvy < 0.5) {
+                let coord = 2.0 * uvy;
+                coord = 1.0 - coord;
+                coord *= coord;
+                coord = 1.0 - coord;
+                vza = zha * coord;
+            } else {
+                let coord = uvy * 2.0 - 1.0;
+                coord *= coord;
+                vza = zha + beta * coord;
+            }
+            const vzc = Math.cos(vza), vzs = Math.sin(vza);
+            const cx = uvx * uvx;
+            const lvc = -(cx * 2.0 - 1.0);
+            const lvs = Math.sqrt(Math.max(0.0, 1.0 - lvc * lvc));
+            const rd = [vzs * lvc, vzc, vzs * lvs];
+            const ro = [0.0, r, 0.0];
+            const tTop = wo_raySphere(ro[0], ro[1], ro[2], rd[0], rd[1], rd[2], WO_RT);
+            const tGr = wo_raySphere(ro[0], ro[1], ro[2], rd[0], rd[1], rd[2], WO_RG);
+            let tMax = tTop[1];
+            if (tGr[0] > 0.0) tMax = tGr[0];
+            const cosT = rd[0] * sun[0] + rd[1] * sun[1] + rd[2] * sun[2];
+            const pR = wo_phaseRayleigh(cosT);
+            const pM = wo_phaseMie(cosT, 0.84);
+            const L = [0.0, 0.0, 0.0];
+            let T = [1.0, 1.0, 1.0];
+            const STEPS = 48;
+            let tPrev = 0.0;
+            for (let i = 0; i < STEPS; i++) {
+                const fa = (i + 1.0) / STEPS;
+                const tn = tMax * fa * fa;
+                const dt = tn - tPrev;
+                const t = tPrev + dt * 0.3;
+                tPrev = tn;
+                const px = ro[0] + rd[0] * t, py = ro[1] + rd[1] * t, pz = ro[2] + rd[2] * t;
+                const pr = Math.sqrt(px * px + py * py + pz * pz);
+                const h = pr - WO_RG;
+                const m = wo_medium(h);
+                const pmu = (px * sun[0] + py * sun[1] + pz * sun[2]) / pr;
+                wo_sampleTransLut(pr, pmu, sunT);
+                if (wo_sunBelowHorizon(pr, pmu)) { sunT[0] = 0.0; sunT[1] = 0.0; sunT[2] = 0.0; }
+                const msu = wo_fromUnitToSubUvs(pmu * 0.5 + 0.5, WO_MS_SIZE);
+                const msv = wo_fromUnitToSubUvs(wo_clamp(h / (WO_RT - WO_RG), 0.0, 1.0), WO_MS_SIZE);
+                wo_bilinear3(WO_state.msLut, WO_MS_SIZE, WO_MS_SIZE, msu, msv, ms);
+                const Ts = [Math.exp(-m.ext[0] * dt), Math.exp(-m.ext[1] * dt), Math.exp(-m.ext[2] * dt)];
+                for (let c = 0; c < 3; c++) {
+                    const ext = Math.max(m.ext[c], 1e-9);
+                    const S = sunT[c] * (m.rayS[c] * pR + m.mieS * pM) + ms[c] * (m.rayS[c] + m.mieS);
+                    L[c] += T[c] * (S - S * Ts[c]) / ext;
+                    T[c] *= Ts[c];
+                }
+            }
+            const idx = (y * WO_SKY_W + x) * 3;
+            lut[idx] = L[0]; lut[idx + 1] = L[1]; lut[idx + 2] = L[2];
+        }
+    }
+    return lut;
+}
+
+// ---- 天空视图 LUT 查询（web-ocean skyViewUV / skyAtmo）----
+function wo_sky_view_uv(dx, dy, dz) {
+    const r = WO_RG + WO_CAM_ALT_KM;
+    const vHorizon = wo_rhoOf(r);
+    const cosBeta = vHorizon / r;
+    const beta = Math.acos(wo_clamp(cosBeta, -1.0, 1.0));
+    const zha = WO_PI - beta;
+    const vzc = wo_clamp(dy, -1.0, 1.0);
+    let uvY;
+    if (vzc >= -cosBeta) {
+        let coord = Math.acos(vzc) / zha;
+        coord = 1.0 - coord;
+        coord = Math.sqrt(Math.max(coord, 0.0));
+        coord = 1.0 - coord;
+        uvY = coord * 0.5;
+    } else {
+        let coord = (Math.acos(vzc) - zha) / beta;
+        coord = Math.sqrt(Math.max(coord, 0.0));
+        uvY = coord * 0.5 + 0.5;
+    }
+    const dl = Math.sqrt(dx * dx + dz * dz);
+    const s = WO_state.sunDir;
+    const sl = Math.sqrt(s[0] * s[0] + s[2] * s[2]);
+    let lvc = 1.0;
+    if (dl > 1e-6 && sl > 1e-6) lvc = wo_clamp((dx * s[0] + dz * s[2]) / (dl * sl), -1.0, 1.0);
+    const uvX = Math.sqrt(Math.max(-lvc * 0.5 + 0.5, 0.0));
+    return [wo_fromUnitToSubUvs(uvX, WO_SKY_W), wo_fromUnitToSubUvs(uvY, WO_SKY_H)];
+}
+
+const WO_skyTmp = [0.0, 0.0, 0.0];
+function wo_sky_atmo(dx, dy, dz, out) {
+    const uv = wo_sky_view_uv(dx, dy, dz);
+    wo_bilinear3(WO_state.skyLut, WO_SKY_W, WO_SKY_H, wo_clamp(uv[0], 0.0, 1.0), wo_clamp(uv[1], 0.0, 1.0), out);
+    out[0] *= WO_SUN_SCALE; out[1] *= WO_SUN_SCALE; out[2] *= WO_SUN_SCALE;
+    return out;
+}
+
+// ---- AgX 色调映射（web-ocean COMPOSITE，去除 bloom/暗角/抖动）----
+function wo_agx_contrast(x) {
+    const x2 = x * x;
+    const x4 = x2 * x2;
+    return 15.5 * x4 * x2 - 40.14 * x4 * x + 31.96 * x4 - 6.868 * x2 * x + 0.4298 * x2 + 0.1191 * x - 0.00232;
+}
+function wo_agx_tonemap(r, g, b) {
+    // 曝光（web-ocean 默认 1.35）
+    let c0 = r * 1.35, c1 = g * 1.35, c2 = b * 1.35;
+    // 白平衡（compData[6] = -0.19）
+    c0 *= 0.81; c2 *= 1.19;
+    // 胶片型高光去饱和：极亮耀斑与太阳趋向白色
+    const lum = 0.2126 * c0 + 0.7152 * c1 + 0.0722 * c2;
+    const ds = wo_smoothstep(0.7, 6.0, lum) * 0.55;
+    c0 = wo_mix(c0, lum, ds); c1 = wo_mix(c1, lum, ds); c2 = wo_mix(c2, lum, ds);
+    // AgX 编码（注意：WGSL/GLSL mat 为列主序，此处按 m*v 的实际作用转写）
+    const minEv = -12.47393, maxEv = 4.026069;
+    let x0 = Math.max(c0, 1e-10), x1 = Math.max(c1, 1e-10), x2 = Math.max(c2, 1e-10);
+    let y0 = 0.842479062253094 * x0 + 0.0784335999999992 * x1 + 0.0792237451477643 * x2;
+    let y1 = 0.0423282422610123 * x0 + 0.878468636469772 * x1 + 0.0791661274605434 * x2;
+    let y2 = 0.0423756549057051 * x0 + 0.0784336 * x1 + 0.879142973793104 * x2;
+    y0 = wo_clamp(Math.log2(y0), minEv, maxEv);
+    y1 = wo_clamp(Math.log2(y1), minEv, maxEv);
+    y2 = wo_clamp(Math.log2(y2), minEv, maxEv);
+    y0 = (y0 - minEv) / (maxEv - minEv);
+    y1 = (y1 - minEv) / (maxEv - minEv);
+    y2 = (y2 - minEv) / (maxEv - minEv);
+    y0 = wo_agx_contrast(y0); y1 = wo_agx_contrast(y1); y2 = wo_agx_contrast(y2);
+    // look：sat=1.05，power=1.06
+    const l = 0.2126 * y0 + 0.7152 * y1 + 0.0722 * y2;
+    let o0 = l + 1.05 * (Math.pow(Math.max(y0, 0.0), 1.06) - l);
+    let o1 = l + 1.05 * (Math.pow(Math.max(y1, 0.0), 1.06) - l);
+    let o2 = l + 1.05 * (Math.pow(Math.max(y2, 0.0), 1.06) - l);
+    // AgX 解码（Eotf，列主序转写）
+    const e0 = 1.19687900512017 * o0 - 0.0980208811401368 * o1 - 0.0990297440797205 * o2;
+    const e1 = -0.0528968517574562 * o0 + 1.15190312990417 * o1 - 0.0989611768448433 * o2;
+    const e2 = -0.0529716355144438 * o0 - 0.0980434501171241 * o1 + 1.15107367264116 * o2;
+    return [wo_clamp(e0, 0.0, 1.0), wo_clamp(e1, 0.0, 1.0), wo_clamp(e2, 0.0, 1.0)];
+}
+
+// ============================================================
+// 大气散射模型 6：web-ocean 天空（逐像素入口，CPU 路径）
+// ray_vec/sun_vec 为页面地平坐标系（z 轴向上）向量，返回 [r,g,b]（0..1，已色调映射）
+// ============================================================
+function scatter_model_6(ray_vec, sun_vec) {
+    if (WO_state.skyLut === null) return [0, 0, 0];
+    const rl = Math.sqrt(ray_vec[0] * ray_vec[0] + ray_vec[1] * ray_vec[1] + ray_vec[2] * ray_vec[2]);
+    if (rl < 1e-10) return [0, 0, 0];
+    // 换算到海洋系（x东, y上, z北）并按 skyRadiance 约束仰角
+    let dx = ray_vec[0] / rl, dy = ray_vec[2] / rl, dz = ray_vec[1] / rl;
+    if (dy < 0.0005) dy = 0.0005;
+    const inl = 1.0 / Math.sqrt(dx * dx + dy * dy + dz * dz);
+    dx *= inl; dy *= inl; dz *= inl;
+    const c = wo_sky_atmo(dx, dy, dz, WO_skyTmp);
+    return wo_agx_tonemap(c[0], c[1], c[2]);
+}
+
+
+// ============================================================
+// 海浪：JONSWAP 风浪谱（Donelan-Banner 方向分布）+ 窄涌浪（web-ocean sim.js）
+// 以方差守恒的波列级数替代 FFT 级联，烘焙为两级可平铺纹理
+// ============================================================
+function wo_mulberry32(seed) {
+    let a = seed >>> 0;
+    return function () {
+        a |= 0; a = (a + 0x6D2B79F5) | 0;
+        let t = Math.imul(a ^ (a >>> 15), 1 | a);
+        t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+        return ((t ^ (t >>> 14)) >>> 0) / 4294967296.0;
+    };
+}
+
+const WO_GRAV = 9.81, WO_SURF = 7.4e-5;
+function wo_omegaOf(k) { return Math.sqrt(WO_GRAV * k + WO_SURF * k * k * k); }
+function wo_dOmegaOf(k) { return (WO_GRAV + 3.0 * WO_SURF * k * k) / (2.0 * wo_omegaOf(k)); }
+function wo_wrapAngle(a) { return a - 2.0 * WO_PI * Math.floor((a + WO_PI) / (2.0 * WO_PI)); }
+function wo_jonswap(w, wp, alpha, gamma) {
+    const sigma = (w <= wp) ? 0.07 : 0.09;
+    const d = (w - wp) / (sigma * wp);
+    const r = Math.exp(-0.5 * d * d);
+    const q = wp / w;
+    return alpha * WO_GRAV * WO_GRAV / (w * w * w * w * w) * Math.exp(-1.25 * q * q * q * q) * Math.pow(gamma, r);
+}
+// Donelan-Banner 方向分布（[-π,π] 上归一化）
+function wo_donelanBanner(theta, w, wp) {
+    const ratio = w / wp;
+    let beta;
+    if (ratio < 0.95) beta = 2.61 * Math.pow(ratio, 1.3);
+    else if (ratio < 1.6) beta = 2.28 * Math.pow(ratio, -1.3);
+    else {
+        const eps = -0.4 + 0.8393 * Math.exp(-0.567 * Math.log(ratio * ratio));
+        beta = Math.pow(10.0, eps);
+    }
+    const sh = 1.0 / Math.cosh(wo_clamp(beta * theta, -20.0, 20.0));
+    return beta / (2.0 * Math.tanh(beta * WO_PI)) * sh * sh;
+}
+// cos^2s(theta/2) 方向分布（归一化）
+function wo_cosSpread(theta, s) {
+    const q = Math.sqrt(s + 0.25) / (2.0 * Math.sqrt(WO_PI));
+    return q * Math.pow(Math.abs(Math.cos(theta * 0.5)), 2.0 * s);
+}
+// 二维波数谱 S(k)（web-ocean spectrum()：S(ω)·dω/dk/|k| × 方向分布 × 短波阻尼）
+function wo_spectrum(kx, kz) {
+    const kl = Math.sqrt(kx * kx + kz * kz);
+    if (kl < 1e-5) return 0.0;
+    const w = wo_omegaOf(kl);
+    const theta = Math.atan2(kz, kx);
+    let Sw = 0.0;
+    if (WO_WIND_U > 0.1) {
+        const alpha = 0.076 * Math.pow(WO_WIND_U * WO_WIND_U / (WO_FETCH * WO_GRAV), 0.22);
+        const wp = 22.0 * Math.pow(WO_GRAV * WO_GRAV / (WO_WIND_U * WO_FETCH), 1.0 / 3.0);
+        Sw = wo_jonswap(w, wp, alpha, 3.3) * wo_donelanBanner(wo_wrapAngle(theta - Math.atan2(WO_WIND_VZ, WO_WIND_VX)), w, wp);
+    }
+    if (WO_SWELL_HS > 0.001) {
+        const ks = 2.0 * WO_PI / WO_SWELL_LEN;
+        const ws = Math.sqrt(WO_GRAV * ks);
+        const gs = 6.0;
+        const hs4 = WO_SWELL_HS * 0.25;
+        const alphaS = hs4 * hs4 * 5.0 * ws * ws * ws * ws / (WO_GRAV * WO_GRAV) * (1.0 - 0.287 * Math.log(gs));
+        Sw += wo_jonswap(w, ws, alphaS, gs) * wo_cosSpread(wo_wrapAngle(theta - Math.atan2(WO_SWELL_VZ, WO_SWELL_VX)), WO_SWELL_SPREAD);
+    }
+    // 最短波阻尼（web-ocean short wave cut）
+    Sw *= Math.exp(-kl * kl * 0.0012 * 0.0012);
+    return Sw * wo_dOmegaOf(kl) / kl;
+}
+
+// 从整数波数格点（保证可平铺）抽取波列：环带面积均匀取 n；环带总方差由
+// 谱的二重数值积分给出（严格守恒），再按方向分布权重分配到 M 个代表方向；
+// 返回 [kx, kz, a, a·kx, a·kz, a·|k|², φ] 交叉存储
+function wo_build_wave_list(tile, seed) {
+    const dk = 2.0 * WO_PI / tile.L;
+    const A0 = tile.nMin * tile.nMin, A1 = tile.nMax * tile.nMax;
+    const K = tile.rings, M = tile.dirs;
+    const rng = wo_mulberry32(seed);
+    const out = [];
+    const seen = new Set();
+    for (let j = 0; j < K; j++) {
+        const nf = Math.sqrt(A0 + (A1 - A0) * (j + 0.5) / K);
+        let n = Math.round(nf);
+        if (j === 0) n = tile.nMin;               // 保证谱峰低频端（涌浪）被采样
+        n = wo_clamp(n, tile.nMin, tile.nMax);
+        // 环带 k 区间（相邻环带中点界定）
+        const nLo = (j === 0) ? tile.nMin : Math.round(Math.sqrt(A0 + (A1 - A0) * (j - 0.5) / K));
+        const nHi = (j === K - 1) ? tile.nMax : Math.round(Math.sqrt(A0 + (A1 - A0) * (j + 1.5) / K));
+        const kLo = Math.max(nLo, 1) * dk, kHi = Math.max(nHi, nLo + 1) * dk;
+        // 环带总方差 m0 = ∫∫_ring S(k,θ) k dk dθ（径向×角向求积）
+        let m0 = 0.0;
+        const NR = 6, NA = 16;
+        for (let ir = 0; ir < NR; ir++) {
+            const ka = wo_mix(kLo, kHi, ir / NR), kb = wo_mix(kLo, kHi, (ir + 1) / NR);
+            const kc = 0.5 * (ka + kb);
+            for (let ia = 0; ia < NA; ia++) {
+                const ta = -WO_PI + 2.0 * WO_PI * ia / NA;
+                const tc = ta + WO_PI / NA;
+                const S = wo_spectrum(kc * Math.cos(tc), kc * Math.sin(tc));
+                m0 += S * (0.5 * (kb * kb - ka * ka)) * (2.0 * WO_PI / NA);
+            }
+        }
+        // 方向权重：代表方向处的角向谱密度归一化
+        const isSwellBand = (tile === WO_TILES[0] && n <= 2);
+        const mainTh = isSwellBand ? Math.atan2(WO_SWELL_VZ, WO_SWELL_VX) : Math.atan2(WO_WIND_VZ, WO_WIND_VX);
+        const offs = isSwellBand ? [-0.05, 0.05] : [-0.30, 0.30];
+        const kcMid = 0.5 * (kLo + kHi);
+        let wSum = 0.0;
+        const ws = [];
+        for (let m = 0; m < M; m++) {
+            const th = wo_wrapAngle(mainTh + offs[m]);
+            const S = wo_spectrum(kcMid * Math.cos(th), kcMid * Math.sin(th));
+            ws.push(Math.max(S, 0.0));
+            wSum += Math.max(S, 0.0);
+        }
+        for (let m = 0; m < M; m++) {
+            if (wSum <= 0.0) break;
+            const th = wo_wrapAngle(mainTh + offs[m]);
+            const nx = Math.round(n * Math.cos(th)), nz = Math.round(n * Math.sin(th));
+            const key = nx * 1024 + nz;
+            if (seen.has(key)) continue;
+            seen.add(key);
+            const a = Math.sqrt(2.0 * Math.max(m0 * ws[m] / wSum, 0.0)) * tile.gain;
+            if (a < 1e-7) continue;
+            const kx = nx * dk, kz = nz * dk;
+            const kl = Math.sqrt(kx * kx + kz * kz);
+            // Gerstner 水平位移雅可比迹系数（choppy 同 web-ocean 默认 1.25）
+            out.push(kx, kz, a, a * kx, a * kz, -1.25 * a * kl, rng() * 2.0 * WO_PI);
+        }
+    }
+    return new Float32Array(out);
+}
+
+// f32 → f16 → f32（就近舍入偶数，与 GPU RGBA16F 纹理上传行为逐位一致，消除两路数据差）
+const _wo_hf32 = new Float32Array(1), _wo_hi32 = new Int32Array(_wo_hf32.buffer);
+function wo_toHalf(value) {
+    _wo_hf32[0] = value;
+    const x = _wo_hi32[0];
+    const s = (x >>> 31) & 1;
+    const e32 = (x >>> 23) & 0xff;
+    const m32 = x & 0x7fffff;
+    if (e32 === 0xff) return value;                     // NaN/Inf 原样
+    let h;
+    if (e32 === 0) {
+        h = s << 15;                                   // f32 非规格化极小值 → f16 零
+    } else {
+        let e = e32 - 127 + 15;
+        if (e >= 31) {
+            h = (s << 15) | 0x7c00;                    // 上溢饱和为 f16 Inf
+        } else if (e >= 1) {
+            // 规格化：尾数舍入到 10 位（就近舍入偶数）
+            let m = m32 >>> 13;
+            const rem = m32 & 0x1fff;
+            if (rem > 0x1000 || (rem === 0x1000 && (m & 1) !== 0)) {
+                m += 1;
+                if (m === 0x800) { m = 0; e += 1; if (e >= 31) return sign_f16(s); }
+            }
+            h = (s << 15) | (e << 10) | m;
+        } else {
+            // f16 非规格化：右移整数位并舍入
+            const shift = 1 - e;
+            const full = m32 | 0x800000;
+            let m = full >>> (13 + shift);
+            const rem = full & ((1 << (13 + shift)) - 1);
+            const half = 1 << (12 + shift);
+            if (rem > half || (rem === half && (m & 1) !== 0)) m += 1;
+            h = (s << 15) | m;
+        }
+    }
+    // f16 位型 → f32
+    const he = (h >>> 10) & 0x1f, hm = h & 0x3ff, hs = (h >>> 15) & 1;
+    if (he === 0) return hs ? -hm * 5.960464477539063e-8 : hm * 5.960464477539063e-8;
+    if (he === 0x1f) return hs ? -Infinity : Infinity;
+    _wo_hi32[0] = (hs << 31) | ((he - 15 + 127) << 23) | (hm << 13);
+    return _wo_hf32[0];
+}
+function sign_f16(s) { return s ? -Infinity : Infinity; }
+// 波场烘焙：逐纹理元求和波列（高度、两轴坡度、雅可比迹）
+function wo_bake_tile(tile, list) {
+    const N = tile.N, L = tile.L;
+    const data = new Float32Array(N * N * 4);
+    const nw = list.length / 7;
+    let p = 0;
+    for (let j = 0; j < N; j++) {
+        const z = (j + 0.5) / N * L;
+        for (let i = 0; i < N; i++) {
+            const x = (i + 0.5) / N * L;
+            let h = 0.0, sx = 0.0, sz = 0.0, jt = 0.0;
+            for (let w = 0; w < nw; w++) {
+                const o = w * 7;
+                const ph = list[o + 6] + list[o] * x + list[o + 1] * z;
+                const s = Math.sin(ph), co = Math.cos(ph);
+                h += list[o + 2] * co;                  // a·cos φ
+                sx -= list[o + 3] * s;                  // -a·kx·sin φ
+                sz -= list[o + 4] * s;                  // -a·kz·sin φ
+                jt += list[o + 5] * co;                 // choppy 雅可比迹扰动（含符号）
+            }
+            data[p] = h; data[p + 1] = sx; data[p + 2] = sz; data[p + 3] = jt;
+            p += 4;
+        }
+    }
+    return data;
+}
+
+// ---- 程序化泡沫纹理（256² RGBA 可平铺；r/g/b 不同尺度 fbm，a 供风向条纹各向异性采样）----
+function wo_hash2i(ix, iz, seed) {
+    let h = Math.imul(ix, 374761393) ^ Math.imul(iz, 668265263) ^ Math.imul(seed, 1274126177);
+    h = Math.imul(h ^ (h >>> 13), 1274126177);
+    h ^= h >>> 16;
+    return (h >>> 0) / 4294967296.0;
+}
+function wo_valueNoiseTile(x, z, period, seed) {
+    const ix = Math.floor(x), iz = Math.floor(z);
+    const fx = x - ix, fz = z - iz;
+    const ux = fx * fx * (3.0 - 2.0 * fx), uz = fz * fz * (3.0 - 2.0 * fz);
+    const w = (a) => ((a % period) + period) % period;
+    const x0 = w(ix), x1 = w(ix + 1), z0 = w(iz), z1 = w(iz + 1);
+    const a = wo_hash2i(x0, z0, seed), b = wo_hash2i(x1, z0, seed);
+    const c = wo_hash2i(x0, z1, seed), d = wo_hash2i(x1, z1, seed);
+    return a + (b - a) * ux + (c - a) * uz + (a - b - c + d) * ux * uz;
+}
+function wo_fbmTile(x, z, cells, oct, seed) {
+    let s = 0.0, amp = 0.5, f = 1.0, per = cells;
+    for (let o = 0; o < oct; o++) {
+        s += amp * wo_valueNoiseTile(x * f, z * f, per, seed + o * 101);
+        f *= 2.0; per *= 2; amp *= 0.5;
+    }
+    return s;
+}
+function wo_bake_foam() {
+    const N = 256;
+    const data = new Uint8Array(N * N * 4);
+    let p = 0;
+    for (let j = 0; j < N; j++) {
+        for (let i = 0; i < N; i++) {
+            const x = i / N, z = j / N;
+            const r = wo_fbmTile(x * 8.0, z * 8.0, 8, 4, 11);
+            const g = wo_fbmTile(x * 32.0, z * 32.0, 32, 4, 23);
+            const b = wo_fbmTile(x * 64.0, z * 64.0, 64, 3, 37);
+            const a = wo_fbmTile(x * 24.0, z * 24.0, 24, 4, 51);
+            data[p] = r * 255; data[p + 1] = g * 255; data[p + 2] = b * 255; data[p + 3] = a * 255;
+            p += 4;
+        }
+    }
+    return data;
+}
+
+function wo_ensure_waves() {
+    if (WO_state.wavesReady) return;
+    wo_rebuild_waves();
+}
+
+// 波场重烘焙（海况参数变更后调用；约 100ms，由 wo_prepare_frame 防抖触发）
+function wo_rebuild_waves() {
+    let covx = 0.0, covz = 0.0, covxz = 0.0;
+    for (let c = 0; c < 2; c++) {
+        const list = wo_build_wave_list(WO_TILES[c], 1234 + c * 777);
+        WO_state.waveList[c] = list;
+        const baked = wo_bake_tile(WO_TILES[c], list);
+        for (let q = 0; q < baked.length; q++) baked[q] = wo_toHalf(baked[q]);
+        WO_state.waveData[c] = baked;
+        for (let w = 0; w < list.length; w += 7) {
+            const akx = list[w + 3], akz = list[w + 4];
+            covx += 0.5 * akx * akx;
+            covz += 0.5 * akz * akz;
+            covxz += 0.5 * akx * akz;
+        }
+    }
+    WO_state.cov = [covx, covz, covxz];
+    if (!WO_state.foamTex) WO_state.foamTex = wo_bake_foam();
+    WO_state.wavesReady = true;
+    WO_state.glWavesDirty = true;   // GL 需重新上传波场纹理
+    WO_state.lastNow = -1.0;        // 避免重烘焙期间累计大步长
+}
+
+// ---- 波场采样（REPEAT + 纹理中心双线性，与 GLSL 硬件采样一致）----
+function wo_tile_sample(data, N, L, x, z, out) {
+    let u = (x / L) * N - 0.5, v = (z / L) * N - 0.5;
+    let i0 = Math.floor(u), j0 = Math.floor(v);
+    const fu = u - i0, fv = v - j0;
+    const i0c = ((i0 % N) + N) % N, i1c = (((i0 + 1) % N) + N) % N;
+    const j0c = ((j0 % N) + N) % N, j1c = (((j0 + 1) % N) + N) % N;
+    const i00 = (j0c * N + i0c) * 4, i10 = (j0c * N + i1c) * 4;
+    const i01 = (j1c * N + i0c) * 4, i11 = (j1c * N + i1c) * 4;
+    const w00 = (1 - fu) * (1 - fv), w10 = fu * (1 - fv), w01 = (1 - fu) * fv, w11 = fu * fv;
+    out[0] = data[i00] * w00 + data[i10] * w10 + data[i01] * w01 + data[i11] * w11;
+    out[1] = data[i00 + 1] * w00 + data[i10 + 1] * w10 + data[i01 + 1] * w01 + data[i11 + 1] * w11;
+    out[2] = data[i00 + 2] * w00 + data[i10 + 2] * w10 + data[i01 + 2] * w01 + data[i11 + 2] * w11;
+    out[3] = data[i00 + 3] * w00 + data[i10 + 3] * w10 + data[i01 + 3] * w01 + data[i11 + 3] * w11;
+    return out;
+}
+
+// 波面高程（两级波场之和，各自按群速度顺风平流）
+// 波面高程采样（仅 h 通道；march 内层使用）
+function wo_tile_sample_h(data, N, L, x, z) {
+    let u = (x / L) * N - 0.5, v = (z / L) * N - 0.5;
+    let i0 = Math.floor(u), j0 = Math.floor(v);
+    const fu = u - i0, fv = v - j0;
+    const i0c = ((i0 % N) + N) % N, i1c = (((i0 + 1) % N) + N) % N;
+    const j0c = ((j0 % N) + N) % N, j1c = (((j0 + 1) % N) + N) % N;
+    const i00 = (j0c * N + i0c) * 4, i10 = (j0c * N + i1c) * 4;
+    const i01 = (j1c * N + i0c) * 4, i11 = (j1c * N + i1c) * 4;
+    const w00 = (1 - fu) * (1 - fv), w10 = fu * (1 - fv), w01 = (1 - fu) * fv, w11 = fu * fv;
+    return data[i00] * w00 + data[i10] * w10 + data[i01] * w01 + data[i11] * w11;
+}
+function wo_height_at_fast(px, pz, t) {
+    return wo_tile_sample_h(WO_state.waveData[0], WO_TILES[0].N, WO_TILES[0].L, px - WO_scroll1[0] * t, pz - WO_scroll1[1] * t)
+         + wo_tile_sample_h(WO_state.waveData[1], WO_TILES[1].N, WO_TILES[1].L, px - WO_scroll2[0] * t, pz - WO_scroll2[1] * t);
+}
+
+// 平流速度（海洋系 m/s；随风向滑块重算）
+const WO_scroll1 = [WO_WIND_VX * WO_TILES[0].cgroup, WO_WIND_VZ * WO_TILES[0].cgroup];
+const WO_scroll2 = [WO_WIND_VX * WO_TILES[1].cgroup, WO_WIND_VZ * WO_TILES[1].cgroup];
+
+// ---- 由可调参数重算派生量（水体色/雾消光/风向向量/平流速度）----
+function wo_update_derived_params() {
+    WO_WATER_COL = [0.016 * WO_TURBIDITY, 0.080 * WO_TURBIDITY, 0.096 * WO_TURBIDITY];
+    WO_FOG_EXT = [
+        (5.802e-3 + 4.40e-3 * WO_HAZE) * 1e-3,
+        (13.558e-3 + 4.40e-3 * WO_HAZE) * 1e-3,
+        (33.1e-3 + 4.40e-3 * WO_HAZE) * 1e-3];
+    WO_WIND_VX = Math.sin(WO_WIND_DIR * WO_PI / 180.0);
+    WO_WIND_VZ = Math.cos(WO_WIND_DIR * WO_PI / 180.0);
+    WO_SWELL_VX = Math.sin(WO_SWELL_DIR * WO_PI / 180.0);
+    WO_SWELL_VZ = Math.cos(WO_SWELL_DIR * WO_PI / 180.0);
+    WO_scroll1[0] = WO_WIND_VX * WO_TILES[0].cgroup;
+    WO_scroll1[1] = WO_WIND_VZ * WO_TILES[0].cgroup;
+    WO_scroll2[0] = WO_WIND_VX * WO_TILES[1].cgroup;
+    WO_scroll2[1] = WO_WIND_VZ * WO_TILES[1].cgroup;
+}
+wo_update_derived_params();
+const WO_hTmp1 = new Float64Array(4), WO_hTmp2 = new Float64Array(4);
+function wo_height_at(px, pz, t) {
+    wo_tile_sample(WO_state.waveData[0], WO_TILES[0].N, WO_TILES[0].L, px - WO_scroll1[0] * t, pz - WO_scroll1[1] * t, WO_hTmp1);
+    wo_tile_sample(WO_state.waveData[1], WO_TILES[1].N, WO_TILES[1].L, px - WO_scroll2[0] * t, pz - WO_scroll2[1] * t, WO_hTmp2);
+    return WO_hTmp1[0] + WO_hTmp2[0];
+}
+
+// ---- 每帧预处理：时间推进 / 太阳方向 / LUT 构建 / 波场烘焙 ----
+let wo_time_freeze = false;   // 调试/测试用：冻结海面动画时间（CPU 与 GL 逐像素对比时置 true）
+function wo_prepare_frame(sun_alt, sun_azi, view_f, sky_radius) {
+    const now = (typeof performance !== 'undefined') ? performance.now() : Date.now();
+    if (!wo_time_freeze && WO_state.lastNow > 0.0) {
+        let dt = (now - WO_state.lastNow) / 1000.0;
+        if (dt < 0.0) dt = 0.0;
+        if (dt > 0.1) dt = 0.1;
+        WO_state.appTime += dt;
+    }
+    WO_state.lastNow = now;
+
+    // 每像素角尺寸（鱼眼：r = f·2R/π·θ；透视：θ ≈ r/(f·R)）
+    const f = Math.max(view_f, 1e-3), R = Math.max(sky_radius, 1e-3);
+    WO_state.pixAng = enable_fisheye_projection ? (WO_PI / (2.0 * f * R)) : (1.0 / (f * R));
+
+    // 参数变更防抖处理：停止拖动 250ms 后各执行一次重烘焙/重建
+    if (WO_state.wavesDirtyAt !== null && now - WO_state.wavesDirtyAt > 250) {
+        WO_state.wavesDirtyAt = null;
+        wo_rebuild_waves();
+    }
+    let hazeApplied = false;
+    if (WO_state.hazeDirtyAt !== null && now - WO_state.hazeDirtyAt > 250) {
+        WO_state.hazeDirtyAt = null;
+        WO_state.transLut = null;      // 触发下方重建（霾影响大气介质与雾消光）
+        hazeApplied = true;
+    }
+    let camApplied = false;
+    if (WO_state.camDirtyAt !== null && now - WO_state.camDirtyAt > 250) {
+        WO_state.camDirtyAt = null;
+        camApplied = true;             // 天空视图 LUT 依赖观察高度，需重建
+    }
+
+    // 太阳方向（海洋系 y 上）；太阳变化超过阈值时重建天空视图 LUT
+    const e = sun_alt * WO_PI / 180.0, a = sun_azi * WO_PI / 180.0;
+    WO_state.sunDir = [Math.cos(e) * Math.sin(a), Math.sin(e), Math.cos(e) * Math.cos(a)];
+    let dAlt = (WO_state.sunAlt === null) ? 1e9 : Math.abs(sun_alt - WO_state.sunAlt);
+    let dAzi = (WO_state.sunAzi === null) ? 1e9 : Math.abs(sun_azi - WO_state.sunAzi);
+    if (dAzi > 180.0) dAzi = 360.0 - dAzi;
+    if (WO_state.transLut === null) {
+        WO_state.transLut = wo_build_trans_lut();
+        WO_state.msLut = wo_build_ms_lut();
+        WO_state.glTransDirty = true;
+        WO_state.lutDirty = true;
+    }
+    if (WO_state.skyLut === null || dAlt > 0.02 || dAzi > 0.02 || hazeApplied || camApplied) {
+        WO_state.sunAlt = sun_alt; WO_state.sunAzi = sun_azi;
+        WO_state.skyLut = wo_build_sky_lut();
+        WO_state.lutDirty = true;
+    }
+    wo_ensure_waves();
+}
+
+// Smith 掩蔽项（web-ocean lambdaSmith；w 为方向，cov 为坡度协方差）
+function wo_lambda_smith(wx, wy, wz, cxx, czz, cxz) {
+    const xz2 = Math.max(wx * wx + wz * wz, 1e-8);
+    const il = 1.0 / Math.sqrt(xz2);
+    const azX = wx * il, azZ = wz * il;
+    const sig2 = azX * azX * cxx + azZ * azZ * czz + 2.0 * azX * azZ * cxz;
+    const cotT = wy * il;
+    const aa = Math.max(cotT, 1e-3) / Math.sqrt(2.0 * Math.max(sig2, 1e-7));
+    if (aa >= 1.6) return 0.0;
+    return (1.0 - 1.259 * aa + 0.396 * aa * aa) / (3.535 * aa + 2.181 * aa * aa);
+}
+// Schlick Fresnel（n=1.333）
+function wo_fresnel_water(c) {
+    const x = 1.0 - wo_clamp(c, 0.0, 1.0);
+    const x2 = x * x;
+    return 0.02 + 0.98 * x2 * x2 * x;
+}
+
+// ---- 海洋逐像素着色（web-ocean ocean.js fs 移植；d 为海洋系单位方向，d.y<0）----
+const WO_foamTmp = new Float64Array(4);
+const WO_slTmpA = new Float64Array(4), WO_slTmpB = new Float64Array(4);
+const WO_skyTmp2 = new Float64Array(3);
+const WO_sunETmp = new Float64Array(3);
+function wo_ocean_pixel(dx, dy, dz, out) {
+    const t = WO_state.appTime;
+    const camY = WO_CAM_Y;
+
+    // ---- 射线步进求交 ----
+    const tPlane = -camY / dy;
+    let tHit = tPlane;
+    if (tPlane <= WO_MARCH_FAR) {
+        const tEnd = tPlane * 0.999;
+        let t0 = Math.max(0.0, (WO_HMAX - camY) / dy);
+        t0 = Math.min(t0, tEnd);
+        const steps = (tPlane < 30.0) ? 24 : ((tPlane < 120.0) ? 16 : 10);
+        let tPrev = t0;
+        let fPrev = camY + dy * t0 - wo_height_at_fast(dx * t0, dz * t0, t);
+        let hit = false;
+        for (let i = 1; i <= steps; i++) {
+            const ti = wo_mix(t0, tEnd, i / steps);
+            const fi = camY + dy * ti - wo_height_at_fast(dx * ti, dz * ti, t);
+            if (fi <= 0.0) {
+                // 二分细化（收敛到 1mm；确定性收敛，CPU 与 GLSL 一致）
+                let ta = tPrev, tb = ti;
+                for (let r = 0; r < 24 && tb - ta > 0.001; r++) {
+                    const tm = 0.5 * (ta + tb);
+                    const fm = camY + dy * tm - wo_height_at_fast(dx * tm, dz * tm, t);
+                    if (fm > 0.0) { ta = tm; } else { tb = tm; }
+                }
+                tHit = tb;
+                hit = true;
+                break;
+            }
+            tPrev = ti; fPrev = fi;
+        }
+        if (!hit) tHit = tPlane;
+    }
+
+    const dist = tHit;
+    const px = dx * tHit, pz = dz * tHit;
+    const Vx = -dx, Vy = -dy, Vz = -dz;
+
+    // ---- 坡度与协方差（LEAN）----
+    // 远处波高低于像素足迹：坡度按像素足迹衰减（等效 web-oather 的 mip 滤波）
+    const wf = 1.0 / (1.0 + (dist / 400.0) * (dist / 400.0));
+    wo_tile_sample(WO_state.waveData[0], WO_TILES[0].N, WO_TILES[0].L, px - WO_scroll1[0] * t, pz - WO_scroll1[1] * t, WO_hTmp1);
+    wo_tile_sample(WO_state.waveData[1], WO_TILES[1].N, WO_TILES[1].L, px - WO_scroll2[0] * t, pz - WO_scroll2[1] * t, WO_hTmp2);
+    let sx = (WO_hTmp1[1] + WO_hTmp2[1]) * wf;
+    let sz = (WO_hTmp1[2] + WO_hTmp2[2]) * wf;
+    let jt = (WO_hTmp1[3] + WO_hTmp2[3]) * wf * wf;
+    const hitH = WO_hTmp1[0] + WO_hTmp2[0];
+
+    let cxx = WO_state.cov[0], czz = WO_state.cov[1], cxz = WO_state.cov[2];
+    // 未解析毛细波粗糙度；随距离增长以在远处耀光带达到 Cox-Munk 量级
+    const unres = WO_UNRES + 0.0035 * wo_smoothstep(30.0, 500.0, dist);
+    cxx += unres; czz += unres;
+    // 镜面抗锯齿：像素足迹内坡度变化展宽瓣宽（以足迹差分代替屏幕空间导数，两路一致）
+    {
+        const pf = Math.max(dist * WO_state.pixAng / Math.max(-Vy, 0.05), 1e-4);
+        wo_tile_sample(WO_state.waveData[0], WO_TILES[0].N, WO_TILES[0].L, px + pf - WO_scroll1[0] * t, pz - WO_scroll1[1] * t, WO_slTmpA);
+        wo_tile_sample(WO_state.waveData[1], WO_TILES[1].N, WO_TILES[1].L, px + pf - WO_scroll2[0] * t, pz - WO_scroll2[1] * t, WO_slTmpB);
+        const dAxxx = (WO_slTmpA[1] + WO_slTmpB[1]) * wf - sx;
+        const dAxsx = (WO_slTmpA[2] + WO_slTmpB[2]) * wf - sz;
+        wo_tile_sample(WO_state.waveData[0], WO_TILES[0].N, WO_TILES[0].L, px - WO_scroll1[0] * t, pz + pf - WO_scroll1[1] * t, WO_slTmpA);
+        wo_tile_sample(WO_state.waveData[1], WO_TILES[1].N, WO_TILES[1].L, px - WO_scroll2[0] * t, pz + pf - WO_scroll2[1] * t, WO_slTmpB);
+        const dBxxx = (WO_slTmpA[1] + WO_slTmpB[1]) * wf - sx;
+        const dBxsx = (WO_slTmpA[2] + WO_slTmpB[2]) * wf - sz;
+        const aax = dAxxx * dAxxx + dBxxx * dBxxx;
+        const aay = dAxsx * dAxsx + dBxsx * dBxsx;
+        const aaz = dAxxx * dAxsx + dBxxx * dBxsx;
+        const aaMax = Math.max(Math.max(aax, aay), 1e-8);
+        const kAA = Math.min(1.0, 0.03 / aaMax);
+        cxx += aax * 0.5 * kAA;
+        czz += aay * 0.5 * kAA;
+        cxz += aaz * 0.5 * kAA;
+    }
+
+    const slx = sx, slz = sz;
+    const inl = 1.0 / Math.sqrt(slx * slx + 1.0 + slz * slz);
+    const nrmX = -slx * inl, nrmY = inl, nrmZ = -slz * inl;
+
+    // ---- 太阳辐照与天空环境（均由 LUT 得出，两路共享同一数据）----
+    wo_sampleTransLut(WO_RG + WO_CAM_ALT_KM, WO_state.sunDir[1], WO_sunETmp);
+    const sunE0 = WO_sunETmp[0] * WO_SUN_SCALE;
+    const sunE1 = WO_sunETmp[1] * WO_SUN_SCALE;
+    const sunE2 = WO_sunETmp[2] * WO_SUN_SCALE;
+    wo_sky_atmo(0.0, 1.0, 0.0, WO_skyTmp2);
+    const skyUp0 = WO_skyTmp2[0], skyUp1 = WO_skyTmp2[1], skyUp2 = WO_skyTmp2[2];
+    // 半球平均辐亮度（天顶 + 4 个斜方向，含明亮地平带）
+    let hemi0 = skyUp0 * 0.4, hemi1 = skyUp1 * 0.4, hemi2 = skyUp2 * 0.4;
+    const OB = [[0.94, 0.34, 0.0], [-0.94, 0.34, 0.0], [0.0, 0.34, 0.94], [0.0, 0.34, -0.94]];
+    for (let i = 0; i < 4; i++) {
+        wo_sky_atmo(OB[i][0], OB[i][1], OB[i][2], WO_skyTmp2);
+        hemi0 += WO_skyTmp2[0] * 0.15; hemi1 += WO_skyTmp2[1] * 0.15; hemi2 += WO_skyTmp2[2] * 0.15;
+    }
+    wo_sky_atmo(nrmX, nrmY, nrmZ, WO_skyTmp2);
+    const skyN0 = WO_skyTmp2[0], skyN1 = WO_skyTmp2[1], skyN2 = WO_skyTmp2[2];
+
+    // ---- 太阳耀光：各向异性高斯坡度分布 ----
+    let Hvx = Vx + WO_state.sunDir[0], Hvy = Vy + WO_state.sunDir[1], Hvz = Vz + WO_state.sunDir[2];
+    const Hvl = 1.0 / Math.sqrt(Hvx * Hvx + Hvy * Hvy + Hvz * Hvz);
+    Hvx *= Hvl; Hvy *= Hvl; Hvz *= Hvl;
+    const hsX = -Hvx / Math.max(Hvy, 1e-3), hsZ = -Hvz / Math.max(Hvy, 1e-3);
+    const dslX = hsX - slx, dslZ = hsZ - slz;
+    const det = Math.max(cxx * czz - cxz * cxz, 1e-10);
+    const eG = (dslX * dslX * czz + dslZ * dslZ * cxx - 2.0 * dslX * dslZ * cxz) / det;
+    const pdf = Math.exp(-0.5 * eG) / (2.0 * WO_PI * Math.sqrt(det));
+    const hy2 = Hvy * Hvy;
+    const Dm = pdf / Math.max(hy2 * hy2, 1e-6);
+    // Smith 掩蔽项 + Schlick Fresnel（n=1.333）
+    const Gsm = 1.0 / (1.0 + wo_lambda_smith(Vx, Vy, Vz, cxx, czz, cxz) +
+        wo_lambda_smith(WO_state.sunDir[0], WO_state.sunDir[1], WO_state.sunDir[2], cxx, czz, cxz));
+    const Fh = wo_fresnel_water(Vx * Hvx + Vy * Hvy + Vz * Hvz);
+    let spec0 = 0.0, spec1 = 0.0, spec2 = 0.0;
+    if (WO_state.sunDir[1] >= 0.0) {
+        const sK = Fh * Dm * Gsm / (4.0 * Math.max(Vy, 0.02));
+        spec0 = sunE0 * sK; spec1 = sunE1 * sK; spec2 = sunE2 * sK;
+    }
+
+    // ---- 天空反射 ----
+    const sig = Math.sqrt(Math.max(cxx + czz, 1e-6) * 0.5);
+    const vhl = 1.0 / Math.sqrt(Vx * Vx + Vz * Vz + 1e-10);
+    const vhX = Vx * vhl, vhZ = Vz * vhl;
+    const sigV = Math.sqrt(Math.max(vhX * vhX * cxx + vhZ * vhZ * czz + 2.0 * vhX * vhZ * cxz, 1e-6));
+    const aV = Math.max(Vy, 1e-3) / Math.max(Math.sqrt(Math.max(1.0 - Vy * Vy, 0.0)), 1e-3) / (1.4142 * sigV);
+    const tilt = 0.32 * sigV * (1.0 - wo_smoothstep(0.0, 2.5, aV));
+    let nVx = nrmX + vhX * tilt, nVy = nrmY, nVz = nrmZ + vhZ * tilt;
+    const nVl = 1.0 / Math.sqrt(nVx * nVx + nVy * nVy + nVz * nVz);
+    nVx *= nVl; nVy *= nVl; nVz *= nVl;
+    // 反射方向（镜像反射：R = 2(nV·V)nV − V，与 GLSL reflect(-V, nV) 等价）
+    const dVN = 2.0 * (nVx * Vx + nVy * Vy + nVz * Vz);
+    let Rx = nVx * dVN - Vx, Ry = nVy * dVN - Vy, Rz = nVz * dVN - Vz;
+    Ry = Math.abs(Ry) * 0.4 + Math.max(Ry, 0.0) * 0.6;
+    const Rl = 1.0 / Math.sqrt(Rx * Rx + Ry * Ry + Rz * Rz);
+    Rx *= Rl; Ry *= Rl; Rz *= Rl;
+    const envLod = wo_clamp(Math.log2(Math.max(2.0 * sig * (256.0 / 1.5708), 1.0)), 0.0, 8.0);
+    wo_sky_atmo(Rx, Ry, Rz, WO_skyTmp2);
+    const rough = envLod / 8.0 * 0.65;
+    const refl0 = wo_mix(WO_skyTmp2[0], hemi0, rough);
+    const refl1 = wo_mix(WO_skyTmp2[1], hemi1, rough);
+    const refl2 = wo_mix(WO_skyTmp2[2], hemi2, rough);
+    // Fresnel：部分平滑法向（长波面元 + 掠射细波统计）
+    const nFx = wo_mix(nrmX, 0.0, 0.45), nFy = wo_mix(nrmY, 1.0, 0.45), nFz = wo_mix(nrmZ, 0.0, 0.45);
+    const nFl = 1.0 / Math.sqrt(nFx * nFx + nFy * nFy + nFz * nFz);
+    const Fr = wo_fresnel_water(Math.max((nFx * Vx + nFy * Vy + nFz * Vz) * nFl, 0.0));
+
+    // ---- 水体：上涌散射 + 背光波峰透射辉光 ----
+    const amb0 = skyUp0 * 1.3 + skyN0 * 0.5;
+    const amb1 = skyUp1 * 1.3 + skyN1 * 0.5;
+    const amb2 = skyUp2 * 1.3 + skyN2 * 0.5;
+    let body0 = WO_WATER_COL[0] * (hemi0 * 1.6 + sunE0 * Math.max(WO_state.sunDir[1], 0.0) * 0.8);
+    let body1 = WO_WATER_COL[1] * (hemi1 * 1.6 + sunE1 * Math.max(WO_state.sunDir[1], 0.0) * 0.8);
+    let body2 = WO_WATER_COL[2] * (hemi2 * 1.6 + sunE2 * Math.max(WO_state.sunDir[1], 0.0) * 0.8);
+    {
+        const crest = wo_clamp((hitH - 0.05) / 0.9, 0.0, 1.0);
+        const toSun = Math.max(WO_state.sunDir[0] * Vx + WO_state.sunDir[1] * Vy + WO_state.sunDir[2] * Vz, 0.0);
+        const thin = Math.pow(wo_clamp(0.5 - 0.5 * (WO_state.sunDir[0] * nrmX + WO_state.sunDir[1] * nrmY + WO_state.sunDir[2] * nrmZ), 0.0, 1.0), 3.0);
+        const k1 = WO_SSS_K * crest * crest * toSun * toSun * toSun * toSun * thin * Math.exp(-dist / 600.0);
+        body0 += WO_SSS_COL[0] * sunE0 * k1;
+        body1 += WO_SSS_COL[1] * sunE1 * k1;
+        body2 += WO_SSS_COL[2] * sunE2 * k1;
+    }
+
+    // ---- 泡沫 ----
+    const J = 1.0 + jt;  // 雅可比行列式（仅存迹channel，J ≈ 1 + trace）
+    const fresh = wo_clamp((WO_FOAM_J_THRESH - J) * WO_FOAM_J_GAIN, 0.0, 1.0);
+    let cover = wo_clamp(fresh * WO_FOAM_INTENSITY, 0.0, 1.5);
+    // 风向条纹：老泡沫破碎成风纹，新白帽保持致密
+    const wsU = px * WO_WIND_VX + pz * WO_WIND_VZ, wsV = px * (-WO_WIND_VZ) + pz * WO_WIND_VX;
+    wo_tile_sample(WO_state.foamTex, 256, 1.0, wsU * 0.035, wsV * 0.11, WO_foamTmp);
+    const streak = WO_foamTmp[3] / 255.0;
+    cover *= wo_mix(wo_smoothstep(0.25, 0.75, streak) * 1.5, 1.0, fresh);
+    // 泡沫图案（两个尺度混合）
+    wo_tile_sample(WO_state.foamTex, 256, 1.0, px * 0.23 + 0.013 * t, pz * 0.23, WO_foamTmp);
+    const patA = WO_foamTmp[0] / 255.0;
+    wo_tile_sample(WO_state.foamTex, 256, 1.0, px * 0.71 + 0.37, pz * 0.71 + 0.71, WO_foamTmp);
+    const pat = patA * 0.78 + WO_foamTmp[1] / 255.0 * 0.22;
+    const fw = 0.05;  // 图案屏幕变化率近似（fwidth；两路一致取常数）
+    const soft = 0.04 + 0.14 * (1.0 - wo_clamp(cover, 0.0, 1.0));
+    const fm = wo_smoothstep(1.0 - cover - fw - soft, 1.0 - cover + fw + soft, pat);
+    const foamMask = wo_clamp(fm * wo_smoothstep(0.0, 0.5, cover), 0.0, 1.0) *
+        (0.68 + 0.32 * wo_smoothstep(0.3, 0.9, cover));
+    // 泡沫下方气泡增亮并给水体染色
+    const covC = wo_clamp(cover, 0.0, 1.0);
+    body0 += WO_SSS_COL[0] * (sunE0 * 0.05 + amb0 * 0.35) * covC;
+    body1 += WO_SSS_COL[1] * (sunE1 * 0.05 + amb1 * 0.35) * covC;
+    body2 += WO_SSS_COL[2] * (sunE2 * 0.05 + amb2 * 0.35) * covC;
+    // 泡沫内部气泡亮度变化
+    wo_tile_sample(WO_state.foamTex, 256, 1.0, px * 1.9 + 0.21, pz * 1.9 + 0.53, WO_foamTmp);
+    const bub = WO_foamTmp[1] / 255.0;
+    const foamAlb0 = 0.82 * (0.78 + 0.3 * bub), foamAlb1 = 0.87 * (0.78 + 0.3 * bub), foamAlb2 = 0.92 * (0.78 + 0.3 * bub);
+    const fAmb0 = hemi0 * 1.0 + skyN0 * 0.3, fAmb1 = hemi1 * 1.0 + skyN1 * 0.3, fAmb2 = hemi2 * 1.0 + skyN2 * 0.3;
+    const fLum = 0.2126 * fAmb0 + 0.7152 * fAmb1 + 0.0722 * fAmb2;
+    const fAmbN0 = wo_mix(fAmb0, fLum, 0.85), fAmbN1 = wo_mix(fAmb1, fLum, 0.85), fAmbN2 = wo_mix(fAmb2, fLum, 0.85);
+    const NdL = Math.max(nrmX * WO_state.sunDir[0] + nrmY * WO_state.sunDir[1] + nrmZ * WO_state.sunDir[2], 0.0);
+    const foamLit0 = foamAlb0 * (sunE0 * NdL * 0.318 * 0.5 + fAmbN0 * 1.55);
+    const foamLit1 = foamAlb1 * (sunE1 * NdL * 0.318 * 0.5 + fAmbN1 * 1.55);
+    const foamLit2 = foamAlb2 * (sunE2 * NdL * 0.318 * 0.5 + fAmbN2 * 1.55);
+
+    let col0 = body0 * (1.0 - Fr) + refl0 * Fr + spec0;
+    let col1 = body1 * (1.0 - Fr) + refl1 * Fr + spec1;
+    let col2 = body2 * (1.0 - Fr) + refl2 * Fr + spec2;
+    col0 = wo_mix(col0, foamLit0, foamMask * 0.95);
+    col1 = wo_mix(col1, foamLit1, foamMask * 0.95);
+    col2 = wo_mix(col2, foamLit2, foamMask * 0.95);
+
+    // ---- 大气透视 ----
+    const Td = Math.exp(-WO_FOG_FLOOR * dist);
+    const hzl = 1.0 / Math.sqrt(Vx * Vx + 0.002 * 0.002 + Vz * Vz);
+    wo_sky_atmo(-Vx * hzl, 0.002, -Vz * hzl, WO_skyTmp2);
+    col0 = col0 * Td + WO_skyTmp2[0] * (1.0 - Td);
+    col1 = col1 * Td + WO_skyTmp2[1] * (1.0 - Td);
+    col2 = col2 * Td + WO_skyTmp2[2] * (1.0 - Td);
+
+    const o = wo_agx_tonemap(col0, col1, col2);
+    out[0] = o[0]; out[1] = o[1]; out[2] = o[2];
+    return out;
+}
+
+// ---- 实时海洋地景绘制（地平线以下像素；JS 与 GLSL 双实现）----
+function draw_ocean_landscape(
+    frame_buffer, fb_width, fb_height, R, center_x, center_y,
+    view_alt, view_azi, view_roll, f, sun_alt, sun_azi
+) {
+    wo_prepare_frame(sun_alt, sun_azi, f, R);
+
+    let gl_pixels = null;
+    if (enable_webgl) {
+        if (initOceanSkyWebGL()) {
+            gl_pixels = OceanSkyWebGL.renderOcean({
+                fb_width: fb_width, fb_height: fb_height,
+                sky_radius: R, center_x: center_x, center_y: center_y,
+                view_alt: view_alt, view_azi: view_azi, view_roll: view_roll, f: f
+            });
+        }
+    }
+
+    if (gl_pixels) {
+        // WebGL 路径：仅拷贝海洋像素（alpha=255），其余保留天空
+        for (let i = 0; i < fb_width * fb_height * 4; i += 4) {
+            if (gl_pixels[i + 3] > 0) {
+                frame_buffer[i] = gl_pixels[i];
+                frame_buffer[i + 1] = gl_pixels[i + 1];
+                frame_buffer[i + 2] = gl_pixels[i + 2];
+                frame_buffer[i + 3] = 255;
+            }
+        }
+        return;
+    }
+
+    // CPU 路径：逐像素步进着色
+    const out = [0.0, 0.0, 0.0];
+    for (let y = 0; y < fb_height; y++) {
+        for (let x = 0; x < fb_width; x++) {
+            const ray = fisheye_unproject(x, y, R, center_x, center_y, view_alt, view_azi, view_roll, f);
+            if (ray[2] >= 0.0) continue;   // 地平线以上属于天空
+            // 换算到海洋系（x东, y上, z北）
+            let dx = ray[0], dy = ray[2], dz = ray[1];
+            const dl = Math.sqrt(dx * dx + dy * dy + dz * dz);
+            if (dl < 1e-9) continue;
+            dx /= dl; dy /= dl; dz /= dl;
+            if (dy >= -1e-4) continue;
+            wo_ocean_pixel(dx, dy, dz, out);
+            const idx = (y * fb_width + x) * 4;
+            frame_buffer[idx] = Math.min(255, out[0] * 255.0);
+            frame_buffer[idx + 1] = Math.min(255, out[1] * 255.0);
+            frame_buffer[idx + 2] = Math.min(255, out[2] * 255.0);
+            frame_buffer[idx + 3] = 255;
+        }
+    }
+}
+
+
+// === [WebOceanWebGL] ===
+// ============================================
+// web-ocean 天空/海洋 GLSL 版渲染器（WebGL2 / GLSL ES 3.00）
+// ============================================
+// 与 scatter_model_6 / wo_ocean_pixel 为同一算法的着色器实现。
+// LUT 与波场/泡沫纹理均由 JS 统一计算后上传（RGBA16F / RGBA8），
+// 两路共享同一份数据；着色器内常数与 JS 侧一致，改动时需同步修改。
+const OceanSkyWebGL = {
+    gl: null,
+    skyProgram: null,
+    oceanProgram: null,
+    positionBuffer: null,
+    outputTexture: null,
+    framebuffer: null,
+    uniformsSky: {},
+    uniformsOcean: {},
+    texSky: null, texTrans: null, texMs: null,
+    texWave1: null, texWave2: null, texFoam: null,
+    uploadedWaves: false,
+    uploadedSkyRef: null,
+
+    init: function () {
+        const canvas = document.createElement('canvas');
+        canvas.width = FB_WIDTH;
+        canvas.height = FB_HEIGHT;
+
+        let gl = null;
+        try {
+            gl = canvas.getContext('webgl2', {
+                preserveDrawingBuffer: true,
+                alpha: false,
+                antialias: false,
+                depth: false,
+                stencil: false
+            });
+        } catch (e) {
+            gl = null;
+        }
+        if (!gl) {
+            console.warn('WebGL2 not supported, web-ocean sky/ocean falls back to CPU rendering');
+            return false;
+        }
+        this.gl = gl;
+
+        const vs = this.compileShader(gl.VERTEX_SHADER, this.vertexShaderSource, 'wo-vert');
+        const fsSky = this.compileShader(gl.FRAGMENT_SHADER, this.skyFragmentSource, 'wo-sky');
+        const fsOcean = this.compileShader(gl.FRAGMENT_SHADER, this.oceanFragmentSource, 'wo-ocean');
+        if (!vs || !fsSky || !fsOcean) {
+            console.warn('web-ocean shader compilation failed');
+            return false;
+        }
+
+        this.skyProgram = this.linkProgram(vs, fsSky, 'wo-sky');
+        this.oceanProgram = this.linkProgram(vs, fsOcean, 'wo-ocean');
+        if (!this.skyProgram || !this.oceanProgram) return false;
+
+        // 全屏四边形
+        this.positionBuffer = gl.createBuffer();
+        gl.bindBuffer(gl.ARRAY_BUFFER, this.positionBuffer);
+        gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([
+            -1.0, -1.0,
+            1.0, -1.0,
+            -1.0, 1.0,
+            -1.0, 1.0,
+            1.0, -1.0,
+            1.0, 1.0
+        ]), gl.STATIC_DRAW);
+
+        // 输出纹理与帧缓冲
+        this.outputTexture = gl.createTexture();
+        gl.bindTexture(gl.TEXTURE_2D, this.outputTexture);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+        gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, FB_WIDTH, FB_HEIGHT, 0, gl.RGBA, gl.UNSIGNED_BYTE, null);
+        this.framebuffer = gl.createFramebuffer();
+        gl.bindFramebuffer(gl.FRAMEBUFFER, this.framebuffer);
+        gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, this.outputTexture, 0);
+        if (gl.checkFramebufferStatus(gl.FRAMEBUFFER) !== gl.FRAMEBUFFER_COMPLETE) {
+            console.error('web-ocean framebuffer incomplete');
+            gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+            return false;
+        }
+        gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+
+        // 共享纹理对象
+        const mkFloatTex = () => {
+            const t = gl.createTexture();
+            gl.bindTexture(gl.TEXTURE_2D, t);
+            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+            return t;
+        };
+        this.texSky = mkFloatTex();
+        this.texTrans = mkFloatTex();
+        this.texMs = mkFloatTex();
+        const mkRepeatTex = () => {
+            const t = gl.createTexture();
+            gl.bindTexture(gl.TEXTURE_2D, t);
+            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.REPEAT);
+            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.REPEAT);
+            return t;
+        };
+        this.texWave1 = mkRepeatTex();
+        this.texWave2 = mkRepeatTex();
+        this.texFoam = mkRepeatTex();
+        gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, 1, 1, 0, gl.RGBA, gl.UNSIGNED_BYTE, new Uint8Array([0, 0, 0, 255]));
+        gl.bindTexture(gl.TEXTURE_2D, this.texFoam);
+        gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, 1, 1, 0, gl.RGBA, gl.UNSIGNED_BYTE, new Uint8Array([0, 0, 0, 255]));
+
+        // uniform 位置
+        const names = ['u_fb_width', 'u_fb_height', 'u_sky_radius', 'u_center_x', 'u_center_y',
+            'u_view_alt', 'u_view_azi', 'u_view_roll', 'u_f', 'u_sun_dir', 'u_time', 'u_enable_fisheye_projection', 'u_wind_v',
+            'u_cam_y', 'u_cam_alt_km',
+            'u_sky_lut', 'u_trans_lut', 'u_wave1', 'u_wave2', 'u_foam_tex',
+            'u_scroll1', 'u_scroll2', 'u_L1', 'u_L2', 'u_cov', 'u_pix_ang',
+            'u_water_col', 'u_unres', 'u_sss_col', 'u_sss_k',
+            'u_foam_j_thresh', 'u_foam_j_gain', 'u_foam_intensity',
+            'u_fog_ext', 'u_fog_floor'];
+        for (const n of names) {
+            this.uniformsSky[n] = gl.getUniformLocation(this.skyProgram, n);
+            this.uniformsOcean[n] = gl.getUniformLocation(this.oceanProgram, n);
+        }
+        return true;
+    },
+
+    compileShader: function (type, source, label) {
+        const gl = this.gl;
+        const sh = gl.createShader(type);
+        gl.shaderSource(sh, source);
+        gl.compileShader(sh);
+        if (!gl.getShaderParameter(sh, gl.COMPILE_STATUS)) {
+            console.warn('[' + label + '] shader compile error:', gl.getShaderInfoLog(sh));
+            return null;
+        }
+        return sh;
+    },
+
+    linkProgram: function (vs, fs, label) {
+        const gl = this.gl;
+        const p = gl.createProgram();
+        gl.attachShader(p, vs);
+        gl.attachShader(p, fs);
+        gl.linkProgram(p);
+        if (!gl.getProgramParameter(p, gl.LINK_STATUS)) {
+            console.warn('[' + label + '] program link error:', gl.getProgramInfoLog(p));
+            return null;
+        }
+        return p;
+    },
+
+    // RGB 交错 Float32Array → RGBA16F 纹理
+    uploadLutRGB: function (tex, w, h, src) {
+        const gl = this.gl;
+        const rgba = new Float32Array(w * h * 4);
+        for (let i = 0, j = 0; i < w * h; i++) {
+            rgba[j] = src[i * 3]; rgba[j + 1] = src[i * 3 + 1]; rgba[j + 2] = src[i * 3 + 2]; rgba[j + 3] = 1.0;
+            j += 4;
+        }
+        gl.bindTexture(gl.TEXTURE_2D, tex);
+        gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA16F, w, h, 0, gl.RGBA, gl.FLOAT, rgba);
+    },
+
+    uploadShared: function () {
+        const gl = this.gl;
+        if (!WO_state.wavesReady || !WO_state.skyLut) return false;
+        if (!this.uploadedWaves || WO_state.glWavesDirty) {
+            gl.bindTexture(gl.TEXTURE_2D, this.texWave1);
+            gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA16F, WO_TILES[0].N, WO_TILES[0].N, 0, gl.RGBA, gl.FLOAT, WO_state.waveData[0]);
+            gl.bindTexture(gl.TEXTURE_2D, this.texWave2);
+            gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA16F, WO_TILES[1].N, WO_TILES[1].N, 0, gl.RGBA, gl.FLOAT, WO_state.waveData[1]);
+            gl.bindTexture(gl.TEXTURE_2D, this.texFoam);
+            gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, 256, 256, 0, gl.RGBA, gl.UNSIGNED_BYTE, WO_state.foamTex);
+            this.uploadedWaves = true;
+            WO_state.glWavesDirty = false;
+        }
+        if (this.uploadedSkyRef !== WO_state.skyLut || WO_state.glTransDirty) {
+            this.uploadLutRGB(this.texSky, WO_SKY_W, WO_SKY_H, WO_state.skyLut);
+            if (this.uploadedSkyRef === null || WO_state.glTransDirty) {
+                this.uploadLutRGB(this.texTrans, WO_TRANS_W, WO_TRANS_H, WO_state.transLut);
+                this.uploadLutRGB(this.texMs, WO_MS_SIZE, WO_MS_SIZE, WO_state.msLut);
+            }
+            this.uploadedSkyRef = WO_state.skyLut;
+            WO_state.glTransDirty = false;
+        }
+        return true;
+    },
+
+    setViewUniforms: function (U, params) {
+        const gl = this.gl;
+        gl.uniform1f(U.u_fb_width, params.fb_width);
+        gl.uniform1f(U.u_fb_height, params.fb_height);
+        gl.uniform1f(U.u_sky_radius, params.sky_radius);
+        gl.uniform1f(U.u_center_x, params.center_x);
+        gl.uniform1f(U.u_center_y, params.center_y);
+        gl.uniform1f(U.u_view_alt, params.view_alt);
+        gl.uniform1f(U.u_view_azi, params.view_azi);
+        gl.uniform1f(U.u_view_roll, params.view_roll);
+        gl.uniform1f(U.u_f, params.f);
+        gl.uniform3f(U.u_sun_dir, WO_state.sunDir[0], WO_state.sunDir[1], WO_state.sunDir[2]);
+        gl.uniform1f(U.u_cam_y, WO_CAM_Y);
+        gl.uniform1f(U.u_cam_alt_km, WO_CAM_ALT_KM);
+        gl.uniform1f(U.u_time, WO_state.appTime);
+        gl.uniform1i(U.u_enable_fisheye_projection, enable_fisheye_projection ? 1 : 0);
+        gl.uniform2f(U.u_wind_v, WO_WIND_VX, WO_WIND_VZ);
+        gl.uniform2f(U.u_scroll1, WO_scroll1[0], WO_scroll1[1]);
+        gl.uniform2f(U.u_scroll2, WO_scroll2[0], WO_scroll2[1]);
+        gl.uniform1f(U.u_L1, WO_TILES[0].L);
+        gl.uniform1f(U.u_L2, WO_TILES[1].L);
+        gl.uniform3f(U.u_cov, WO_state.cov[0], WO_state.cov[1], WO_state.cov[2]);
+        gl.uniform1f(U.u_pix_ang, WO_state.pixAng);
+        gl.uniform3f(U.u_water_col, WO_WATER_COL[0], WO_WATER_COL[1], WO_WATER_COL[2]);
+        gl.uniform1f(U.u_unres, WO_UNRES);
+        gl.uniform3f(U.u_sss_col, WO_SSS_COL[0], WO_SSS_COL[1], WO_SSS_COL[2]);
+        gl.uniform1f(U.u_sss_k, WO_SSS_K);
+        gl.uniform1f(U.u_foam_j_thresh, WO_FOAM_J_THRESH);
+        gl.uniform1f(U.u_foam_j_gain, WO_FOAM_J_GAIN);
+        gl.uniform1f(U.u_foam_intensity, WO_FOAM_INTENSITY);
+        gl.uniform3f(U.u_fog_ext, WO_FOG_EXT[0], WO_FOG_EXT[1], WO_FOG_EXT[2]);
+        gl.uniform1f(U.u_fog_floor, WO_FOG_FLOOR);
+    },
+
+    bindTextures: function (U) {
+        const gl = this.gl;
+        gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, this.texSky);
+        gl.uniform1i(U.u_sky_lut, 0);
+        gl.activeTexture(gl.TEXTURE1); gl.bindTexture(gl.TEXTURE_2D, this.texTrans);
+        gl.uniform1i(U.u_trans_lut, 1);
+        gl.activeTexture(gl.TEXTURE2); gl.bindTexture(gl.TEXTURE_2D, this.texWave1);
+        gl.uniform1i(U.u_wave1, 2);
+        gl.activeTexture(gl.TEXTURE3); gl.bindTexture(gl.TEXTURE_2D, this.texWave2);
+        gl.uniform1i(U.u_wave2, 3);
+        gl.activeTexture(gl.TEXTURE4); gl.bindTexture(gl.TEXTURE_2D, this.texFoam);
+        gl.uniform1i(U.u_foam_tex, 4);
+    },
+
+    renderFrame: function (program, U, params) {
+        const gl = this.gl;
+        if (!gl || !program) return null;
+        if (!this.uploadShared()) return null;
+
+        const canvas = gl.canvas;
+        canvas.width = params.fb_width;
+        canvas.height = params.fb_height;
+        gl.bindTexture(gl.TEXTURE_2D, this.outputTexture);
+        gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, params.fb_width, params.fb_height, 0, gl.RGBA, gl.UNSIGNED_BYTE, null);
+        gl.bindFramebuffer(gl.FRAMEBUFFER, this.framebuffer);
+        gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, this.outputTexture, 0);
+        gl.bindTexture(gl.TEXTURE_2D, null);
+        if (gl.checkFramebufferStatus(gl.FRAMEBUFFER) !== gl.FRAMEBUFFER_COMPLETE) {
+            gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+            return null;
+        }
+        gl.viewport(0, 0, params.fb_width, params.fb_height);
+        gl.useProgram(program);
+
+        const posLoc = gl.getAttribLocation(program, 'a_position');
+        gl.bindBuffer(gl.ARRAY_BUFFER, this.positionBuffer);
+        gl.enableVertexAttribArray(posLoc);
+        gl.vertexAttribPointer(posLoc, 2, gl.FLOAT, false, 0, 0);
+
+        this.setViewUniforms(U, params);
+        this.bindTextures(U);
+
+        gl.drawArrays(gl.TRIANGLES, 0, 6);
+
+        const pixels = new Uint8Array(params.fb_width * params.fb_height * 4);
+        gl.readPixels(0, 0, params.fb_width, params.fb_height, gl.RGBA, gl.UNSIGNED_BYTE, pixels);
+        gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+        return pixels;
+    },
+
+    // 天空（大气散射模型 6）：全屏输出
+    renderSky: function (params) {
+        return this.renderFrame(this.skyProgram, this.uniformsSky, params);
+    },
+
+    // 实时海洋地景：地平线以上像素 alpha=0（由调用方保留天空）
+    renderOcean: function (params) {
+        return this.renderFrame(this.oceanProgram, this.uniformsOcean, params);
+    },
+
+    vertexShaderSource: `#version 300 es
+        in vec2 a_position;
+        out vec2 v_texCoord;
+        void main() {
+            v_texCoord = a_position * 0.5 + 0.5;
+            gl_Position = vec4(a_position, 0.0, 1.0);
+        }
+    `,
+};
+
+let oceanSkyWebglInitialized = false;
+function initOceanSkyWebGL() {
+    if (!oceanSkyWebglInitialized) {
+        oceanSkyWebglInitialized = true;
+        return OceanSkyWebGL.init();
+    }
+    return OceanSkyWebGL.gl !== null;
+}
+
+
+// ---- GLSL 公共段：大气常数 / LUT 采样 / 鱼眼反解 / AgX（与 JS 侧逐一对应）----
+const WO_GLSL_COMMON = `
+uniform float u_fb_width;
+uniform float u_fb_height;
+uniform float u_sky_radius;
+uniform float u_center_x;
+uniform float u_center_y;
+uniform float u_view_alt;
+uniform float u_view_azi;
+uniform float u_view_roll;
+uniform float u_f;
+uniform vec3 u_sun_dir;     // 海洋系太阳方向（y 上）
+uniform float u_time;
+uniform float u_cam_y;        // 观察者高度 m（平均海平面以上）
+uniform float u_cam_alt_km;   // 观察者高度 km（天空 LUT 查询用）
+uniform int u_enable_fisheye_projection;
+uniform highp sampler2D u_sky_lut;    // 256x144 RGBA16F
+uniform highp sampler2D u_trans_lut;  // 256x64 RGBA16F
+
+const float WO_PI = 3.141592653589793;
+const float RG = 6360.0;
+const float RT = 6460.0;
+const vec3 RAY_S = vec3(5.802e-3, 13.558e-3, 33.1e-3);
+const float MIE_S = 3.996e-3;
+const float MIE_E = 4.40e-3;
+const vec3 OZO_A = vec3(0.650e-3, 1.881e-3, 0.085e-3);
+const float HAZE = 3.0;
+const float SUN_SCALE = 14.0;
+const float TRANS_W = 256.0;
+const float TRANS_H = 64.0;
+const float SKY_W = 256.0;
+const float SKY_H = 144.0;
+
+float wo_rhoOf(float r) { return sqrt(max(0.0, (r - RG) * (r + RG))); }
+
+vec2 wo_transRMuToUV(float r, float mu) {
+    float H = sqrt(RT * RT - RG * RG);
+    float rho = wo_rhoOf(r);
+    float disc = r * r * (mu * mu - 1.0) + RT * RT;
+    float d = max(0.0, -r * mu + sqrt(max(disc, 0.0)));
+    float dMin = RT - r;
+    float dMax = rho + H;
+    return vec2((d - dMin) / (dMax - dMin), rho / H);
+}
+
+float wo_fromUnitToSubUvs(float u, float res) { return (u + 0.5 / res) * (res / (res + 1.0)); }
+
+// 鱼眼投影反解：屏幕坐标 -> 页面地平系方向（z 上；与 JS fisheye_unproject 逐式对应）
+vec3 fisheye_unproject(vec2 scr_pos) {
+    float dx = u_center_x - scr_pos.x;
+    float dy = u_center_y - scr_pos.y;
+    float r = sqrt(dx * dx + dy * dy);
+
+    float phi_prime = 0.0;
+    if (r < 1e-6) {
+        phi_prime = 0.0;
+    } else {
+        phi_prime = atan(dx, dy);
+    }
+
+    float theta = 0.0;
+    if (u_enable_fisheye_projection == 0) {
+        theta = atan(r, u_f * u_sky_radius);
+    } else {
+        theta = r * WO_PI / (2.0 * u_f * u_sky_radius);
+    }
+    theta = clamp(theta, 0.0, WO_PI);
+    float pxy = sin(theta);
+    vec3 p_prime = vec3(pxy * sin(phi_prime), pxy * cos(phi_prime), cos(theta));
+
+    float V_alt_rad = radians(u_view_alt);
+    float V_azi_rad = radians(u_view_azi);
+    vec3 v = vec3(cos(V_alt_rad) * sin(V_azi_rad), cos(V_alt_rad) * cos(V_azi_rad), sin(V_alt_rad));
+
+    float dot_vz = v.z;
+    vec3 y_prime = vec3(-dot_vz * v.x, -dot_vz * v.y, 1.0 - dot_vz * v.z);
+    if (dot(y_prime, y_prime) > 1e-12) {
+        y_prime = normalize(y_prime);
+    } else {
+        y_prime = vec3(0.0, 1.0, 0.0);
+    }
+
+    vec3 x_prime = cross(y_prime, v);
+    if (dot(x_prime, x_prime) > 1e-18) {
+        x_prime = normalize(x_prime);
+    }
+
+    float roll = radians(u_view_roll);
+    float cos_r = cos(roll);
+    float sin_r = sin(roll);
+    vec3 x_rot = x_prime * cos_r - y_prime * sin_r;
+    vec3 y_rot = x_prime * sin_r + y_prime * cos_r;
+
+    vec3 result = x_rot * p_prime.x + y_rot * p_prime.y + v * p_prime.z;
+    float rl = length(result);
+    return rl > 1e-9 ? result / rl : vec3(0.0, 1.0, 0.0);
+}
+
+// 天空视图 LUT 查询（web-ocean skyViewUV；dir 为海洋系方向）
+vec2 wo_sky_view_uv(vec3 dir) {
+    float r = RG + u_cam_alt_km;
+    float vHorizon = wo_rhoOf(r);
+    float cosBeta = vHorizon / r;
+    float beta = acos(clamp(cosBeta, -1.0, 1.0));
+    float zha = WO_PI - beta;
+    float vzc = clamp(dir.y, -1.0, 1.0);
+    float uvY;
+    if (vzc >= -cosBeta) {
+        float coord = acos(vzc) / zha;
+        coord = 1.0 - coord;
+        coord = sqrt(max(coord, 0.0));
+        coord = 1.0 - coord;
+        uvY = coord * 0.5;
+    } else {
+        float coord = (acos(vzc) - zha) / beta;
+        coord = sqrt(max(coord, 0.0));
+        uvY = coord * 0.5 + 0.5;
+    }
+    float dl = length(dir.xz);
+    float sl = length(u_sun_dir.xz);
+    float lvc = 1.0;
+    if (dl > 1e-6 && sl > 1e-6) lvc = clamp(dot(dir.xz, u_sun_dir.xz) / (dl * sl), -1.0, 1.0);
+    float uvX = sqrt(max(-lvc * 0.5 + 0.5, 0.0));
+    return vec2(wo_fromUnitToSubUvs(uvX, SKY_W), wo_fromUnitToSubUvs(uvY, SKY_H));
+}
+
+vec3 wo_sky_atmo(vec3 dir) {
+    return texture(u_sky_lut, wo_sky_view_uv(dir)).rgb * SUN_SCALE;
+}
+
+float wo_agx_contrast(float x) {
+    float x2 = x * x;
+    float x4 = x2 * x2;
+    return 15.5 * x4 * x2 - 40.14 * x4 * x + 31.96 * x4 - 6.868 * x2 * x + 0.4298 * x2 + 0.1191 * x - 0.00232;
+}
+
+// AgX 色调映射（web-ocean COMPOSITE；mat 为列主序，与 JS 侧转写一致）
+vec3 wo_agx_tonemap(vec3 c) {
+    c *= 1.35;
+    c *= vec3(0.81, 1.0, 1.19);
+    float lum = dot(c, vec3(0.2126, 0.7152, 0.0722));
+    c = mix(c, vec3(lum), smoothstep(0.7, 6.0, lum) * 0.55);
+    const mat3 AGX_ENC = mat3(
+        0.842479062253094, 0.0423282422610123, 0.0423756549057051,
+        0.0784335999999992, 0.878468636469772, 0.0784336,
+        0.0792237451477643, 0.0791661274605434, 0.879142973793104);
+    const float minEv = -12.47393;
+    const float maxEv = 4.026069;
+    vec3 x = AGX_ENC * max(c, vec3(1e-10));
+    x = clamp(log2(x), vec3(minEv), vec3(maxEv));
+    x = (x - minEv) / (maxEv - minEv);
+    x = vec3(wo_agx_contrast(x.r), wo_agx_contrast(x.g), wo_agx_contrast(x.b));
+    float l = dot(x, vec3(0.2126, 0.7152, 0.0722));
+    x = l + 1.05 * (pow(max(x, vec3(0.0)), vec3(1.06)) - l);
+    const mat3 AGX_DEC = mat3(
+        1.19687900512017, -0.0528968517574562, -0.0529716355144438,
+        -0.0980208811401368, 1.15190312990417, -0.0980434501171241,
+        -0.0990297440797205, -0.0989611768448433, 1.15107367264116);
+    x = AGX_DEC * x;
+    return clamp(x, vec3(0.0), vec3(1.0));
+}
+`;
+
+// ---- 天空片段着色器（大气散射模型 6）----
+const WO_SKY_FS = `#version 300 es
+precision highp float;
+precision highp int;
+in vec2 v_texCoord;
+out vec4 fragColor;
+` + WO_GLSL_COMMON + `
+void main() {
+    // 与 JS 路径一致使用整数像素坐标
+    vec2 scr = floor(v_texCoord * vec2(u_fb_width, u_fb_height));
+    vec3 rl = fisheye_unproject(scr);
+    vec3 d = vec3(rl.x, rl.z, rl.y);   // 页面地平系 -> 海洋系（y 上）
+    float dy = max(d.y, 0.0005);
+    d = normalize(vec3(d.x, dy, d.z));
+    vec3 c = wo_sky_atmo(d);
+    fragColor = vec4(wo_agx_tonemap(c), 1.0);
+}
+`;
+
+// ---- 海洋片段着色器（实时海洋地景；与 JS wo_ocean_pixel 逐式对应）----
+const WO_OCEAN_FS = `#version 300 es
+precision highp float;
+precision highp int;
+in vec2 v_texCoord;
+out vec4 fragColor;
+uniform highp sampler2D u_wave1;      // 256^2 RGBA16F (h, sx, sz, jtrace)，L=120m
+uniform highp sampler2D u_wave2;      // 256^2 RGBA16F，L=8m
+uniform highp sampler2D u_foam_tex;   // 256^2 RGBA8 程序化泡沫
+uniform vec2 u_scroll1;               // 级联1 平流速度 m/s
+uniform vec2 u_scroll2;
+uniform float u_L1;
+uniform float u_L2;
+uniform vec2 u_wind_v;                // 风浪行进方向（海洋系 xz）
+uniform vec3 u_cov;                   // 坡度协方差 (cxx, czz, cxz)
+uniform float u_pix_ang;              // 每像素角尺寸 rad
+uniform vec3 u_water_col;
+uniform float u_unres;
+uniform vec3 u_sss_col;
+uniform float u_sss_k;
+uniform float u_foam_j_thresh;
+uniform float u_foam_j_gain;
+uniform float u_foam_intensity;
+uniform vec3 u_fog_ext;
+uniform float u_fog_floor;
+` + WO_GLSL_COMMON + `
+const float HMAX = 2.2;
+const float MARCH_FAR = 900.0;
+
+// 两级波场之和 (h, sx, sz, jt)
+vec4 waveField(vec2 xz, float t) {
+    vec4 a = texture(u_wave1, (xz - u_scroll1 * t) / u_L1);
+    vec4 b = texture(u_wave2, (xz - u_scroll2 * t) / u_L2);
+    return a + b;
+}
+
+float waveHeight(vec2 xz, float t) {
+    return texture(u_wave1, (xz - u_scroll1 * t) / u_L1).r
+         + texture(u_wave2, (xz - u_scroll2 * t) / u_L2).r;
+}
+
+float lambdaSmith(vec3 w, vec3 cov) {
+    float xz2 = max(w.x * w.x + w.z * w.z, 1e-8);
+    float il = inversesqrt(xz2);
+    vec2 az = w.xz * il;
+    float sig2 = az.x * az.x * cov.x + az.y * az.y * cov.y + 2.0 * az.x * az.y * cov.z;
+    float cotT = w.y * il;
+    float a = max(cotT, 1e-3) / sqrt(2.0 * max(sig2, 1e-7));
+    if (a >= 1.6) { return 0.0; }
+    return (1.0 - 1.259 * a + 0.396 * a * a) / (3.535 * a + 2.181 * a * a);
+}
+
+float fresnelWater(float c) {
+    float x = 1.0 - clamp(c, 0.0, 1.0);
+    float x2 = x * x;
+    return 0.02 + 0.98 * x2 * x2 * x;
+}
+
+vec3 woOceanShade(vec3 d, float t) {
+    // ---- 射线步进求交 ----
+    float tPlane = -u_cam_y / d.y;
+    float tHit = tPlane;
+    if (tPlane <= MARCH_FAR) {
+        float tEnd = tPlane * 0.999;
+        float t0 = min(max(0.0, (HMAX - u_cam_y) / d.y), tEnd);
+        int steps = (tPlane < 30.0) ? 24 : ((tPlane < 120.0) ? 16 : 10);
+        float tPrev = t0;
+        float fPrev = u_cam_y + d.y * t0 - waveHeight(d.xz * t0, t);
+        bool hit = false;
+        for (int i = 1; i <= 24; i++) {
+            if (i > steps) break;
+            float ti = mix(t0, tEnd, float(i) / float(steps));
+            float fi = u_cam_y + d.y * ti - waveHeight(d.xz * ti, t);
+            if (fi <= 0.0) {
+                // 二分细化（收敛到 1mm；确定性收敛，CPU 与 GLSL 一致）
+                float ta = tPrev, tb = ti;
+                for (int rr = 0; rr < 24 && tb - ta > 0.001; rr++) {
+                    float tm = 0.5 * (ta + tb);
+                    float fm = u_cam_y + d.y * tm - waveHeight(d.xz * tm, t);
+                    if (fm > 0.0) { ta = tm; } else { tb = tm; }
+                }
+                tHit = tb;
+                hit = true;
+                break;
+            }
+            tPrev = ti;
+            fPrev = fi;
+        }
+        if (!hit) tHit = tPlane;
+    }
+
+    float dist = tHit;
+    vec2 xz = d.xz * tHit;
+    vec3 V = -d;
+    vec3 Ld = u_sun_dir;
+
+    // ---- 坡度与协方差（LEAN）----
+    float wf = 1.0 / (1.0 + (dist / 400.0) * (dist / 400.0));
+    vec4 fld = waveField(xz, t);
+    float hitH = fld.r;
+    vec2 slv = fld.gb * wf;
+    float jt = fld.a * wf * wf;
+
+    vec3 cov = u_cov;
+    float unres = u_unres + 0.0035 * smoothstep(30.0, 500.0, dist);
+    cov.x += unres;
+    cov.y += unres;
+    {   // 镜面抗锯齿：像素足迹内坡度变化展宽瓣宽
+        float pf = max(dist * u_pix_ang / max(-V.y, 0.05), 1e-4);
+        vec4 fA = waveField(xz + vec2(pf, 0.0), t);
+        vec4 fB = waveField(xz + vec2(0.0, pf), t);
+        float dAxxx = (fA.g - fld.g) * wf;
+        float dAxsx = (fA.b - fld.b) * wf;
+        float dBxxx = (fB.g - fld.g) * wf;
+        float dBxsx = (fB.b - fld.b) * wf;
+        float aax = dAxxx * dAxxx + dBxxx * dBxxx;
+        float aay = dAxsx * dAxsx + dBxsx * dBxsx;
+        float aaz = dAxxx * dAxsx + dBxxx * dBxsx;
+        float aaMax = max(max(aax, aay), 1e-8);
+        cov += vec3(aax, aay, aaz) * (0.5 * min(1.0, 0.03 / aaMax));
+    }
+
+    vec3 nrm = normalize(vec3(-slv.x, 1.0, -slv.y));
+
+    // ---- 太阳辐照与天空环境 ----
+    vec3 sunE = texture(u_trans_lut, wo_transRMuToUV(RG + u_cam_alt_km, u_sun_dir.y)).rgb * SUN_SCALE;
+    vec3 skyUp = wo_sky_atmo(vec3(0.0, 1.0, 0.0));
+    vec3 skyHemi = skyUp * 0.4 + 0.15 * (
+        wo_sky_atmo(vec3(0.94, 0.34, 0.0)) + wo_sky_atmo(vec3(-0.94, 0.34, 0.0)) +
+        wo_sky_atmo(vec3(0.0, 0.34, 0.94)) + wo_sky_atmo(vec3(0.0, 0.34, -0.94)));
+    vec3 skyN = wo_sky_atmo(nrm);
+
+    // ---- 太阳耀光：各向异性高斯坡度分布 ----
+    vec3 Hv = normalize(V + Ld);
+    vec2 hs = -Hv.xz / max(Hv.y, 1e-3);
+    vec2 dsl = hs - slv;
+    float det = max(cov.x * cov.y - cov.z * cov.z, 1e-10);
+    float eG = (dsl.x * dsl.x * cov.y + dsl.y * dsl.y * cov.x - 2.0 * dsl.x * dsl.y * cov.z) / det;
+    float pdf = exp(-0.5 * eG) / (2.0 * WO_PI * sqrt(det));
+    float hy2 = Hv.y * Hv.y;
+    float Dm = pdf / max(hy2 * hy2, 1e-6);
+    float Gsm = 1.0 / (1.0 + lambdaSmith(V, cov) + lambdaSmith(Ld, cov));
+    float Fh = fresnelWater(dot(V, Hv));
+    vec3 spec = vec3(0.0);
+    if (Ld.y >= 0.0) {
+        spec = sunE * (Fh * Dm * Gsm / (4.0 * max(V.y, 0.02)));
+    }
+
+    // ---- 天空反射 ----
+    float sig = sqrt(max(cov.x + cov.y, 1e-6) * 0.5);
+    vec3 vh = normalize(vec3(V.x, 0.0, V.z) + vec3(1e-5, 0.0, 0.0));
+    float sigV = sqrt(max(vh.x * vh.x * cov.x + vh.z * vh.z * cov.y + 2.0 * vh.x * vh.z * cov.z, 1e-6));
+    float aV = max(V.y, 1e-3) / max(sqrt(max(1.0 - V.y * V.y, 0.0)), 1e-3) / (1.4142 * sigV);
+    float tilt = 0.32 * sigV * (1.0 - smoothstep(0.0, 2.5, aV));
+    vec3 nV = normalize(nrm + vh * tilt);
+    vec3 R = reflect(-V, nV);
+    R.y = abs(R.y) * 0.4 + max(R.y, 0.0) * 0.6;
+    R = normalize(R);
+    float envLod = clamp(log2(max(2.0 * sig * (256.0 / 1.5708), 1.0)), 0.0, 8.0);
+    vec3 refl = mix(wo_sky_atmo(R), skyHemi, envLod / 8.0 * 0.65);
+    vec3 nF = normalize(mix(nrm, vec3(0.0, 1.0, 0.0), 0.45));
+    float Fr = fresnelWater(max(dot(nF, V), 0.0));
+
+    // ---- 水体：上涌散射 + 背光波峰透射辉光 ----
+    vec3 ambient = skyUp * 1.3 + skyN * 0.5;
+    vec3 body = u_water_col * (skyHemi * 1.6 + sunE * max(Ld.y, 0.0) * 0.8);
+    {
+        float crest = clamp((hitH - 0.05) / 0.9, 0.0, 1.0);
+        float toSun = max(dot(Ld, -V), 0.0);
+        float thin = pow(clamp(0.5 - 0.5 * dot(Ld, nrm), 0.0, 1.0), 3.0);
+        float k1 = u_sss_k * crest * crest * toSun * toSun * toSun * toSun * thin * exp(-dist / 600.0);
+        body += u_sss_col * sunE * k1;
+    }
+
+    // ---- 泡沫 ----
+    float J = 1.0 + jt;   // 雅可比行列式（仅存迹分量，J ≈ 1 + trace）
+    float fresh = clamp((u_foam_j_thresh - J) * u_foam_j_gain, 0.0, 1.0);
+    float cover = clamp(fresh * u_foam_intensity, 0.0, 1.5);
+    vec2 ws = vec2(dot(xz, u_wind_v), dot(xz, vec2(-u_wind_v.y, u_wind_v.x)));
+    float streak = texture(u_foam_tex, ws * vec2(0.035, 0.11)).a;
+    cover *= mix(smoothstep(0.25, 0.75, streak) * 1.5, 1.0, fresh);
+    float pat = texture(u_foam_tex, xz * 0.23 + vec2(0.013, 0.0) * t).r * 0.78
+              + texture(u_foam_tex, xz * 0.71 + vec2(0.37, 0.71)).g * 0.22;
+    float fw = 0.05;   // 图案屏幕变化率近似（与 JS 一致取常数）
+    float soft = 0.04 + 0.14 * (1.0 - clamp(cover, 0.0, 1.0));
+    float fm = smoothstep(1.0 - cover - fw - soft, 1.0 - cover + fw + soft, pat);
+    float foamMask = clamp(fm * smoothstep(0.0, 0.5, cover), 0.0, 1.0) *
+        (0.68 + 0.32 * smoothstep(0.3, 0.9, cover));
+    body += u_sss_col * (sunE * 0.05 + ambient * 0.35) * clamp(cover, 0.0, 1.0);
+    float bub = texture(u_foam_tex, xz * 1.9 + vec2(0.21, 0.53)).g;
+    vec3 foamAlb = vec3(0.82, 0.87, 0.92) * (0.78 + 0.3 * bub);
+    vec3 foamAmb = skyHemi * 1.0 + skyN * 0.3;
+    vec3 foamAmbN = mix(foamAmb, vec3(dot(foamAmb, vec3(0.2126, 0.7152, 0.0722))), 0.85);
+    float NdL = max(dot(nrm, Ld), 0.0);
+    vec3 foamLit = foamAlb * (sunE * NdL * 0.318 * 0.5 + foamAmbN * 1.55);
+
+    vec3 col = body * (1.0 - Fr) + refl * Fr + spec;
+    col = mix(col, foamLit, foamMask * 0.95);
+
+    // ---- 大气透视 ----
+    float Td = exp(-u_fog_floor * dist);
+    vec3 hz = normalize(vec3(-V.x, 0.002, -V.z));
+    vec3 fogCol = wo_sky_atmo(hz);
+    col = col * Td + fogCol * (1.0 - Td);
+
+    return wo_agx_tonemap(col);
+}
+
+void main() {
+    vec2 scr = floor(v_texCoord * vec2(u_fb_width, u_fb_height));
+    vec3 rl = fisheye_unproject(scr);
+    if (rl.z >= 0.0) { fragColor = vec4(0.0, 0.0, 0.0, 0.0); return; }
+    vec3 d = vec3(rl.x, rl.z, rl.y);   // 页面地平系 -> 海洋系（y 上）
+    float dl = length(d);
+    if (dl < 1e-9) { fragColor = vec4(0.0, 0.0, 0.0, 0.0); return; }
+    d /= dl;
+    if (d.y >= -1e-4) { fragColor = vec4(0.0, 0.0, 0.0, 0.0); return; }
+    vec3 c = woOceanShade(d, u_time);
+    fragColor = vec4(c, 1.0);
+}
+`;
+
+OceanSkyWebGL.skyFragmentSource = WO_SKY_FS;
+OceanSkyWebGL.oceanFragmentSource = WO_OCEAN_FS;
+
+// ============================================================
+// 实时海洋参数滑块（web-ocean 海洋相关渲染参数）
+// 地景设为“实时海洋”时显示于 canvas 上方；由 refresh_button_status 控制显隐。
+// 类别：wave-变更后重烘焙波场（防抖 250ms）；uniform-仅刷新着色器 uniform；
+//       lut-重建透射/多重散射/天空视图 LUT（霾影响大气介质）。
+// ============================================================
+const WO_SLIDERS = [
+    ['camY',      '观察高度', 0,   1000, 1,   'cam',
+     (v) => v.toFixed(1) + ' m',
+     (v) => 1000.0 * Math.log(v / 1.5) / Math.log(1000.0 / 1.5),                    // 高度→滑块位置（对数刻度）
+     (u) => 1.5 * Math.pow(1000.0 / 1.5, u / 1000.0)],                              // 滑块位置→高度
+    ['windU',     '风速',     2,   20,  0.1,  'wave',    (v) => v.toFixed(1) + ' m/s'],
+    ['windDir',   '风向',     0,   360, 1,    'wave',    (v) => v.toFixed(0) + '°'],
+    ['fetchKm',   '风区长度', 5,   800, 1,    'wave',    (v) => v.toFixed(0) + ' km'],
+    ['swellHs',   '涌浪波高', 0,   4,   0.05, 'wave',    (v) => v.toFixed(2) + ' m'],
+    ['swellLen',  '涌浪波长', 30,  300, 1,    'wave',    (v) => v.toFixed(0) + ' m'],
+    ['swellDir',  '涌浪方向', 0,   360, 1,    'wave',    (v) => v.toFixed(0) + '°'],
+    ['foam',      '泡沫强度', 0,   3,   0.05, 'uniform', (v) => v.toFixed(2)],
+    ['turbidity', '水体浑浊度', 0.2, 3, 0.05, 'uniform', (v) => v.toFixed(2)],
+    ['haze',      '霾',       0.5, 15,  0.1,  'lut',     (v) => v.toFixed(1)],
+];
+const WO_SLIDER_GETTERS = {
+    camY: () => WO_CAM_Y,
+    windU: () => WO_WIND_U,
+    windDir: () => WO_WIND_DIR,
+    fetchKm: () => WO_FETCH / 1000.0,
+    swellHs: () => WO_SWELL_HS,
+    swellLen: () => WO_SWELL_LEN,
+    swellDir: () => WO_SWELL_DIR,
+    foam: () => WO_FOAM_INTENSITY,
+    turbidity: () => WO_TURBIDITY,
+    haze: () => WO_HAZE
+};
+
+// 应用滑块变更：更新参数并标记对应脏标记（由 wo_prepare_frame 防抖消费）
+function wo_apply_slider(key, value) {
+    switch (key) {
+        case 'camY':
+            WO_CAM_Y = value;
+            WO_CAM_ALT_KM = value / 1000.0;   // 天空视图 LUT 的观察高度（km）
+            break;
+        case 'windU': WO_WIND_U = value; break;
+        case 'windDir': WO_WIND_DIR = value; break;
+        case 'fetchKm': WO_FETCH = value * 1000.0; break;
+        case 'swellHs': WO_SWELL_HS = value; break;
+        case 'swellLen': WO_SWELL_LEN = value; break;
+        case 'swellDir': WO_SWELL_DIR = value; break;
+        case 'foam': WO_FOAM_INTENSITY = value; break;
+        case 'turbidity': WO_TURBIDITY = value; break;
+        case 'haze': WO_HAZE = value; break;
+    }
+    if (key === 'turbidity' || key === 'haze' || key === 'windDir' || key === 'swellDir') {
+        wo_update_derived_params();   // 水体色/雾消光/风向向量/平流速度
+    }
+    const now = (typeof performance !== 'undefined') ? performance.now() : Date.now();
+    const kind = WO_SLIDERS.find((s) => s[0] === key)[5];
+    if (kind === 'wave') WO_state.wavesDirtyAt = now;
+    else if (kind === 'lut') WO_state.hazeDirtyAt = now;
+    else if (kind === 'cam') WO_state.camDirtyAt = now;
+}
+
+// 构建滑块控件（脚本位于 body 末尾，DOM 已就绪；仅执行一次）
+let wo_sliders_ready = false;
+function wo_init_sliders() {
+    if (wo_sliders_ready) return;
+    wo_sliders_ready = true;
+    const box = document.getElementById('ocean_controller');
+    if (!box) return;
+    for (const entry of WO_SLIDERS) {
+        const [key, name, min, max, step, kind, fmt] = entry;
+        const row = document.createElement('div');
+        row.className = 'ocean_slider_row';
+        const label = document.createElement('span');
+        label.className = 'osl_name';
+        label.textContent = name;
+        const inp = document.createElement('input');
+        inp.type = 'range';
+        inp.min = min; inp.max = max; inp.step = step;
+        const v0 = WO_SLIDER_GETTERS[key]();
+        inp.value = entry[7] ? Math.round(entry[7](v0) / step) * step : v0;   // 对数刻度滑块：位置↔值映射
+        const val = document.createElement('span');
+        val.className = 'osl_val';
+        val.textContent = fmt(v0);
+        inp.addEventListener('input', () => {
+            const u = parseFloat(inp.value);
+            const v = entry[8] ? entry[8](u) : u;
+            wo_apply_slider(key, v);
+            val.textContent = fmt(v);
+        });
+        row.appendChild(label);
+        row.appendChild(inp);
+        row.appendChild(val);
+        box.appendChild(row);
+    }
+}
+wo_init_sliders();
+
 // ============================================
 // WebGL 大气散射渲染器
 // ============================================
@@ -8754,6 +10783,10 @@ function calculate_scattered_pixel(ray_vec, sun_vec, model_index) {
         // 体积云天空（需先调用 cloud_sky_prepare_frame 完成帧预处理）
         return scatter_model_5(ray_vec, sun_vec, false);
     }
+    else if (model_index === 6) {
+        // 海洋天空（web-ocean 移植；需先调用 wo_prepare_frame 完成 LUT 预处理）
+        return scatter_model_6(ray_vec, sun_vec);
+    }
     else {
         return [0,0,0];
     }
@@ -8862,10 +10895,34 @@ function render_all(
         let gl_pixels = null;
         let C = 8; // 降采样因子
 
-        if (enable_atmospheric_scattering === 5) {
+        if (enable_atmospheric_scattering === 6) {
+            // ============================================
+            // 模型 6：海洋天空（web-ocean 移植，CPU 与 WebGL2 双实现共享同一份 LUT 数据）
+            // ============================================
+            // 帧预处理：LUT 构建（首次约 0.5s）/ 波场烘焙（首次约 0.1s）/ 太阳变化时重建天空视图 LUT
+            wo_prepare_frame(sun_alt, sun_azi, f, sky_radius);
+
+            if (enable_webgl && initOceanSkyWebGL()) {
+                // WebGL2 路径：LUT 查表极廉价，固定全分辨率以保证与 JS 路径一致
+                C = 1;
+                gl_pixels = OceanSkyWebGL.renderSky({
+                    fb_width: fb_width,
+                    fb_height: fb_height,
+                    sky_radius: sky_radius,
+                    center_x: center_x,
+                    center_y: center_y,
+                    view_alt: view_alt,   // 与 CPU 路径（fisheye_unproject）一致的正负号约定
+                    view_azi: view_azi,
+                    view_roll: view_roll,
+                    f: f
+                });
+            }
+            // gl_pixels 为空（无 WebGL2 / 初始化失败）时走下方 CPU 回退
+        }
+        else if (enable_atmospheric_scattering === 5) {
             // ============================================
             // 模型 5：体积云天空（ui_cloud.c / flower 移植，CPU 与 WebGL2 双实现）
-            // ============================================
+            // ====================================
             // 帧预处理：首次生成噪声图（约 1 秒）/ 太阳变化时重算 LUT / 场景状态
             cloud_sky_prepare_frame(sun_alt, sun_azi, fb_width, fb_height, sky_radius, center_x, center_y, view_alt, view_azi, view_roll, f);
 
@@ -9059,7 +11116,11 @@ function render_all(
 
             let C4 = 8; // 降采样因子
             let force_bilinear = false;
-            if (enable_atmospheric_scattering === 5 && enable_volumetric_cloud) {
+            if (enable_atmospheric_scattering === 6) {
+                // 模型 6：LUT 查表极廉价，CPU 固定全分辨率（与 GLSL 路径一致）
+                C4 = 1;
+            }
+            else if (enable_atmospheric_scattering === 5 && enable_volumetric_cloud) {
                 // 模型 5：CPU 回退的云体 march 较粗糙，固定 C=8 并强制双线性平滑
                 C4 = 8;
                 force_bilinear = true;
@@ -9259,6 +11320,13 @@ function render_all(
 
 
     // 绘制地景（天空投影圆盘之外的部分）
+    if (LANDSCAPES[landscape_index][2] === 2) {
+        // 实时海洋地景（web-ocean 移植：射线步进海面 + 物理着色，JS 与 GLSL 双实现）
+        draw_ocean_landscape(
+            frame_buffer, FB_WIDTH, FB_HEIGHT, sky_radius, center_x, center_y,
+            view_alt, view_azi, view_roll, f, sun_alt, sun_azi);
+    }
+    else {
     // 地形生成或者非鱼眼地景贴图（透视投影）
     if (landscape_index === 1 || LANDSCAPES[landscape_index][2] === 0) {
         // let fov = (0.45/90) * Math.abs(sun_alt) + 1.1;
@@ -9284,6 +11352,7 @@ function render_all(
     draw_horizon(
         frame_buffer, FB_WIDTH, FB_HEIGHT, sky_radius, center_x, center_y, view_alt, view_azi, view_roll, f, sun_alt,
         (LANDSCAPES[landscape_index][2] === 0), atmo_r, atmo_g, atmo_b);
+    }
 
 
 
@@ -9592,6 +11661,8 @@ function clip_and_resize(framebuffer_input, input_width, input_height, framebuff
 
 
 function load_landscape_texture(idx) {
+    // 类型 2（实时海洋）为逐帧程序化渲染，无需加载贴图
+    if (idx > 0 && LANDSCAPES[idx] && LANDSCAPES[idx][2] === 2) return;
     if (idx === 0) {
         generate_landscape(landscape_global_rgba, landscape_global_width, landscape_global_height, Math.random(), 0.02, 6);
         clip_and_resize(
@@ -9823,6 +11894,9 @@ function refresh_button_status() {
     else if (enable_atmospheric_scattering === 5) {
         status = `<span class="switch_active">体积云天空</span>`;
     }
+    else if (enable_atmospheric_scattering === 6) {
+        status = `<span class="switch_active">海洋天空</span>`;
+    }
     document.getElementById("scattering_status").innerHTML = status;
 
 
@@ -9866,6 +11940,16 @@ function refresh_button_status() {
     }
     else {
         cloud_sky_ctl.style.display = "none";
+    }
+
+    // 实时海洋专属调节（地景为实时海洋时显示于 canvas 上方）
+    const ocean_ctl = document.getElementById("ocean_controller");
+    if (ocean_ctl) {
+        if (LANDSCAPES[landscape_index] && LANDSCAPES[landscape_index][2] === 2) {
+            ocean_ctl.style.display = "flex";
+        } else {
+            ocean_ctl.style.display = "none";
+        }
     }
 
 
@@ -10015,10 +12099,11 @@ function init() {
             case 2: enable_atmospheric_scattering = 3; break;
             case 3: enable_atmospheric_scattering = 4; break;
             case 4: enable_atmospheric_scattering = 5; break;
-            case 5: enable_atmospheric_scattering = 0; break;
+            case 5: enable_atmospheric_scattering = 6; break;
+            case 6: enable_atmospheric_scattering = 0; break;
             default: enable_atmospheric_scattering = 5;
         }
-        // 循环顺序：0(关闭) → 1(简化模型) → 2(一次散射) → 3(二次散射) → 4(二次散射改) → 5(体积云天空) → 0
+        // 循环顺序：0(关闭) → 1(简化模型) → 2(一次散射) → 3(二次散射) → 4(二次散射改) → 5(体积云天空) → 6(海洋天空) → 0
         refresh_button_status();
     });
 
