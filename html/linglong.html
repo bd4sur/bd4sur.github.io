@@ -7675,10 +7675,12 @@ function initCloudSkyWebGL() {
 //  · 天空（大气散射模型 6）：Hillaire 式 LUT 大气——透射率 LUT + 多重散射 LUT +
 //    天空视图 LUT + 气溶胶霾层。三张 LUT 均由 JS 统一计算：CPU 路径直接查表，
 //    WebGL 路径上传为 RGBA16F 纹理，两路共享同一份数据，保证渲染效果一致。
-//  · 海洋（实时渲染地景）：以方差守恒的解析波列级数替代 web-ocean 的 FFT 级联仿真
-//    （谱不变：JONSWAP 风浪 + Donelan-Banner 方向分布 + 窄涌浪 + 表面张力色散），
-//    波场烘焙为两级可平铺纹理（120m / 8m 级联，各含高度、两轴坡度与雅可比迹），
-//    按各波段群速度平流；着色管线逐条移植：LEAN 坡度统计 + 各向异性高斯坡度分布
+//  · 海洋（实时渲染地景）：以解析波列级数替代 web-ocean 的 FFT 级联仿真
+//    （谱不变：JONSWAP 风浪 + Donelan-Banner 方向分布 + 窄涌浪 + 表面张力色散）；
+//    波列由整数波数格点上的重要性分层抽样得到（每级联数百个随机相位平面波，
+//    方差无偏），烘焙为两级可平铺纹理（512m / 16m，各含高度、两轴坡度与雅可比迹，
+//    波段 λ∈[4,128]m 与 [0.125,4]m），按各波段群速度平流；着色管线逐条移植：
+//    LEAN 坡度统计 + 各向异性高斯坡度分布
 //    太阳耀光（Smith 掩蔽）、天空环境反射（粗糙度按半球均值混合近似）、
 //    水体上涌散射 + 背光波峰透射辉光、雅可比白帽 + 程序化泡沫纹理、大气透视。
 //  · 色调映射：AgX（web-ocean 合成链；去除 bloom/暗角/抖动以保证 JS 与 GLSL 输出一致）。
@@ -7717,10 +7719,15 @@ const WO_SWELL_SPREAD = 48.0;         // cos^2s 方向分布指数
 let WO_WIND_VX = Math.sin(WO_WIND_DIR * WO_PI / 180.0), WO_WIND_VZ = Math.cos(WO_WIND_DIR * WO_PI / 180.0);
 let WO_SWELL_VX = Math.sin(WO_SWELL_DIR * WO_PI / 180.0), WO_SWELL_VZ = Math.cos(WO_SWELL_DIR * WO_PI / 180.0);
 
-// 波场级联（可平铺纹理）：L=patch 尺寸 m；nMin..nMax 整数波数环；rings×dirs 个采样波列
+// 波场级联（可平铺纹理）：L=patch 尺寸 m；n∈[nMin,nMax] 为整数波数模长（波长 L/n）
+// waves=按“谱质量均匀分层抽样”得到的波列数（见 wo_build_wave_list）
+// 注：两级联的波段下界取 n=4（而非 1）——波长带宽内谱质量总集中在低波数端，
+//     若该端落在 n=1..3（格点总数仅 4~16 个），分层抽样会坍缩到少数方向、
+//     形成平行条纹；n≥4 时最低环有 2πn≥25 个格点，叠加谱峰附近大量格点，
+//     难被子采样坍缩。波段：级联1 λ∈[4,128]m、级联2 λ∈[0.125,4]m，无缝衔接。
 const WO_TILES = [
-    { L: 120.0, N: 256, nMin: 1, nMax: 16, rings: 22, dirs: 2, gain: 1.0, cgroup: 4.2 },  // 涌浪+风浪（波长 7.5~120m）
-    { L: 8.0,   N: 256, nMin: 1, nMax: 16, rings: 18, dirs: 2, gain: 0.7, cgroup: 0.9 },  // 短波（0.5~8m）
+    { L: 512.0, N: 256, nMin: 4, nMax: 128, waves: 384, flat: 0.5, gain: 1.0, cgroup: 4.2 },  // 长波（波长 4~128m）
+    { L: 16.0,  N: 256, nMin: 4, nMax: 128, waves: 384, flat: 0.5, gain: 0.7, cgroup: 1.4 },  // 短波（0.125~4m）
 ];
 const WO_HMAX = 2.2;                  // 波场最大高程估计（射线步进起点）
 const WO_MARCH_FAR = 900.0;           // 超过该距离波高远小于像素足迹，直接取平均海平面
@@ -8189,69 +8196,63 @@ function wo_spectrum(kx, kz) {
     return Sw * wo_dOmegaOf(kl) / kl;
 }
 
-// 从整数波数格点（保证可平铺）抽取波列：环带面积均匀取 n；环带总方差由
-// 谱的二重数值积分给出（严格守恒），再按方向分布权重分配到 M 个代表方向；
+// 从整数波数格点（保证可平铺）抽取波列：
+//   ① 枚举波段内全部格点，得到各自谱质量 S·dk² 与抽样权重 S^flat；
+//   ② 按累计权重做分层系统抽样（每层随机位置）取 W 个格点——波数模长与方向分布
+//      均自动服从二维谱（含 Donelan-Banner 展宽与窄涌浪），且 flat<1 使波长铺得更宽，
+//      避免能量塌缩到单一波数的“环”（那是棋盘纹的成因）；
+//   ③ 振幅按重要性权重反算 a²/2 = S·dk²/(W·p)，总方差无偏。
 // 返回 [kx, kz, a, a·kx, a·kz, a·|k|², φ] 交叉存储
 function wo_build_wave_list(tile, seed) {
     const dk = 2.0 * WO_PI / tile.L;
-    const A0 = tile.nMin * tile.nMin, A1 = tile.nMax * tile.nMax;
-    const K = tile.rings, M = tile.dirs;
+    const nMin = tile.nMin, nMax = tile.nMax;
     const rng = wo_mulberry32(seed);
+
+    // 1) 枚举波段内全部整数格点（可平铺），记录谱质量 S(k)·dk² 与抽样权重 S^flat
+    //    谱质量之和即该波段总方差 ∫∫S d²k；flat=1 为按谱质量均匀抽样（方差集中处振幅相等），
+    //    flat<1 把抽样概率谱“压平”，使同一波段内的波长分布更宽（消除单波长环→棋盘纹），
+    //    振幅按 S/p 反加权，总方差仍无偏
+    const flat = (tile.flat === undefined) ? 1.0 : tile.flat;
+    const pts = [];          // [nx, nz, S·dk², 累计权重] 交叉存储
+    let totalW = 0.0;
+    const a2 = nMin * nMin, b2 = nMax * nMax;
+    for (let nz = -nMax; nz <= nMax; nz++) {
+        for (let nx = -nMax; nx <= nMax; nx++) {
+            const n2 = nx * nx + nz * nz;
+            if (n2 < a2 || n2 > b2) continue;
+            const S = wo_spectrum(nx * dk, nz * dk);
+            if (S <= 0.0) continue;
+            totalW += Math.pow(S, flat);
+            pts.push(nx, nz, S * dk * dk, totalW);
+        }
+    }
+    const nPts = pts.length / 4;
+    if (nPts === 0 || totalW <= 0.0) return new Float32Array(0);
+
+    // 2) 分层系统抽样（按累计权重均分 W 层，每层随机位置反查格点）
+    //    每个采样点的方差：a²/2 = S·dk²/(W·p)，p = S^flat/totalW
+    const W = tile.waves;
+    const dWt = totalW / W;
     const out = [];
-    const seen = new Set();
-    for (let j = 0; j < K; j++) {
-        const nf = Math.sqrt(A0 + (A1 - A0) * (j + 0.5) / K);
-        let n = Math.round(nf);
-        if (j === 0) n = tile.nMin;               // 保证谱峰低频端（涌浪）被采样
-        n = wo_clamp(n, tile.nMin, tile.nMax);
-        // 环带 k 区间（相邻环带中点界定）
-        const nLo = (j === 0) ? tile.nMin : Math.round(Math.sqrt(A0 + (A1 - A0) * (j - 0.5) / K));
-        const nHi = (j === K - 1) ? tile.nMax : Math.round(Math.sqrt(A0 + (A1 - A0) * (j + 1.5) / K));
-        const kLo = Math.max(nLo, 1) * dk, kHi = Math.max(nHi, nLo + 1) * dk;
-        // 环带总方差 m0 = ∫∫_ring S(k,θ) k dk dθ（径向×角向求积）
-        let m0 = 0.0;
-        const NR = 6, NA = 16;
-        for (let ir = 0; ir < NR; ir++) {
-            const ka = wo_mix(kLo, kHi, ir / NR), kb = wo_mix(kLo, kHi, (ir + 1) / NR);
-            const kc = 0.5 * (ka + kb);
-            for (let ia = 0; ia < NA; ia++) {
-                const ta = -WO_PI + 2.0 * WO_PI * ia / NA;
-                const tc = ta + WO_PI / NA;
-                const S = wo_spectrum(kc * Math.cos(tc), kc * Math.sin(tc));
-                m0 += S * (0.5 * (kb * kb - ka * ka)) * (2.0 * WO_PI / NA);
-            }
-        }
-        // 方向权重：代表方向处的角向谱密度归一化
-        const isSwellBand = (tile === WO_TILES[0] && n <= 2);
-        const mainTh = isSwellBand ? Math.atan2(WO_SWELL_VZ, WO_SWELL_VX) : Math.atan2(WO_WIND_VZ, WO_WIND_VX);
-        const offs = isSwellBand ? [-0.05, 0.05] : [-0.30, 0.30];
-        const kcMid = 0.5 * (kLo + kHi);
-        let wSum = 0.0;
-        const ws = [];
-        for (let m = 0; m < M; m++) {
-            const th = wo_wrapAngle(mainTh + offs[m]);
-            const S = wo_spectrum(kcMid * Math.cos(th), kcMid * Math.sin(th));
-            ws.push(Math.max(S, 0.0));
-            wSum += Math.max(S, 0.0);
-        }
-        for (let m = 0; m < M; m++) {
-            if (wSum <= 0.0) break;
-            const th = wo_wrapAngle(mainTh + offs[m]);
-            const nx = Math.round(n * Math.cos(th)), nz = Math.round(n * Math.sin(th));
-            const key = nx * 1024 + nz;
-            if (seen.has(key)) continue;
-            seen.add(key);
-            const a = Math.sqrt(2.0 * Math.max(m0 * ws[m] / wSum, 0.0)) * tile.gain;
-            if (a < 1e-7) continue;
-            const kx = nx * dk, kz = nz * dk;
-            const kl = Math.sqrt(kx * kx + kz * kz);
-            // Gerstner 水平位移雅可比迹系数（choppy 同 web-ocean 默认 1.25）
-            out.push(kx, kz, a, a * kx, a * kz, -1.25 * a * kl, rng() * 2.0 * WO_PI);
-        }
+    let idx = 0;
+    for (let s = 0; s < W; s++) {
+        const target = (s + rng()) * dWt;
+        while (idx < nPts - 1 && pts[idx * 4 + 3] < target) idx++;
+        const nx = pts[idx * 4], nz = pts[idx * 4 + 1];
+        const mass = pts[idx * 4 + 2];                    // S·dk²（该格点的方差质量）
+        const sVal = mass / (dk * dk);                    // S(k)
+        // 重要性加权：a²/2 = S·dk²/(W·p)，p = S^flat/totalW
+        const a = Math.sqrt(2.0 * mass * totalW / (W * Math.pow(sVal, flat))) * tile.gain;
+        if (!(a > 0.0) || !isFinite(a)) continue;
+        const kx = nx * dk, kz = nz * dk;
+        const kl = Math.sqrt(kx * kx + kz * kz);
+        // Gerstner 水平位移雅可比迹系数（choppy 同 web-ocean 默认 1.25）
+        out.push(kx, kz, a, a * kx, a * kz, -1.25 * a * kl, rng() * 2.0 * WO_PI);
     }
     return new Float32Array(out);
 }
 
+// 波场烘焙：逐纹理元求和波列（高度、两轴坡度、雅可比迹）
 // f32 → f16 → f32（就近舍入偶数，与 GPU RGBA16F 纹理上传行为逐位一致，消除两路数据差）
 const _wo_hf32 = new Float32Array(1), _wo_hi32 = new Int32Array(_wo_hf32.buffer);
 function wo_toHalf(value) {
@@ -8269,16 +8270,14 @@ function wo_toHalf(value) {
         if (e >= 31) {
             h = (s << 15) | 0x7c00;                    // 上溢饱和为 f16 Inf
         } else if (e >= 1) {
-            // 规格化：尾数舍入到 10 位（就近舍入偶数）
             let m = m32 >>> 13;
             const rem = m32 & 0x1fff;
             if (rem > 0x1000 || (rem === 0x1000 && (m & 1) !== 0)) {
                 m += 1;
-                if (m === 0x800) { m = 0; e += 1; if (e >= 31) return sign_f16(s); }
+                if (m === 0x800) { m = 0; e += 1; if (e >= 31) return s ? -Infinity : Infinity; }
             }
             h = (s << 15) | (e << 10) | m;
         } else {
-            // f16 非规格化：右移整数位并舍入
             const shift = 1 - e;
             const full = m32 | 0x800000;
             let m = full >>> (13 + shift);
@@ -8288,33 +8287,53 @@ function wo_toHalf(value) {
             h = (s << 15) | m;
         }
     }
-    // f16 位型 → f32
     const he = (h >>> 10) & 0x1f, hm = h & 0x3ff, hs = (h >>> 15) & 1;
     if (he === 0) return hs ? -hm * 5.960464477539063e-8 : hm * 5.960464477539063e-8;
     if (he === 0x1f) return hs ? -Infinity : Infinity;
     _wo_hi32[0] = (hs << 31) | ((he - 15 + 127) << 23) | (hm << 13);
     return _wo_hf32[0];
 }
-function sign_f16(s) { return s ? -Infinity : Infinity; }
-// 波场烘焙：逐纹理元求和波列（高度、两轴坡度、雅可比迹）
+
 function wo_bake_tile(tile, list) {
     const N = tile.N, L = tile.L;
     const data = new Float32Array(N * N * 4);
     const nw = list.length / 7;
-    let p = 0;
+    if (nw === 0) return data;
+    const dx = L / N;
+
+    // 每波沿 x 方向的相位步进（旋转递推用）：cos(kx·dx)、sin(kx·dx)
+    const cosD = new Float64Array(nw), sinD = new Float64Array(nw);
+    for (let w = 0; w < nw; w++) {
+        const dphi = list[w * 7] * dx;
+        cosD[w] = Math.cos(dphi);
+        sinD[w] = Math.sin(dphi);
+    }
+
+    // 逐行递推：行首计算一次 sin/cos，行内用旋转递推 φ += kx·dx
+    // （替代逐纹理元的 sin/cos，同等精度下快一个数量级）
+    const cs = new Float64Array(nw * 2);   // [cos φ, sin φ] 对
     for (let j = 0; j < N; j++) {
-        const z = (j + 0.5) / N * L;
+        const z = (j + 0.5) * dx;
+        for (let w = 0; w < nw; w++) {
+            const o = w * 7;
+            const ph = list[o + 6] + list[o + 1] * z + list[o] * (0.5 * dx);
+            cs[w * 2] = Math.cos(ph);
+            cs[w * 2 + 1] = Math.sin(ph);
+        }
+        let p = j * N * 4;
         for (let i = 0; i < N; i++) {
-            const x = (i + 0.5) / N * L;
             let h = 0.0, sx = 0.0, sz = 0.0, jt = 0.0;
             for (let w = 0; w < nw; w++) {
+                const c = cs[w * 2], s = cs[w * 2 + 1];
                 const o = w * 7;
-                const ph = list[o + 6] + list[o] * x + list[o + 1] * z;
-                const s = Math.sin(ph), co = Math.cos(ph);
-                h += list[o + 2] * co;                  // a·cos φ
-                sx -= list[o + 3] * s;                  // -a·kx·sin φ
-                sz -= list[o + 4] * s;                  // -a·kz·sin φ
-                jt += list[o + 5] * co;                 // choppy 雅可比迹扰动（含符号）
+                h += list[o + 2] * c;        // a·cos φ
+                sx -= list[o + 3] * s;       // -a·kx·sin φ
+                sz -= list[o + 4] * s;       // -a·kz·sin φ
+                jt += list[o + 5] * c;       // 雅可比迹扰动（含符号）
+                // 旋转递推 (c,s) ← (c,s)·(cosΔ, sinΔ)
+                const cd = cosD[w], sd = sinD[w];
+                cs[w * 2] = c * cd - s * sd;
+                cs[w * 2 + 1] = c * sd + s * cd;
             }
             data[p] = h; data[p + 1] = sx; data[p + 2] = sz; data[p + 3] = jt;
             p += 4;
