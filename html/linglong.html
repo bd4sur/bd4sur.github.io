@@ -402,6 +402,8 @@ a {
             <button class="setting_button" id="toggle_gyro">重力感应<br><span class="status_label" id="gyro_status">-</span></button>
             <button class="setting_button" id="toggle_att_indicator">姿态指示<br><span class="status_label" id="att_indicator_status">-</span></button>
             <button class="setting_button" id="toggle_opt_bilinear">平滑滤波<br><span class="status_label" id="opt_bilinear_status">-</span></button>
+            <button class="setting_button" id="toggle_sky_skip">天空降帧<br><span class="status_label" id="sky_skip_status">-</span></button>
+            <button class="setting_button" id="toggle_cloud_halfres">云半分辨率<br><span class="status_label" id="cloud_halfres_status">-</span></button>
             <button class="setting_button" id="toggle_webgl">GPU渲染<br><span class="status_label" id="webgl_status">-</span></button>
             <button class="setting_button" id="toggle_atmospheric_scattering">大气散射<br><span class="status_label" id="scattering_status">-</span></button>
             <button class="setting_button" id="toggle_landscape">地景<br><span class="status_label" id="landscape_status">-</span></button>
@@ -652,6 +654,7 @@ a {
                     <li>"雷达云图"开启后（默认开启），体积云天空的初始云模式取自中央气象台组合反射率图（radar.png 减 radar_background.png 底图、形态学去地图元素、色标反演 dBZ），雷达 256km 范围与地平圈直接对齐；dBZ 经三通道调制云场：覆盖率决定有无疏密（封顶 35/45/55dBZ）、云顶高度决定类别（弱回波压扁为层云、强回波发展为全塔积雨云）、密度系数决定厚薄；中高度云另以双频噪声调制破碎边缘、消除周期感，并对回波轮廓做域扭曲（~2.5km 特征）与高频 dBZ 抖动，使大片云的平直硬边变成曲折破碎的自然边缘；处理全部在页面内完成，图片缺失或处理失败时自动回退程序化云图。</li>
                     <li>「海洋天空」（模型 6）与「实时海洋」地景移植自开源项目 web-ocean（MIT）：Hillaire 式 LUT 大气（透射率/多重散射/天空视图三张 LUT，JS 与 GLSL 共享同一份数据）、JONSWAP 风浪谱+窄涌浪的解析波列级数（方差守恒，烘焙为可平铺波场纹理并按群速度平流）、各向异性高斯太阳耀光（Smith 掩蔽）、天空环境反射、水体上涌与波峰透射辉光、雅可比白帽、大气透视与 AgX 色调映射。观察者默认位于海平面以上 50 米（1.5 米~1 公里对数刻度可调）；无 WebGL2 时自动回退到较慢的 JS 逐像素渲染。</li>
                     <li>地景设为「实时海洋」时，canvas 上方会出现海洋参数滑块（观察高度/风速/风向/风区/涌浪波高/涌浪波长/涌浪方向/泡沫强度/水体浑浊度/霾）：波浪与涌浪参数在停止拖动约 0.25 秒后重烘焙波场（约 0.1 秒）；「霾」与「观察高度」会重建大气 LUT（约 0.5 秒）；泡沫强度与水体浑浊度立即生效。风浪行进方向与涌浪方向以罗盘方位角表示（0=北，90=东）。</li>
+                    <li>性能选项：「天空降帧」开启时，若视线/太阳/云参数未变，天空每 4 帧才重绘一次、其余帧复用上次结果（海洋与天体/网格叠加仍逐帧更新）；「云半分辨率」开启时体积云以半分辨率光线步进再双线性放大（云边缘略软，开销降至 1/4）。二者可独立开关，全景拖动时自动失效以保证响应。</li>
                     <li>本系统由 Kimi K2.7、K3、本地部署的 DeepSeek-V4-Flash、GLM5.3-Flash 辅助编码。</li>
                 </ul>
             </div>
@@ -719,6 +722,15 @@ let last_running_mode = 0;
 
 // 是否启用双线性插值
 let enable_opt_bilinear = false;
+
+// 性能选项：天空降帧缓存（视角/太阳/云参数不变时，天空每 SKY_SKIP_FRAMES 帧才重绘，
+// 其余帧复用上次 GL 像素；海洋与 2D 叠加层仍逐帧更新）
+let enable_sky_skip = true;
+const SKY_SKIP_FRAMES = 4;
+// 性能选项：体积云半分辨率渲染（C=2，云像素 1/4，输出双线性上采样；默认关闭保持云边缘锐度）
+let enable_cloud_halfres = false;
+// 天空缓存（键 = 影响天空着色结果的输入摘要）
+const skyCache = { key: null, pixels: null, counter: 0 };
 
 // 地景选项：0-无地景；1-地形生成；7-实时海洋（web-ocean 移植，类型字段=2）
 let landscape_index = 7;
@@ -6035,7 +6047,7 @@ function render_decoupled_volumetric_clouds(
     let gl_pixels = null;
     let C = 8;
     if (enable_webgl && initCloudSkyWebGL()) {
-        C = (enable_opt_bilinear) ? 2 : 1;
+        C = (enable_cloud_halfres || enable_opt_bilinear) ? 2 : 1;
         gl_pixels = CloudSkyWebGL.render({
             fb_width: fb_width,
             fb_height: fb_height,
@@ -10914,6 +10926,35 @@ function render_all(
         let gl_pixels = null;
         let C = 8; // 降采样因子
 
+        // ---- 天空降帧缓存：仅在输入未变时命中 ----
+        // 键包含：画布尺寸/视线/鱼眼开关/散射模型/云参数/太阳位置（量化 0.003°）；
+        // 不含月亮与恒星（它们是缓存的天空之上一层 2D 叠加，每次重绘）
+        const skyKey = [
+            fb_width, fb_height, sky_radius.toFixed(2), center_x.toFixed(1), center_y.toFixed(1),
+            view_alt.toFixed(2), view_azi.toFixed(2), view_roll.toFixed(2), f.toFixed(3),
+            enable_fisheye_projection ? 1 : 0,
+            enable_atmospheric_scattering,
+            enable_opt_bilinear ? 1 : 0,
+            enable_cloud_halfres ? 1 : 0,
+            enable_volumetric_cloud ? 1 : 0,
+            sun_alt.toFixed(3), sun_azi.toFixed(3),
+            cloudSkyState.coverageLevel, cloudSkyState.layerIdx,
+            cloudSkyScene.brightness, enable_cloud_sun_lens ? 1 : 0,
+            radarCloudState.enabled ? 1 : 0
+        ].join('|');
+        let skyCacheHit = false;
+        if (enable_sky_skip && skyCache.pixels !== null && skyCache.key === skyKey) {
+            skyCache.counter++;
+            if ((skyCache.counter % SKY_SKIP_FRAMES) !== 0) {
+                gl_pixels = skyCache.pixels;
+                skyCacheHit = true;
+            }
+        } else {
+            skyCache.counter = 0;
+        }
+
+        if (!skyCacheHit) {
+
         if (enable_atmospheric_scattering === 6) {
             // ============================================
             // 模型 6：海洋天空（web-ocean 移植，CPU 与 WebGL2 双实现共享同一份 LUT 数据）
@@ -10946,8 +10987,8 @@ function render_all(
             cloud_sky_prepare_frame(sun_alt, sun_azi, fb_width, fb_height, sky_radius, center_x, center_y, view_alt, view_azi, view_roll, f);
 
             if (enable_webgl && initCloudSkyWebGL()) {
-                // WebGL2 路径：降采样 ray-march + 双线性放大
-                C = (enable_opt_bilinear) ? 2 : 1;
+                // WebGL2 路径：降采样 ray-march + 双线性放大（云半分辨率开关 / 平滑滤波）
+                C = (enable_cloud_halfres || enable_opt_bilinear) ? 2 : 1;
                 gl_pixels = CloudSkyWebGL.render({
                     fb_width: fb_width,
                     fb_height: fb_height,
@@ -11000,6 +11041,15 @@ function render_all(
                     gl_pixels = AtmosphericScatteringWebGL.render(webglParams);
                 }
             }
+        }
+
+        }   // end if (!skyCacheHit)
+
+        // 记录本次结果供后续帧复用
+        if (!skyCacheHit && gl_pixels !== null && enable_sky_skip) {
+            skyCache.pixels = gl_pixels;
+            skyCache.key = skyKey;
+            skyCache.counter = 0;
         }
 
         if (gl_pixels) {
@@ -11883,6 +11933,26 @@ function refresh_button_status() {
     document.getElementById("opt_bilinear_status").innerHTML = status;
 
 
+    // toggle_sky_skip（天空降帧缓存）
+    if (!enable_sky_skip) {
+        status = `<span class="switch_off">关闭</span>`;
+    }
+    else {
+        status = `<span class="switch_on">1/${SKY_SKIP_FRAMES} 帧</span>`;
+    }
+    document.getElementById("sky_skip_status").innerHTML = status;
+
+
+    // toggle_cloud_halfres（体积云半分辨率）
+    if (!enable_cloud_halfres) {
+        status = `<span class="switch_off">全分辨率</span>`;
+    }
+    else {
+        status = `<span class="switch_on">半分辨率</span>`;
+    }
+    document.getElementById("cloud_halfres_status").innerHTML = status;
+
+
     // toggle_webgl
     btn = document.getElementById("toggle_webgl");
     if (!enable_webgl) {
@@ -12306,6 +12376,18 @@ function init() {
 
     document.getElementById("toggle_opt_bilinear").addEventListener("click", function(e) {
         enable_opt_bilinear = !enable_opt_bilinear;
+        refresh_button_status();
+    });
+
+    document.getElementById("toggle_sky_skip").addEventListener("click", function(e) {
+        enable_sky_skip = !enable_sky_skip;
+        skyCache.key = null;   // 立即失效，避免关闭后残留旧帧
+        refresh_button_status();
+    });
+
+    document.getElementById("toggle_cloud_halfres").addEventListener("click", function(e) {
+        enable_cloud_halfres = !enable_cloud_halfres;
+        skyCache.key = null;   // 分辨率变化 → 缓存失效
         refresh_button_status();
     });
 
