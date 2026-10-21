@@ -129,6 +129,190 @@ a {
     margin: 0px auto;
     padding: 10px;
 }
+
+/* ---- 视角控制 / 飞行控制 选项卡 ---- */
+.control_panel {
+    max-width: 400px;
+    margin: 0 auto;
+}
+.control_tabs {
+    display: flex;
+    justify-content: center;
+    gap: 4px;
+    margin: 4px auto 3px auto;
+}
+.control_tab {
+    min-width: 92px;
+    min-height: 28px;
+    font-size: 12px;
+    color: #929397;
+    background: #191a1d;
+    border-radius: 6px 6px 0 0;
+    box-shadow: none;
+    cursor: pointer;
+}
+.control_tab.active {
+    color: #99ddff;
+    background: #262a30;
+    box-shadow: inset 0 -2px 0 #35b8b8;
+}
+.control_page {
+    display: none;
+}
+.control_page.active {
+    display: block;
+}
+
+/* ---- 飞行控制：左侧油门、右侧摇杆 ---- */
+.flight_panel {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 28px;
+    padding: 8px 0 2px 0;
+    user-select: none;
+    -webkit-user-select: none;
+    -webkit-touch-callout: none;
+}
+.throttle_area, .stick_area {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 5px;
+}
+.throttle_track {
+    position: relative;
+    width: 32px;
+    height: 120px;
+    border-radius: 16px;
+    background: #141517;
+    box-shadow: inset 0 0 5px #000, 0 0 0 1px #2e3138;
+    cursor: pointer;
+    touch-action: none;
+}
+.throttle_fill {
+    position: absolute;
+    left: 4px;
+    right: 4px;
+    bottom: 4px;
+    height: 0%;
+    border-radius: 12px;
+    background: linear-gradient(to top, #1b4f57, #35b8b8);
+    pointer-events: none;
+}
+.throttle_knob {
+    position: absolute;
+    left: 50%;
+    width: 28px;
+    height: 13px;
+    margin-left: -14px;
+    border-radius: 3px;
+    background: #dfe3e8;
+    box-shadow: 0 1px 3px #000c;
+    pointer-events: none;
+}
+.throttle_label, .stick_label {
+    font-size: 10px;
+    color: #ffffffaa;
+    white-space: nowrap;
+}
+.throttle_label b {
+    color: #00ffff;
+    font-weight: normal;
+    font-family: monospace;
+}
+.stick_ring {
+    position: relative;
+    width: 128px;
+    height: 128px;
+    border-radius: 50%;
+    background: radial-gradient(circle at 50% 45%, #202327 0%, #141517 72%);
+    box-shadow: inset 0 0 9px #000, 0 0 0 1px #2e3138;
+    cursor: pointer;
+    touch-action: none;
+}
+.stick_cross {
+    position: absolute;
+    background: #2b2f36;
+    pointer-events: none;
+}
+.stick_cross_h {
+    left: 12%;
+    right: 12%;
+    top: 50%;
+    height: 1px;
+}
+.stick_cross_v {
+    top: 12%;
+    bottom: 12%;
+    left: 50%;
+    width: 1px;
+}
+.stick_knob {
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    width: 46px;
+    height: 46px;
+    margin: -23px 0 0 -23px;
+    border-radius: 50%;
+    background: radial-gradient(circle at 36% 30%, #8b939e, #3b4048 72%);
+    box-shadow: 0 2px 6px #000a, inset 0 0 3px #fff3;
+    pointer-events: none;
+}
+.rudder_row {
+    display: flex;
+    gap: 8px;
+    max-width: 292px;
+    margin: 4px auto 2px auto;
+}
+.rudder_btn {
+    flex: 1 1 0;
+    min-height: 36px;
+    font-size: 12px;
+    color: #ffffff;
+    background: #252629;
+    border-radius: 6px;
+    cursor: pointer;
+    touch-action: none;
+    user-select: none;
+    -webkit-user-select: none;
+}
+.rudder_btn.pressed {
+    background: #2f6b72;
+    box-shadow: inset 1px 1px 3px #0008;
+}
+.flight_status_row {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-wrap: wrap;
+    gap: 4px 8px;
+    margin-top: 4px;
+}
+.flight_readout {
+    font-size: 9px;
+    font-family: monospace;
+    color: #9fe6ea;
+    white-space: nowrap;
+}
+.flight_reset_btn {
+    flex: none;
+    font-size: 10px;
+    color: #929397;
+    background: #1d1f22;
+    border-radius: 100px;
+    padding: 3px 10px;
+    cursor: pointer;
+    white-space: nowrap;
+}
+.flight_hint {
+    font-size: 9px;
+    color: #ffffff5c;
+    text-align: center;
+    margin: 3px auto 0 auto;
+    line-height: 1.6;
+}
 .setting_button, .joystick_button {
     color: #ffffff;
     min-height: 34px;
@@ -452,23 +636,63 @@ a {
             <button class="setting_button" id="toggle_timemachine_forward_day">▶▶▏</button>
         </div>
 
-        <table class="joystick_buttons_container">
-            <tr>
-                <td><button class="joystick_button" id="cam_yaw_eastward">东</button></td>
-                <td><button class="joystick_button" id="cam_pitch_down">俯</button></td>
-                <td><button class="joystick_button" id="cam_yaw_westward">西</button></td>
-            </tr>
-            <tr>
-                <td><button class="joystick_button" id="cam_roll_left">左倾</button></td>
-                <td><button class="joystick_button" id="cam_reset">归中</button></td>
-                <td><button class="joystick_button" id="cam_roll_right">右倾</button></td>
-            </tr>
-            <tr>
-                <td><button class="joystick_button" id="cam_zoom_in">推近</button></td>
-                <td><button class="joystick_button" id="cam_pitch_up">仰</button></td>
-                <td><button class="joystick_button" id="cam_zoom_out">拉远</button></td>
-            </tr>
-        </table>
+        <!-- 视角控制 / 飞行控制 选项卡：原视角按钮整体移入「视角控制」页，「飞行控制」页为新增 -->
+        <div class="control_panel">
+            <div class="control_tabs" role="tablist">
+                <button class="control_tab active" id="tab_view_control" role="tab" aria-selected="true">视角控制</button>
+                <button class="control_tab" id="tab_flight_control" role="tab" aria-selected="false">飞行控制</button>
+            </div>
+
+            <div class="control_page active" id="page_view_control">
+                <table class="joystick_buttons_container">
+                    <tr>
+                        <td><button class="joystick_button" id="cam_yaw_eastward">东</button></td>
+                        <td><button class="joystick_button" id="cam_pitch_down">俯</button></td>
+                        <td><button class="joystick_button" id="cam_yaw_westward">西</button></td>
+                    </tr>
+                    <tr>
+                        <td><button class="joystick_button" id="cam_roll_left">左倾</button></td>
+                        <td><button class="joystick_button" id="cam_reset">归中</button></td>
+                        <td><button class="joystick_button" id="cam_roll_right">右倾</button></td>
+                    </tr>
+                    <tr>
+                        <td><button class="joystick_button" id="cam_zoom_in">推近</button></td>
+                        <td><button class="joystick_button" id="cam_pitch_up">仰</button></td>
+                        <td><button class="joystick_button" id="cam_zoom_out">拉远</button></td>
+                    </tr>
+                </table>
+            </div>
+
+            <div class="control_page" id="page_flight_control">
+                <div class="flight_panel">
+                    <div class="throttle_area">
+                        <div class="throttle_track" id="flight_throttle_track" role="slider"
+                             aria-label="油门" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">
+                            <div class="throttle_fill" id="flight_throttle_fill"></div>
+                            <div class="throttle_knob" id="flight_throttle_knob"></div>
+                        </div>
+                        <div class="throttle_label">油门 <b id="flight_throttle_val">0%</b></div>
+                    </div>
+                    <div class="stick_area">
+                        <div class="stick_ring" id="flight_stick_ring">
+                            <div class="stick_cross stick_cross_h"></div>
+                            <div class="stick_cross stick_cross_v"></div>
+                            <div class="stick_knob" id="flight_stick_knob"></div>
+                        </div>
+                        <div class="stick_label">滚转 / 俯仰</div>
+                    </div>
+                </div>
+                <div class="rudder_row">
+                    <button class="rudder_btn" id="flight_rudder_left">◀ 左舵</button>
+                    <button class="rudder_btn" id="flight_rudder_right">右舵 ▶</button>
+                </div>
+                <div class="flight_status_row">
+                    <div class="flight_readout" id="flight_readout">空速 — 高度 — 航向 — 油门 —</div>
+                    <button class="flight_reset_btn" id="flight_reset">复位</button>
+                </div>
+                <div class="flight_hint">键盘：W/S 推拉杆 · A/D 滚转 · Q/E 偏航 · R/F 油门</div>
+            </div>
+        </div>
 
         <div style="font-size: 12px; font-family: monospace; display: none;" id="view_dir">Pitch:<span id="view_pitch">-</span>° Yaw:<span id="view_yaw">-</span>° Roll:<span id="view_roll">-</span>° Range:<span id="view_range">-</span></div>
 
@@ -643,6 +867,10 @@ a {
                     <li>时间日期均为北京时间(UTC+8)。</li>
                     <li>农历日期系由星历算法解算而得，未必准确。</li>
                     <li>拖动屏幕改变视角。</li>
+                    <li>「飞行控制」选项卡模拟一架小型固定翼飞机（初教五、动力三角翼一类）的第一人称座舱视角：左侧竖向滑轨是油门（向上加大推力），右侧圆形摇杆的横向控制滚转、纵向控制俯仰（向下拉杆抬头、向上推杆低头），下方两个按钮控制左右方向舵。滚转产生坡度后会进入协调转弯（水平向心运动），方向舵会造成侧滑。PC 上也可用键盘：W/S 推拉杆、A/D 左右坡度、Q/E 左右偏航、R/F 增减油门；点「复位」以当前位置和航向重新开始一次飞行。飞行只在「飞行控制」页生效，切回「视角控制」即暂停模拟并保留飞机状态。</li>
+                    <li>触地后按起落架接地处理：姿态立即放平为地面姿态（机翼水平、机头放平、无侧滑），随后进入滑跑。滑跑时油门对抗气动阻力、滚动阻力与刹车阻力——收油门（或按 F）会带刹车在约十秒内逐渐滑停，速度可降到 0；加到约 22 m/s 抬轮速度后再拉杆即可重新离地，低于该速度拉杆无效（机头被前轮/尾轮撑住）。</li>
+                    <li>姿态与航迹角均不限位：滚转、筋斗、过顶、倒飞都可以做。俯仰/滚转控制的是迎角与坡度，载荷因数按小型机限制在 −3g～+4g；HUD 里的"高度/升降"仍是世界竖直方向。倒飞时要把杆推下去（机头低于地平线）才能保持高度，过顶时地平线会在画面上方，视角随姿态自动翻转，不会出现欧拉角锁死。</li>
+                    <li>飞行时飞机的姿态决定相机视角；地面投影点的经纬度只用于驱动天象（太阳/月亮/行星/恒星方位），海拔高度只用于驱动「实时海洋」的观察高度。地景为「实时海洋」时，相机会随飞机在海面上平移——波场、泡沫与太阳耀光固定在世界坐标中，因此能看出真实的相对运动；其他地景不随飞行移动，只改变相机视角。</li>
                     <li>点击"重力感应"按钮，启用姿态传感器。</li>
                     <li>姿态角的精度取决于设备，未必准确。</li>
                     <li>GPU渲染未必可用，取决于设备。</li>
@@ -7714,6 +7942,9 @@ let WO_HAZE = 3.0;                    // 气溶胶霾倍率（web-ocean 默认�
 const WO_SUN_SCALE = 14.0;            // 太阳辐照定标（web-ocean sunDir.w）
 let WO_CAM_ALT_KM = 0.05;             // 观察者高度（km；默认 50 m，随“观察高度”滑块联动，最高 1 km）
 let WO_CAM_Y = 50.0;                  // 平均海平面以上高度 m（观察高度，默认 50 m，最高 1 km）
+// 观察者水平位置（米，x 东 / z 北，相对世界原点）。飞行模拟时随飞机移动，
+// 波场与泡沫在世界坐标中固定不动，因此相机平移会产生真实的相对运动。
+let WO_CAM_XZ = [0.0, 0.0];
 
 const WO_TRANS_W = 256, WO_TRANS_H = 64;
 const WO_MS_SIZE = 32;
@@ -8567,6 +8798,7 @@ const WO_sunETmp = new Float64Array(3);
 function wo_ocean_pixel(dx, dy, dz, out) {
     const t = WO_state.appTime;
     const camY = WO_CAM_Y;
+    const camX = WO_CAM_XZ[0], camZ = WO_CAM_XZ[1];
 
     // ---- 射线步进求交 ----
     const tPlane = -camY / dy;
@@ -8577,17 +8809,17 @@ function wo_ocean_pixel(dx, dy, dz, out) {
         t0 = Math.min(t0, tEnd);
         const steps = (tPlane < 30.0) ? 24 : ((tPlane < 120.0) ? 16 : 10);
         let tPrev = t0;
-        let fPrev = camY + dy * t0 - wo_height_at_fast(dx * t0, dz * t0, t);
+        let fPrev = camY + dy * t0 - wo_height_at_fast(camX + dx * t0, camZ + dz * t0, t);
         let hit = false;
         for (let i = 1; i <= steps; i++) {
             const ti = wo_mix(t0, tEnd, i / steps);
-            const fi = camY + dy * ti - wo_height_at_fast(dx * ti, dz * ti, t);
+            const fi = camY + dy * ti - wo_height_at_fast(camX + dx * ti, camZ + dz * ti, t);
             if (fi <= 0.0) {
                 // 二分细化（收敛到 1mm；确定性收敛，CPU 与 GLSL 一致）
                 let ta = tPrev, tb = ti;
                 for (let r = 0; r < 24 && tb - ta > 0.001; r++) {
                     const tm = 0.5 * (ta + tb);
-                    const fm = camY + dy * tm - wo_height_at_fast(dx * tm, dz * tm, t);
+                    const fm = camY + dy * tm - wo_height_at_fast(camX + dx * tm, camZ + dz * tm, t);
                     if (fm > 0.0) { ta = tm; } else { tb = tm; }
                 }
                 tHit = tb;
@@ -8600,7 +8832,7 @@ function wo_ocean_pixel(dx, dy, dz, out) {
     }
 
     const dist = tHit;
-    const px = dx * tHit, pz = dz * tHit;
+    const px = camX + dx * tHit, pz = camZ + dz * tHit;
     const Vx = -dx, Vy = -dy, Vz = -dz;
 
     // ---- 坡度与协方差（LEAN）----
@@ -8952,7 +9184,7 @@ const OceanSkyWebGL = {
         // uniform 位置
         const names = ['u_fb_width', 'u_fb_height', 'u_sky_radius', 'u_center_x', 'u_center_y',
             'u_view_alt', 'u_view_azi', 'u_view_roll', 'u_f', 'u_sun_dir', 'u_time', 'u_enable_fisheye_projection', 'u_wind_v',
-            'u_cam_y', 'u_cam_alt_km',
+            'u_cam_y', 'u_cam_alt_km', 'u_cam_xz',
             'u_sky_lut', 'u_trans_lut', 'u_wave1', 'u_wave2', 'u_foam_tex',
             'u_scroll1', 'u_scroll2', 'u_L1', 'u_L2', 'u_cov', 'u_pix_ang',
             'u_water_col', 'u_unres', 'u_sss_col', 'u_sss_k',
@@ -9041,6 +9273,7 @@ const OceanSkyWebGL = {
         gl.uniform3f(U.u_sun_dir, WO_state.sunDir[0], WO_state.sunDir[1], WO_state.sunDir[2]);
         gl.uniform1f(U.u_cam_y, WO_CAM_Y);
         gl.uniform1f(U.u_cam_alt_km, WO_CAM_ALT_KM);
+        gl.uniform2f(U.u_cam_xz, WO_CAM_XZ[0], WO_CAM_XZ[1]);
         gl.uniform1f(U.u_time, WO_state.appTime);
         gl.uniform1i(U.u_enable_fisheye_projection, enable_fisheye_projection ? 1 : 0);
         gl.uniform2f(U.u_wind_v, WO_WIND_VX, WO_WIND_VZ);
@@ -9156,6 +9389,7 @@ uniform vec3 u_sun_dir;     // 海洋系太阳方向（y 上）
 uniform float u_time;
 uniform float u_cam_y;        // 观察者高度 m（平均海平面以上）
 uniform float u_cam_alt_km;   // 观察者高度 km（天空 LUT 查询用）
+uniform vec2 u_cam_xz;        // 观察者水平位置（世界坐标 m，x 东 / z 北）
 uniform int u_enable_fisheye_projection;
 uniform highp sampler2D u_sky_lut;    // 256x144 RGBA16F
 uniform highp sampler2D u_trans_lut;  // 256x64 RGBA16F
@@ -9382,7 +9616,7 @@ float fresnelWater(float c) {
 }
 
 vec3 woOceanShade(vec3 d, float t) {
-    // ---- 射线步进求交 ----
+    // ---- 射线步进求交（波场按世界坐标采样，相机水平移动即产生相对运动）----
     float tPlane = -u_cam_y / d.y;
     float tHit = tPlane;
     if (tPlane <= MARCH_FAR) {
@@ -9390,18 +9624,18 @@ vec3 woOceanShade(vec3 d, float t) {
         float t0 = min(max(0.0, (HMAX - u_cam_y) / d.y), tEnd);
         int steps = (tPlane < 30.0) ? 24 : ((tPlane < 120.0) ? 16 : 10);
         float tPrev = t0;
-        float fPrev = u_cam_y + d.y * t0 - waveHeight(d.xz * t0, t);
+        float fPrev = u_cam_y + d.y * t0 - waveHeight(d.xz * t0 + u_cam_xz, t);
         bool hit = false;
         for (int i = 1; i <= 24; i++) {
             if (i > steps) break;
             float ti = mix(t0, tEnd, float(i) / float(steps));
-            float fi = u_cam_y + d.y * ti - waveHeight(d.xz * ti, t);
+            float fi = u_cam_y + d.y * ti - waveHeight(d.xz * ti + u_cam_xz, t);
             if (fi <= 0.0) {
                 // 二分细化（收敛到 1mm；确定性收敛，CPU 与 GLSL 一致）
                 float ta = tPrev, tb = ti;
                 for (int rr = 0; rr < 24 && tb - ta > 0.001; rr++) {
                     float tm = 0.5 * (ta + tb);
-                    float fm = u_cam_y + d.y * tm - waveHeight(d.xz * tm, t);
+                    float fm = u_cam_y + d.y * tm - waveHeight(d.xz * tm + u_cam_xz, t);
                     if (fm > 0.0) { ta = tm; } else { tb = tm; }
                 }
                 tHit = tb;
@@ -9415,7 +9649,7 @@ vec3 woOceanShade(vec3 d, float t) {
     }
 
     float dist = tHit;
-    vec2 xz = d.xz * tHit;
+    vec2 xz = d.xz * tHit + u_cam_xz;
     vec3 V = -d;
     vec3 Ld = u_sun_dir;
 
@@ -9611,6 +9845,7 @@ function wo_apply_slider(key, value) {
 
 // 构建滑块控件（脚本位于 body 末尾，DOM 已就绪；仅执行一次）
 let wo_sliders_ready = false;
+const WO_SLIDER_CONTROLS = {};   // key → { inp, val }，供飞行模拟回写“观察高度”显示
 function wo_init_sliders() {
     if (wo_sliders_ready) return;
     wo_sliders_ready = true;
@@ -9641,9 +9876,21 @@ function wo_init_sliders() {
         row.appendChild(inp);
         row.appendChild(val);
         box.appendChild(row);
+        WO_SLIDER_CONTROLS[key] = { inp: inp, val: val, entry: entry };
     }
 }
 wo_init_sliders();
+
+// 飞行模拟改变观察高度后，同步“观察高度”滑块的位置与读数（不触发重建，重建由 camDirtyAt 防抖）
+function wo_sync_camY_ui(alt) {
+    const ctl = WO_SLIDER_CONTROLS['camY'];
+    if (!ctl) return;
+    const entry = ctl.entry;
+    const u = entry[7] ? entry[7](alt) : alt;
+    const lim = parseFloat(ctl.inp.max);
+    ctl.inp.value = String(Math.max(parseFloat(ctl.inp.min), Math.min(lim, Math.round(u))));
+    ctl.val.textContent = entry[6](alt);
+}
 
 // ============================================
 // WebGL 大气散射渲染器
@@ -11555,6 +11802,670 @@ let last_point_azi = 0;
 
 
 
+// ============================================================
+// 飞行模拟器（小型固定翼：初教五、动力三角翼一类）
+// ============================================================
+// 坐标系与符号约定：
+//   x 向东、z 向北（米），alt 为海拔高度（米）；
+//   航向 psi（机头）与 chi（速度矢量）为罗盘方位角，0=北、90=东，顺时针为正（弧度）；
+//   姿态：滚转 phi（右坡度为正，可任意角）、俯仰 theta = γ + α（由航迹角与迎角合成）；
+//   迎角代理 alpha（升降舵直接控制，俯仰静稳定使其回零）；侧滑 beta = psi − chi。
+//
+// 最小可用控制律（质点 + 载荷因数模型，支持筋斗/横滚/倒飞）：
+//   副翼    → 滚转角速度（不限位，可连续横滚）。
+//   升降舵  → 迎角变化率；拉杆增大 α，n = 1 + α/α_ref 随之增大。
+//             机头姿态 θ = γ + α 随航迹一起转，因此筋斗时不会锁在某个俯仰角上。
+//   升力    → 载荷因数 n 沿机背方向；竖直方向 γ̇ = g(n·cosφ − cosγ)/V，
+//             水平方向 χ̇ = g·n·sinφ/V。φ=0 时即常规协调转弯；φ=180° 时 n<0，
+//             升力指向世界下方（即"向上"），所以倒飞需要推杆而不是拉杆。
+//   方向舵  → 偏航角速度，使机头偏出速度矢量形成侧滑 β；风标效应让 β 指数衰减，
+//             同时把速度矢量带向机头（侧滑 → 侧向加速度 → 速度矢量转向）。
+//   油门    → 推力加速度；寄生阻力 ∝ V²，诱导阻力由载荷因数 n² 给出。
+//   失速    → 低速时舵效下降、迎角被压低；触地后转为地面滑跑模型。
+// ============================================================
+const FLIGHT = {
+    G: 9.80665,
+    R_EARTH: 6371000.0,
+    DEG: Math.PI / 180.0,
+    RAD: 180.0 / Math.PI,
+
+    THRUST_MAX: 4.2,        // 全油门推力加速度 m/s²（推重比约 0.43）
+    THRUST_LAPSE_ALT: 9000.0, // 推力随高度的衰减特征高度 m
+    DRAG_K: 7.0e-4,         // 寄生阻力 a = k·V²（全油门平飞极速约 77 m/s）
+    INDUCED_K: 300.0,       // 诱导阻力 a = k·(n²−1)/V²
+    V_MIN: 8.0,
+    V_MAX: 115.0,
+    STALL_V: 20.0,          // 低于该空速时舵效衰减并出现低头力矩
+
+    ROLL_RATE: 1.55,        // rad/s ≈ 89°/s
+    PITCH_RATE: 0.50,       // rad/s ≈ 29°/s
+    YAW_RATE: 0.30,         // rad/s ≈ 17°/s
+    // 姿态与航迹角均不限位：可筋斗、横滚、倒飞
+    BETA_K: 1.15,           // 侧滑风标回正速率 1/s
+    BETA_LIMIT: 0.42,       // 最大侧滑 ≈ 24°（超过即接近尾旋，保留限位）
+    ALPHA_REF: 0.15,        // 迎角代理 → 载荷因数 的参考量 rad（约 8.6°/1g）
+    ALPHA_DAMP: 1.6,        // 俯仰静稳定性：松杆后迎角回零的速率 1/s
+    ALPHA_MIN: -0.55,       // 迎角下限（推杆倒飞）rad ≈ −31°
+    ALPHA_MAX: 0.55,        // 迎角上限（拉杆）rad ≈ +31°
+    LOAD_MIN: -3.0,         // 载荷因数下限（推杆到倒飞）
+    LOAD_MAX: 4.0,          // 载荷因数上限（小型机结构限制，约 +4g）
+    TURN_RATE_MAX: 3.0,     // 航向角速度数值安全限 rad/s（≈172°/s）
+    AXIS_TAU: 0.12,         // 操纵输入一阶平滑时间常数 s
+    SPEED_EFF_V: 38.0,      // 舵效达到满值的空速 m/s
+    SPEED_EFF_MIN: 0.35,
+
+    CAM_WRAP: 12800.0,      // 海洋世界坐标回绕周期 m（512 与 16 的公倍数，且整除以 px 为坐标的程序化泡沫图案周期；风向条纹项在回绕点有极轻微跳变，默认泡沫关闭）
+    CAM_MIN_Y: 2.5,         // 海洋渲染的相机最低高度 m
+    CAM_CLEARANCE: 1.5,     // 相机与浪面之间的最小间隙 m
+
+    START_V: 32.0,
+    TRIM_V: 32.0,           // 配平空速（低于此速升力不足，机头自然下低）
+    SPEED_STAB: 0.18,       // 低速低头角速度 rad/s（在 V=0 时的上限）
+    START_ALT: 50.0,
+    THROTTLE_KEY_RATE: 0.5, // 键盘 R/F 的油门变化速率 1/s
+
+    // ---- 地面滑跑 / 起落架 ----
+    GROUND_ALT: 1.0,        // 轮胎接地高度基准 m
+    ROTATE_V: 22.0,         // 抬轮速度 m/s（低于此速拉杆无效，机头被前轮/尾轮撑住）
+    LIFTOFF_PITCH: 0.06,    // 离地所需最小抬头角 rad（≈3.4°）
+    GROUND_PITCH_MAX: 0.30, // 地面滑跑允许的最大抬头角 rad（≈17°，防擦尾）
+    TAXI_V: 5.0,            // 前轮转向达到满效的地速 m/s
+    MU_ROLL: 0.03,          // 滚动阻力系数
+    MU_BRAKE: 0.25,         // 收油门时的刹车阻力系数（随油门线性减小；满油门为纯滚动）
+    TOUCHDOWN_HOLD: 0.8     // 触地后姿态锁定时间 s（避免一触地就被拉起来）
+};
+
+const flight = {
+    active: false,
+    ready: false,
+    // 位置与高度
+    x: 0.0, z: 0.0, alt: FLIGHT.START_ALT,
+    lat0: 0.0, lon0: 0.0,
+    // 运动学状态
+    V: FLIGHT.START_V,
+    gamma: 0.0,
+    chi: 0.0, psi: 0.0,
+    alpha: 0.0,          // 迎角代理（升降舵直接控制它；俯仰姿态 θ = γ + α）
+    theta: 0.0, phi: 0.0, beta: 0.0,
+    // 操纵
+    throttle: 0.0,
+    stickX: 0.0, stickY: 0.0,
+    rudderLeft: false, rudderRight: false,
+    rudder: 0.0,
+    inRoll: 0.0, inPitch: 0.0, inYaw: 0.0,
+    keys: Object.create(null),
+    // 地面状态：wow = 轮胎接地（weight on wheels）
+    wow: false,
+    groundHold: 0.0,
+    // 内部计时
+    lastNow: 0.0,
+    readoutAt: 0.0,
+    lutAlt: -1.0
+};
+
+function flight_wrap_2pi(a) {
+    const t = a - 2.0 * Math.PI * Math.floor(a / (2.0 * Math.PI));
+    return (t < 0.0) ? t + 2.0 * Math.PI : t;
+}
+function flight_wrap_pi(a) {
+    const t = flight_wrap_2pi(a);
+    return (t > Math.PI) ? t - 2.0 * Math.PI : t;
+}
+function flight_clamp(v, lo, hi) {
+    return (v < lo) ? lo : ((v > hi) ? hi : v);
+}
+
+// 姿态 → 相机视角。
+// 俯仰/坡度不再限位后，俯仰角可能超过 ±90°（筋斗过顶、倒飞），此时"高度角 + 方位角 +
+// 滚转角"的欧拉参数已不唯一（俯仰 180° 等价于反向 + 滚转 180°）。这里直接用机头方向 f
+// 与机背方向 u 反解鱼眼相机参数：alt=asin(f.z)，azi=atan2(f.x,f.y)，roll 为机背方向在
+// 相机零滚转基准（y_v 为天顶在 f 垂面上的投影，与 fisheye_project 完全一致）中绕 f 的角度。
+function flight_sync_view() {
+    const sh = Math.sin(flight.psi), ch = Math.cos(flight.psi);
+    const st = Math.sin(flight.theta), ct = Math.cos(flight.theta);
+    const sp = Math.sin(flight.phi), cp = Math.cos(flight.phi);
+
+    // 机头方向（罗盘系：x 东、y 北、z 上）
+    const fx = ct * sh, fy = ct * ch, fz = st;
+    // 零坡度时的机背方向：天顶绕机体右轴随俯仰转过的方向
+    const u1x = -sh * st, u1y = -ch * st, u1z = ct;
+    // 机翼右向 = f × u1；坡度再把机背绕 f 转向机翼右向
+    const rx = fy * u1z - fz * u1y;
+    const ry = fz * u1x - fx * u1z;
+    const rz = fx * u1y - fy * u1x;
+    const ux = u1x * cp + rx * sp;
+    const uy = u1y * cp + ry * sp;
+    const uz = u1z * cp + rz * sp;
+
+    view_alt = Math.asin(flight_clamp(fz, -1.0, 1.0)) * FLIGHT.RAD;
+    view_azi = flight_wrap_2pi(Math.atan2(fx, fy)) * FLIGHT.RAD;
+
+    // 相机零滚转基准：y_v = normalize(z − (z·f)f)（与 fisheye_project 的万向锁回退一致）
+    let yvx = -fz * fx, yvy = -fz * fy, yvz = 1.0 - fz * fz;
+    const yl = Math.sqrt(yvx * yvx + yvy * yvy + yvz * yvz);
+    if (yl < 1e-6) {
+        yvx = 0.0; yvy = 1.0; yvz = 0.0;
+    } else {
+        yvx /= yl; yvy /= yl; yvz /= yl;
+    }
+    // x_v = y_v × f（与 fisheye_project 的符号约定一致）
+    const xvx = yvy * fz - yvz * fy;
+    const xvy = yvz * fx - yvx * fz;
+    const xvz = yvx * fy - yvy * fx;
+
+    const rc = ux * yvx + uy * yvy + uz * yvz;
+    const rs = ux * xvx + uy * xvy + uz * xvz;
+    view_roll = Math.atan2(rs, rc) * FLIGHT.RAD;
+}
+
+// 飞行状态 → 世界：地面投影点经纬度（仅驱动天象）与观察高度（仅驱动实时海洋）
+function flight_apply_world(nowMs) {
+    const lat0 = flight.lat0;
+    latitude = lat0 + (flight.z / FLIGHT.R_EARTH) * FLIGHT.RAD;
+    if (latitude > 90.0) latitude = 90.0;
+    if (latitude < -90.0) latitude = -90.0;
+
+    let lon = flight.lon0 + (flight.x / (FLIGHT.R_EARTH * Math.max(Math.cos(lat0 * FLIGHT.DEG), 1e-4))) * FLIGHT.RAD;
+    lon = ((lon + 180.0) % 360.0 + 360.0) % 360.0 - 180.0;
+    longitude = lon;
+
+    // 实时海洋：相机水平位置与观察高度（天空散射渲染不受飞机高度影响）
+    if (LANDSCAPES[landscape_index][2] === 2) {
+        const w = FLIGHT.CAM_WRAP;
+        WO_CAM_XZ[0] = flight.x - w * Math.floor(flight.x / w);
+        WO_CAM_XZ[1] = flight.z - w * Math.floor(flight.z / w);
+
+        // 观察高度 = 飞机海拔；贴着浪飞时抬高到浪面之上（web-ocean 的相机浮空处理）
+        let camY = Math.max(flight.alt, FLIGHT.CAM_MIN_Y);
+        if (WO_state.wavesReady) {
+            const seaH = wo_height_at(WO_CAM_XZ[0], WO_CAM_XZ[1], WO_state.appTime);
+            if (Number.isFinite(seaH)) camY = Math.max(camY, seaH + FLIGHT.CAM_CLEARANCE);
+        }
+        WO_CAM_Y = camY;
+        WO_CAM_ALT_KM = camY / 1000.0;
+
+        // 天空视图 LUT 随观察高度重建：只在高度变化超过阈值时触发（内部 250ms 防抖，
+        // 持续爬升/下降时会被反复刷新而暂缓重建，改平飞后再重建一次，避免每帧重建）
+        if (!(flight.lutAlt >= 0.0) ||
+            Math.abs(camY - flight.lutAlt) > Math.max(10.0, camY * 0.05)) {
+            flight.lutAlt = camY;
+            WO_state.camDirtyAt = nowMs;
+        }
+        wo_sync_camY_ui(WO_CAM_Y);
+    }
+}
+
+// 轮胎接地：姿态归到地面姿态（机翼水平、机头放平、无侧滑），并进入滑跑状态
+function flight_touchdown() {
+    flight.wow = true;
+    flight.groundHold = FLIGHT.TOUCHDOWN_HOLD;
+    flight.alt = FLIGHT.GROUND_ALT;
+    flight.gamma = 0.0;
+    flight.alpha = 0.0;
+    flight.theta = 0.0;
+    flight.phi = 0.0;
+    flight.beta = 0.0;
+    flight.chi = flight.psi;
+}
+
+// 地面滑跑：轮胎支撑住机头与机翼，油门对抗气动阻力 + 滚动阻力 + 刹车，速度可降到 0。
+// 达到抬轮速度后拉杆才能把机头拉起离地。
+function flight_integrate_ground(dt, eff) {
+    // 地面姿态约束
+    flight.phi = 0.0;
+    flight.gamma = 0.0;
+    flight.beta = 0.0;
+    flight.chi = flight.psi;
+
+    if (flight.groundHold > 0.0) {
+        flight.groundHold = Math.max(0.0, flight.groundHold - dt);
+    }
+
+    // 俯仰：抬轮速度以上拉杆才抬头；否则机头落回地面姿态
+    const canRotate = (flight.groundHold <= 0.0) && (flight.V >= FLIGHT.ROTATE_V);
+    if (canRotate && flight.inPitch > 0.0) {
+        flight.theta += FLIGHT.PITCH_RATE * eff * flight.inPitch * dt;
+    } else {
+        flight.theta -= flight.theta * Math.min(1.0, dt * 4.0);
+    }
+    flight.theta = flight_clamp(flight.theta, 0.0, FLIGHT.GROUND_PITCH_MAX);
+
+    // 方向舵在地面相当于前轮转向，低速时转向能力衰减
+    const taxi = flight_clamp(flight.V / FLIGHT.TAXI_V, 0.0, 1.0);
+    flight.psi = flight_wrap_2pi(flight.psi + FLIGHT.YAW_RATE * eff * flight.inYaw * taxi * dt);
+    flight.chi = flight.psi;
+
+    // 推力 / 气动阻力 / 地面摩擦（滚动阻力恒定，收油门时叠加刹车）
+    const thrustLapse = Math.max(0.3, 1.0 - flight.alt / FLIGHT.THRUST_LAPSE_ALT);
+    const thrust = flight.throttle * FLIGHT.THRUST_MAX * thrustLapse;
+    const drag = FLIGHT.DRAG_K * flight.V * flight.V;
+    const mu = FLIGHT.MU_ROLL + FLIGHT.MU_BRAKE * (1.0 - flight.throttle);
+    const friction = FLIGHT.G * mu;
+    let V = flight.V + (thrust - drag - friction) * dt;
+    if (V < 0.0) V = 0.0;   // 地面不会倒车：摩擦大于推力时就停住
+    flight.V = flight_clamp(V, 0.0, FLIGHT.V_MAX);
+
+    // 滑跑位移
+    flight.x += flight.V * Math.sin(flight.chi) * dt;
+    flight.z += flight.V * Math.cos(flight.chi) * dt;
+
+    // 抬轮离地：速度足够且机头已拉起，交给空中动力学接管
+    if (flight.V >= FLIGHT.ROTATE_V && flight.theta > FLIGHT.LIFTOFF_PITCH) {
+        flight.wow = false;
+        flight.gamma = Math.max(flight.theta * 0.5, 0.02);
+    }
+    // 地面（γ=0）上迎角与俯仰姿态等价；离地瞬间按 θ=γ+α 对齐，保证视角连续
+    flight.alpha = flight.theta - flight.gamma;
+
+    flight.alt += flight.V * Math.sin(flight.gamma) * dt;
+    if (flight.alt < FLIGHT.GROUND_ALT) flight.alt = FLIGHT.GROUND_ALT;
+}
+
+// 单步运动学积分（dt 秒）。测试时可脱离渲染循环直接调用。
+function flight_integrate(dt) {
+    if (!(dt > 0.0)) return;
+    if (dt > 0.25) dt = 0.25;
+
+    // ---- 汇总操纵输入：键盘 + 摇杆 + 方向舵按钮，并做一阶平滑 ----
+    const k = flight.keys;
+    let kRoll = 0.0, kPitch = 0.0, kYaw = 0.0;
+    if (k['KeyD']) kRoll += 1.0;
+    if (k['KeyA']) kRoll -= 1.0;
+    if (k['KeyS']) kPitch += 1.0;   // 拉杆 → 抬头
+    if (k['KeyW']) kPitch -= 1.0;   // 推杆 → 低头
+    if (k['KeyE']) kYaw += 1.0;
+    if (k['KeyQ']) kYaw -= 1.0;
+    if (k['KeyR']) flight.throttle = Math.min(1.0, flight.throttle + FLIGHT.THROTTLE_KEY_RATE * dt);
+    if (k['KeyF']) flight.throttle = Math.max(0.0, flight.throttle - FLIGHT.THROTTLE_KEY_RATE * dt);
+    const kRudder = (flight.rudderRight ? 1.0 : 0.0) - (flight.rudderLeft ? 1.0 : 0.0);
+
+    const tgtRoll  = flight_clamp(flight.stickX + kRoll, -1.0, 1.0);
+    const tgtPitch = flight_clamp(flight.stickY + kPitch, -1.0, 1.0);
+    const tgtYaw   = flight_clamp(kYaw + kRudder, -1.0, 1.0);
+    const a = 1.0 - Math.exp(-dt / FLIGHT.AXIS_TAU);
+    flight.inRoll  += (tgtRoll  - flight.inRoll) * a;
+    flight.inPitch += (tgtPitch - flight.inPitch) * a;
+    flight.inYaw   += (tgtYaw   - flight.inYaw) * a;
+    flight.rudder = tgtYaw;
+
+    // ---- 操纵效能随空速变化 ----
+    const eff = flight_clamp(flight.V / FLIGHT.SPEED_EFF_V, FLIGHT.SPEED_EFF_MIN, 1.0);
+
+    // ---- 轮胎接地：走地面滑跑模型 ----
+    if (flight.wow) {
+        flight_integrate_ground(dt, eff);
+        return;
+    }
+
+    // ---- 副翼 → 滚转姿态（不限位，可连续横滚/倒飞） ----
+    flight.phi += FLIGHT.ROLL_RATE * eff * flight.inRoll * dt;
+    const cosPhi = Math.cos(flight.phi);
+    const sinPhi = Math.sin(flight.phi);
+
+    // ---- 升降舵 → 迎角（俯仰姿态 θ = γ + α，因此姿态不再受任何限位） ----
+    // 直接对迎角积分而不是对俯仰姿态积分：飞机"握杆定迎角"，机头随航迹一起转，
+    // 筋斗/倒飞时不会因为姿态被钉住而发散；松杆后迎角被静稳定性拉回 0（机头跟随航迹）。
+    flight.alpha += FLIGHT.PITCH_RATE * eff * flight.inPitch * dt;
+    if (flight.V < FLIGHT.STALL_V) {
+        flight.alpha -= (FLIGHT.STALL_V - flight.V) * 0.018 * dt;   // 失速低头
+    }
+    // 速度稳定性：低于配平空速时升力不足，迎角自然减小（不拉杆则转入下滑）
+    if (flight.V < FLIGHT.TRIM_V) {
+        const deficit = 1.0 - (flight.V * flight.V) / (FLIGHT.TRIM_V * FLIGHT.TRIM_V);
+        flight.alpha -= deficit * FLIGHT.SPEED_STAB * dt;
+    }
+    // 俯仰静稳定性（尾翼回中）：α → 0，时间常数约 1/ALPHA_DAMP
+    flight.alpha -= flight.alpha * FLIGHT.ALPHA_DAMP * dt;
+    flight.alpha = flight_clamp(flight.alpha, FLIGHT.ALPHA_MIN, FLIGHT.ALPHA_MAX);
+
+    // ---- 载荷因数：机翼升力沿机背方向，配平（α=0）时 n=1；拉杆增大、推杆可为负 ----
+    // 去掉 g·tanφ 形式后不再有 90° 坡度的奇点，倒飞时 n<0 使升力指向世界下方（即"向上"）。
+    let loadN = 1.0 + flight.alpha / FLIGHT.ALPHA_REF;
+    loadN = flight_clamp(loadN, FLIGHT.LOAD_MIN, FLIGHT.LOAD_MAX);
+
+    // ---- 协调转弯 + 方向舵：机头方位 psi 与速度矢量方位 chi ----
+    // 水平向心加速度 = 升力水平分量 L·sinφ/m → ω = g·n·sinφ / V
+    const turnRate = flight_clamp(FLIGHT.G * loadN * sinPhi / Math.max(flight.V, 8.0),
+                                  -FLIGHT.TURN_RATE_MAX, FLIGHT.TURN_RATE_MAX);
+    const yawRate = FLIGHT.YAW_RATE * eff * flight.inYaw;
+    const betaPrev = flight_wrap_pi(flight.psi - flight.chi);
+    flight.psi += (turnRate + yawRate) * dt;
+    flight.chi += (turnRate + FLIGHT.BETA_K * betaPrev) * dt;
+    let beta = flight_wrap_pi(flight.psi - flight.chi);
+    if (beta > FLIGHT.BETA_LIMIT) {
+        beta = FLIGHT.BETA_LIMIT;
+        flight.chi = flight.psi - beta;
+    } else if (beta < -FLIGHT.BETA_LIMIT) {
+        beta = -FLIGHT.BETA_LIMIT;
+        flight.chi = flight.psi - beta;
+    }
+    flight.beta = beta;
+    flight.psi = flight_wrap_2pi(flight.psi);
+    flight.chi = flight_wrap_2pi(flight.chi);
+
+    // ---- 航迹倾角：升力竖直分量与重力法向分量之差（γ 不限位，可绕圈）----
+    // γ̇ = g·(n·cosφ − cosγ)/V：水平时 cosγ=1 退化为常规配平；倒飞/过顶时 cosγ<0，
+    // 重力改为"帮着"压弯航迹，筋斗因此不会在顶点失速卡住。
+    const gammaDot = FLIGHT.G * (loadN * cosPhi - Math.cos(flight.gamma)) / Math.max(flight.V, 8.0);
+    flight.gamma += gammaDot * dt;
+
+    // 俯仰姿态由航迹角与迎角合成（仅供视角/地面模型使用，不做限位）
+    flight.theta = flight.gamma + flight.alpha;
+
+    // ---- 推力 / 阻力 / 重力沿航迹 ----
+    const thrustLapse = Math.max(0.3, 1.0 - flight.alt / FLIGHT.THRUST_LAPSE_ALT);
+    const drag = FLIGHT.DRAG_K * flight.V * flight.V
+               + FLIGHT.INDUCED_K * (loadN * loadN - 1.0) / Math.max(flight.V * flight.V, 80.0);
+    flight.V += (flight.throttle * FLIGHT.THRUST_MAX * thrustLapse
+                 - drag
+                 - FLIGHT.G * Math.sin(flight.gamma)) * dt;
+    flight.V = flight_clamp(flight.V, FLIGHT.V_MIN, FLIGHT.V_MAX);
+
+    // ---- 位置积分（速度矢量方向 chi、航迹倾角 gamma） ----
+    const vH = flight.V * Math.cos(flight.gamma);
+    flight.x += vH * Math.sin(flight.chi) * dt;
+    flight.z += vH * Math.cos(flight.chi) * dt;
+    flight.alt += flight.V * Math.sin(flight.gamma) * dt;
+
+    // ---- 触地：轮胎接地，姿态置为地面姿态，转入滑跑 ----
+    if (flight.alt <= FLIGHT.GROUND_ALT) {
+        flight_touchdown();
+    }
+}
+
+function flight_step(nowMs) {
+    if (!flight.active) return;
+    const dt = (flight.lastNow > 0.0)
+        ? Math.min(0.2, Math.max(0.0, (nowMs - flight.lastNow) / 1000.0))
+        : (1.0 / 60.0);
+    flight.lastNow = nowMs;
+
+    flight_integrate(dt);
+    flight_sync_view();
+    flight_apply_world(nowMs);
+
+    if (nowMs - flight.readoutAt > 180.0) {
+        flight.readoutAt = nowMs;
+        flight_update_readout();
+        flight_update_throttle_ui();
+    }
+}
+
+function flight_update_throttle_ui() {
+    const track = document.getElementById('flight_throttle_track');
+    const fill = document.getElementById('flight_throttle_fill');
+    const knob = document.getElementById('flight_throttle_knob');
+    const val = document.getElementById('flight_throttle_val');
+    const v = flight_clamp(flight.throttle, 0.0, 1.0);
+    if (track && fill && knob) {
+        const H = track.clientHeight || 120;
+        const travel = Math.max(1.0, H - 8.0 - 13.0);
+        fill.style.height = (4.0 + v * (H - 8.0)).toFixed(1) + 'px';
+        knob.style.bottom = (4.0 + v * travel).toFixed(1) + 'px';
+    }
+    if (val) val.textContent = Math.round(v * 100) + '%';
+    if (track) track.setAttribute('aria-valuenow', String(Math.round(v * 100)));
+}
+
+function flight_update_stick_ui() {
+    const ring = document.getElementById('flight_stick_ring');
+    const knob = document.getElementById('flight_stick_knob');
+    if (!ring || !knob) return;
+    const R = Math.max(1.0, ring.clientWidth * 0.32);
+    knob.style.transform = 'translate(' + (flight.stickX * R).toFixed(1) + 'px,' + (flight.stickY * R).toFixed(1) + 'px)';
+}
+
+function flight_update_readout() {
+    const el = document.getElementById('flight_readout');
+    if (el) {
+        const hdg = Math.round(flight.psi * FLIGHT.RAD) % 360;
+        const vs = flight.V * Math.sin(flight.gamma);
+        const state = flight.wow
+            ? '地面滑跑'
+            : ('升降 ' + (vs >= 0 ? '+' : '') + vs.toFixed(1) + ' m/s');
+        el.textContent =
+            '空速 ' + flight.V.toFixed(0) + ' m/s · 高度 ' + flight.alt.toFixed(0) + ' m · 航向 '
+            + String(hdg).padStart(3, '0') + '° · ' + state
+            + ' · 油门 ' + Math.round(flight.throttle * 100) + '%';
+    }
+    // 经纬度信息框与天象同源，随飞行实时刷新
+    const latEl = document.getElementById('info_latitude');
+    const lonEl = document.getElementById('info_longitude');
+    if (latEl) latEl.textContent = decimal_to_dms(latitude, false);
+    if (lonEl) lonEl.textContent = decimal_to_dms(longitude, true);
+}
+
+// 以当前视角/位置为起点重新开始一次飞行
+function flight_reset() {
+    const isOcean = LANDSCAPES[landscape_index][2] === 2;
+    flight.ready = true;
+    flight.x = 0.0;
+    flight.z = 0.0;
+    flight.alt = isOcean ? Math.max(WO_CAM_Y, 5.0) : FLIGHT.START_ALT;
+    flight.lat0 = latitude;
+    flight.lon0 = longitude;
+
+    flight.V = FLIGHT.START_V;
+    flight.gamma = 0.0;
+    flight.psi = flight_wrap_2pi(normalize_angle(view_azi) * FLIGHT.DEG);
+    flight.chi = flight.psi;
+    flight.beta = 0.0;
+    flight.alpha = 0.0;
+    flight.theta = 0.0;
+    flight.phi = 0.0;
+
+    flight.throttle = 0.0;
+    flight.stickX = 0.0;
+    flight.stickY = 0.0;
+    flight.rudderLeft = false;
+    flight.rudderRight = false;
+    flight.rudder = 0.0;
+    flight.inRoll = 0.0;
+    flight.inPitch = 0.0;
+    flight.inYaw = 0.0;
+    flight.keys = Object.create(null);
+    flight.wow = (flight.alt <= FLIGHT.GROUND_ALT);
+    flight.groundHold = 0.0;
+    flight.lastNow = 0.0;
+    flight.lutAlt = -1.0;
+
+    flight_sync_view();
+    flight_apply_world((typeof performance !== 'undefined') ? performance.now() : Date.now());
+    flight_update_throttle_ui();
+    flight_update_stick_ui();
+    flight_update_readout();
+    refresh_view_angle();
+}
+
+// 切换控制选项卡；进入飞行控制即接管相机，切回视角控制即暂停模拟（状态保留）
+function flight_select_tab(name) {
+    const isFlight = (name === 'flight');
+    const tabView = document.getElementById('tab_view_control');
+    const tabFlight = document.getElementById('tab_flight_control');
+    const pageView = document.getElementById('page_view_control');
+    const pageFlight = document.getElementById('page_flight_control');
+    if (!tabView || !tabFlight || !pageView || !pageFlight) return;
+
+    tabView.classList.toggle('active', !isFlight);
+    tabFlight.classList.toggle('active', isFlight);
+    tabView.setAttribute('aria-selected', String(!isFlight));
+    tabFlight.setAttribute('aria-selected', String(isFlight));
+    pageView.classList.toggle('active', !isFlight);
+    pageFlight.classList.toggle('active', isFlight);
+
+    flight.keys = Object.create(null);
+    flight.stickX = 0.0;
+    flight.stickY = 0.0;
+    flight.rudderLeft = false;
+    flight.rudderRight = false;
+    flight.rudder = 0.0;
+    flight.inRoll = 0.0;
+    flight.inPitch = 0.0;
+    flight.inYaw = 0.0;
+    flight_update_stick_ui();
+    document.querySelectorAll('.rudder_btn').forEach(function(b) { b.classList.remove('pressed'); });
+
+    if (isFlight) {
+        flight.active = true;
+        if (!flight.ready) {
+            flight_reset();
+        } else {
+            // 从暂停状态恢复：保留姿态与位置，从当前视角重新对齐机头
+            flight.lastNow = 0.0;
+            flight_update_readout();
+        }
+    } else {
+        flight.active = false;
+        // 保持当前视角不变，便于在「视角控制」页继续观察
+        refresh_view_angle();
+    }
+}
+
+// 绑定飞行控制的所有输入（键盘 / 指针 / 触屏）；在 init() 中调用一次
+function flight_init_controls() {
+    const tabView = document.getElementById('tab_view_control');
+    const tabFlight = document.getElementById('tab_flight_control');
+    if (tabView) tabView.addEventListener('click', function() { flight_select_tab('view'); });
+    if (tabFlight) tabFlight.addEventListener('click', function() { flight_select_tab('flight'); });
+
+    const resetBtn = document.getElementById('flight_reset');
+    if (resetBtn) {
+        resetBtn.addEventListener('click', function(e) {
+            e.preventDefault();
+            flight_reset();
+        });
+    }
+
+    // ---- 油门：竖向轨道，向上推满、向下收光，按下即跳到该位置 ----
+    const track = document.getElementById('flight_throttle_track');
+    if (track) {
+        let dragId = null;
+        const setFromEvent = function(e) {
+            const rect = track.getBoundingClientRect();
+            const v = 1.0 - (e.clientY - rect.top) / Math.max(rect.height, 1.0);
+            flight.throttle = flight_clamp(v, 0.0, 1.0);
+            flight_update_throttle_ui();
+        };
+        track.addEventListener('pointerdown', function(e) {
+            if (dragId !== null) return;    // 已有手指在操作油门（多点触控时忽略第二根手指）
+            e.preventDefault();
+            dragId = e.pointerId;
+            try { track.setPointerCapture(e.pointerId); } catch (err) {}
+            setFromEvent(e);
+        });
+        track.addEventListener('pointermove', function(e) {
+            if (dragId !== e.pointerId) return;
+            e.preventDefault();
+            setFromEvent(e);
+        });
+        const endDrag = function(e) {
+            if (dragId !== e.pointerId) return;
+            dragId = null;
+            try { track.releasePointerCapture(e.pointerId); } catch (err) {}
+        };
+        track.addEventListener('pointerup', endDrag);
+        track.addEventListener('pointercancel', endDrag);
+        track.addEventListener('lostpointercapture', endDrag);
+    }
+
+    // ---- 摇杆：横向滚转、纵向俯仰；松手自动回中（姿态保持） ----
+    const ring = document.getElementById('flight_stick_ring');
+    if (ring) {
+        let dragId = null;
+        const setFromEvent = function(e) {
+            const rect = ring.getBoundingClientRect();
+            const cx = rect.left + rect.width / 2.0;
+            const cy = rect.top + rect.height / 2.0;
+            const R = Math.max(1.0, rect.width * 0.32);
+            let dx = (e.clientX - cx) / R;
+            let dy = (e.clientY - cy) / R;
+            const len = Math.hypot(dx, dy);
+            if (len > 1.0) { dx /= len; dy /= len; }
+            flight.stickX = dx;
+            flight.stickY = dy;   // 屏幕向下 = 拉杆 = 抬头
+            flight_update_stick_ui();
+        };
+        ring.addEventListener('pointerdown', function(e) {
+            if (dragId !== null) return;    // 已有一根手指在摇杆上
+            e.preventDefault();
+            dragId = e.pointerId;
+            try { ring.setPointerCapture(e.pointerId); } catch (err) {}
+            setFromEvent(e);
+        });
+        ring.addEventListener('pointermove', function(e) {
+            if (dragId !== e.pointerId) return;
+            e.preventDefault();
+            setFromEvent(e);
+        });
+        const endDrag = function(e) {
+            if (dragId !== e.pointerId) return;
+            dragId = null;
+            flight.stickX = 0.0;
+            flight.stickY = 0.0;
+            flight_update_stick_ui();
+            try { ring.releasePointerCapture(e.pointerId); } catch (err) {}
+        };
+        ring.addEventListener('pointerup', endDrag);
+        ring.addEventListener('pointercancel', endDrag);
+        ring.addEventListener('lostpointercapture', endDrag);
+    }
+
+    // ---- 方向舵：按住生效，松开回中 ----
+    const bindRudder = function(btn, side) {
+        if (!btn) return;
+        const press = function(e) {
+            e.preventDefault();
+            btn.classList.add('pressed');
+            try { btn.setPointerCapture(e.pointerId); } catch (err) {}
+            if (side === 'left') flight.rudderLeft = true; else flight.rudderRight = true;
+        };
+        const release = function(e) {
+            btn.classList.remove('pressed');
+            if (side === 'left') flight.rudderLeft = false; else flight.rudderRight = false;
+            try { btn.releasePointerCapture(e.pointerId); } catch (err) {}
+        };
+        btn.addEventListener('pointerdown', press);
+        btn.addEventListener('pointerup', release);
+        btn.addEventListener('pointercancel', release);
+        btn.addEventListener('lostpointercapture', release);
+    };
+    bindRudder(document.getElementById('flight_rudder_left'), 'left');
+    bindRudder(document.getElementById('flight_rudder_right'), 'right');
+
+    // ---- 键盘：W/S 推拉杆、A/D 滚转、Q/E 偏航、R/F 油门 ----
+    const FLIGHT_KEY_CODES = {
+        KeyW: 1, KeyS: 1, KeyA: 1, KeyD: 1, KeyQ: 1, KeyE: 1, KeyR: 1, KeyF: 1
+    };
+    const isTypingTarget = function(target) {
+        if (!target) return false;
+        const tag = (target.tagName || '').toUpperCase();
+        return tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || target.isContentEditable === true;
+    };
+    window.addEventListener('keydown', function(e) {
+        if (!flight.active) return;
+        if (e.ctrlKey || e.metaKey || e.altKey) return;
+        if (!FLIGHT_KEY_CODES[e.code]) return;
+        if (isTypingTarget(e.target)) return;
+        flight.keys[e.code] = true;
+        e.preventDefault();
+    });
+    window.addEventListener('keyup', function(e) {
+        if (!FLIGHT_KEY_CODES[e.code]) return;
+        delete flight.keys[e.code];
+    });
+    window.addEventListener('blur', function() {
+        flight.keys = Object.create(null);
+        flight.rudderLeft = false;
+        flight.rudderRight = false;
+    });
+
+    flight_update_throttle_ui();
+    flight_update_stick_ui();
+}
+
+
+
+
 class SkyCanvas {
     constructor(canvasId) {
         this.canvas = document.getElementById(canvasId);
@@ -12159,6 +13070,9 @@ function init() {
         refresh_button_status();
     });
 
+    // 飞行控制：选项卡切换、油门/摇杆/方向舵、键盘
+    flight_init_controls();
+
 
     document.getElementById("toggle_projection").addEventListener("click", function(e) {
         enable_fisheye_projection = !enable_fisheye_projection;
@@ -12512,6 +13426,10 @@ function init() {
         longitude = dmsToDecimal(modalLonDeg, modalLonMin, modalLonSec, modalLonEW);
         nongli = null;
         document.getElementById('coordModal').classList.remove('active');
+        // 飞行中重新定位：以新坐标为新起点重启一次飞行，避免被飞行状态覆盖
+        if (flight.active) {
+            flight_reset();
+        }
         refresh_button_status();
     }
 
@@ -12981,6 +13899,7 @@ function init() {
     // 开始绘制
     function startDrawing(e) {
         e.preventDefault(); // 阻止触摸默认行为（滚动/缩放）
+        if (flight.active) return;   // 飞行控制接管相机时不允许拖动改变视角
         isDrawing = true;
         const pos = getCanvasPos(e);
 
@@ -13038,6 +13957,11 @@ function init() {
             view_alt = lerp(view_alt, target_view_alt, GYRO_SMOOTH_ALPHA);
             view_azi = lerp_angle(view_azi, target_view_azi, GYRO_SMOOTH_ALPHA);
             view_roll = lerp_angle(view_roll, target_view_roll, GYRO_SMOOTH_ALPHA);
+        }
+
+        // 飞行模拟：推进运动学状态并接管相机（俯仰/航向/滚转）与天象经纬度、海洋观察高度
+        if (flight.active) {
+            flight_step(performance.now());
         }
 
         // 每帧重绘
