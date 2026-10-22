@@ -6108,7 +6108,9 @@ function cloud_sky_prepare_frame(
     let dAlt = Math.abs(sun_alt - state.lastSunAlt);
     let dAzi = Math.abs(sun_azi - state.lastSunAzi);
     if (dAzi > 180.0) dAzi = 360.0 - dAzi;
-    if (state.lutsDirty || dAlt > 0.02 || dAzi > 0.02) {
+    // 阈值 0.20°：实时模式下太阳约 0.004°/s，0.02° 会每 ~5 秒重建一次 LUT（约 80ms 卡顿）；
+    // 0.20° 约每 50 秒一次，视觉上不可分辨。跳变（改时间）仍会立即触发。
+    if (state.lutsDirty || dAlt > 0.20 || dAzi > 0.20) {
         state.lastSunAlt = sun_alt;
         state.lastSunAzi = sun_azi;
         if (state.transLut === null) {
@@ -8865,7 +8867,8 @@ function wo_prepare_frame(sun_alt, sun_azi, view_f, sky_radius) {
         WO_state.glTransDirty = true;
         WO_state.lutDirty = true;
     }
-    if (WO_state.skyLut === null || dAlt > 0.02 || dAzi > 0.02 || hazeApplied || camApplied) {
+    // 阈值 0.25°：实时模式下 0.02° 会每 ~5 秒重建一次天空视图 LUT（约 200ms 卡顿）
+    if (WO_state.skyLut === null || dAlt > 0.25 || dAzi > 0.25 || hazeApplied || camApplied) {
         WO_state.sunAlt = sun_alt; WO_state.sunAzi = sun_azi;
         WO_state.skyLut = wo_build_sky_lut();
         WO_state.lutDirty = true;
@@ -11283,25 +11286,24 @@ function render_all(
             fb_width, fb_height, sky_radius.toFixed(2), center_x.toFixed(1), center_y.toFixed(1),
             view_alt.toFixed(2), view_azi.toFixed(2), view_roll.toFixed(2), f.toFixed(3),
             enable_fisheye_projection ? 1 : 0,
+            enable_webgl ? 1 : 0,
             enable_atmospheric_scattering,
             enable_opt_bilinear ? 1 : 0,
             enable_cloud_halfres ? 1 : 0,
             enable_volumetric_cloud ? 1 : 0,
             CLOUD_SKY_CAM_POS[0].toFixed(3), CLOUD_SKY_CAM_POS[1].toFixed(3), CLOUD_SKY_CAM_POS[2].toFixed(3),
-            sun_alt.toFixed(3), sun_azi.toFixed(3),
+            WO_CAM_Y.toFixed(1), WO_HAZE.toFixed(2),
+            sun_alt.toFixed(2), sun_azi.toFixed(2),
             cloudSkyState.coverageLevel, cloudSkyState.layerIdx,
             cloudSkyScene.brightness, enable_cloud_sun_lens ? 1 : 0,
             radarCloudState.enabled ? 1 : 0
         ].join('|');
+        // 天空图像只取决于上面的键：与时间无关的部分（云已解耦为独立通道）没有理由周期性重绘。
+        // 缓存持续有效，直到输入真正变化；避免每 SKY_SKIP_FRAMES 帧出现一次重绘尖峰。
         let skyCacheHit = false;
         if (enable_sky_skip && skyCache.pixels !== null && skyCache.key === skyKey) {
-            skyCache.counter++;
-            if ((skyCache.counter % SKY_SKIP_FRAMES) !== 0) {
-                gl_pixels = skyCache.pixels;
-                skyCacheHit = true;
-            }
-        } else {
-            skyCache.counter = 0;
+            gl_pixels = skyCache.pixels;
+            skyCacheHit = true;
         }
 
         if (!skyCacheHit) {
@@ -11903,6 +11905,8 @@ let month = 2;
 let year = 2026;
 
 let nongli = null;
+let nongli_day = -1, nongli_hour = -1;   // 农历/黄历重算触发（按日、时变化）
+let last_datestr = '', last_timestr = ''; // 日期/时间 DOM 只在变化时写入
 
 
 let isDrawing = false;
@@ -12098,10 +12102,11 @@ function flight_apply_world(nowMs) {
         WO_CAM_Y = camY;
         WO_CAM_ALT_KM = camY / 1000.0;
 
-        // 天空视图 LUT 随观察高度重建：只在高度变化超过阈值时触发（内部 250ms 防抖，
-        // 持续爬升/下降时会被反复刷新而暂缓重建，改平飞后再重建一次，避免每帧重建）
+        // 天空视图 LUT 随观察高度重建：只在高度变化超过阈值时触发（内部 250ms 防抖）。
+        // 阈值取 max(80m, 15%)：早先的 max(10m, 5%) 在低空爬升时每 2~3 秒就触发一次
+        // （LUT 重建约 200ms），是飞行中周期性卡顿的主要来源。
         if (!(flight.lutAlt >= 0.0) ||
-            Math.abs(camY - flight.lutAlt) > Math.max(10.0, camY * 0.05)) {
+            Math.abs(camY - flight.lutAlt) > Math.max(80.0, camY * 0.15)) {
             flight.lutAlt = camY;
             WO_state.camDirtyAt = nowMs;
         }
@@ -13978,10 +13983,14 @@ function init() {
     const sky = new SkyCanvas('skyCanvas');
     let imageData = sky.ctx.createImageData(sky.canvas.width, sky.canvas.height);
     let frame_buffer = imageData.data;
+    // 每帧清屏（RGB=0、A=255）：用 Uint32 视图一次填充，替代原先的 fill(0) + 逐字节写 alpha
+    let frame_buffer32 = new Uint32Array(frame_buffer.buffer, frame_buffer.byteOffset, frame_buffer.length >> 2);
+    const FRAME_CLEAR32 = (new Uint8Array(new Uint32Array([0xFF000000]).buffer)[3] === 0xFF) ? 0xFF000000 : 0x000000FF;
 
     function resetCanvasBuffer() {
         imageData = sky.ctx.createImageData(sky.canvas.width, sky.canvas.height);
         frame_buffer = imageData.data;
+        frame_buffer32 = new Uint32Array(frame_buffer.buffer, frame_buffer.byteOffset, frame_buffer.length >> 2);
     }
 
     const canvas = sky.canvas;
@@ -14081,10 +14090,7 @@ function init() {
         }
 
         // 每帧重绘
-        frame_buffer.fill(0);
-        for (let i = 3; i < sky.canvas.width * sky.canvas.height * 4; i+=4) {
-            frame_buffer[i] = 255;
-        }
+        frame_buffer32.fill(FRAME_CLEAR32);
 
         if (enable_realtime) {
             const current_date = new Date();
@@ -14131,12 +14137,21 @@ function init() {
 
         let datestr = `${year}-${String(100+month).substr(-2)}-${String(100+day).substr(-2)}`;
         let timestr = `${String(100+hour).substr(-2)}:${String(100+minute).substr(-2)}:${String(100+second).substr(-2)}`;
-        document.getElementById('info_date').innerHTML = datestr;
-        document.getElementById('info_time').innerHTML = timestr;
+        if (datestr !== last_datestr) {
+            document.getElementById('info_date').textContent = datestr;
+            last_datestr = datestr;
+        }
+        if (timestr !== last_timestr) {
+            document.getElementById('info_time').textContent = timestr;
+            last_timestr = timestr;
+        }
 
 
-        // 计算并显示农历日期（只在时间切换时计算，避免频繁调用）
-        if (nongli === null || second === 0) {
+        // 计算并显示农历日期：农历/黄历只随“日/时”变化，改为按日、时变化触发，
+        // 避免原先 second===0（每分钟一次）整体重算并重写十余处 DOM 造成的周期性卡顿
+        if (nongli === null || day !== nongli_day || hour !== nongli_hour) {
+            nongli_day = day;
+            nongli_hour = hour;
             nongli = LunarCalendar.calculate(year, month, day, hour, minute, second, timezone);
             if (nongli) {
                 let nongli_riqi = nongli.full_display.split(" ");
