@@ -593,11 +593,11 @@ a {
             <button class="setting_button" id="toggle_landscape">地景<br><span class="status_label" id="landscape_status">-</span></button>
         </div>
 
-        <!-- 体积云（解耦自模型5，全散射模型可用）专属调节：云量/云类/云亮度/镜头光晕/雷达云图 -->
+        <!-- 体积云（解耦自模型5，全散射模型可用）专属调节：云量/云类/云亮度(自动读数)/镜头光晕/雷达云图 -->
         <div class="setting_buttons_container" id="cloud_sky_controller" style="display: none;">
             <button class="setting_button" id="toggle_cloud_coverage">云量<br><span class="status_label" id="cloud_coverage_status">-</span></button>
             <button class="setting_button" id="toggle_cloud_layer">云类<br><span class="status_label" id="cloud_layer_status">-</span></button>
-            <button class="setting_button" id="toggle_cloud_brightness">云亮度<br><span class="status_label" id="cloud_brightness_status">-</span></button>
+            <button class="setting_button" id="toggle_cloud_brightness">云亮度(自动)<br><span class="status_label" id="cloud_brightness_status">-</span></button>
             <button class="setting_button" id="toggle_cloud_lens">镜头光晕<br><span class="status_label" id="cloud_lens_status">-</span></button>
             <button class="setting_button" id="toggle_radar_cloud">雷达云图<br><span class="status_label" id="radar_cloud_status">-</span></button>
         </div>
@@ -867,7 +867,7 @@ a {
                     <li>时间日期均为北京时间(UTC+8)。</li>
                     <li>农历日期系由星历算法解算而得，未必准确。</li>
                     <li>拖动屏幕改变视角。</li>
-                    <li>页面初始化时会先算一次太阳高度：低于 −18°（天文晨昏蒙影已结束）就自动打开「赤道坐标」网格、把「天体名称」设为全部、并显示地平方位角（只出方位文字，地平网格仍关闭）；天还亮着则维持默认的关闭状态。切到「飞行控制」选项卡时会自动打开「姿态指示」并改为「透视投影」。这两处自动设置之后都能手动改回。</li>
+                    <li>「天体名称」默认为全部。页面初始化时会先算一次太阳高度：低于 −18°（天文晨昏蒙影已结束）就自动打开「赤道坐标」网格并显示地平方位角（只出方位文字，地平网格仍关闭）；天还亮着则这两项保持关闭。切到「飞行控制」选项卡时会自动打开「姿态指示」并改为「透视投影」。这些自动设置之后都能手动改回。</li>
                     <li>「飞行控制」选项卡模拟一架小型固定翼飞机（初教五、动力三角翼一类）的第一人称座舱视角：左侧竖向滑轨是油门（向上加大推力），右侧圆形摇杆的横向控制滚转、纵向控制俯仰（向下拉杆抬头、向上推杆低头），下方两个按钮控制左右方向舵。滚转产生坡度后会进入协调转弯（水平向心运动），方向舵会造成侧滑。PC 上也可用键盘：W/S 推拉杆、A/D 左右坡度、Q/E 左右偏航、R/F 增减油门；点「复位」以当前位置和航向重新开始一次飞行。飞行只在「飞行控制」页生效，切回「视角控制」即暂停模拟并保留飞机状态。</li>
                     <li>触地后按起落架接地处理：姿态立即放平为地面姿态（机翼水平、机头放平、无侧滑），随后进入滑跑。滑跑时油门对抗气动阻力、滚动阻力与刹车阻力——收油门（或按 F）会带刹车在约十秒内逐渐滑停，速度可降到 0；加到约 22 m/s 抬轮速度后再拉杆即可重新离地，低于该速度拉杆无效（机头被前轮/尾轮撑住）。</li>
                     <li>姿态与航迹角均不限位：滚转、筋斗、过顶、倒飞都可以做。俯仰/滚转控制的是迎角与坡度，载荷因数按小型机限制在 −3g～+4g；HUD 里的"高度/升降"仍是世界竖直方向。倒飞时要把杆推下去（机头低于地平线）才能保持高度，过顶时地平线会在画面上方，视角随姿态自动翻转，不会出现欧拉角锁死。</li>
@@ -880,7 +880,7 @@ a {
                     <li>体积云渲染非常慢，请按需启用。</li>
                     <li>「体积云」按钮启用三层体积云层（算法解耦自「体积云天空」模型，支持 JS 与 GLSL 双实现，可在任意大气散射模型上叠加；模型 5 的天空也统一走这条解耦云通道，只渲染纯天空，云层在地景之后合成，因此从云上向下俯视时云能正确遮挡地面/海面）。GPU 路径需要 WebGL2，首次启用需生成噪声纹理（约 1 秒），无 WebGL2 时自动回退到较慢的 JS 渲染。</li>
                     <li>体积云的观察者在三维云场中移动：飞行控制页内观察点完全取飞机位置——爬升会真正进入云层（视野被云包围、逐步白化），穿云到云顶之上可向下俯视云海，水平飞行时云场固定在世界坐标中、云与飞机的相对位置一一对应，观察高度严格取飞机海拔（按球面半径反算，水平飞远不会凭空升高）；不在飞行页时观察高度由「观察高度」滑块决定（默认 50 米，1.5 米~10 公里），把滑块推过 3 公里就能站进云层里。云层高度为 3–11 km；模型 5 的天空按纯天空渲染，云层统一在地景之后合成。</li>
-                    <li>启用体积云后，可用其下的"云量/云类/云亮度"按钮调节云的档位（6档）、显示种类（按层掩码 0-7 共 8 种组合：无云/仅低层/仅中层/低+中/仅高层/低+高/中+高/所有云）与亮度（0.5~2.0）。</li>
+                    <li>启用体积云后，可用其下的"云量/云类"按钮调节云的档位（6档）与显示种类（按层掩码 0-7 共 8 种组合：无云/仅低层/仅中层/低+中/仅高层/低+高/中+高/所有云）。云亮度不再是手动档位，而是太阳高度的经验函数 0.75·tanh(0.2·太阳高度−0.6)+1.25：太阳越高云越白亮（上限 2.0），日落后转暗，天文暮光之后压到 0.5；"云亮度(自动)"按钮上的数字只是当前值，点了不改变任何东西。</li>
                     <li>"雷达云图"开启后（默认开启），体积云天空的初始云模式取自中央气象台组合反射率图（radar.png 减 radar_background.png 底图、形态学去地图元素、色标反演 dBZ），雷达 256km 范围与地平圈直接对齐；dBZ 经三通道调制云场：覆盖率决定有无疏密（封顶 35/45/55dBZ）、云顶高度决定类别（弱回波压扁为层云、强回波发展为全塔积雨云）、密度系数决定厚薄；中高度云另以双频噪声调制破碎边缘、消除周期感，并对回波轮廓做域扭曲（~2.5km 特征）与高频 dBZ 抖动，使大片云的平直硬边变成曲折破碎的自然边缘；处理全部在页面内完成，图片缺失或处理失败时自动回退程序化云图。</li>
                     <li>「海洋天空」（模型 6）与「实时海洋」地景移植自开源项目 web-ocean（MIT）：Hillaire 式 LUT 大气（透射率/多重散射/天空视图三张 LUT，JS 与 GLSL 共享同一份数据）、JONSWAP 风浪谱+窄涌浪的解析波列级数（方差守恒，烘焙为可平铺波场纹理并按群速度平流）、各向异性高斯太阳耀光（Smith 掩蔽）、天空环境反射、水体上涌与波峰透射辉光、雅可比白帽、大气透视与 AgX 色调映射。观察者默认位于海平面以上 50 米（1.5 米~10 公里对数刻度可调）；无 WebGL2 时自动回退到较慢的 JS 逐像素渲染。</li>
                     <li>地景设为「实时海洋」时，canvas 上方会出现海洋参数滑块（观察高度/风速/风向/风区/涌浪波高/涌浪波长/涌浪方向/泡沫强度/水体浑浊度/霾）：波浪与涌浪参数在停止拖动约 0.25 秒后重烘焙波场（约 0.1 秒）；「霾」与「观察高度」会重建大气 LUT（约 0.5 秒）；泡沫强度与水体浑浊度立即生效。风浪行进方向与涌浪方向以罗盘方位角表示（0=北，90=东）。「观察高度」同时是体积云与天空的观察点高度（飞行控制页内则改由飞机接管，滑块只作显示），因此调高它会一起抬升海面相机和云层视角。</li>
@@ -931,7 +931,7 @@ let enable_cloud_sun_lens = true;
 // 大气散射模型（0-不启用；1-简化模型；2-一次散射；3-二次散射；4-二次散射改；5-体积云天空；6-海洋天空/web-ocean）
 let enable_atmospheric_scattering = 5;
 // 是否显示天体名称（0-不显示；1-仅恒星；2-仅行星；3-全部）
-let enable_star_name = 0;
+let enable_star_name = 3;
 // 是否显示大行星
 let enable_planet = true;
 // 是否显示黄道
@@ -4192,9 +4192,10 @@ const CLOUD_SKY_SCATTER_NORMALIZATION = 1.0 / Math.PI;
 // 镜头光晕（离轴色散光斑）亮度增益：0.35 约为原来的三分之一观感亮度
 const CLOUD_SKY_LENS_FLARE_GAIN = 0.35;
 // 云量档位（ui_cloud.c CLOUD_COVERAGE_LEVELS：档间云量递进均匀、最高档不进入变暗区）
+// 档位序号 ↔ 按钮文案：0 晴空 / 1 疏云 / 2 半云 / 3 多云 / 4 阴天 / 5 满云
 const CLOUD_SKY_COVERAGE_LEVELS = [0.000, 0.325, 0.340, 0.353, 0.368, 0.395];
-const CLOUD_SKY_COVERAGE_DEFAULT_LEVEL = 2;
-const CLOUD_SKY_BRIGHTNESS_DEFAULT = 0.5;
+const CLOUD_SKY_COVERAGE_DEFAULT_LEVEL = 3;   // 默认多云（4/6）
+// 云亮度不再有固定默认档：它是太阳高度的经验函数，见 cloud_sky_brightness_from_sun_alt()
 // 雷达云图边缘破碎化（仅中/高层）：radar 回波轮廓经 4km 网格量化后大片云
 // 边缘呈整齐平直的直线。用非平铺多频值噪声做域扭曲（~2.5km 特征）把回波等值线
 // 扭成曲折形，再叠加高频 dBZ 抖动（~0.9km）让边界向外/向内啮咬、碎裂成
@@ -4315,7 +4316,27 @@ function cloud_sky_apply_brightness(b) {
     cloudSkyScene.cloudAmbientScale = 0.5 + 1.0 * t;
     cloudSkyScene.brightness = b; // 当前亮度观感值（0.5..2.0，供 UI 显示）
 }
-cloud_sky_apply_brightness(CLOUD_SKY_BRIGHTNESS_DEFAULT);
+
+// 云亮度的来源：太阳高度（度）的经验式 0.75·tanh(0.2·h − 0.6) + 1.25。
+// 值域恰好落在 [0.5, 2.0]：太阳越低云越暗，天文暮光之后压到下限 0.5；
+// h≈3° 时为 1.25，h≳25° 后饱和到上限 2.0。逐帧由 cloud_sky_prepare_frame 重算。
+function cloud_sky_brightness_from_sun_alt(sun_alt_deg) {
+    return 0.75 * Math.tanh(0.2 * sun_alt_deg - 0.6) + 1.25;
+}
+
+// 占位初值：首帧 prepare_frame 与 init() 里按真实太阳高度的预置都会覆盖它
+cloud_sky_apply_brightness(cloud_sky_brightness_from_sun_alt(3.0));
+
+// 云亮度读数（按钮已不可调，只显示当前自动值）：文本不变就不写 DOM
+let cloudSkyBrightnessShown = null;
+function cloud_sky_refresh_brightness_readout() {
+    const el = document.getElementById('cloud_brightness_status');
+    if (!el) return;
+    const txt = cloudSkyScene.brightness.toFixed(2);
+    if (txt === cloudSkyBrightnessShown) return;
+    cloudSkyBrightnessShown = txt;
+    el.innerHTML = `<span class="switch_active">${txt}</span>`;
+}
 
 // 云量档位应用（ui_cloud.c cloud_apply_coverage_level 直译；档位循环回绕）
 // 档位按实测响应标定（云占比 ≈ 0/25/45/65/85/97%）：晴空→疏云→半云→多云→阴天→满云
@@ -4364,8 +4385,8 @@ const cloudSkyState = {
     frameIndex: 0,
     lastNow: 0.0,
     prepareSeq: -1,             // 完成预处理的帧序号（同一帧内重复调用去重）
-    layerMask: 7,               // 云层显示掩码（bit0 低层 / bit1 中层 / bit2 高层）
-    layerIdx: 7,                // 云层种类序号 = 层掩码（0-7，bit0 低层 / bit1 中层 / bit2 高层）
+    layerMask: 3,               // 云层显示掩码（bit0 低层 / bit1 中层 / bit2 高层）——默认低+中
+    layerIdx: 3,                // 云层种类序号 = 层掩码（0-7，bit0 低层 / bit1 中层 / bit2 高层）
     coverageLevel: CLOUD_SKY_COVERAGE_DEFAULT_LEVEL, // 云量档位（0..5）
     groundUpwelling: [0.0, 0.0, 0.0],
     // 太阳镜头光晕（每帧由相机决定一次）
@@ -6348,6 +6369,11 @@ function cloud_sky_prepare_frame(
     cloud_sky_sun_color(sun_alt, sunCol);
     cloudSkyScene.sunColor = [sunCol[0], sunCol[1], sunCol[2]];
     cloudSkyScene.sunIntensity = sunCol[3];
+
+    // 云亮度 = 太阳高度的经验函数（0.75·tanh(0.2·h − 0.6) + 1.25）：太阳高时云白亮，
+    // 落日后转暗，天文暮光之后压到下限 0.5。每帧重算，按钮只显示当前值。
+    cloud_sky_apply_brightness(cloud_sky_brightness_from_sun_alt(sun_alt));
+    cloud_sky_refresh_brightness_readout();
 
     // 天空散射光源：暮光段（太阳≤0°）用近白光，0°..4°平滑过渡到圆盘曲线，
     // ≥4° 起与曲线一致（正午仍是白）。物理动机：天空散射的太阳光谱本应恒定，
@@ -11673,6 +11699,7 @@ function render_all(
         // ---- 天空降帧缓存：仅在输入未变时命中 ----
         // 键包含：画布尺寸/视线/鱼眼开关/散射模型/云参数/太阳位置（量化 0.003°）；
         // 体积云观察点（1 m 量化）也在键内——飞行时观察者在云场中移动，云与天空必须逐帧更新；
+        // 云亮度随太阳高度逐帧变化，量化到 0.01 再入键——否则实时模式下每帧都会撞掉缓存
         // 不含月亮与恒星（它们是缓存的天空之上一层 2D 叠加，每次重绘）
         const skyKey = [
             fb_width, fb_height, sky_radius.toFixed(2), center_x.toFixed(1), center_y.toFixed(1),
@@ -11687,7 +11714,7 @@ function render_all(
             WO_CAM_Y.toFixed(1), WO_HAZE.toFixed(2),
             sun_alt.toFixed(2), sun_azi.toFixed(2),
             cloudSkyState.coverageLevel, cloudSkyState.layerIdx,
-            cloudSkyScene.brightness, enable_cloud_sun_lens ? 1 : 0,
+            cloudSkyScene.brightness.toFixed(2), enable_cloud_sun_lens ? 1 : 0,
             radarCloudState.enabled ? 1 : 0
         ].join('|');
         // 天空图像只取决于上面的键：与时间无关的部分（云已解耦为独立通道）没有理由周期性重绘。
@@ -13418,7 +13445,7 @@ function refresh_button_status() {
     document.getElementById("scattering_status").innerHTML = status;
 
 
-    // 体积云专属：云量/云类/云亮度/镜头光晕/雷达云图（云层启用时显示，全散射模型可用）
+    // 体积云专属：云量/云类/云亮度读数/镜头光晕/雷达云图（云层启用时显示，全散射模型可用）
     const cloud_sky_ctl = document.getElementById("cloud_sky_controller");
     if (enable_volumetric_cloud) {
         cloud_sky_ctl.style.display = "flex";
@@ -13432,9 +13459,8 @@ function refresh_button_status() {
         status = `<span class="switch_active">${CLOUD_SKY_LAYER_NAMES[cloudSkyState.layerIdx]}</span>`;
         document.getElementById("cloud_layer_status").innerHTML = status;
 
-        // 云亮度（0.5..2.0，步长 0.15，同 ui_cloud.c）
-        status = `<span class="switch_active">${cloudSkyScene.brightness.toFixed(2)}</span>`;
-        document.getElementById("cloud_brightness_status").innerHTML = status;
+        // 云亮度：随太阳高度自动变化，按钮只作读数显示（见 cloud_sky_brightness_from_sun_alt）
+        cloud_sky_refresh_brightness_readout();
 
         // 镜头光晕开关（enable_cloud_sun_lens）
         status = (enable_cloud_sun_lens)
@@ -13536,9 +13562,11 @@ function clamp_view_angle() {
 // ============================================================
 // 夜间自动显示
 // 页面初始化时若太阳高度低于 -18°（天文晨昏蒙影结束，天已黑透），就把看星空需要的图层
-// 一起打开：赤道坐标网格、全部天体名称、地平方位角。地平方位只开「方位角」文字档
+// 一起打开：赤道坐标网格 + 地平方位角。地平方位只开「方位角」文字档
 // （enable_horizontal_coord = 1），地平网格（= 2）仍然保持关闭。
+// 「天体名称」默认就是全部，这里无需再动。
 // 只在初始化判断一次；之后用户的手动开关不再被覆盖。
+// 返回值：初始化时刻的太阳高度（度），星历不可用时为 null——调用方用它给云亮度定初值。
 // ============================================================
 const AUTO_NIGHT_SUN_ALT = -18.0;   // 触发夜间自动显示所需的太阳高度上限（度）
 
@@ -13560,13 +13588,13 @@ function auto_night_display() {
     }
     catch (err) {
         console.warn("太阳高度计算失败，保持默认图层设置：", err);
-        return;
+        return null;
     }
-    if (!(sun_alt < AUTO_NIGHT_SUN_ALT)) return;   // NaN（星历不可用）时不触发
+    if (!(sun_alt < AUTO_NIGHT_SUN_ALT)) return sun_alt;   // NaN（星历不可用）时不触发
 
     enable_equatorial_coord = true;
-    enable_star_name = 3;
     enable_horizontal_coord = 1;
+    return sun_alt;
 }
 
 
@@ -13665,7 +13693,7 @@ function init() {
         refresh_button_status();
     });
 
-    // ---- 体积云天空（模型5）专属：云量/云类/云亮度 ----
+    // ---- 体积云天空（模型5）专属：云量/云类（云亮度自动，见 cloud_sky_brightness_from_sun_alt） ----
     // 云量：6 档循环（ui_cloud.c 按键4/6 的加档逻辑；档位表 cloud_apply_coverage_level）
     document.getElementById("toggle_cloud_coverage").addEventListener("click", function(e) {
         cloud_sky_apply_coverage_level(cloudSkyState.coverageLevel + 1);
@@ -13676,13 +13704,7 @@ function init() {
         cloud_sky_apply_layer_kind(cloudSkyState.layerIdx + 1);
         refresh_button_status();
     });
-    // 云亮度：每击 +0.15，超过 2.0 回绕到 0.5（ui_cloud.c 按键2/8 的步长与限幅）
-    document.getElementById("toggle_cloud_brightness").addEventListener("click", function(e) {
-        let b = cloudSkyScene.brightness + 0.15;
-        if (b > 2.0) b = 0.5;
-        cloud_sky_apply_brightness(b);
-        refresh_button_status();
-    });
+    // 云亮度不设手动档：它随太阳高度自动变化，按钮只显示当前值（见 cloud_sky_brightness_from_sun_alt）
     // 镜头光晕开关（仅影响体积云天空内建 HDR 光晕；太阳低于地平线时不受此开关控制、恒不显示）
     document.getElementById("toggle_cloud_lens").addEventListener("click", function(e) {
         enable_cloud_sun_lens = !enable_cloud_sun_lens;
@@ -14693,8 +14715,13 @@ function init() {
         setTimeout(() => { loading_overlay.style.display = "none"; }, 450);
     };
 
-    // 首帧之前先按当时的太阳高度决定夜间图层（赤道坐标/天体名称/地平方位角）
-    auto_night_display();
+    // 首帧之前先按当时的太阳高度决定夜间图层（赤道坐标/地平方位角），
+    // 并用同一个太阳高度给「云亮度」定初值——它现在是太阳高度的经验函数，
+    // 之后由 prepare_frame 按每帧的太阳高度继续重算
+    const init_sun_alt = auto_night_display();
+    if (init_sun_alt !== null) {
+        cloud_sky_apply_brightness(cloud_sky_brightness_from_sun_alt(init_sun_alt));
+    }
 
     (async function preload() {
         try {
