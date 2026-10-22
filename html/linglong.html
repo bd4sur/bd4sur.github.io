@@ -296,6 +296,14 @@ a {
     color: #9fe6ea;
     white-space: nowrap;
 }
+/* 飞行状态参数（空速/高度/航向/升降/油门）：置于油门与摇杆上方 */
+.flight_readout_row {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin: 2px auto 0 auto;
+    padding: 0 4px;
+}
 .flight_reset_btn {
     flex: none;
     font-size: 10px;
@@ -664,6 +672,10 @@ a {
             </div>
 
             <div class="control_page" id="page_flight_control">
+                <!-- 飞行状态参数：放在油门/摇杆上方，操纵时不必低头看下方 -->
+                <div class="flight_readout_row">
+                    <div class="flight_readout" id="flight_readout">空速 — 高度 — 航向 — 油门 —</div>
+                </div>
                 <div class="flight_panel">
                     <div class="throttle_area">
                         <div class="throttle_track" id="flight_throttle_track" role="slider"
@@ -687,7 +699,6 @@ a {
                     <button class="rudder_btn" id="flight_rudder_right">右舵 ▶</button>
                 </div>
                 <div class="flight_status_row">
-                    <div class="flight_readout" id="flight_readout">空速 — 高度 — 航向 — 油门 —</div>
                     <button class="flight_reset_btn" id="flight_reset">复位</button>
                 </div>
                 <div class="flight_hint">键盘：W/S 推拉杆 · A/D 滚转 · Q/E 偏航 · R/F 油门</div>
