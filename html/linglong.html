@@ -350,6 +350,50 @@ a {
     dominant-baseline: central;
     pointer-events: none;
 }
+
+/* ---- 导航显示器（ND）：黑底方形移动地图，位于飞行控制控件下方 ---- */
+.nd_panel {
+    position: relative;
+    width: 100%;
+    max-width: 320px;
+    margin: 6px auto 2px auto;
+}
+#ndCanvas {
+    display: block;
+    width: 100%;
+    aspect-ratio: 1 / 1;
+    background: #050708;
+    border: 1px solid #2a2f35;
+    border-radius: 4px;
+}
+/* 显示范围切换：叠在显示屏底边内侧的一条小按钮 */
+.nd_range_row {
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: 4px;
+    display: flex;
+    justify-content: center;
+    gap: 3px;
+    pointer-events: none;
+}
+.nd_range_btn {
+    pointer-events: auto;
+    font-family: monospace;
+    font-size: 9px;
+    line-height: 1;
+    padding: 3px 5px;
+    border-radius: 4px;
+    color: #6f8b99;
+    background: #0d1418;
+    border: 1px solid #22343d;
+    cursor: pointer;
+}
+.nd_range_btn.active {
+    color: #35e0e0;
+    background: #12242a;
+    border-color: #35b8b8;
+}
 .setting_button, .joystick_button {
     color: #ffffff;
     min-height: 34px;
@@ -735,6 +779,11 @@ a {
                     <button class="flight_reset_btn" id="flight_reset">复位</button>
                 </div>
                 <div class="flight_hint">键盘：W/S 推拉杆 · A/D 滚转 · Q/E 偏航 · R/F 油门</div>
+                <!-- 导航显示器：航迹朝上的移动地图（飞机不动、地图动），底图为全国主要民用机场 -->
+                <div class="nd_panel">
+                    <canvas id="ndCanvas" width="640" height="640" role="img" aria-label="导航显示器"></canvas>
+                    <div class="nd_range_row" id="nd_range_row"></div>
+                </div>
             </div>
         </div>
 
@@ -915,6 +964,7 @@ a {
                     <li>「飞行控制」选项卡模拟一架小型固定翼飞机（初教五、动力三角翼一类）的第一人称座舱视角：左侧竖向滑轨是油门（向上加大推力），右侧圆形摇杆的横向控制滚转、纵向控制俯仰（向下拉杆抬头、向上推杆低头），下方两个按钮控制左右方向舵。滚转产生坡度后会进入协调转弯（水平向心运动），方向舵会造成侧滑。PC 上也可用键盘：W/S 推拉杆、A/D 左右坡度、Q/E 左右偏航、R/F 增减油门；点「复位」以当前位置和航向重新开始一次飞行。飞行只在「飞行控制」页生效，切回「视角控制」即暂停模拟并保留飞机状态。</li>
                     <li>主画布下方、时间控制按钮上方是四只指针式飞行仪表：空速表（内圈 m/s / 外圈 kt）、高度表（内圈 m / 外圈 ft；短粗针读 0–12000 m 全量程、对应当前刻度数字，细长针每转一圈 1000 m 用于读出低空的精确高度）、转弯协调表（°/s，绿色刻度为标准转弯率 3°/s）、垂直速率表（内圈 m/s / 外圈 ft/min）。数字沿表盘切向排布，两种单位用颜色区分。指针随飞行状态实时转动；尚未开始飞行时指针归零，切回「视角控制」后停在最后一次读数。</li>
                     <li>飞行页的主画面上，中央的黄色短线是机头基准（航迹指示），绿色圆圈带左右短翼的符号是飞行航迹矢量（FPV）：它指向飞机速度的实际方向——平飞时压在机头基准上，拉杆爬升时落在基准下方（两者的夹角就是迎角），侧滑时左右偏开（偏角即侧滑角）。速度低于 2 m/s 停住时或该方向转出画面时不显示；切回「视角控制」后消失。</li>
+                    <li>飞行页控件下方是导航显示器（ND）：黑底方形屏，飞机符号固定在水平中央、竖直 3/4 处，地图随飞机对地移动而平移并旋转，始终保持「航迹朝上」。显示范围可由显示屏底边的按钮在 10 / 50 / 100 / 200 / 500 / 1000 km 之间切换（指机位到上边缘的距离，默认 200 km），底图是全国主要民用机场（大型机场，标 IATA 三字码，取自 OurAirports 开放数据集）；距离环按量程四等分自动缩放，另有每 30° 一条方位辐射线。飞过的航迹用品红折线记录，每移动 0.35 km 采一点；复位时清空。顶部弧形罗盘刻度随航迹滚动，正上方恒为当前航迹方位（品红三角所指），刻度数字即罗盘方位角；左上角小罗盘指示北向。左下角为显示范围，右下角为航迹与地速。</li>
                     <li>触地后按起落架接地处理：姿态立即放平为地面姿态（机翼水平、机头放平、无侧滑），随后进入滑跑。滑跑时油门对抗气动阻力、滚动阻力与刹车阻力——收油门（或按 F）会带刹车在约十秒内逐渐滑停，速度可降到 0；加到约 22 m/s 抬轮速度后再拉杆即可重新离地，低于该速度拉杆无效（机头被前轮/尾轮撑住）。</li>
                     <li>姿态与航迹角均不限位：滚转、筋斗、过顶、倒飞都可以做。俯仰/滚转控制的是迎角与坡度，载荷因数按小型机限制在 −3g～+4g；HUD 里的"高度/升降"仍是世界竖直方向。倒飞时要把杆推下去（机头低于地平线）才能保持高度，过顶时地平线会在画面上方，视角随姿态自动翻转，不会出现欧拉角锁死。</li>
                     <li>飞行时飞机的姿态决定相机视角；地面投影点的经纬度只用于驱动天象（太阳/月亮/行星/恒星方位），海拔高度只用于驱动「实时海洋」的观察高度。地景为「实时海洋」时，相机会随飞机在海面上平移——波场、泡沫与太阳耀光固定在世界坐标中，因此能看出真实的相对运动；其他地景不随飞行移动，只改变相机视角。</li>
@@ -13037,6 +13087,274 @@ function flight_update_instruments() {
 }
 
 
+// ============================================================
+// 导航显示器（ND）：航迹朝上的移动地图（ARINC 风格 MFD）
+//   · 黑底方形显示屏，置于飞行控制控件下方；
+//   · 飞机符号固定在水平中央、竖直 3/4 处（距底边 1/4），地图随水平位移平移并旋转，
+//     始终保持"航迹朝上"，所以顶部弧形刻度中央恒为当前航迹方位；
+//   · 底图只有全国主要民用机场（大型机场，IATA 三字码）；显示范围 200 km
+//     （机位到上边缘的距离，约 1.2 px/km）；
+//   · 飞过的航迹用品红折线绘制，起飞后按 0.35 km 间隔采样，复位时清空。
+// 机场坐标与代码取自 OurAirports 开放数据集（iso_country ∈ CN/HK/MO/TW，
+// type = large_airport 且有定期航班与 IATA 码）。
+// ============================================================
+const ND_SIZE = 320;                 // 逻辑边长（CSS px）
+const ND_DPR = 2;                    // 背板放大倍数：文字更清晰
+const ND_RANGES_KM = [10, 50, 100, 200, 500, 1000];   // 可选显示范围（机位到上边缘的距离）
+let ndRangeKm = 200;                 // 当前显示范围
+const ND_AC_UP = 0.75;               // 飞机竖直位置（距顶部 3/4，即距底边 1/4）
+const ND_ARC_R = 175;                // 顶部弧形刻度半径
+const ND_ARC_HALF = 60;              // 弧形刻度左右各覆盖的角度
+const ND_TRACK_STEP_KM = 0.35;       // 航迹采样间隔
+const ND_TRACK_MAX = 4000;           // 航迹点上限
+const ND_KM_PER_DEG = 111.32;        // 纬度 1° 约 111.32 km
+
+const ND_AIRPORTS = [
+    ['KHH',22.5771,120.3500],['RMQ',24.2647,120.6210],['TNN',22.9504,120.2060],['MZG',23.5687,119.6280],['TSA',25.0672,121.5528],
+    ['TPE',25.0777,121.2330],['HUN',24.0232,121.6180],['HKG',22.3118,113.9149],['MFM',22.1496,113.5920],['PEK',40.0773,116.5967],
+    ['PKX',39.5013,116.4140],['DSN',39.4935,109.8599],['DAT',40.0614,113.4805],['HET',40.8497,111.8246],['HLD',49.2086,119.8223],
+    ['BAV',40.5600,109.9970],['SJW',38.2807,114.6970],['TSN',39.1244,117.3460],['YCU',35.1178,111.0340],['TYN',37.7469,112.6280],
+    ['DYG',29.1047,110.4428],['CAN',23.3924,113.2990],['CSX',28.1892,113.2200],['KWL',25.2198,110.0396],['NNG',22.5981,108.1819],
+    ['SWA',23.5520,116.5033],['ZUH',22.0064,113.3760],['SZX',22.6395,113.8033],['ZHA',21.4817,110.5903],['CGO',34.5265,113.8492],
+    ['EHU',30.3412,115.0393],['WUH',30.7748,114.2137],['LYA',34.7411,112.3880],['HAK',19.9349,110.4590],['SYX',18.3029,109.4120],
+    ['DNH',40.1620,94.8128],['INC',38.3228,106.3932],['JGN',39.8591,98.3393],['LHW',36.5152,103.6200],['XNN',36.5277,102.0402],
+    ['XIY',34.4422,108.7624],['JHG',21.9746,100.7622],['LJG',26.6775,100.2449],['KMG',25.1103,102.9367],['XMN',24.5439,118.1275],
+    ['KHN',28.8648,115.9027],['FOC',25.9293,119.6725],['HGH',30.2361,120.4289],['TNA',36.8572,117.2160],['LYG',34.4141,119.1790],
+    ['NGB',29.8267,121.4620],['NKG',31.7350,118.8659],['HFE',31.9878,116.9769],['PVG',31.1434,121.8050],['TAO',36.3620,120.0882],
+    ['JJN',24.7959,118.5886],['HIA',33.7927,119.1267],['SHA',31.1981,121.3343],['TXN',29.7333,118.2560],['WUX',31.4970,120.4304],
+    ['WNZ',27.9106,120.8535],['YNZ',33.4283,120.2054],['YNT',37.6597,120.9781],['YIW',29.3421,120.0312],['HSN',29.9339,122.3623],
+    ['CKG',29.7123,106.6519],['KWE',26.5418,106.8040],['LXA',29.2980,90.9120],['RKZ',29.3509,89.2992],['TFU',30.3125,104.4413],
+    ['CTU',30.5583,103.9460],['KHG',39.5423,76.0202],['URC',43.9136,87.4794],['CGQ',43.9962,125.6850],['HRB',45.6234,126.2500],
+    ['NDG',47.2300,123.9142],['DLC',38.9657,121.5385],['SHE',41.6398,123.4837]
+];
+
+const ndTrack = [];                  // 已飞航迹：[lat, lon] 序列（世界坐标，随飞机移动重投影）
+let ndLastPt = null;                 // 上一个采样点
+
+// 显示范围切换按钮：建一次，点击即改量程并立刻重画（暂停时也能看到效果）
+function nd_init_range_buttons() {
+    const row = document.getElementById('nd_range_row');
+    if (!row) return;
+    row.innerHTML = '';
+    for (const km of ND_RANGES_KM) {
+        const b = document.createElement('button');
+        b.className = 'nd_range_btn' + (km === ndRangeKm ? ' active' : '');
+        b.textContent = String(km);
+        b.setAttribute('data-range', String(km));
+        b.setAttribute('aria-label', '显示范围 ' + km + ' 公里');
+        b.addEventListener('click', function() {
+            ndRangeKm = km;
+            row.querySelectorAll('.nd_range_btn').forEach(function(el) {
+                el.classList.toggle('active', Number(el.getAttribute('data-range')) === km);
+            });
+            nd_draw();
+        });
+        row.appendChild(b);
+    }
+}
+
+// 清空航迹（复位时调用）
+function nd_reset_track() {
+    ndTrack.length = 0;
+    ndLastPt = null;
+}
+
+// 画一帧。只在飞行模拟运行时调用（暂停时保留最后一帧），初始化时也画一次。
+function nd_draw() {
+    const cv = document.getElementById('ndCanvas');
+    if (!cv) return;
+    const g = cv.getContext('2d');
+    if (!g) return;
+
+    const ACX = ND_SIZE / 2;
+    const ACY = ND_SIZE * ND_AC_UP;
+    const pxPerKm = ACY / ndRangeKm;
+    const lat0 = latitude, lon0 = longitude;
+    const cosLat = Math.cos(lat0 * Math.PI / 180);
+    const trackDeg = flight.ready ? (flight_wrap_2pi(flight.chi) * FLIGHT.RAD) : 0.0;
+    const headDeg = flight.ready ? (flight_wrap_2pi(flight.psi) * FLIGHT.RAD) : 0.0;
+    const toRad = (d) => d * Math.PI / 180;
+
+    // 经纬度 → 屏幕：先算相对机位的东/北位移（km），再按"航迹朝上"旋转
+    const project = (lat, lon) => {
+        const dn = (lat - lat0) * ND_KM_PER_DEG;
+        const de = (lon - lon0) * ND_KM_PER_DEG * cosLat;
+        const dist = Math.hypot(de, dn);
+        const rel = toRad(Math.atan2(de, dn) * 180 / Math.PI - trackDeg);
+        return [ACX + dist * pxPerKm * Math.sin(rel), ACY - dist * pxPerKm * Math.cos(rel)];
+    };
+
+    // ---- 航迹采样：每移动 0.35 km 记一个点（停住时自然不记）----
+    if (flight.ready) {
+        const moved = !ndLastPt ||
+            Math.hypot((latitude - ndLastPt[0]) * ND_KM_PER_DEG,
+                       (longitude - ndLastPt[1]) * ND_KM_PER_DEG * cosLat) > ND_TRACK_STEP_KM;
+        if (moved) {
+            ndLastPt = [latitude, longitude];
+            ndTrack.push(ndLastPt);
+            if (ndTrack.length > ND_TRACK_MAX) ndTrack.shift();
+        }
+    }
+
+    // ---- 底图 ----
+    g.setTransform(ND_DPR, 0, 0, ND_DPR, 0, 0);
+    g.fillStyle = '#050708';
+    g.fillRect(0, 0, ND_SIZE, ND_SIZE);
+
+    // 距离环与方位辐射线
+    g.strokeStyle = '#16242d';
+    g.lineWidth = 1;
+    for (let i = 1; i <= 4; i++) {          // 距离环按量程四等分，量程变小环也变小
+        g.beginPath();
+        g.arc(ACX, ACY, (ndRangeKm * i / 4) * pxPerKm, 0, Math.PI * 2);
+        g.stroke();
+    }
+    g.strokeStyle = '#101b22';
+    for (let i = 0; i < 12; i++) {
+        const a = toRad(i * 30);
+        g.beginPath();
+        g.moveTo(ACX + 24 * Math.sin(a), ACY - 24 * Math.cos(a));
+        g.lineTo(ACX + 240 * Math.sin(a), ACY - 240 * Math.cos(a));
+        g.stroke();
+    }
+
+    // 机场：小圆点 + 三字码
+    g.font = '9px monospace';
+    g.textAlign = 'left';
+    g.textBaseline = 'middle';
+    for (const ap of ND_AIRPORTS) {
+        const pt = project(ap[1], ap[2]);
+        // 圆点落在画面内才画；三字码要占右侧约 22px，贴边的整体跳过，免得出现半截文字
+        if (pt[0] < 2 || pt[0] > ND_SIZE - 30 || pt[1] < 6 || pt[1] > ND_SIZE - 22) continue;
+        g.fillStyle = '#3f7a92';
+        g.beginPath();
+        g.arc(pt[0], pt[1], 1.8, 0, Math.PI * 2);
+        g.fill();
+        g.fillStyle = '#8fb8cc';
+        g.fillText(ap[0], pt[0] + 4, pt[1] - 4.5);
+    }
+
+    // 已飞航迹（品红）
+    if (ndTrack.length > 1) {
+        g.strokeStyle = '#ff33cc';
+        g.lineWidth = 2.2;
+        g.lineJoin = 'round';
+        g.lineCap = 'round';
+        g.beginPath();
+        for (let i = 0; i < ndTrack.length; i++) {
+            const pt = project(ndTrack[i][0], ndTrack[i][1]);
+            if (i === 0) g.moveTo(pt[0], pt[1]); else g.lineTo(pt[0], pt[1]);
+        }
+        g.stroke();
+    }
+
+    // 飞机符号：实心机型剪影，机头按"航向 − 航迹"偏转，能直接看出偏流角
+    g.save();
+    g.translate(ACX, ACY);
+    g.rotate(toRad(headDeg - trackDeg));
+    g.fillStyle = '#e8f4ff';
+    g.beginPath();
+    g.moveTo(0, -11);              // 机头
+    g.lineTo(2.4, -3.5);
+    g.lineTo(11, 1.6);             // 右翼前缘
+    g.lineTo(11, 3.4);             // 右翼后缘
+    g.lineTo(2.4, 2.4);
+    g.lineTo(2.4, 7);              // 尾段
+    g.lineTo(5, 9);                // 右平尾
+    g.lineTo(5, 10.4);
+    g.lineTo(0, 9.4);
+    g.lineTo(-5, 10.4);
+    g.lineTo(-5, 9);
+    g.lineTo(-2.4, 7);
+    g.lineTo(-2.4, 2.4);
+    g.lineTo(-11, 3.4);
+    g.lineTo(-11, 1.6);
+    g.lineTo(-2.4, -3.5);
+    g.closePath();
+    g.fill();
+    g.restore();
+
+    // ---- 顶部弧形罗盘刻度（航迹朝上：正上方 = 当前航迹方位）----
+    g.strokeStyle = '#51707f';
+    g.lineWidth = 1.2;
+    g.beginPath();
+    g.arc(ACX, ACY, ND_ARC_R, toRad(-90 - ND_ARC_HALF), toRad(-90 + ND_ARC_HALF));
+    g.stroke();
+
+    g.textAlign = 'center';
+    g.textBaseline = 'middle';
+    for (let d = -ND_ARC_HALF; d <= ND_ARC_HALF; d += 10) {
+        const a = toRad(-90 + d);
+        const ca = Math.cos(a), sa = Math.sin(a);
+        const major = (d % 30 === 0);
+        const len = major ? 9 : 4;
+        g.strokeStyle = major ? '#8fb8cc' : '#3f5461';
+        g.lineWidth = major ? 1.2 : 1;
+        g.beginPath();
+        g.moveTo(ACX + ca * ND_ARC_R, ACY + sa * ND_ARC_R);
+        g.lineTo(ACX + ca * (ND_ARC_R - len), ACY + sa * (ND_ARC_R - len));
+        g.stroke();
+        if (major) {
+            const brg = (trackDeg + d + 360) % 360;
+            g.fillStyle = '#9fd0e4';
+            g.font = '9px monospace';
+            g.fillText(String(Math.round(brg) % 360).padStart(3, '0'),
+                ACX + ca * (ND_ARC_R - 17), ACY + sa * (ND_ARC_R - 17));
+        }
+    }
+
+    // 正上方（当前航迹）的品红指针
+    g.fillStyle = '#ff33cc';
+    g.beginPath();
+    g.moveTo(ACX - 4.5, ACY - ND_ARC_R - 14);
+    g.lineTo(ACX + 4.5, ACY - ND_ARC_R - 14);
+    g.lineTo(ACX, ACY - ND_ARC_R - 4);
+    g.closePath();
+    g.fill();
+
+    // 北向指示：左上角小罗盘（地图是航迹朝上的，北向随航迹转；画在圆心处会随方位
+    // 转出画面，所以固定成一个角落部件，箭头永远指得到）
+    {
+        const wx = 28, wy = 28, wr = 12;
+        const a = toRad(-90 - trackDeg);
+        g.fillStyle = 'rgba(5,7,8,0.78)';
+        g.beginPath();
+        g.arc(wx, wy, wr + 2, 0, Math.PI * 2);
+        g.fill();
+        g.strokeStyle = '#2b3d47';
+        g.lineWidth = 1;
+        g.beginPath();
+        g.arc(wx, wy, wr, 0, Math.PI * 2);
+        g.stroke();
+        g.strokeStyle = '#7fa6b8';
+        g.lineWidth = 1.3;
+        g.beginPath();
+        g.moveTo(wx - Math.cos(a) * (wr - 3), wy - Math.sin(a) * (wr - 3));
+        g.lineTo(wx + Math.cos(a) * (wr - 3), wy + Math.sin(a) * (wr - 3));
+        g.stroke();
+        g.fillStyle = '#9fd0e4';
+        g.font = '8px monospace';
+        g.textAlign = 'center';
+        g.textBaseline = 'middle';
+        g.fillText('N', wx + Math.cos(a) * (wr + 6), wy + Math.sin(a) * (wr + 6));
+    }
+
+    // 角落读数：航迹与地速（显示范围由底部按钮直接标出）
+    {
+        const txt = 'TRK ' + String(Math.round(trackDeg) % 360).padStart(3, '0') + '  GS ' +
+            Math.round((flight.ready ? flight.V : 0) * KNOT_PER_MS) + 'kt';
+        g.font = '9px monospace';
+        const tw = g.measureText(txt).width;
+        g.fillStyle = 'rgba(5,7,8,0.78)';
+        g.fillRect(ND_SIZE - 10 - tw, 4, tw + 8, 14);
+        g.textAlign = 'right';
+        g.textBaseline = 'middle';
+        g.fillStyle = '#8fb8cc';
+        g.fillText(txt, ND_SIZE - 12, 11);
+    }
+}
+
+
 // 以当前视角/位置为起点重新开始一次飞行
 function flight_reset() {
     const isOcean = LANDSCAPES[landscape_index][2] === 2;
@@ -13056,6 +13374,7 @@ function flight_reset() {
     flight.theta = 0.0;
     flight.phi = 0.0;
     flight.headingRate = 0.0;
+    nd_reset_track();          // 导航显示器的航迹重新开始
 
     flight.throttle = 0.0;
     flight.stickX = 0.0;
@@ -13807,6 +14126,8 @@ function refresh_button_status() {
 load_landscape_texture(landscape_index);
 radar_cloud_start_loading();
 instrument_init();
+nd_init_range_buttons();
+nd_draw();
 
 
 function clamp_view_angle() {
@@ -14815,6 +15136,9 @@ function init() {
 
         // 飞行仪表指针（未开始飞行时归零，暂停时保持最后读数）
         flight_update_instruments();
+
+        // 导航显示器：飞行中逐帧重绘（暂停时保留最后一帧）
+        if (flight.active) nd_draw();
 
         // 每帧重绘
         frame_buffer32.fill(FRAME_CLEAR32);
