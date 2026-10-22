@@ -877,7 +877,8 @@ a {
                     <li>二次散射（Nishita）计算量较大，速度较慢。</li>
                     <li>「二次散射改」在大气散射模型 3 的物理内核基础上改用透射率 LUT + 多重散射 LUT + 解析地影 + 地面回弹（Bruneton/Hillaire 工程优化），并去掉 global_gain / 夜天光经验补丁、改用 ACES 色调映射；暮光/地影更真实，且速度远快于二次散射（LUT 首次构建约数十毫秒，之后逐帧只查表）。</li>
                     <li>体积云渲染非常慢，请按需启用。</li>
-                    <li>「体积云」按钮启用三层体积云层（算法解耦自「体积云天空」模型，支持 JS 与 GLSL 双实现，可在任意大气散射模型上叠加；模型 5 默认内建启用，关闭后模型 5 退化为纯 Bruneton 天空）。GPU 路径需要 WebGL2，首次启用需生成噪声纹理（约 1 秒），无 WebGL2 时自动回退到较慢的 JS 渲染。</li>
+                    <li>「体积云」按钮启用三层体积云层（算法解耦自「体积云天空」模型，支持 JS 与 GLSL 双实现，可在任意大气散射模型上叠加；模型 5 的天空也统一走这条解耦云通道，只渲染纯天空，云层在地景之后合成，因此从云上向下俯视时云能正确遮挡地面/海面）。GPU 路径需要 WebGL2，首次启用需生成噪声纹理（约 1 秒），无 WebGL2 时自动回退到较慢的 JS 渲染。</li>
+                    <li>体积云的观察者位置随飞机在三维云场中移动：爬升会真正进入云层（视野被云包围、逐步白化），穿云到云顶之上可向下俯视云海；水平飞行时云场固定在世界坐标中，云与飞机的相对位置一一对应。观察高度严格取飞机海拔（按球面半径反算，水平飞远不会凭空升高），云层高度为 3–11 km；模型 5 的天空按纯天空渲染，云层统一在地景之后合成。</li>
                     <li>启用体积云后，可用其下的"云量/云类/云亮度"按钮调节云的档位（6档）、显示种类（按层掩码 0-7 共 8 种组合：无云/仅低层/仅中层/低+中/仅高层/低+高/中+高/所有云）与亮度（0.5~2.0）。</li>
                     <li>"雷达云图"开启后（默认开启），体积云天空的初始云模式取自中央气象台组合反射率图（radar.png 减 radar_background.png 底图、形态学去地图元素、色标反演 dBZ），雷达 256km 范围与地平圈直接对齐；dBZ 经三通道调制云场：覆盖率决定有无疏密（封顶 35/45/55dBZ）、云顶高度决定类别（弱回波压扁为层云、强回波发展为全塔积雨云）、密度系数决定厚薄；中高度云另以双频噪声调制破碎边缘、消除周期感，并对回波轮廓做域扭曲（~2.5km 特征）与高频 dBZ 抖动，使大片云的平直硬边变成曲折破碎的自然边缘；处理全部在页面内完成，图片缺失或处理失败时自动回退程序化云图。</li>
                     <li>「海洋天空」（模型 6）与「实时海洋」地景移植自开源项目 web-ocean（MIT）：Hillaire 式 LUT 大气（透射率/多重散射/天空视图三张 LUT，JS 与 GLSL 共享同一份数据）、JONSWAP 风浪谱+窄涌浪的解析波列级数（方差守恒，烘焙为可平铺波场纹理并按群速度平流）、各向异性高斯太阳耀光（Smith 掩蔽）、天空环境反射、水体上涌与波峰透射辉光、雅可比白帽、大气透视与 AgX 色调映射。观察者默认位于海平面以上 50 米（1.5 米~1 公里对数刻度可调）；无 WebGL2 时自动回退到较慢的 JS 逐像素渲染。</li>
@@ -4221,8 +4222,22 @@ const cloudSkyScene = {
     cloudSkyScene.cloudDirection = [d[0] / dl, d[1] / dl, d[2] / dl];
 }
 
-// 观测点：地面上方 2km（云世界系）
+// 观测点（云世界系，km，y 轴向上）。初始位于地面上方 2 km（与 ui_cloud.c 一致）；
+// 进入飞行后由飞行模拟逐帧改为飞机所在位置，观察者便在三维云场中真正移动：
+//   x/z = 飞机相对参考点的东/北位移（波场与云场都锚定在世界坐标上，移动即穿云）；
+//   y 由球面半径 R+alt 反算而不是直接取 R+alt——否则水平飞远后相机会被"抬"离云层，
+//   100 km 就会凭空升高约 0.8 km。反算保证观察高度严格等于飞机海拔。
 const CLOUD_SKY_CAM_POS = [0.0, CLOUD_SKY_BOTTOM_RADIUS + 2.0, 0.0];
+
+function cloud_sky_set_camera(east_m, north_m, alt_m) {
+    const r = CLOUD_SKY_BOTTOM_RADIUS + Math.max(0.0, alt_m) / 1000.0;
+    const x = east_m / 1000.0;
+    const z = north_m / 1000.0;
+    const y2 = r * r - x * x - z * z;
+    CLOUD_SKY_CAM_POS[0] = x;
+    CLOUD_SKY_CAM_POS[1] = (y2 > 1.0) ? Math.sqrt(y2) : 1.0;
+    CLOUD_SKY_CAM_POS[2] = z;
+}
 
 // 亮度（观感）→ 介质光学参数联动（ui_cloud.c cloud_apply_brightness 直译）
 function cloud_sky_apply_brightness(b) {
@@ -4268,6 +4283,10 @@ function cloud_sky_apply_layer_kind(idx) {
     return idx;
 }
 
+// 渲染帧序号：cloud_sky_prepare_frame 在同一帧内可能被调用两次（模型 5 天空 + 解耦云），
+// 用它去重，保证每帧只推进一次云动画时间。
+let render_frame_seq = 0;
+
 // 每帧状态
 const cloudSkyState = {
     noiseReady: false,          // 噪声图是否已生成
@@ -4280,6 +4299,7 @@ const cloudSkyState = {
     appTime: 0.0,               // 风场动画时间（秒）
     frameIndex: 0,
     lastNow: 0.0,
+    prepareSeq: -1,             // 完成预处理的帧序号（同一帧内重复调用去重）
     layerMask: 7,               // 云层显示掩码（bit0 低层 / bit1 中层 / bit2 高层）
     layerIdx: 7,                // 云层种类序号 = 层掩码（0-7，bit0 低层 / bit1 中层 / bit2 高层）
     coverageLevel: CLOUD_SKY_COVERAGE_DEFAULT_LEVEL, // 云量档位（0..5）
@@ -5999,6 +6019,10 @@ function cloud_sky_prepare_frame(
 
     // 时间推进（秒；限制单帧步长防止后台切换后风场跳变）
     const now = (typeof performance !== 'undefined') ? performance.now() : Date.now();
+    // 同一帧内可能被调用两次（模型 5 的天空 + 地景之后的解耦云）：只预处理一次，
+    // 否则 appTime 一帧走两步、云动画与抖动哈希都会翻倍
+    if (state.prepareSeq === render_frame_seq) return;
+    state.prepareSeq = render_frame_seq;
     if (state.lastNow > 0.0) {
         let dt = (now - state.lastNow) / 1000.0;
         if (dt < 0.0) dt = 0.0;
@@ -6562,7 +6586,8 @@ const CloudSkyWebGL = {
             u_march_steps: gl.getUniformLocation(this.program, 'u_march_steps'),
             u_sky_source: gl.getUniformLocation(this.program, 'u_sky_source'),
             u_light_steps: gl.getUniformLocation(this.program, 'u_light_steps'),
-            u_radar_enable: gl.getUniformLocation(this.program, 'u_radar_enable')
+            u_radar_enable: gl.getUniformLocation(this.program, 'u_radar_enable'),
+            u_cam_pos: gl.getUniformLocation(this.program, 'u_cam_pos')
         };
 
         console.log('WebGL2 cloud sky initialized');
@@ -6728,6 +6753,9 @@ const CloudSkyWebGL = {
         gl.uniform1f(this.uniforms.u_sun_azi, params.sun_azi);
         gl.uniform1i(this.uniforms.u_enable_fisheye_projection, enable_fisheye_projection ? 1 : 0);
         gl.uniform1f(this.uniforms.u_app_time, cloudSkyState.appTime);
+        // 观察点（云世界系 km）：随飞行在三维云场中移动
+        gl.uniform3f(this.uniforms.u_cam_pos,
+            CLOUD_SKY_CAM_POS[0], CLOUD_SKY_CAM_POS[1], CLOUD_SKY_CAM_POS[2]);
         gl.uniform1f(this.uniforms.u_coverage, cloudSkyScene.cloudCoverage);
         gl.uniform1i(this.uniforms.u_layer_mask, cloudSkyState.layerMask);
         gl.uniform1i(this.uniforms.u_frame_index, cloudSkyState.frameIndex % 9973);
@@ -6896,6 +6924,7 @@ const CloudSkyWebGL = {
         uniform float u_ambient_scale;
         uniform int u_march_steps;
         uniform int u_light_steps;
+        uniform vec3 u_cam_pos;      // 观察点（云世界系 km，y 轴向上；随飞机移动）
 
         // 噪声与 LUT 纹理（CPU 预计算，与 scatter_model_5 共享同一份数据）
         uniform highp sampler3D u_basic_noise;   // 64^3 Perlin-Worley
@@ -6914,7 +6943,7 @@ const CloudSkyWebGL = {
         const float kEarthTopRadius = 6420.0;
         const float kAtmospherePlanetRadiusOffset = 21.0 * 0.001;
         const float SATURATION_BOOST = 1.25;
-        const vec3 kCamPos = vec3(0.0, 6362.0, 0.0); // 地面上方 2km
+        // 观察点由 u_cam_pos 逐帧传入（初始地面上方 2 km，飞行时随飞机移动）
 
         // 云参数（与 cloudSkyScene 一致）
         const vec3 kCloudDirection = vec3(0.894427, 0.0, 0.447214); // normalize(0.8,0,0.4)
@@ -7842,7 +7871,7 @@ const CloudSkyWebGL = {
                     sin(sun_alt_rad2),
                     cos(sun_alt_rad2) * cos(sun_azi_rad2)
                 );
-                vec4 cloud = cloudPixelCompute(kCamPos, ray_dir, sun_dir2, u_app_time, jitter);
+                vec4 cloud = cloudPixelCompute(u_cam_pos, ray_dir, sun_dir2, u_app_time, jitter);
                 vec3 hdr = cloud.rgb;
                 if (u_sun_visible == 1) {
                     float uu = v_texCoord.x * 2.0 - 1.0;
@@ -7868,12 +7897,12 @@ const CloudSkyWebGL = {
 
             // 天空（Bruneton 单次散射 + 多重散射 LUT + 地面回弹）
             SingleScatteringResult sky = integrateScatteredLuminance(
-                kCamPos, ray_dir, sun_dir, true, true, 0.0, true, 9e6, 14.0);
+                u_cam_pos, ray_dir, sun_dir, true, true, 0.0, true, 9e6, 14.0);
 
             // 体积云（球壳 ray-march）；u_sky_source==1 时纯天空，跳过 ray-march
             vec4 cloud = vec4(0.0, 0.0, 0.0, 1.0);
             if (u_sky_source == 0) {
-                cloud = cloudPixelCompute(kCamPos, ray_dir, sun_dir, u_app_time, jitter);
+                cloud = cloudPixelCompute(u_cam_pos, ray_dir, sun_dir, u_app_time, jitter);
             }
 
             // 合成：天空透过后方云层 + 云本身散射
@@ -11059,7 +11088,8 @@ function calculate_scattered_pixel(ray_vec, sun_vec, model_index) {
     }
     else if (model_index === 5) {
         // 体积云天空（需先调用 cloud_sky_prepare_frame 完成帧预处理）
-        return scatter_model_5(ray_vec, sun_vec, false);
+        // 云层统一由解耦通道在地景之后绘制（与 GLSL 路径一致）
+        return scatter_model_5(ray_vec, sun_vec, true);
     }
     else if (model_index === 6) {
         // 海洋天空（web-ocean 移植；需先调用 wo_prepare_frame 完成 LUT 预处理）
@@ -11175,6 +11205,7 @@ function render_all(
 
         // ---- 天空降帧缓存：仅在输入未变时命中 ----
         // 键包含：画布尺寸/视线/鱼眼开关/散射模型/云参数/太阳位置（量化 0.003°）；
+        // 体积云观察点（1 m 量化）也在键内——飞行时观察者在云场中移动，云与天空必须逐帧更新；
         // 不含月亮与恒星（它们是缓存的天空之上一层 2D 叠加，每次重绘）
         const skyKey = [
             fb_width, fb_height, sky_radius.toFixed(2), center_x.toFixed(1), center_y.toFixed(1),
@@ -11184,6 +11215,7 @@ function render_all(
             enable_opt_bilinear ? 1 : 0,
             enable_cloud_halfres ? 1 : 0,
             enable_volumetric_cloud ? 1 : 0,
+            CLOUD_SKY_CAM_POS[0].toFixed(3), CLOUD_SKY_CAM_POS[1].toFixed(3), CLOUD_SKY_CAM_POS[2].toFixed(3),
             sun_alt.toFixed(3), sun_azi.toFixed(3),
             cloudSkyState.coverageLevel, cloudSkyState.layerIdx,
             cloudSkyScene.brightness, enable_cloud_sun_lens ? 1 : 0,
@@ -11250,7 +11282,8 @@ function render_all(
                     sun_azi: sun_azi,
                     downsample: C,
                     // 天空源：云开→内建天空+云一体；云关→纯 Bruneton 天空（跳过 ray-march）
-                    sky_source: (enable_volumetric_cloud) ? 0 : 1
+                    // 云层统一由解耦通道在地景之后绘制（模型 5 只出天空，避免云被地景覆盖）
+                    sky_source: 1
                 });
             }
             // gl_pixels 为空（无 WebGL2 / 初始化失败）时走下方 CPU 回退
@@ -11594,16 +11627,10 @@ function render_all(
 
 
     // 渲染解耦体积云（原散射模型 5 的体积云算法，已解耦为独立云层）：
-    // 叠加在任意散射模型（0-4）的天空与天体之上（云层正确遮挡月亮/太阳/恒星/行星）；
-    // 模型 5 的体积云仍内建于其着色流程，由同一"体积云"开关控制
-    if (enable_volumetric_cloud && enable_atmospheric_scattering !== 5) {
-        render_decoupled_volumetric_clouds(
-            frame_buffer, fb_width, fb_height,
-            sky_radius, center_x, center_y,
-            view_alt, view_azi, view_roll, f,
-            sun_alt, sun_azi
-        );
-    }
+    // 叠加在任意散射模型（0-6）的天空与天体之上（云层正确遮挡月亮/太阳/恒星/行星）；
+    // NOTE 该调用已移到地景绘制之后（见下方），否则云层会被地景圆盘覆盖，
+    //      从云上向下俯视时看不到脚下的云。
+    // 模型 5 的天空改用 sky_only 渲染，云层与其它模型一样由解耦通道绘制。
 
 
     // 绘制赤道坐标网格
@@ -11668,6 +11695,17 @@ function render_all(
     draw_horizon(
         frame_buffer, FB_WIDTH, FB_HEIGHT, sky_radius, center_x, center_y, view_alt, view_azi, view_roll, f, sun_alt,
         (LANDSCAPES[landscape_index][2] === 0), atmo_r, atmo_g, atmo_b);
+    }
+
+    // 解耦体积云在地景之后合成：从云上俯视时云层正确遮挡脚下的地面/海面；
+    // 在观察者位于云下时，云只出现在地平线以上，与地景不重叠，观感不变。
+    if (enable_volumetric_cloud) {
+        render_decoupled_volumetric_clouds(
+            frame_buffer, fb_width, fb_height,
+            sky_radius, center_x, center_y,
+            view_alt, view_azi, view_roll, f,
+            sun_alt, sun_azi
+        );
     }
 
 
@@ -11968,6 +12006,10 @@ function flight_apply_world(nowMs) {
     let lon = flight.lon0 + (flight.x / (FLIGHT.R_EARTH * Math.max(Math.cos(lat0 * FLIGHT.DEG), 1e-4))) * FLIGHT.RAD;
     lon = ((lon + 180.0) % 360.0 + 360.0) % 360.0 - 180.0;
     longitude = lon;
+
+    // 体积云：观察者在三维云场中的位置随飞机移动（任意地景都生效——云属于天空渲染）。
+    // 云场按世界坐标采样，所以水平移动会让云层产生真实的相对运动，爬升则进入/穿出云层。
+    cloud_sky_set_camera(flight.x, flight.z, flight.alt);
 
     // 实时海洋：相机水平位置与观察高度（天空散射渲染不受飞机高度影响）
     if (LANDSCAPES[landscape_index][2] === 2) {
@@ -13952,6 +13994,8 @@ function init() {
     let fps = 0;
 
     function draw() {
+        render_frame_seq++;   // 同一渲染帧内的重复云预处理去重（见 cloud_sky_prepare_frame）
+
         // 平滑滤波：将view变量向目标值过渡
         if (enable_gyro) {
             view_alt = lerp(view_alt, target_view_alt, GYRO_SMOOTH_ALPHA);
