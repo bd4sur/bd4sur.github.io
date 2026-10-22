@@ -914,6 +914,7 @@ a {
                     <li>「天体名称」默认为全部。页面初始化时会先算一次太阳高度：低于 −18°（天文晨昏蒙影已结束）就自动打开「赤道坐标」网格并显示地平方位角（只出方位文字，地平网格仍关闭）；天还亮着则这两项保持关闭。切到「飞行控制」选项卡时会自动打开「姿态指示」并改为「透视投影」。这些自动设置之后都能手动改回。</li>
                     <li>「飞行控制」选项卡模拟一架小型固定翼飞机（初教五、动力三角翼一类）的第一人称座舱视角：左侧竖向滑轨是油门（向上加大推力），右侧圆形摇杆的横向控制滚转、纵向控制俯仰（向下拉杆抬头、向上推杆低头），下方两个按钮控制左右方向舵。滚转产生坡度后会进入协调转弯（水平向心运动），方向舵会造成侧滑。PC 上也可用键盘：W/S 推拉杆、A/D 左右坡度、Q/E 左右偏航、R/F 增减油门；点「复位」以当前位置和航向重新开始一次飞行。飞行只在「飞行控制」页生效，切回「视角控制」即暂停模拟并保留飞机状态。</li>
                     <li>主画布下方、时间控制按钮上方是四只指针式飞行仪表：空速表（内圈 m/s / 外圈 kt）、高度表（内圈 m / 外圈 ft；短粗针读 0–12000 m 全量程、对应当前刻度数字，细长针每转一圈 1000 m 用于读出低空的精确高度）、转弯协调表（°/s，绿色刻度为标准转弯率 3°/s）、垂直速率表（内圈 m/s / 外圈 ft/min）。数字沿表盘切向排布，两种单位用颜色区分。指针随飞行状态实时转动；尚未开始飞行时指针归零，切回「视角控制」后停在最后一次读数。</li>
+                    <li>飞行页的主画面上，中央的黄色短线是机头基准（航迹指示），绿色圆圈带左右短翼的符号是飞行航迹矢量（FPV）：它指向飞机速度的实际方向——平飞时压在机头基准上，拉杆爬升时落在基准下方（两者的夹角就是迎角），侧滑时左右偏开（偏角即侧滑角）。速度低于 2 m/s 停住时或该方向转出画面时不显示；切回「视角控制」后消失。</li>
                     <li>触地后按起落架接地处理：姿态立即放平为地面姿态（机翼水平、机头放平、无侧滑），随后进入滑跑。滑跑时油门对抗气动阻力、滚动阻力与刹车阻力——收油门（或按 F）会带刹车在约十秒内逐渐滑停，速度可降到 0；加到约 22 m/s 抬轮速度后再拉杆即可重新离地，低于该速度拉杆无效（机头被前轮/尾轮撑住）。</li>
                     <li>姿态与航迹角均不限位：滚转、筋斗、过顶、倒飞都可以做。俯仰/滚转控制的是迎角与坡度，载荷因数按小型机限制在 −3g～+4g；HUD 里的"高度/升降"仍是世界竖直方向。倒飞时要把杆推下去（机头低于地平线）才能保持高度，过顶时地平线会在画面上方，视角随姿态自动翻转，不会出现欧拉角锁死。</li>
                     <li>飞行时飞机的姿态决定相机视角；地面投影点的经纬度只用于驱动天象（太阳/月亮/行星/恒星方位），海拔高度只用于驱动「实时海洋」的观察高度。地景为「实时海洋」时，相机会随飞机在海面上平移——波场、泡沫与太阳耀光固定在世界坐标中，因此能看出真实的相对运动；其他地景不随飞行移动，只改变相机视角。</li>
@@ -12323,6 +12324,13 @@ function render_all(
     }
 
 
+    // 飞行航迹矢量（FPV）：只在飞行控制页画（此时相机由飞机姿态接管）
+    if (flight.active) {
+        draw_flight_path_vector(frame_buffer, fb_width, fb_height,
+            sky_radius, center_x, center_y, view_alt, view_azi, view_roll, f);
+    }
+
+
     // fb_draw_textline(frame_buffer, fb_width, fb_height, "玲珑天象仪 V2603 (c) BD4SUR", 1, 226, 64, 64, 64, 3);
     // let timestr = `${year}-${String(100+month).substr(-2)}-${String(100+day).substr(-2)} ${String(100+hour).substr(-2)}:${String(100+minute).substr(-2)}:${String(100+second).substr(-2)}`;
     // fb_draw_textline(frame_buffer, fb_width, fb_height, timestr, 200, 226, 128, 128, 128, 3);
@@ -12537,6 +12545,34 @@ function flight_sync_view() {
     const rs = ux * xvx + uy * xvy + uz * xvz;
     view_roll = Math.atan2(rs, rc) * FLIGHT.RAD;
 }
+
+// 飞行航迹矢量（FPV）：速度方向 =（航迹方位 χ、航迹倾角 γ），投影到画面上用 HUD 符号标出。
+// 与机头方向（ψ、θ）分别显示——侧滑、大迎角、拉杆爬升时两者会明显分开，这个符号指的就是
+// 飞机"实际在往哪儿飞"。只在飞行控制页生效（flight.active），停住时（V<2 m/s）不画。
+function draw_flight_path_vector(frame_buffer, fb_width, fb_height, R, center_x, center_y,
+                                 view_alt, view_azi, view_roll, f) {
+    if (!flight.ready || flight.V < 2.0) return;
+
+    const track_azi = flight_wrap_2pi(flight.chi) * FLIGHT.RAD;
+    const track_alt = flight.gamma * FLIGHT.RAD;
+    const p = fisheye_project(track_azi, track_alt, R, center_x, center_y, view_alt, view_azi, view_roll, f);
+    const x = Math.round(p[0]);
+    const y = Math.round(p[1]);
+    // 透视投影下目标落在相机后方时 fisheye_project 返回 center+1e6；符号半宽 13px，
+    // 一旦出画面就整体不画（与真实 HUD 上 FPV 移出视场的效果一致）
+    const margin = 14;
+    if (!(x >= margin && x <= fb_width - margin && y >= margin && y <= fb_height - margin)) return;
+
+    const cr = 90, cg = 255, cb = 150;   // HUD 绿，与姿态指示的黄、方位文字的红色区分
+    // 圆圈 + 左右短翼 + 翼端竖线 + 顶部小尾线（经典 FPV 符号）
+    draw_circle_outline(frame_buffer, fb_width, fb_height, x, y, 4, 1.6, cr, cg, cb, 255);
+    draw_line(frame_buffer, fb_width, fb_height, x - 13, y, x - 5, y, 2, cr, cg, cb);
+    draw_line(frame_buffer, fb_width, fb_height, x + 5, y, x + 13, y, 2, cr, cg, cb);
+    draw_line(frame_buffer, fb_width, fb_height, x - 13, y, x - 13, y - 4, 1.4, cr, cg, cb);
+    draw_line(frame_buffer, fb_width, fb_height, x + 13, y, x + 13, y - 4, 1.4, cr, cg, cb);
+    draw_line(frame_buffer, fb_width, fb_height, x, y - 4, x, y - 8, 1.4, cr, cg, cb);
+}
+
 
 // 飞行状态 → 世界：地面投影点经纬度（仅驱动天象）与观察高度（仅驱动实时海洋）
 function flight_apply_world(nowMs) {
