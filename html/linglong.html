@@ -321,6 +321,35 @@ a {
     margin: 3px auto 0 auto;
     line-height: 1.6;
 }
+
+/* ---- 飞行仪表：空速表 / 高度表 / 转弯协调表 / 垂直速率表 ---- */
+/* 四个圆盘横排，整行宽度与主 canvas 一致（width:100% + max-width:400px） */
+.instrument_panel {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 4px;
+    width: 100%;
+    max-width: 400px;
+    margin: 6px auto 0 auto;
+}
+.instrument {
+    flex: 1 1 0;
+    min-width: 0;
+    aspect-ratio: 1 / 1;
+}
+.instrument svg {
+    display: block;
+    width: 100%;
+    height: 100%;
+    overflow: visible;
+}
+.instrument text {
+    font-family: monospace;
+    text-anchor: middle;
+    dominant-baseline: central;
+    pointer-events: none;
+}
 .setting_button, .joystick_button {
     color: #ffffff;
     min-height: 34px;
@@ -635,6 +664,10 @@ a {
             </div>
         </div>
 
+        <!-- 飞行仪表（六大仪表中的四个）：空速/高度/转弯协调/垂直速率，指针式圆盘，
+             整行宽度与主 canvas 一致；刻度与双单位数字由 instrument_init() 生成 -->
+        <div class="instrument_panel" id="instrument_panel"></div>
+
         <div class="setting_buttons_container" id="timemachine_controller">
             <button class="setting_button" id="toggle_timemachine_backward_day">▕◀◀</button>
             <button class="setting_button" id="toggle_timemachine_backward">▕◀</button>
@@ -880,6 +913,7 @@ a {
                     <li>拖动屏幕改变视角。</li>
                     <li>「天体名称」默认为全部。页面初始化时会先算一次太阳高度：低于 −18°（天文晨昏蒙影已结束）就自动打开「赤道坐标」网格并显示地平方位角（只出方位文字，地平网格仍关闭）；天还亮着则这两项保持关闭。切到「飞行控制」选项卡时会自动打开「姿态指示」并改为「透视投影」。这些自动设置之后都能手动改回。</li>
                     <li>「飞行控制」选项卡模拟一架小型固定翼飞机（初教五、动力三角翼一类）的第一人称座舱视角：左侧竖向滑轨是油门（向上加大推力），右侧圆形摇杆的横向控制滚转、纵向控制俯仰（向下拉杆抬头、向上推杆低头），下方两个按钮控制左右方向舵。滚转产生坡度后会进入协调转弯（水平向心运动），方向舵会造成侧滑。PC 上也可用键盘：W/S 推拉杆、A/D 左右坡度、Q/E 左右偏航、R/F 增减油门；点「复位」以当前位置和航向重新开始一次飞行。飞行只在「飞行控制」页生效，切回「视角控制」即暂停模拟并保留飞机状态。</li>
+                    <li>主画布下方、时间控制按钮上方是四只指针式飞行仪表：空速表（内圈 m/s / 外圈 kt）、高度表（内圈 m / 外圈 ft；短粗针读 0–12000 m 全量程、对应当前刻度数字，细长针每转一圈 1000 m 用于读出低空的精确高度）、转弯协调表（°/s，绿色刻度为标准转弯率 3°/s）、垂直速率表（内圈 m/s / 外圈 ft/min）。数字沿表盘切向排布，两种单位用颜色区分。指针随飞行状态实时转动；尚未开始飞行时指针归零，切回「视角控制」后停在最后一次读数。</li>
                     <li>触地后按起落架接地处理：姿态立即放平为地面姿态（机翼水平、机头放平、无侧滑），随后进入滑跑。滑跑时油门对抗气动阻力、滚动阻力与刹车阻力——收油门（或按 F）会带刹车在约十秒内逐渐滑停，速度可降到 0；加到约 22 m/s 抬轮速度后再拉杆即可重新离地，低于该速度拉杆无效（机头被前轮/尾轮撑住）。</li>
                     <li>姿态与航迹角均不限位：滚转、筋斗、过顶、倒飞都可以做。俯仰/滚转控制的是迎角与坡度，载荷因数按小型机限制在 −3g～+4g；HUD 里的"高度/升降"仍是世界竖直方向。倒飞时要把杆推下去（机头低于地平线）才能保持高度，过顶时地平线会在画面上方，视角随姿态自动翻转，不会出现欧拉角锁死。</li>
                     <li>飞行时飞机的姿态决定相机视角；地面投影点的经纬度只用于驱动天象（太阳/月亮/行星/恒星方位），海拔高度只用于驱动「实时海洋」的观察高度。地景为「实时海洋」时，相机会随飞机在海面上平移——波场、泡沫与太阳耀光固定在世界坐标中，因此能看出真实的相对运动；其他地景不随飞行移动，只改变相机视角。</li>
@@ -12432,6 +12466,7 @@ const flight = {
     chi: 0.0, psi: 0.0,
     alpha: 0.0,          // 迎角代理（升降舵直接控制它；俯仰姿态 θ = γ + α）
     theta: 0.0, phi: 0.0, beta: 0.0,
+    headingRate: 0.0,    // 机头方位角速度 rad/s（转弯协调表用；空中含协调转弯 + 方向舵）
     // 操纵
     throttle: 0.0,
     stickX: 0.0, stickY: 0.0,
@@ -12581,7 +12616,8 @@ function flight_integrate_ground(dt, eff) {
 
     // 方向舵在地面相当于前轮转向，低速时转向能力衰减
     const taxi = flight_clamp(flight.V / FLIGHT.TAXI_V, 0.0, 1.0);
-    flight.psi = flight_wrap_2pi(flight.psi + FLIGHT.YAW_RATE * eff * flight.inYaw * taxi * dt);
+    flight.headingRate = FLIGHT.YAW_RATE * eff * flight.inYaw * taxi;
+    flight.psi = flight_wrap_2pi(flight.psi + flight.headingRate * dt);
     flight.chi = flight.psi;
 
     // 推力 / 气动阻力 / 地面摩擦（滚动阻力恒定，收油门时叠加刹车）
@@ -12678,7 +12714,8 @@ function flight_integrate(dt) {
                                   -FLIGHT.TURN_RATE_MAX, FLIGHT.TURN_RATE_MAX);
     const yawRate = FLIGHT.YAW_RATE * eff * flight.inYaw;
     const betaPrev = flight_wrap_pi(flight.psi - flight.chi);
-    flight.psi += (turnRate + yawRate) * dt;
+    flight.headingRate = turnRate + yawRate;   // 转弯协调表的输入
+    flight.psi += flight.headingRate * dt;
     flight.chi += (turnRate + FLIGHT.BETA_K * betaPrev) * dt;
     let beta = flight_wrap_pi(flight.psi - flight.chi);
     if (beta > FLIGHT.BETA_LIMIT) {
@@ -12784,6 +12821,186 @@ function flight_update_readout() {
     if (lonEl) lonEl.textContent = decimal_to_dms(longitude, true);
 }
 
+// ============================================================
+// 飞行仪表：空速表 / 高度表 / 转弯协调表 / 垂直速率表
+// 圆盘指针式，纯 SVG：表盘刻度与两种单位的数字在 instrument_init() 里生成一次，
+// 之后每帧只改指针的 rotate 变换（flight_update_instruments，由 draw() 调用）。
+// 双单位仪表把主单位标在内圈、副单位标在外圈，用颜色区分：
+//   空速 m/s(青) + kt(琥珀)｜高度 m(青) + ft(琥珀)｜垂直速率 m/s(青) + ft/min(琥珀)；
+//   转弯协调表只有 °/s 一种单位，另在 ±3°/s 处标出标准转弯率的绿刻度。
+// 指针行程 240°（自 12 点位向两侧各 120°），单极表最小值落在左下、双极表 0 在正上。
+// ============================================================
+const INST_SWEEP_DEG = 240;            // 指针总行程
+const INST_COLOR_A = '#67d7ff';        // 主单位（内圈）
+const INST_COLOR_B = '#ffb454';        // 副单位（外圈）
+const INST_COLOR_TITLE = '#8ea0ad';
+const KNOT_PER_MS = 1.9438445;         // 1 m/s = 1.9438 kt
+const FT_PER_M = 3.280839895;          // 1 m = 3.2808 ft
+const FPM_PER_MS = 196.8503937;        // 1 m/s = 196.85 ft/min
+
+const INSTRUMENT_DEFS = [
+    {
+        id: 'airspeed', title: '空速',
+        min: 0, max: 120, major: 20, minor: 10,
+        unitA: 'm/s', unitB: 'kt', convB: (v) => v * KNOT_PER_MS
+    },
+    {
+        id: 'altitude', title: '高度',
+        min: 0, max: 12000, major: 2000, minor: 500,
+        unitA: 'm', unitB: 'ft', convB: (v) => v * FT_PER_M,
+        // 12 km 量程下低空几乎看不出变化，另加一根细针：0-1000 m 一圈（同真实高度表的
+        // 长针=百位、短粗针=千位读法），粗针仍走 0-12000 m 全量程、对应当前刻度数字。
+        fine: { period: 1000, color: '#7fd8e8' },
+        needleLen: 20, needleHalfWidth: 2.0
+    },
+    {
+        id: 'turn', title: '转弯协调',
+        min: -30, max: 30, major: 10, minor: 5,
+        unitA: '°/s', unitB: null, convB: null,
+        marks: [-3, 3]                  // 标准转弯率刻度
+    },
+    {
+        id: 'vsi', title: '垂直速率',
+        min: -30, max: 30, major: 10, minor: 2,
+        unitA: 'm/s', unitB: 'ft/min', convB: (v) => v * FPM_PER_MS
+    }
+];
+
+// 数值 → 指针角度（度，0 = 指向正上，顺时针为正）
+function instrument_angle(def, v) {
+    const t = (v - def.min) / (def.max - def.min);
+    return -INST_SWEEP_DEG / 2 + INST_SWEEP_DEG * Math.max(0.0, Math.min(1.0, t));
+}
+
+// 生成一只表盘的 SVG 源码
+function instrument_svg(def) {
+    const C = 50;                      // 圆心
+    const R_FACE = 48;
+    const R_TICK_OUT = 47;
+    const R_MAJOR_IN = 41, R_MINOR_IN = 44;
+    const R_LAB_A = 31, R_LAB_B = 39;
+    const R_NEEDLE = 28.5;
+    const out = [];
+    const pt = (r, angDeg) => {
+        const a = angDeg * Math.PI / 180;
+        return [C + r * Math.sin(a), C - r * Math.cos(a)];
+    };
+
+    out.push(`<svg viewBox="0 0 100 100" role="img" aria-label="${def.title}表">`);
+    out.push(`<circle cx="${C}" cy="${C}" r="${R_FACE}" fill="#0d0f11" stroke="#2a2f35" stroke-width="0.8"/>`);
+
+    // ---- 刻度线 ----
+    const steps = Math.round((def.max - def.min) / def.minor);
+    for (let i = 0; i <= steps; i++) {
+        const v = def.min + i * def.minor;
+        const isMajor = Math.abs((v - def.min) / def.major - Math.round((v - def.min) / def.major)) < 1e-6;
+        const a = instrument_angle(def, v);
+        const p1 = pt(R_TICK_OUT, a);
+        const p2 = pt(isMajor ? R_MAJOR_IN : R_MINOR_IN, a);
+        out.push(`<line x1="${p1[0].toFixed(2)}" y1="${p1[1].toFixed(2)}" x2="${p2[0].toFixed(2)}" y2="${p2[1].toFixed(2)}" stroke="${isMajor ? '#c3ced8' : '#5a656e'}" stroke-width="${isMajor ? 1.1 : 0.6}"/>`);
+    }
+
+    // ---- 标准转弯率刻度（转弯协调表专用）----
+    if (def.marks) {
+        for (const mv of def.marks) {
+            const a = instrument_angle(def, mv);
+            const p1 = pt(R_TICK_OUT, a);
+            const p2 = pt(R_MAJOR_IN - 1.5, a);
+            out.push(`<line x1="${p1[0].toFixed(2)}" y1="${p1[1].toFixed(2)}" x2="${p2[0].toFixed(2)}" y2="${p2[1].toFixed(2)}" stroke="#4fd67a" stroke-width="1.4"/>`);
+        }
+    }
+
+    // ---- 刻度数字：主单位在内圈、副单位在外圈，两种颜色 ----
+    // 数字沿圆周切向旋转（表盘式排布）：水平排布时，3/9 点方向的数字是按半径铺开的，
+    // 内圈与外圈必然互相压字；切向排布后每个数字只占一条窄的径向带，两圈自然分开。
+    // 跨越 ±90° 的数字再单独翻 180°（绕自身锚点，位置不变），避免整圈出现倒字。
+    const label = (r, a, size, color, txt) => {
+        const flip = (a > 90.0 || a < -90.0) ? 180.0 : 0.0;
+        const t = flip ? `rotate(${a.toFixed(2)} 50 50) rotate(180 ${50} ${(50 - r).toFixed(2)})`
+                       : `rotate(${a.toFixed(2)} 50 50)`;
+        return `<text x="50" y="${(50 - r).toFixed(2)}" transform="${t}" font-size="${size}" fill="${color}">${txt}</text>`;
+    };
+    for (let i = 0; i <= steps; i++) {
+        const v = def.min + i * def.minor;
+        if (Math.abs((v - def.min) / def.major - Math.round((v - def.min) / def.major)) >= 1e-6) continue;
+        const a = instrument_angle(def, v);
+        out.push(label(def.unitB ? R_LAB_A : R_LAB_A + 3, a, def.unitB ? 6.0 : 6.2, INST_COLOR_A, String(Math.round(v))));
+        if (def.unitB) {
+            out.push(label(R_LAB_B, a, 5.4, INST_COLOR_B, String(Math.round(def.convB(v)))));
+        }
+    }
+
+    // ---- 表名与单位说明（表盘下部空白处；240° 行程的下方正中是空的）----
+    out.push(`<text x="${C}" y="${69.5}" font-size="6.4" fill="${INST_COLOR_TITLE}">${def.title}</text>`);
+    if (def.unitB) {
+        out.push(`<text x="${C}" y="${78}" font-size="5.6"><tspan fill="${INST_COLOR_A}">${def.unitA}</tspan><tspan fill="#5f6a73"> / </tspan><tspan fill="${INST_COLOR_B}">${def.unitB}</tspan></text>`);
+    } else {
+        out.push(`<text x="${C}" y="${78}" font-size="5.6" fill="${INST_COLOR_A}">${def.unitA}</text>`);
+    }
+
+    // ---- 指针（初始指向最小值；逐帧由 flight_update_instruments 旋转）----
+    const nLen = def.needleLen || R_NEEDLE;
+    const nHalf = def.needleHalfWidth || 1.5;
+    // 细针（短周期，画在最下层）：如高度表每圈 1000 m
+    if (def.fine) {
+        out.push(`<g class="instrument_needle" data-instr="${def.id}_fine" transform="rotate(${(-INST_SWEEP_DEG / 2).toFixed(1)} ${C} ${C})">`);
+        out.push(`<polygon points="${C - 1.0},${C} ${C + 1.0},${C} ${C},${C - R_NEEDLE}" fill="${def.fine.color}"/>`);
+        out.push(`</g>`);
+    }
+    out.push(`<g class="instrument_needle" data-instr="${def.id}" transform="rotate(${instrument_angle(def, def.min).toFixed(1)} ${C} ${C})">`);
+    out.push(`<polygon points="${(C - nHalf).toFixed(2)},${C} ${(C + nHalf).toFixed(2)},${C} ${C},${(C - nLen).toFixed(2)}" fill="#f0f6ff"/>`);
+    out.push(`<polygon points="${(C - nHalf * 0.7).toFixed(2)},${C} ${(C + nHalf * 0.7).toFixed(2)},${C} ${C},${(C + 5.5).toFixed(2)}" fill="#8b98a3"/>`);
+    out.push(`</g>`);
+    out.push(`<circle cx="${C}" cy="${C}" r="3.1" fill="#20262c" stroke="#c3ced8" stroke-width="0.7"/>`);
+    out.push(`</svg>`);
+    return out.join('');
+}
+
+const INSTRUMENT_NEEDLES = {};   // id → 指针 <g>
+
+// 建表：DOM 就绪后调用一次
+function instrument_init() {
+    const box = document.getElementById('instrument_panel');
+    if (!box) return;
+    const parts = [];
+    for (const def of INSTRUMENT_DEFS) {
+        parts.push(`<div class="instrument">${instrument_svg(def)}</div>`);
+    }
+    box.innerHTML = parts.join('');
+    box.querySelectorAll('g.instrument_needle').forEach((g) => {
+        INSTRUMENT_NEEDLES[g.getAttribute('data-instr')] = g;
+    });
+    flight_update_instruments();
+}
+
+// 逐帧刷新指针：数据取自飞行状态；未开始飞行（flight.ready=false）时指针归零。
+// 转弯率用积分器里算出的机头方位角速度（flight.headingRate，rad/s）。
+function flight_update_instruments() {
+    const ready = flight.ready === true;
+    const values = {
+        airspeed: ready ? flight.V : 0.0,
+        altitude: ready ? flight.alt : 0.0,
+        turn: ready ? flight.headingRate * FLIGHT.RAD : 0.0,
+        vsi: ready ? flight.V * Math.sin(flight.gamma) : 0.0
+    };
+    for (const def of INSTRUMENT_DEFS) {
+        const g = INSTRUMENT_NEEDLES[def.id];
+        if (g) {
+            const v = Math.max(def.min, Math.min(def.max, values[def.id] || 0.0));
+            g.setAttribute('transform', 'rotate(' + instrument_angle(def, v).toFixed(1) + ' 50 50)');
+        }
+        // 细针：按自己的周期绕圈（高度表每 1000 m 一圈）
+        const gf = INSTRUMENT_NEEDLES[def.id + '_fine'];
+        if (gf && def.fine) {
+            const raw = Math.max(0.0, values[def.id] || 0.0);
+            const frac = (raw % def.fine.period) / def.fine.period;
+            const a = -INST_SWEEP_DEG / 2 + INST_SWEEP_DEG * frac;
+            gf.setAttribute('transform', 'rotate(' + a.toFixed(1) + ' 50 50)');
+        }
+    }
+}
+
+
 // 以当前视角/位置为起点重新开始一次飞行
 function flight_reset() {
     const isOcean = LANDSCAPES[landscape_index][2] === 2;
@@ -12802,6 +13019,7 @@ function flight_reset() {
     flight.alpha = 0.0;
     flight.theta = 0.0;
     flight.phi = 0.0;
+    flight.headingRate = 0.0;
 
     flight.throttle = 0.0;
     flight.stickX = 0.0;
@@ -13552,6 +13770,7 @@ function refresh_button_status() {
 
 load_landscape_texture(landscape_index);
 radar_cloud_start_loading();
+instrument_init();
 
 
 function clamp_view_angle() {
@@ -14557,6 +14776,9 @@ function init() {
         if (flight.active) {
             flight_step(performance.now());
         }
+
+        // 飞行仪表指针（未开始飞行时归零，暂停时保持最后读数）
+        flight_update_instruments();
 
         // 每帧重绘
         frame_buffer32.fill(FRAME_CLEAR32);
