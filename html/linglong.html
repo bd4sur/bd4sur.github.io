@@ -4155,6 +4155,8 @@ const CLOUD_SKY_SATURATION_BOOST = 1.25; // 补偿逐通道 ACES 的去饱和
 // 关闭原因：解耦通道里这段单独 ACES+gamma 后在显示空间叠加，微弱 HDR 辉光被 gamma
 // 放大成大面积眩光。关闭后仍保留太阳核心盘与离轴色散光斑（镜头光晕）。
 const CLOUD_SKY_SUN_GLOW = 0.0;
+// 空气透视：云散射光到相机的大气消光 e 折距离（km），与 GLSL kCloudAerialFadeKm 一致
+const CLOUD_SKY_AERIAL_FADE_KM = 80.0;
 // 镜头光晕（离轴色散光斑）亮度增益：0.35 约为原来的三分之一观感亮度
 const CLOUD_SKY_LENS_FLARE_GAIN = 0.35;
 // 云量档位（ui_cloud.c CLOUD_COVERAGE_LEVELS：档间云量递进均匀、最高档不进入变暗区）
@@ -5710,6 +5712,9 @@ function cloud_sky_cloudPixelCompute(wpx, wpy, wpz, wdx, wdy, wdz, appTime, jitt
 
     let transmittance = 1.0;
     let sc_r = 0.0, sc_g = 0.0, sc_b = 0.0;
+    // 空气透视用的“散射能量加权平均距离”（km）
+    let aerialLumSum = 0.0;
+    let aerialDistSum = 0.0;
 
     const phase = cloud_sky_dualLobPhase(s.cloudPhaseForward, s.cloudPhaseBackward, s.cloudPhaseMixFactor, -VoL);
     // 多重散射相位项（flower getParticipatingMediaPhase(phase, 0.5)）
@@ -5820,9 +5825,6 @@ function cloud_sky_cloudPixelCompute(wpx, wpy, wpz, wdx, wdy, wdz, appTime, jitt
             const s0_r = sunSky0_r * sigmaS * s.cloudAlbedo[0];
             const s0_g = sunSky0_g * sigmaS * s.cloudAlbedo[1];
             const s0_b = sunSky0_b * sigmaS * s.cloudAlbedo[2];
-            sc_r += transmittance * (s0_r - s0_r * stepTransmittance) / ext0;
-            sc_g += transmittance * (s0_g - s0_g * stepTransmittance) / ext0;
-            sc_b += transmittance * (s0_b - s0_b * stepTransmittance) / ext0;
             transmittance *= stepTransmittance;
 
             // ---- 二阶（ms=1）：多重散射 ----
@@ -5840,17 +5842,28 @@ function cloud_sky_cloudPixelCompute(wpx, wpy, wpz, wdx, wdy, wdz, appTime, jitt
             const s1_r = sunSky1_r * sigmaS * s.cloudAlbedo[0] * MsScatterFactor;
             const s1_g = sunSky1_g * sigmaS * s.cloudAlbedo[1] * MsScatterFactor;
             const s1_b = sunSky1_b * sigmaS * s.cloudAlbedo[2] * MsScatterFactor;
-            sc_r += transmittance * (s1_r - s1_r * stepTransmittance) / ext1;
-            sc_g += transmittance * (s1_g - s1_g * stepTransmittance) / ext1;
-            sc_b += transmittance * (s1_b - s1_b * stepTransmittance) / ext1;
+            const d0r = transmittance * (s0_r - s0_r * stepTransmittance) / ext0;
+            const d0g = transmittance * (s0_g - s0_g * stepTransmittance) / ext0;
+            const d0b = transmittance * (s0_b - s0_b * stepTransmittance) / ext0;
+            const d1r = transmittance * (s1_r - s1_r * stepTransmittance) / ext1;
+            const d1g = transmittance * (s1_g - s1_g * stepTransmittance) / ext1;
+            const d1b = transmittance * (s1_b - s1_b * stepTransmittance) / ext1;
+            sc_r += d0r + d1r;
+            sc_g += d0g + d1g;
+            sc_b += d0b + d1b;
+            const stepLum = 0.2126 * (d0r + d1r) + 0.7152 * (d0g + d1g) + 0.0722 * (d0b + d1b);
+            aerialLumSum += stepLum;
+            aerialDistSum += stepLum * sampleT;
         }
 
         if (transmittance <= 0.001) break;
         sampleT += stepT;
     }
 
-    out[0] = sc_r; out[1] = sc_g; out[2] = sc_b;
-    out[3] = transmittance;
+    // 空气透视：与 GLSL 同款，按平均散射距离淡出到天空
+    const aerialFade = Math.exp(-(aerialDistSum / Math.max(aerialLumSum, 1e-6)) * (1.0 / CLOUD_SKY_AERIAL_FADE_KM));
+    out[0] = sc_r * aerialFade; out[1] = sc_g * aerialFade; out[2] = sc_b * aerialFade;
+    out[3] = 1.0 - (1.0 - transmittance) * aerialFade;
     if (!isFinite(sc_r) || !isFinite(sc_g) || !isFinite(sc_b)) {
         out[0] = 0.0; out[1] = 0.0; out[2] = 0.0; out[3] = 1.0;
     }
@@ -6972,6 +6985,9 @@ const CloudSkyWebGL = {
         const float kCloudDensity = 1.0;
         const float kCloudFogFade = 1.0;
         const float kCloudMaxTraceingDistance = 100.0;
+        // 空气透视：云散射光在到达相机前的大气消光 e 折距离（km）。远处云（尤其掠射时
+        // 视线穿过很长一段云层）应当逐渐融入天空，而不是保持近处的亮度。
+        const float kCloudAerialFadeKm = 80.0;
         const float kCloudTracingStartMaxDistance = 350.0;
         const float kCloudBasicNoiseScale = 0.3;
         const float kCloudDetailNoiseScale = 0.6;
@@ -7677,6 +7693,10 @@ const CloudSkyWebGL = {
 
             float VoL = dot(worldDir, sunDirection);
 
+            // 空气透视用的“散射能量加权平均距离”（km）
+            float aerialLumSum = 0.0;
+            float aerialDistSum = 0.0;
+
             float transmittance = 1.0;
             vec3 scatteredLight = vec3(0.0);
 
@@ -7778,6 +7798,10 @@ const CloudSkyWebGL = {
                     vec3 ext1 = vec3(max(1e-4, extinctionCoeff1));
                     vec3 stepScatter1 = transmittance * (sunSky1 * scatteringCoeff1 - sunSky1 * scatteringCoeff1 * stepTransmittance) / ext1;
                     scatteredLight += stepScatter1;
+
+                    float stepLum = dot(stepScatter0 + stepScatter1, vec3(0.2126, 0.7152, 0.0722));
+                    aerialLumSum += stepLum;
+                    aerialDistSum += stepLum * sampleT;
                 }
 
                 if (transmittance <= 0.001) break;
@@ -7787,6 +7811,14 @@ const CloudSkyWebGL = {
             if (any(isnan(scatteredLight)) || any(isinf(scatteredLight))) {
                 return vec4(0.0, 0.0, 0.0, 1.0);
             }
+
+            // 空气透视：按平均散射距离做指数衰减，并把云的遮蔽一起淡出，
+            // 等价于 out = 天空·(1-(1-T)·f) + 云色·f（f→0 时完全融入天空）。
+            // 这样远处云（尤其是地平线附近掠过整层云的长光程）不再是一条亮白边。
+            float aerialFade = exp(-(aerialDistSum / max(aerialLumSum, 1e-6)) * (1.0 / kCloudAerialFadeKm));
+            scatteredLight *= aerialFade;
+            transmittance = 1.0 - (1.0 - transmittance) * aerialFade;
+
             return vec4(scatteredLight, transmittance);
         }
 
