@@ -4151,6 +4151,12 @@ const CLOUD_SKY_MS_VIEW_STEPS_INI = 14; // MS-LUT 每条方向积分的初始采
 // 更高阶蓝色输运（修正常规单遍的暮光红色不足/污染；遍数越多输运越足，构建越慢）
 const CLOUD_SKY_MS_ITERATIONS = 1;  // 迭代构建实测对暮光直射主导区无改善且耗时成倍，默认单遍（结构保留）
 const CLOUD_SKY_SATURATION_BOOST = 1.25; // 补偿逐通道 ACES 的去饱和
+// 太阳周围散射光晕开关（orb 序列 + 衍射环 + 径向 glare）：1=启用，0=关闭。
+// 关闭原因：解耦通道里这段单独 ACES+gamma 后在显示空间叠加，微弱 HDR 辉光被 gamma
+// 放大成大面积眩光。关闭后仍保留太阳核心盘与离轴色散光斑（镜头光晕）。
+const CLOUD_SKY_SUN_GLOW = 0.0;
+// 镜头光晕（离轴色散光斑）亮度增益：0.35 约为原来的三分之一观感亮度
+const CLOUD_SKY_LENS_FLARE_GAIN = 0.35;
 // 云量档位（ui_cloud.c CLOUD_COVERAGE_LEVELS：档间云量递进均匀、最高档不进入变暗区）
 const CLOUD_SKY_COVERAGE_LEVELS = [0.000, 0.325, 0.340, 0.353, 0.368, 0.395];
 const CLOUD_SKY_COVERAGE_DEFAULT_LEVEL = 2;
@@ -5919,50 +5925,55 @@ function cloud_sky_lens_hdr(ux, uy, sux, suy, sunVis, out) {
     const fovFactor = 2.0; // 1/tan(fovy/2) 下限，与 flower 一致
     const size = 0.5 * fovFactor * 0.9;
 
-    // orb 序列（lens.glsl orb() 精简为 4 阶；较原值加强使之更明显）
-    let l_r = 0.0, l_g = 0.0, l_b = 0.0;
+    // ---- 太阳周围散射光晕（orb 序列 + 衍射环 + 径向 glare）----
+    // 与 GLSL 版一致：默认关闭（CLOUD_SKY_SUN_GLOW = 0），逻辑保留。
+    let glow_r = 0.0, glow_g = 0.0, glow_b = 0.0;
     const tmp = [0.0, 0.0, 0.0];
     for (let i = 0; i < 4; i++) {
         const j = i + 1.0;
         const offset = j / (j + 0.1);
         const ss = size / (j + 1.0);
         cloud_sky_flare_c(ux, uy, sux, suy, offset, (j / 6.0) * 0.5, ss, ss, tmp);
-        l_r += tmp[0] * 0.25 * j;
-        l_g += tmp[1] * 0.25 * j;
-        l_b += tmp[2] * 0.25 * j;
+        glow_r += tmp[0] * 0.25 * j;
+        glow_g += tmp[1] * 0.25 * j;
+        glow_b += tmp[2] * 0.25 * j;
     }
-
-    // 衍射环 + 数个色散光斑（flower lens.glsl 中相同参数族；较原值加强）
     cloud_sky_ring_c(ux, uy, sux, suy, 1.0, 0.02, 1.4, tmp);
-    l_r += tmp[0] * 0.08; l_g += tmp[1] * 0.08; l_b += tmp[2] * 0.08;
+    glow_r += tmp[0] * 0.08; glow_g += tmp[1] * 0.08; glow_b += tmp[2] * 0.08;
+    {
+        const gd = Math.hypot(ux - sux, uy - suy) * 25.0 / fovFactor;
+        const gd2 = gd * gd;
+        const phaseAng = Math.atan2(uy - suy, ux - sux) + 0.131;
+        let gl = 2.0 - Math.min(1.0, gd) + Math.sin(phaseAng * 12.0) * Math.min(1.0, Math.max(0.0, gd * 2.5 - 0.2));
+        gl = gl * gl;
+        gl *= 3e-4 / (gd2 * gd2 + 1e-6);
+        glow_r += s.sunColor[0] * gl * 0.25;
+        glow_g += s.sunColor[1] * gl * 0.25;
+        glow_b += s.sunColor[2] * gl * 0.25;
+    }
+    glow_r *= CLOUD_SKY_SUN_GLOW; glow_g *= CLOUD_SKY_SUN_GLOW; glow_b *= CLOUD_SKY_SUN_GLOW;
+
+    // ---- 镜头光晕：离轴色散光斑（始终保留）----
+    let flare_r = 0.0, flare_g = 0.0, flare_b = 0.0;
     cloud_sky_flare_c(ux, uy, sux, suy, -2.00, 0.05, size * 0.05, 1.0, tmp);
-    l_r += tmp[0] * 0.8; l_g += tmp[1] * 0.8; l_b += tmp[2] * 0.8;
+    flare_r += tmp[0] * 0.8; flare_g += tmp[1] * 0.8; flare_b += tmp[2] * 0.8;
     cloud_sky_flare_c(ux, uy, sux, suy, -0.90, 0.02, size * 0.03, 1.0, tmp);
-    l_r += tmp[0] * 0.4; l_g += tmp[1] * 0.4; l_b += tmp[2] * 0.4;
+    flare_r += tmp[0] * 0.4; flare_g += tmp[1] * 0.4; flare_b += tmp[2] * 0.4;
     cloud_sky_flare_c(ux, uy, sux, suy, -0.35, 0.02, size * 0.04, 1.0, tmp);
-    l_r += tmp[0] * 1.5; l_g += tmp[1] * 1.5; l_b += tmp[2] * 1.5;
+    flare_r += tmp[0] * 1.5; flare_g += tmp[1] * 1.5; flare_b += tmp[2] * 1.5;
     cloud_sky_flare_c(ux, uy, sux, suy, -0.25, 0.01, size * 0.15, 1.0, tmp);
-    l_r += tmp[0] * 0.9; l_g += tmp[1] * 0.9; l_b += tmp[2] * 0.9;
+    flare_r += tmp[0] * 0.9; flare_g += tmp[1] * 0.9; flare_b += tmp[2] * 0.9;
     cloud_sky_flare_c(ux, uy, sux, suy, 0.30, 0.02, size * 0.20, 1.0, tmp);
-    l_r += tmp[0] * 1.2; l_g += tmp[1] * 1.2; l_b += tmp[2] * 1.2;
+    flare_r += tmp[0] * 1.2; flare_g += tmp[1] * 1.2; flare_b += tmp[2] * 1.2;
     cloud_sky_flare_c(ux, uy, sux, suy, 1.20, 0.03, size * 0.10, 1.0, tmp);
-    l_r += tmp[0] * 0.8; l_g += tmp[1] * 0.8; l_b += tmp[2] * 0.8;
+    flare_r += tmp[0] * 0.8; flare_g += tmp[1] * 0.8; flare_b += tmp[2] * 0.8;
+    flare_r *= CLOUD_SKY_LENS_FLARE_GAIN;
+    flare_g *= CLOUD_SKY_LENS_FLARE_GAIN;
+    flare_b *= CLOUD_SKY_LENS_FLARE_GAIN;
 
-    // 太阳眩光辐射（lens.glsl glare 公式；较原值加强，补足移除星芒后的近日观感）
-    const gd = Math.hypot(ux - sux, uy - suy) * 25.0 / fovFactor;
-    const gd2 = gd * gd;
-    const phaseAng = Math.atan2(uy - suy, ux - sux) + 0.131;
-    let gl = 2.0 - Math.min(1.0, gd) + Math.sin(phaseAng * 12.0) * Math.min(1.0, Math.max(0.0, gd * 2.5 - 0.2));
-    gl = gl * gl;
-    gl *= 3e-4 / (gd2 * gd2 + 1e-6);
-
-    const ghost_r = s.sunColor[0] * gl * 0.25;
-    const ghost_g = s.sunColor[1] * gl * 0.25;
-    const ghost_b = s.sunColor[2] * gl * 0.25;
-
-    let o_r = core_r + l_r + ghost_r;
-    let o_g = core_g + l_g + ghost_g;
-    let o_b = core_b + l_b + ghost_b;
+    let o_r = core_r + glow_r + flare_r;
+    let o_g = core_g + glow_g + flare_g;
+    let o_b = core_b + glow_b + flare_b;
     const k = sunVis * 6.0; // 可见性（云透射）× 曝光增益（较原值 4.0 进一步加强对光晕可见度）
     out[0] = o_r * k; out[1] = o_g * k; out[2] = o_b * k;
 }
@@ -6280,11 +6291,13 @@ function cloud_sky_ray_to_ndc(rx, ry, rz) {
 
 // ---------------------------------------------------------------------------
 // 解耦体积云渲染（原散射模型 5 的体积云算法，供任意散射模型叠加使用）
-// 在当前帧缓冲（天空 + 已绘制天体）之上合成模型 5 的三层体积云：
+// 在当前帧缓冲（天空 + 已绘制天体/地景）之上合成模型 5 的三层体积云：
 //   · GLSL 路径：CloudSkyWebGL 以 sky_source=2 仅渲染云层（低分辨率 ray-march +
-//     双线性放大），rgb=显示空间云色（含 HDR 光晕）、alpha=云透射率，CPU 侧按
-//     final = base*alpha + rgb 合成，保留原散射模型的观感；
-//   · JS 路径：低分辨率网格逐像素 cloud_sky_cloudPixelCompute 后双线性合成。
+//     双线性放大）。rgb = 预乘覆盖率的显示空间云色（= 不透明云色 × (1−T)，含镜头
+//     光晕），alpha = 云透射率 T，CPU 侧按 out = base·T + rgb 合成，等价于标准
+//     alpha 合成 out = base·T + fg·(1−T)；两层显示亮度只在 0..1 内混合，不会因
+//     "各自色调映射后相加"而过曝；
+//   · JS 路径：低分辨率网格逐像素 cloud_sky_cloudPixelCompute 后同样按预乘覆盖率合成。
 // ---------------------------------------------------------------------------
 function render_decoupled_volumetric_clouds(
     frame_buffer, fb_width, fb_height,
@@ -6351,9 +6364,14 @@ function render_decoupled_volumetric_clouds(
             cloud_sky_cloudPixelCompute(
                 CLOUD_SKY_CAM_POS[0], CLOUD_SKY_CAM_POS[1], CLOUD_SKY_CAM_POS[2],
                 rdx, rdy, rdz, cloudSkyState.appTime, jitter, cloudSkyState.marchSteps, cloud);
-            cloud_sky_write_pixel(cloud[0], cloud[1], cloud[2], px);
-            ds[di] = px[0]; ds[di + 1] = px[1]; ds[di + 2] = px[2];
-            ds[di + 3] = cloud[3];
+            // 与 GLSL 同款覆盖率合成：先把累积内散射还原成"完全覆盖时的云色"，压一次 ACES，
+            // 再乘回覆盖率作为预乘前景色；下方合成 out = base·T + fg 即为标准 alpha 合成。
+            const cloudT = cloud[3];
+            const cov = 1.0 - cloudT;
+            const invCov = 1.0 / Math.max(cov, 1e-3);
+            cloud_sky_write_pixel(cloud[0] * invCov, cloud[1] * invCov, cloud[2] * invCov, px);
+            ds[di] = px[0] * cov; ds[di + 1] = px[1] * cov; ds[di + 2] = px[2] * cov;
+            ds[di + 3] = cloudT;
         }
     }
 
@@ -6943,6 +6961,8 @@ const CloudSkyWebGL = {
         const float kEarthTopRadius = 6420.0;
         const float kAtmospherePlanetRadiusOffset = 21.0 * 0.001;
         const float SATURATION_BOOST = 1.25;
+        const float CLOUD_SKY_SUN_GLOW = 0.0;         // 太阳周围散射光晕开关（1=启用，0=关闭；逻辑保留）
+        const float CLOUD_SKY_LENS_FLARE_GAIN = 0.35; // 镜头光晕（离轴色散光斑）的亮度增益
         // 观察点由 u_cam_pos 逐帧传入（初始地面上方 2 km，飞行时随飞机移动）
 
         // 云参数（与 cloudSkyScene 一致）
@@ -7809,35 +7829,42 @@ const CloudSkyWebGL = {
             const float fovFactor = 2.0;
             float size = 0.5 * fovFactor * 0.9;
 
-            // orb 序列（4 阶；较原值加强使之更明显）
-            vec3 l = vec3(0.0);
+            // ---- 太阳周围散射光晕（orb 序列 + 衍射环 + 径向 glare）----
+            // 默认关闭（CLOUD_SKY_SUN_GLOW = 0）：解耦通道里这段是单独 ACES + gamma 后
+            // 在显示空间加到天空上的，很弱的 HDR 辉光会被 gamma 放大成大面积眩光，
+            // 压住整个天穹。逻辑保留，需要时把常量改回 1.0 即可整体启用。
+            vec3 glow = vec3(0.0);
+            // orb 序列（4 阶）
             for (int i = 0; i < 4; i++) {
                 float j = float(i) + 1.0;
                 float offset = j / (j + 0.1);
                 float ss = size / (j + 1.0);
-                l += cloudFlareC(vec2(ux, uy), vec2(sux, suy), offset, (j / 6.0) * 0.5, ss, ss) * (0.25 * j);
+                glow += cloudFlareC(vec2(ux, uy), vec2(sux, suy), offset, (j / 6.0) * 0.5, ss, ss) * (0.25 * j);
             }
-
-            // 衍射环 + 色散光斑（较原值加强）
-            l += cloudRingC(vec2(ux, uy), vec2(sux, suy), 1.0, 0.02, 1.4) * 0.08;
-            l += cloudFlareC(vec2(ux, uy), vec2(sux, suy), -2.00, 0.05, size * 0.05, 1.0) * 0.8;
-            l += cloudFlareC(vec2(ux, uy), vec2(sux, suy), -0.90, 0.02, size * 0.03, 1.0) * 0.4;
-            l += cloudFlareC(vec2(ux, uy), vec2(sux, suy), -0.35, 0.02, size * 0.04, 1.0) * 1.5;
-            l += cloudFlareC(vec2(ux, uy), vec2(sux, suy), -0.25, 0.01, size * 0.15, 1.0) * 0.9;
-            l += cloudFlareC(vec2(ux, uy), vec2(sux, suy), 0.30, 0.02, size * 0.20, 1.0) * 1.2;
-            l += cloudFlareC(vec2(ux, uy), vec2(sux, suy), 1.20, 0.03, size * 0.10, 1.0) * 0.8;
-
-            // 太阳眩光辐射（glare 公式；较原值加强，补足移除星芒后的近日观感）
+            // 衍射环
+            glow += cloudRingC(vec2(ux, uy), vec2(sux, suy), 1.0, 0.02, 1.4) * 0.08;
+            // 太阳眩光辐射（glare 公式）
             float gd = length(vec2(ux - sux, uy - suy)) * 25.0 / fovFactor;
             float gd2 = gd * gd;
             float phaseAng = atan(uy - suy, ux - sux) + 0.131;
             float glv = 2.0 - min(1.0, gd) + sin(phaseAng * 12.0) * min(1.0, max(0.0, gd * 2.5 - 0.2));
             glv = glv * glv;
             glv *= 3e-4 / (gd2 * gd2 + 1e-6);
-            vec3 ghost = u_sun_color * (glv * 0.25);
+            glow += u_sun_color * (glv * 0.25);
+            glow *= CLOUD_SKY_SUN_GLOW;
 
-            vec3 o = core + l + ghost;
-            return o * (sunVis * 6.0); // 可见性（云透射）× 曝光增益（较原值 4.0 加强）
+            // ---- 镜头光晕：离轴色散光斑（始终保留）----
+            vec3 flare = vec3(0.0);
+            flare += cloudFlareC(vec2(ux, uy), vec2(sux, suy), -2.00, 0.05, size * 0.05, 1.0) * 0.8;
+            flare += cloudFlareC(vec2(ux, uy), vec2(sux, suy), -0.90, 0.02, size * 0.03, 1.0) * 0.4;
+            flare += cloudFlareC(vec2(ux, uy), vec2(sux, suy), -0.35, 0.02, size * 0.04, 1.0) * 1.5;
+            flare += cloudFlareC(vec2(ux, uy), vec2(sux, suy), -0.25, 0.01, size * 0.15, 1.0) * 0.9;
+            flare += cloudFlareC(vec2(ux, uy), vec2(sux, suy), 0.30, 0.02, size * 0.20, 1.0) * 1.2;
+            flare += cloudFlareC(vec2(ux, uy), vec2(sux, suy), 1.20, 0.03, size * 0.10, 1.0) * 0.8;
+            flare *= CLOUD_SKY_LENS_FLARE_GAIN;
+
+            vec3 o = core + glow + flare;
+            return o * (sunVis * 6.0); // 可见性（云透射）× 曝光增益
         }
 
         // Narkowicz 2015 ACES filmic 近似
@@ -7861,8 +7888,8 @@ const CloudSkyWebGL = {
             float jitter = cloudHashFloat(int(scr_pos.x), int(scr_pos.y), u_frame_index + 1013);
 
             // ---- 解耦体积云模式（u_sky_source==2）：仅渲染云层，供任意散射模型叠加 ----
-            // rgb = 显示空间云色（含 HDR 镜头光晕，单独色调映射），alpha = 云透射率；
-            // 背景天空由 CPU 侧按 final = base*alpha + rgb 合成，保留原散射模型观感。
+            // rgb = 预乘覆盖率的显示空间云色（不透明云色×(1−T)，含镜头光晕），alpha = T；
+            // 背景由 CPU 侧按 out = base*T + rgb 合成（标准 alpha 合成），见下方说明。
             if (u_sky_source == 2) {
                 float sun_alt_rad2 = radians(u_sun_alt);
                 float sun_azi_rad2 = radians(u_sun_azi);
@@ -7872,17 +7899,30 @@ const CloudSkyWebGL = {
                     cos(sun_alt_rad2) * cos(sun_azi_rad2)
                 );
                 vec4 cloud = cloudPixelCompute(u_cam_pos, ray_dir, sun_dir2, u_app_time, jitter);
-                vec3 hdr = cloud.rgb;
-                if (u_sun_visible == 1) {
-                    float uu = v_texCoord.x * 2.0 - 1.0;
-                    float vv = 1.0 - v_texCoord.y * 2.0;
-                    hdr += cloudLensHdr(uu, vv, u_sun_u, u_sun_v, u_sun_vis);
-                }
-                vec3 t2 = acesFilm(hdr);
+                // ---- 标准 alpha 合成（覆盖率模型）----
+                // cloud.rgb 是沿视线的累积内散射（≈ 不透明云色 × (1−T)）。若直接把它单独 ACES
+                // 后加到已色调映射的天空上，半透明云（卷云、云体边缘）会因"两次压缩后相加"
+                // 而过曝。这里先除以覆盖率还原成"完全覆盖时的云色"，压一次 ACES，再乘回覆盖率，
+                // 供 CPU 按 out = base·T + fg·(1−T) 合成；两层亮度都只在 0..1 内混合，不会溢出。
+                float cloudT = cloud.a;              // 透过率 T
+                float cov = 1.0 - cloudT;            // 覆盖率 1−T
+                vec3 opaqueHdr = cloud.rgb / max(cov, 1e-3);
+                vec3 t2 = acesFilm(opaqueHdr);
                 float lum2 = dot(t2, vec3(0.2126, 0.7152, 0.0722));
                 t2 = clamp(vec3(lum2) + (t2 - vec3(lum2)) * SATURATION_BOOST, 0.0, 1.0);
                 t2 = pow(t2, vec3(1.0 / 2.2));
-                fragColor = vec4(t2, cloud.a);
+                vec3 rgbPremul = t2 * cov;           // 预乘覆盖率的显示色（供 CPU 相加）
+                // 镜头光晕是屏幕空间叠加光，按覆盖率加权会被薄云压掉，故单独压一次后直接叠加
+                // 镜头光晕是屏幕空间叠加光，按覆盖率加权会被薄云压掉，故单独压一次后叠加。
+                // 太阳周围的散射光晕已在 cloudLensHdr 内由 CLOUD_SKY_SUN_GLOW 关闭，
+                // 这里只剩太阳核心盘与离轴色散光斑。
+                if (u_sun_visible == 1) {
+                    float uu = v_texCoord.x * 2.0 - 1.0;
+                    float vv = 1.0 - v_texCoord.y * 2.0;
+                    vec3 lens = acesFilm(cloudLensHdr(uu, vv, u_sun_u, u_sun_v, u_sun_vis));
+                    rgbPremul += pow(clamp(lens, 0.0, 1.0), vec3(1.0 / 2.2));
+                }
+                fragColor = vec4(clamp(rgbPremul, 0.0, 1.0), cloudT);
                 return;
             }
 
