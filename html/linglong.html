@@ -11943,9 +11943,10 @@ const FLIGHT = {
     DEG: Math.PI / 180.0,
     RAD: 180.0 / Math.PI,
 
-    THRUST_MAX: 4.2,        // 全油门推力加速度 m/s²（推重比约 0.43）
-    THRUST_LAPSE_ALT: 9000.0, // 推力随高度的衰减特征高度 m
-    DRAG_K: 7.0e-4,         // 寄生阻力 a = k·V²（全油门平飞极速约 77 m/s）
+    THRUST_MAX: 12.0,       // 全油门推力加速度 m/s²（推重比约 1.2；原 4.2 爬到 3 km 云底要 8 分钟）
+    THRUST_LAPSE_ALT: 16000.0, // 推力随高度的衰减特征高度 m（3 km 处仍有 0.81，6 km 处 0.63）
+    THRUST_LAPSE_MIN: 0.40,    // 高空推力下限比例（保证 9~11 km 云顶附近仍能持续爬升）
+    DRAG_K: 7.0e-4,         // 寄生阻力 a = k·V²（全油门平飞极速 sqrt(12/7e-4)≈131 m/s，受 V_MAX 115 限位）
     INDUCED_K: 300.0,       // 诱导阻力 a = k·(n²−1)/V²
     V_MIN: 8.0,
     V_MAX: 115.0,
@@ -12155,7 +12156,7 @@ function flight_integrate_ground(dt, eff) {
     flight.chi = flight.psi;
 
     // 推力 / 气动阻力 / 地面摩擦（滚动阻力恒定，收油门时叠加刹车）
-    const thrustLapse = Math.max(0.3, 1.0 - flight.alt / FLIGHT.THRUST_LAPSE_ALT);
+    const thrustLapse = Math.max(FLIGHT.THRUST_LAPSE_MIN, 1.0 - flight.alt / FLIGHT.THRUST_LAPSE_ALT);
     const thrust = flight.throttle * FLIGHT.THRUST_MAX * thrustLapse;
     const drag = FLIGHT.DRAG_K * flight.V * flight.V;
     const mu = FLIGHT.MU_ROLL + FLIGHT.MU_BRAKE * (1.0 - flight.throttle);
@@ -12272,7 +12273,7 @@ function flight_integrate(dt) {
     flight.theta = flight.gamma + flight.alpha;
 
     // ---- 推力 / 阻力 / 重力沿航迹 ----
-    const thrustLapse = Math.max(0.3, 1.0 - flight.alt / FLIGHT.THRUST_LAPSE_ALT);
+    const thrustLapse = Math.max(FLIGHT.THRUST_LAPSE_MIN, 1.0 - flight.alt / FLIGHT.THRUST_LAPSE_ALT);
     const drag = FLIGHT.DRAG_K * flight.V * flight.V
                + FLIGHT.INDUCED_K * (loadN * loadN - 1.0) / Math.max(flight.V * flight.V, 80.0);
     flight.V += (flight.throttle * FLIGHT.THRUST_MAX * thrustLapse
