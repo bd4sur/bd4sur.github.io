@@ -4107,10 +4107,17 @@ function scatter_model_4(ray_vec, sun_vec) {
 // 与 ui_cloud.c 的差异（工程适配，不改变算法核心）：
 //   · 太阳方向/颜色/强度来自天象仪星历（where_is_the_sun），颜色-高度曲线
 //     移植自 ui_cloud_sun_color()；观测点位于地面之上 2km（同 ui_cloud.c）；
-//   · 云步进改由**物理步长上界**决定（CLOUD_SKY_MAX_STEP_KM / kCloudMaxStepKm=0.7 km，
-//     下界 64 步），marchSteps（CPU 96 / GLSL 192）只作性能上限。原实现固定条数，
-//     垂直穿云步长几十米、贴着云顶掠射步长上千米，同一片云在两个方向上采样率差 50 倍，
-//     表现为"上方是离散点云、下方是连续云块"。固定步长上界后两个方向观感一致；
+//   · 云步进改为**与像素足迹匹配的等比步进**（dt(i)=a·(1+angPerPix)^i，a≈0.1 km），
+//     marchSteps（CPU 96 / GLSL 192）只作性能上限，追踪距离 80 km。根因：云壳是
+//     8 km 厚的球壳，相机贴在云底之上时，同一仰角的下视光线几十米就穿出云底、上视
+//     光线要走上百公里，而原实现（固定步数）让两者步长相差 50 倍——掠射方向每个云胞
+//     只落到 1~2 个采样点，积分不收敛，散成离散亮点；近垂直线则是连续云块。等比步进
+//     让任意距离上的步长都等于该像素的空间足迹，两侧半球自动落在同一采样尺度上；
+//   · 云量阈值改为**覆盖守恒**求法：原式 clamp(x−(1−C),0,C) 是硬阈值，采样尺度大于
+//     噪声纹素后它把 E[(x−t)⁺] 退化成 max(0,E[x]−t)，远处的云被削薄乃至消失，只剩
+//     骑在阈值上逐像素翻转的薄纱。现用正态近似解析补回被低通部分的一阶截断矩
+//     E[(x−t)⁺]=d·Φ(d/σ)+σ·φ(d/σ)，σ 取各级 mip 被低通掉的高频起伏标准差
+//     （噪声生成时实测并作为 u_noise_sigma 上传）；σ→0 时严格退化为原式；
 //   · ui_cloud.c 的多重散射 LUT 调用传入 sampleCountFixed=0（积分 0 步，
 //     LUT 恒为 0），移植时修正为 MS_SAMPLE_STEPS 步采样，后又改为变步长二次
 //     采样（CLOUD_SKY_MS_VIEW_STEPS_INI=14），确保曙暮光“照亮带”被采样到——
@@ -4171,11 +4178,12 @@ const CLOUD_SKY_SUN_GLOW = 0.0;
 // 光线追踪距离上限（km）：性能保护。空气透视由逐样本大气消光承担
 // （T_view = T_lut(样本) / T_lut(相机)），远处云会自动收敛到天色。
 const CLOUD_SKY_MAX_TRACE_KM = 150.0;
-// 光线步长上界（km）与最小步数：噪声基础周期 1/cloudBasicNoiseScale = 3.33 km，
-// 步长必须明显小于它，否则积分退化为对噪声的随机抽样（掠射方向散成离散亮点）。
-// 与 GLSL kCloudMaxStepKm / kCloudMinMarchSteps 保持一致。
-const CLOUD_SKY_MAX_STEP_KM = 0.70;
-const CLOUD_SKY_MIN_MARCH_STEPS = 64;
+// 步长分布为「与像素足迹匹配的等比步进」：dt(i)=a·(1+angPerPix)^i，使任意距离上
+// 光线步长 ≈ 该像素的空间足迹。这样无论是从云底穿出（路径几十米）还是贴云顶掠射
+// （路径上百公里），采样尺度都相同——这正是两半球观感不一致的根因所在。
+// 与 GLSL kCloudNearStepKm / kCloudMinMarchSteps 保持一致。
+const CLOUD_SKY_NEAR_STEP_KM = 0.10;   // 近场步长（km），约 2 个噪声纹素
+const CLOUD_SKY_MIN_MARCH_STEPS = 24;
 const CLOUD_SKY_LIGHT_FOOTPRINT_KM = 0.25;
 // 单次散射辐照度→辐亮度归一化（1/π），与 GLSL kCloudScatterNormalization 一致
 const CLOUD_SKY_SCATTER_NORMALIZATION = 1.0 / Math.PI;
@@ -4572,6 +4580,8 @@ function cloud_sky_sampleWrap2D3(tex, dim, ux, uy, out) {
 // 加级间插值。box 下采样沿用纹理的 wrap 语义，每一级仍然可平铺。
 // ---------------------------------------------------------------------------
 let cloudSkyNoiseMip = null;
+let cloudSkyNoiseSigmaCorr = null; // 各 mip 级被低通掉的高频起伏标准差（预滤波修正用）
+let cloudSkyNoiseSigma = null;     // 各 mip 级自身的标准差
 
 function cloud_sky_downsample3D(src, dim) {
     const nd = dim >> 1;
@@ -4622,9 +4632,33 @@ function cloud_sky_build_mip_chain2D(src, dim) {
 // 足迹（km）→ mip 级别；texelMeters 为 mip 0 的纹素边长（米）
 // 只用于像素足迹（屏幕方向抗锯齿）。不要把光线步长并进足迹：按步长模糊噪声会让
 // 模糊后的噪声落到覆盖率阈值以下，把云的密度和亮度一起削掉；步长方向由
-// CLOUD_SKY_MAX_STEP_KM 限制步长本身来解决。
+// 等比步进（dt ≈ 像素足迹）来解决。
 function cloud_sky_noise_lod(footprintKm, texelMeters) {
     return Math.log2(Math.max(footprintKm * 1000.0 / texelMeters, 1.0));
+}
+
+// 覆盖率阈值的"守恒"求法（与 GLSL cloudSoftCoverage 逐式对应）：
+// 原式 coverage*remap(x,1-coverage,1,0,1) = clamp(x-(1-coverage),0,coverage) 是硬阈值；
+// 采样足迹大于噪声纹素后，被低通掉的起伏（标准差 σ）无法再由单点采样表达，硬阈值
+// 会把 E[(x−t)⁺] 退化成 max(0,E[x]−t)——远处云被削薄乃至消失，只剩骑在阈值上、
+// 逐像素翻转的薄纱。用正态近似补回一阶截断矩：E[(x−t)⁺]=d·Φ(d/σ)+σ·φ(d/σ)。
+function cloud_sky_gauss_cdf(z) {
+    return 0.5 * (1.0 + Math.tanh(0.7978845608 * (z + 0.044715 * z * z * z)));
+}
+function cloud_sky_sigma_at_lod(lod) {
+    if (!cloudSkyNoiseSigmaCorr) return 0.0;
+    let i = Math.round(lod);
+    if (i < 0) i = 0;
+    const top = cloudSkyNoiseSigmaCorr.length - 1;
+    if (i > top) i = top;
+    return cloudSkyNoiseSigmaCorr[i];
+}
+function cloud_sky_soft_coverage(x, coverage, sigma) {
+    const d = x - (1.0 - coverage);
+    if (coverage <= 1e-5 || sigma <= 1e-3) return cloud_sky_clamp(d, 0.0, coverage);
+    const z = d / sigma;
+    const pdf = 0.3989422804 * Math.exp(-0.5 * z * z);
+    return Math.min(coverage, d * cloud_sky_gauss_cdf(z) + sigma * pdf);
 }
 
 function cloud_sky_sampleMip3D(chain, ux, uy, uz, lod) {
@@ -4769,6 +4803,25 @@ function cloud_sky_generate_noise() {
         local: cloud_sky_build_mip_chain2D(local, dimC),
         weather: cloud_sky_build_mip_chain2D(weather, dimC)
     };
+
+    // 各级 mip 的标准差，供"覆盖守恒预滤波"使用（见 cloud_sky_soft_coverage / GLSL
+    // cloudSoftThreshold）。云量阈值是对噪声做硬阈值：饱和在采样尺度 L 上时，
+    // 被低通掉的那部分起伏（标准差 sqrt(σ0²−σL²)）无法再被单点采样表达，
+    // 硬阈值会把 E[(x−t)⁺] 退化成 max(0, E[x]−t)——远处云被削薄甚至消失。
+    // 解析地补上这部分起伏的截断一阶矩即可守恒。
+    {
+        const stdOf = (arr) => {
+            let m = 0, m2 = 0;
+            for (let i = 0; i < arr.length; i++) m += arr[i];
+            m /= arr.length;
+            for (let i = 0; i < arr.length; i++) { const d = arr[i] - m; m2 += d * d; }
+            return Math.sqrt(m2 / arr.length);
+        };
+        const sigmaBasic = cloudSkyNoiseMip.basic.map(lv => stdOf(lv.data));
+        const s0sq = sigmaBasic[0] * sigmaBasic[0];
+        cloudSkyNoiseSigmaCorr = sigmaBasic.map(v => Math.sqrt(Math.max(0.0, s0sq - v * v)));
+        cloudSkyNoiseSigma = sigmaBasic;
+    }
 
     // GPU 上传用的 8bit 量化副本
     const toBytes = (f32) => {
@@ -5510,7 +5563,8 @@ function cloud_sky_cloudMap0(px, py, pz, normalizeHeight, appTime, footprintKm) 
         lodBasic);
 
     const basicCloudNoise = gradienShape * basicNoise;
-    const basicCloudWithCoverage = coverage * cloud_sky_remap(basicCloudNoise, 1.0 - coverage, 1.0, 0.0, 1.0);
+    const basicCloudWithCoverage = cloud_sky_soft_coverage(basicCloudNoise, coverage,
+        gradienShape * cloud_sky_sigma_at_lod(lodBasic));
 
     const dnx = kx - wx * 0.15, dny = ky - wy * 0.15, dnz = kz - wz * 0.15;
     const detailNoiseComposite = cloud_sky_sampleMip3D(cloudSkyNoiseMip.detail,
@@ -5608,7 +5662,8 @@ function cloud_sky_cloudMap1(px, py, pz, normalizeHeight, appTime, footprintKm) 
         lodBasic1);
 
     const basicCloudNoise = gradienShape * basicNoise;
-    const basicCloudWithCoverage = coverage * cloud_sky_remap(basicCloudNoise, 1.0 - coverage, 1.0, 0.0, 1.0);
+    const basicCloudWithCoverage = cloud_sky_soft_coverage(basicCloudNoise, coverage,
+        gradienShape * cloud_sky_sigma_at_lod(lodBasic1));
 
     const dnx = kx - wx * 0.15, dny = ky - wy * 0.15, dnz = kz - wz * 0.15;
     const detailNoiseComposite = cloud_sky_sampleMip3D(cloudSkyNoiseMip.detail,
@@ -5696,7 +5751,8 @@ function cloud_sky_cloudMap2(px, py, pz, normalizeHeight, appTime, footprintKm) 
         lodBasic2);
 
     const basicCloudNoise = gradienShape * basicNoise;
-    const basicCloudWithCoverage = coverage * cloud_sky_remap(basicCloudNoise, 1.0 - coverage, 1.0, 0.0, 1.0);
+    const basicCloudWithCoverage = cloud_sky_soft_coverage(basicCloudNoise, coverage,
+        gradienShape * cloud_sky_sigma_at_lod(lodBasic2));
 
     const densityShape = cloud_sky_saturate(0.01 + (1.0 - normalizeHeight) * 0.5) * 0.1 *
         cloud_sky_remap(normalizeHeight, 0.0, 0.3, 0.0, 1.0) *
@@ -5850,15 +5906,18 @@ function cloud_sky_cloudPixelCompute(wpx, wpy, wpz, wdx, wdy, wdz, appTime, jitt
     tMax = tMin + marchLen;
     if (bEarlyOut) return;
 
-    // 步数由"物理步长上界"决定（marchSteps 作为性能上限）——这是统一上下两侧观感的
-    // 关键：原实现固定步数，垂直穿云步长几十米、掠射步长上千米，同一片云在两个方向
-    // 上采样率差 50 倍，于是上面是离散点云、下面是连续云块。
-    const stepCount = Math.min(
-        Math.max(CLOUD_SKY_MIN_MARCH_STEPS, Math.ceil(marchLen / CLOUD_SKY_MAX_STEP_KM)),
-        Math.max(CLOUD_SKY_MIN_MARCH_STEPS, marchSteps));
-    const stepT = marchLen / stepCount;
+    // 等比步进：公比 = 1 + 每像素角尺寸，使任意距离上的步长 ≈ 该像素的空间足迹。
+    // 步数只与「追踪距离 / 近场步长」成对数关系，不再随路径长度爆炸；被性能上限
+    // 钳住时等比放大近场步长，首末仍正好覆盖 [tMin, tMin+marchLen]。
+    const pixAng = (angPerPix > 0.0) ? angPerPix : 0.0;
+    const stepRatio = 1.0 + Math.max(pixAng, 1e-4);
+    const maxSteps = Math.max(CLOUD_SKY_MIN_MARCH_STEPS, marchSteps);
+    const nWant = Math.log(1.0 + marchLen * (stepRatio - 1.0) / CLOUD_SKY_NEAR_STEP_KM) / Math.log(stepRatio);
+    const stepCount = Math.min(Math.max(CLOUD_SKY_MIN_MARCH_STEPS, Math.ceil(nWant)), maxSteps);
+    const stepA = marchLen * (stepRatio - 1.0) / Math.max(Math.pow(stepRatio, stepCount) - 1.0, 1e-6);
 
-    let sampleT = tMin + 0.001 * stepT + stepT * cloud_sky_saturate(jitter);
+    let sampleT = tMin + stepA * cloud_sky_saturate(jitter);
+    let stepLen = stepA;
 
     const sunColor = s.skySunColor;      // 云直射光用解耦后的天空光（暮光段与天空散射一致）
     const sunIntensity = s.skySunIntensity;
@@ -5899,28 +5958,27 @@ function cloud_sky_cloudPixelCompute(wpx, wpy, wpz, wdx, wdy, wdz, appTime, jitt
     // 日落时多重散射增强
     const sunSetScale = 1.0 + cloud_sky_saturate(1.0 - sdy * 2.0);
 
-    // 预滤波尺度只用像素足迹（屏幕方向抗锯齿）；步长方向由 CLOUD_SKY_MAX_STEP_KM
-    // 保证，不对噪声做步长方向的低通——模糊后的噪声会落到覆盖率阈值以下，把整片
-    // 云的密度和亮度一起削掉。
-    const pixAng = (angPerPix > 0.0) ? angPerPix : 0.0;
+    // 预滤波尺度取本样本的像素足迹：由等比步进它≈本步步长，屏幕方向与光线方向
+    // 被低通到同一尺度（两半球观感一致的前提）
 
     const shadow0 = [0.0, 0.0];
     const shadowAmb = [0.0, 0.0];
     const bGroundContrib = (s.cloudFogFade > 0.0);
 
     for (let i = 0; i < stepCount; i++) {
-        const spx = wpx + wdx * sampleT;
-        const spy = wpy + wdy * sampleT;
-        const spz = wpz + wdz * sampleT;
+        const tMid = sampleT + 0.5 * stepLen;
+        const spx = wpx + wdx * tMid;
+        const spy = wpy + wdy * tMid;
+        const spz = wpz + wdz * tMid;
         const sampleHeight = Math.hypot(spx, spy, spz);
 
         const normalizeHeight = (sampleHeight - s.cloudAreaStartHeight) / s.cloudAreaThickness;
-        const sampleFootprintKm = Math.max(sampleT * pixAng, 0.01);
+        const sampleFootprintKm = Math.max(Math.max(tMid * pixAng, stepLen), 0.01);
         const stepCloudDensity = cloud_sky_cloudMap(spx * 1000.0, spy * 1000.0, spz * 1000.0, normalizeHeight, appTime, 0, sampleFootprintKm);
         const actualH01 = cloudSky_actualH01;
 
         if (stepCloudDensity > 0.0) {
-            const opticalDepth = stepCloudDensity * stepT * 1000.0;
+            const opticalDepth = stepCloudDensity * stepLen * 1000.0;
             const stepTransmittance = Math.max(Math.exp(-opticalDepth), Math.exp(-opticalDepth * 0.25) * 0.7);
 
             // 到太阳的透射率（样本高度 + 样本处太阳天顶角）。旧实现用相机高度查表、
@@ -6040,7 +6098,8 @@ function cloud_sky_cloudPixelCompute(wpx, wpy, wpz, wdx, wdy, wdz, appTime, jitt
         }
 
         if (transmittance <= 0.001) break;
-        sampleT += stepT;
+        sampleT += stepLen;
+        stepLen *= stepRatio;
     }
 
     out[0] = sc_r * CLOUD_SKY_SCATTER_NORMALIZATION;
@@ -6821,7 +6880,8 @@ const CloudSkyWebGL = {
             u_sky_source: gl.getUniformLocation(this.program, 'u_sky_source'),
             u_light_steps: gl.getUniformLocation(this.program, 'u_light_steps'),
             u_radar_enable: gl.getUniformLocation(this.program, 'u_radar_enable'),
-            u_cam_pos: gl.getUniformLocation(this.program, 'u_cam_pos')
+            u_cam_pos: gl.getUniformLocation(this.program, 'u_cam_pos'),
+            u_noise_sigma: gl.getUniformLocation(this.program, 'u_noise_sigma')
         };
 
         console.log('WebGL2 cloud sky initialized');
@@ -6887,6 +6947,13 @@ const CloudSkyWebGL = {
         gl.bindTexture(gl.TEXTURE_2D, this.texMsLut);
         gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA16F,
             CLOUD_SKY_MS_LUT_W, CLOUD_SKY_MS_LUT_H, 0, gl.RGBA, gl.FLOAT, null);
+
+        // 覆盖守恒预滤波所需的各级标准差（随噪声图一次性确定）
+        if (cloudSkyNoiseSigmaCorr) {
+            const sig = new Float32Array(8);
+            for (let i = 0; i < Math.min(8, cloudSkyNoiseSigmaCorr.length); i++) sig[i] = cloudSkyNoiseSigmaCorr[i];
+            gl.uniform1fv(this.uniforms.u_noise_sigma, sig);
+        }
 
         this.noiseUploaded = true;
     },
@@ -7167,6 +7234,7 @@ const CloudSkyWebGL = {
         uniform highp sampler2D u_trans_lut;     // 64x16 透射率 LUT
         uniform highp sampler2D u_ms_lut;        // 48x24 多重散射 LUT
         uniform highp sampler2D u_radar_map;     // 128^2 雷达回波 dBZ/70（行0=北）
+        uniform float u_noise_sigma[8];          // 各 mip 级被低通掉的高频起伏标准差（预滤波修正）
         uniform float u_radar_enable;            // 雷达云图模式开关
         uniform int u_sky_source;                // 天空源：0-内建天空+云（模型5）；1-纯天空（云关）；2-解耦云叠加（输出 alpha）
 
@@ -7185,15 +7253,17 @@ const CloudSkyWebGL = {
         const vec2 kCloudWeatherUVScale = vec2(0.02, 0.02);
         const float kCloudDensity = 1.0;
         const float kCloudFogFade = 1.0;
-        const float kCloudMaxTraceingDistance = 150.0; // 追踪距离上限（性能保护；远处云由逐样本大气消光融进天空）
-        // 光线步长的上界（km）。这是体积云采样的核心约束：噪声基础周期只有
-        // 1/kCloudBasicNoiseScale = 3.33 km，若步长比它大，光线积分就退化成对噪声
-        // 的随机抽样——垂直穿过云层（路径 8~16 km）与贴着云顶掠射（路径上百公里）
-        // 用同一个固定步数（原 128 条）会得到相差 50 倍的步长：前者几十米，是连续
-        // 云块；后者上千米，散成离散亮点。把步长上界钉死后，两个方向用同一套采样率，
-        // 观感自然统一，也不会因为按步长去模糊噪声而把云的密度和亮度一起削掉。
-        const float kCloudMaxStepKm = 0.70;
-        const float kCloudMinMarchSteps = 64.0;
+        const float kCloudMaxTraceingDistance = 80.0; // 追踪距离上限（远场由逐样本大气消光融进天空）
+        // ---- 步长分布：与像素足迹匹配的等比步进 ----
+        // 体积云采样率必须与「该像素在空间中覆盖的尺度」在同一量级：比它细是浪费，
+        // 比它粗就是混叠（远/掠射方向散成离散亮点、近/垂直方向是连续云块）。
+        // 而像素足迹随距离线性增长（Δ = t·angPerPix），所以正确做法是让步长也随
+        // 距离按同一比例增长：dt(i) = a·(1+angPerPix)^i，于是任意距离上
+        // 「光线步长 ≈ 像素足迹」，两侧半球——不管光线是从云底穿出（几十米）
+        // 还是贴着云层掠射（上百公里）——都在同一套采样尺度上积分。
+        // 步数只由 追踪距离 与 近场步长 决定（对数关系），不再随路径长度爆炸。
+        const float kCloudNearStepKm = 0.10;   // 近场步长（km），约 2 个噪声纹素
+        const float kCloudMinMarchSteps = 24.0;
         const float kCloudLightFootprintKm = 0.25; // 阴影光线采样间隔较粗，轻度预滤波抑制颗粒
         // 单次散射的辐照度→辐亮度归一化（1/π）。原实现直接用太阳"辐照度"量级的
         // u_sky_light 乘相函数，云的散射亮度比色调映射白点高出约 20 倍，导致所有云都
@@ -7570,9 +7640,9 @@ const CloudSkyWebGL = {
 
         // 噪声 LOD：按本帧该采样点的**像素足迹**（km）把噪声低通到 mip 级别，
         // 这是屏幕方向的抗锯齿：像素已覆盖若干个噪声周期时，点采样必然混叠。
-        // 注意不能把光线步长也算进足迹——按步长模糊噪声会让模糊后的噪声落到覆盖率
-        // 阈值以下，把云的密度和亮度整体削掉；步长方向的问题由 kCloudMaxStepKm
-        // 限制步长本身来解决（见 cloudPixelCompute）。texelMeters 为 mip0 纹素边长（米）。
+        // 由等比步进，足迹≈本步步长，因此屏幕方向与光线方向被低通到同一尺度。
+        // 低通会削掉一部分起伏，所以阈值化必须用下面的 cloudSoftCoverage 做守恒修正，
+        // 否则模糊后的噪声落到阈值以下、云会被整体削薄。texelMeters 为 mip0 纹素边长（米）。
         float cloudNoiseLod(float footprintKm, float texelMeters, float maxLod) {
             return clamp(log2(max(footprintKm * 1000.0 / texelMeters, 1.0)), 0.0, maxLod);
         }
@@ -7580,6 +7650,32 @@ const CloudSkyWebGL = {
         // 2D 天气覆盖率图纹素（多层共享）：用于同一套足迹预滤波
         float cloudTexelMeters(float uvScalePerKm, float dim) {
             return 1000.0 / max(uvScalePerKm * dim, 1e-6);
+        }
+
+        // ---- 覆盖率阈值的"守恒"求法 ----
+        // 原式  basicCloudWithCoverage = coverage * remap(x, 1-coverage, 1, 0, 1)
+        //                            = clamp(x - (1-coverage), 0, coverage)
+        // 是对密度场做硬阈值。一旦采样足迹大于噪声纹素（远处、掠射），被低通掉的
+        // 那部分起伏（标准差 σ）已无法由单点采样表达，硬阈值就把 E[(x−t)⁺] 退化成
+        // max(0, E[x]−t)：远处的云被削薄甚至整片消失，只剩一圈骑在阈值上、逐像素
+        // 翻转的薄纱——也就是地平线附近那些颗粒/噪点。这里用正态近似解析地补回
+        // 被低通部分的一阶截断矩：
+        //   E[(x−t)⁺] = d·Φ(d/σ) + σ·φ(d/σ),  d = x − t
+        // σ→0 时严格退化为原式，所以近处观感不变。
+        float cloudGaussCdf(float z) {
+            return 0.5 * (1.0 + tanh(0.7978845608 * (z + 0.044715 * z * z * z)));
+        }
+        float cloudSoftCoverage(float x, float coverage, float sigma) {
+            float d = x - (1.0 - coverage);
+            if (coverage <= 1e-5 || sigma <= 1e-3) return clamp(d, 0.0, coverage);
+            float z = d / sigma;
+            float pdf = 0.3989422804 * exp(-0.5 * z * z);
+            return min(coverage, d * cloudGaussCdf(z) + sigma * pdf);
+        }
+        // 按 mip 级取"被低通掉的高频起伏"标准差
+        float cloudSigmaAtLod(float lod) {
+            int li = int(clamp(lod + 0.5, 0.0, 7.0));
+            return u_noise_sigma[li];
         }
 
         float cloudMap0(vec3 posMeter, float normalizeHeight, float appTime, float footprintKm) {
@@ -7624,7 +7720,8 @@ const CloudSkyWebGL = {
             float noiseLod0 = cloudNoiseLod(footprintKm, 1000.0 / (kCloudBasicNoiseScale * 64.0), 6.0);
             float basicNoise = textureLod(u_basic_noise, (posKm + windOffset) * kCloudBasicNoiseScale, noiseLod0).r;
             float basicCloudNoise = gradienShape * basicNoise;
-            float basicCloudWithCoverage = coverage * remap_(basicCloudNoise, 1.0 - coverage, 1.0, 0.0, 1.0);
+            float basicCloudWithCoverage = cloudSoftCoverage(basicCloudNoise, coverage,
+                gradienShape * cloudSigmaAtLod(noiseLod0));
 
             vec3 sampleDetailNoise = posKm - windOffset * 0.15;
             float detailNoiseComposite = textureLod(u_detail_noise, sampleDetailNoise * kCloudDetailNoiseScale, min(noiseLod0, 5.0)).r;
@@ -7710,7 +7807,8 @@ const CloudSkyWebGL = {
             float noiseLod1 = cloudNoiseLod(footprintKm, 1000.0 / (kCloudBasicNoiseScale * 2.0 * 64.0), 6.0);
             float basicNoise = textureLod(u_basic_noise, (posKm + windOffset) * (kCloudBasicNoiseScale * 2.0) + warp1, noiseLod1).r;
             float basicCloudNoise = gradienShape * basicNoise;
-            float basicCloudWithCoverage = coverage * remap_(basicCloudNoise, 1.0 - coverage, 1.0, 0.0, 1.0);
+            float basicCloudWithCoverage = cloudSoftCoverage(basicCloudNoise, coverage,
+                gradienShape * cloudSigmaAtLod(noiseLod1));
 
             vec3 sampleDetailNoise = posKm - windOffset * 0.15;
             float detailNoiseComposite = textureLod(u_detail_noise, sampleDetailNoise * (kCloudDetailNoiseScale * 2.0) + warp1, min(noiseLod1, 5.0)).r;
@@ -7793,7 +7891,8 @@ const CloudSkyWebGL = {
             float basicNoise = textureLod(u_basic_noise,
                 (posKm + windOffset + vec3(0.39)) * (kCloudBasicNoiseScale * 3.0) + vec3(warpU2, 0.0, warpV2), noiseLod2).r;
             float basicCloudNoise = gradienShape * basicNoise;
-            float basicCloudWithCoverage = coverage * remap_(basicCloudNoise, 1.0 - coverage, 1.0, 0.0, 1.0);
+            float basicCloudWithCoverage = cloudSoftCoverage(basicCloudNoise, coverage,
+                gradienShape * cloudSigmaAtLod(noiseLod2));
 
             float densityShape = sat_(0.01 + (1.0 - normalizeHeight) * 0.5) * 0.1 *
                 remap_(normalizeHeight, 0.0, 0.3, 0.0, 1.0) *
@@ -7925,12 +8024,24 @@ const CloudSkyWebGL = {
             tMax = tMin + marchLen;
             if (bEarlyOut) return vec4(0.0, 0.0, 0.0, 1.0);
 
-            // 步数由"物理步长上界"决定（u_march_steps 作为性能上限）
-            float stepCount = clamp(ceil(marchLen / kCloudMaxStepKm),
-                                    kCloudMinMarchSteps, max(kCloudMinMarchSteps, float(u_march_steps)));
-            float stepT = marchLen / stepCount;
+            // 每个像素的角尺寸（鱼眼：r = f·2R/π·θ；透视：θ ≈ r/(f·R)）
+            float angPerPix = (u_enable_fisheye_projection == 0)
+                ? (1.0 / max(u_f * u_sky_radius, 1e-3))
+                : (PI / (2.0 * max(u_f * u_sky_radius, 1e-3)));
 
-            float sampleT = tMin + 0.001 * stepT + stepT * sat_(jitter);
+            // 等比步进的公比 = 1 + 每像素角尺寸（步长与像素足迹同步增长）
+            float stepRatio = 1.0 + angPerPix;
+            float maxSteps = max(kCloudMinMarchSteps, float(u_march_steps));
+            float nWant = log(1.0 + marchLen * (stepRatio - 1.0) / kCloudNearStepKm) / log(stepRatio);
+            float stepCount = clamp(ceil(nWant), kCloudMinMarchSteps, maxSteps);
+            // 若步数被性能上限钳住，则等比放大近场步长，保证首末仍正好覆盖 [tMin, tMin+marchLen]
+            float stepA = marchLen * (stepRatio - 1.0) / max(pow(stepRatio, stepCount) - 1.0, 1e-6);
+
+            // 全局抖动：偏移量取一个近场步长，近场获得完整抖动，远场因步长已与像素
+            // 足迹匹配而不再需要额外抖动（该尺度上的起伏本来就被低通了）
+            float sampleT = tMin + stepA * sat_(jitter);
+            float stepLen = stepA;      // 本步长度，逐步乘 stepRatio
+            float tSample = sampleT;    // 样本点（步的起点 + 半步）
 
             float VoL = dot(worldDir, sunDirection);
 
@@ -7942,11 +8053,6 @@ const CloudSkyWebGL = {
 
             float phase = dualLobPhase(kCloudPhaseForward, kCloudPhaseBackward, kCloudPhaseMixFactor, -VoL);
             float phase1 = mix(getUniformPhase(), phase, 0.5);
-
-            // 每个像素的角尺寸（鱼眼：r = f·2R/π·θ；透视：θ ≈ r/(f·R)）
-            float angPerPix = (u_enable_fisheye_projection == 0)
-                ? (1.0 / max(u_f * u_sky_radius, 1e-3))
-                : (PI / (2.0 * max(u_f * u_sky_radius, 1e-3)));
 
             // ---- 到相机的视线大气透射率（物理空气透视）----
             // 同一光线上两点间满足 T(a→b) = T_lut(a,μ)/T_lut(b,μ)（两点同向、同一天顶角；
@@ -7960,15 +8066,16 @@ const CloudSkyWebGL = {
             vec3 viewT0 = texture(u_trans_lut, lutTransmittanceParamsToUv(viewHeight, muCam)).rgb;
             viewT0 = max(viewT0, vec3(1e-4));
 
-            // 逐样本的预滤波尺度只用像素足迹（屏幕方向的抗锯齿）；步长方向由
-            // kCloudMaxStepKm 保证，不对噪声做步长方向的低通——那会把阈值化的
-            // 密度整体削薄（模糊后的噪声落到覆盖率阈值以下 → 云消失）
+            // 预滤波尺度取本样本的像素足迹：由等比步进，它天然≈本步步长，
+            // 因此屏幕方向与光线方向被低通到同一尺度（这是两半球观感一致的前提）
 
             // 日落时多重散射增强
             float sunSetScale = 1.0 + sat_(1.0 - sunDirection.y * 2.0);
 
             for (int i = 0; i < u_march_steps; i++) {
-                vec3 samplePos = worldPos + worldDir * sampleT;
+                if (float(i) >= stepCount) break;
+                tSample = sampleT + 0.5 * stepLen;
+                vec3 samplePos = worldPos + worldDir * tSample;
                 float sampleHeight = length(samplePos);
 
                 // ---- 到太阳的透射率：按"样本自身高度 + 样本处太阳天顶角"查表 ----
@@ -7981,11 +8088,11 @@ const CloudSkyWebGL = {
 
                 float normalizeHeight = (sampleHeight - kCloudAreaStartHeight) / kCloudAreaThickness;
                 float actualH01 = 0.0;
-                float sampleFootprintKm = max(sampleT * angPerPix, 0.01);
+                float sampleFootprintKm = max(max(tSample * angPerPix, stepLen), 0.01);
                 float stepCloudDensity = cloudMap(samplePos * 1000.0, normalizeHeight, appTime, false, sampleFootprintKm, actualH01);
 
                 if (stepCloudDensity > 0.0) {
-                    float opticalDepth = stepCloudDensity * stepT * 1000.0;
+                    float opticalDepth = stepCloudDensity * stepLen * 1000.0;
                     float stepTransmittance = max(exp(-opticalDepth), exp(-opticalDepth * 0.25) * 0.7);
 
                     vec2 shadow = volumetricShadow(samplePos, sunDirection, appTime, u_ms_extinction);
@@ -8059,7 +8166,8 @@ const CloudSkyWebGL = {
                 }
 
                 if (transmittance <= 0.001) break;
-                sampleT += stepT;
+                sampleT += stepLen;
+                stepLen *= stepRatio;
             }
 
             if (any(isnan(scatteredLight)) || any(isinf(scatteredLight))) {
