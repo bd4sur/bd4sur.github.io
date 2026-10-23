@@ -59,6 +59,33 @@ a {
     width: 100%;
 }
 
+/* ---- 飞行参数数字框：紧贴经纬度/时间那一排下方，样式与之相同 ---- */
+/* 两排之间只留 4px（与行内间距一致）：上一排去掉下外边距，这一排上下都不留 */
+.info_box_container.info_box_row_tight {
+    margin-bottom: 0;
+}
+.info_box_container.flight_info_row {
+    margin-top: 0;
+    margin-bottom: 0;
+}
+/* 四项与下方四只仪表一一对应：上行公制、下行另一单位，颜色沿用表盘内/外圈 */
+.flight_info_row .fi_name {
+    font-size: 9px;
+    line-height: 1.5;
+    color: #7f8f9b;
+}
+.flight_info_row .fi_a,
+.flight_info_row .fi_b {
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+}
+.flight_info_row .fi_a {
+    color: #67d7ff;
+}
+.flight_info_row .fi_b {
+    color: #ffb454;
+}
+
 .status_label {
     font-size: 9px;
 }
@@ -713,7 +740,7 @@ a {
 
         <canvas class="mainCanvas" id="skyCanvas" width="400" height="300" style="width: 100%; max-width: 400px;"></canvas>
 
-        <div class="info_box_container">
+        <div class="info_box_container info_box_row_tight">
             <div class="info_box" id="set_coord">
                 <div id="info_latitude">-</div>
                 <div id="info_longitude">-</div>
@@ -729,6 +756,32 @@ a {
             <div class="info_box" id="fps" style="cursor: pointer;">
                 <div>帧率 <span id="info_fps">-</span> fps</div>
                 <div style="transform: scale(0.8); color:#666666">点击全屏</div>
+            </div>
+        </div>
+
+        <!-- 飞行参数数字框：与上方经纬度/时间那一排同样的盒子，四格与下方四只仪表逐一对应。
+             每格上行是公制单位、下行是另一种单位，颜色与表盘内圈(青)/外圈(琥珀)一致；
+             数值由 flight_update_info_row() 逐帧写入，口径与指针完全相同（指针被量程夹住时数字仍是真值） -->
+        <div class="info_box_container flight_info_row" id="flight_info_row">
+            <div class="info_box">
+                <div class="fi_name">空速</div>
+                <div class="fi_a" id="fi_airspeed_a">0 m/s</div>
+                <div class="fi_b" id="fi_airspeed_b">0 kt</div>
+            </div>
+            <div class="info_box">
+                <div class="fi_name">高度</div>
+                <div class="fi_a" id="fi_altitude_a">0 m</div>
+                <div class="fi_b" id="fi_altitude_b">0 ft</div>
+            </div>
+            <div class="info_box">
+                <div class="fi_name">转弯速率</div>
+                <div class="fi_a" id="fi_turn_a">+0.0 °/s</div>
+                <div class="fi_b" id="fi_turn_b">+0.000 rad/s</div>
+            </div>
+            <div class="info_box">
+                <div class="fi_name">垂直速率</div>
+                <div class="fi_a" id="fi_vsi_a">+0.0 m/s</div>
+                <div class="fi_b" id="fi_vsi_b">+0 ft/min</div>
             </div>
         </div>
 
@@ -991,6 +1044,7 @@ a {
                     <li>「天体名称」默认为全部。页面初始化时会先算一次太阳高度：低于 −18°（天文晨昏蒙影已结束）就自动打开「赤道坐标」网格并显示地平方位角（只出方位文字，地平网格仍关闭）；天还亮着则这两项保持关闭。切到「飞行控制」选项卡时会自动打开「姿态指示」并改为「透视投影」。这些自动设置之后都能手动改回。</li>
                     <li>「飞行控制」选项卡模拟一架小型固定翼飞机（初教五、动力三角翼一类）的第一人称座舱视角：左侧竖向滑轨是油门（向上加大推力），右侧圆形摇杆的横向控制滚转、纵向控制俯仰（向下拉杆抬头、向上推杆低头），下方两个按钮控制左右方向舵。滚转产生坡度后会进入协调转弯（水平向心运动），方向舵会造成侧滑。PC 上也可用键盘：W/S 推拉杆、A/D 左右坡度、Q/E 左右偏航、R/F 增减油门；点「复位」以当前位置和航向重新开始一次飞行。飞行只在「飞行控制」页生效，切回「视角控制」即暂停模拟并保留飞机状态。速度不设上限：全油门平飞极速约 131 m/s（471 km/h，海平面；越高空气稀薄越低），俯冲时重力参与，垂直俯冲可达约 176 m/s（635 km/h），完全由寄生阻力与推力衰减决定。</li>
                     <li>主画布下方、时间控制按钮上方是四只指针式飞行仪表：空速表（内圈 m/s / 外圈 kt，0–200 m/s 即 0–389 kt）、高度表（内圈 m / 外圈 ft；短粗针读 0–12000 m 全量程、对应当前刻度数字，细长针每转一圈 1000 m 用于读出低空的精确高度）、转弯协调表（°/s，绿色刻度为标准转弯率 3°/s）、垂直速率表（内圈 m/s / 外圈 ft/min）。数字沿表盘切向排布，两种单位用颜色区分。指针随飞行状态实时转动；尚未开始飞行时指针归零，切回「视角控制」后停在最后一次读数。</li>
+                    <li>经纬度/时间那一排参数框的下面另有一排同样的四个数字框，对应上面四只仪表：空速（m/s / kt）、高度（m / ft）、转弯速率（°/s / rad/s）、垂直速率（m/s / ft/min），公制单位在上、另一种单位在下，配色与表盘内圈(青)/外圈(琥珀)一致。数字取的是原始值，不受指针量程限制——比如空速超过 200 m/s 或转弯率超过 30°/s 时指针顶在刻度尽头，数字照报真值；未开始飞行时与指针一样归零。</li>
                     <li>飞行页的主画面上，中央的黄色短线是机头基准（航迹指示），绿色圆圈带左右短翼的符号是飞行航迹矢量（FPV）：它指向飞机速度的实际方向——平飞时压在机头基准上，拉杆爬升时落在基准下方（两者的夹角就是迎角），侧滑时左右偏开（偏角即侧滑角）。速度低于 2 m/s 停住时或该方向转出画面时不显示；切回「视角控制」后消失。</li>
                     <li>飞行页控件下方是导航显示器（ND）：黑底方形屏，飞机符号固定在水平中央、竖直 3/4 处，地图随飞机对地移动而平移并旋转，始终保持「航迹朝上」。显示范围可由显示屏底边的按钮在 10 / 50 / 100 / 200 / 500 / 1000 km 之间切换（指机位到上边缘的距离，默认 200 km），底图是全国主要民用机场（大型机场，标 IATA 三字码，取自 OurAirports 开放数据集）；距离环按量程四等分自动缩放，另有每 30° 一条方位辐射线。飞过的航迹用品红折线记录，每移动 0.35 km 采一点；复位时清空。顶部弧形罗盘刻度随航迹滚动，正上方恒为当前航迹方位（品红三角所指），刻度数字即罗盘方位角；左上角小罗盘指示北向。左下角为显示范围，右下角为航迹与地速。</li>
                     <li>「五边起落」按钮是另一套自动驾驶场景：起飞航向直接取当前时刻的太阳方位（五边模式的滑跑状态会显示"朝太阳 xxx°"），离地后按标准左航线飞完整五边——离场边爬升到 600 m、侧风边左转 90°、下风边与跑道平行反向、底边再左转 90° 下降到进场高度、最后进近对正跑道落地；航线速度保持约 58 m/s，转弯半径约 500 m，整圈几何按起飞点闭合。</li>
@@ -13504,9 +13558,12 @@ function flight_update_readout() {
 // 飞行仪表：空速表 / 高度表 / 转弯协调表 / 垂直速率表
 // 圆盘指针式，纯 SVG：表盘刻度与两种单位的数字在 instrument_init() 里生成一次，
 // 之后每帧只改指针的 rotate 变换（flight_update_instruments，由 draw() 调用）。
+// 表盘上方还有一排与经纬度参数框同样式的数字框（flight_update_info_row），
+// 四格与四只表一一对应，上行公制、下行另一单位，读数不受指针量程限制。
 // 双单位仪表把主单位标在内圈、副单位标在外圈，用颜色区分：
 //   空速 m/s(青) + kt(琥珀)｜高度 m(青) + ft(琥珀)｜垂直速率 m/s(青) + ft/min(琥珀)；
-//   转弯协调表只有 °/s 一种单位，另在 ±3°/s 处标出标准转弯率的绿刻度。
+//   转弯协调表只有 °/s 一种单位，另在 ±3°/s 处标出标准转弯率的绿刻度，
+//   数字框下行的 rad/s 是与 °/s 互换的另一个角度单位。
 // 指针行程 240°（自 12 点位向两侧各 120°），单极表最小值落在左下、双极表 0 在正上。
 // ============================================================
 const INST_SWEEP_DEG = 240;            // 指针总行程
@@ -13677,6 +13734,41 @@ function flight_update_instruments() {
             gf.setAttribute('transform', 'rotate(' + a.toFixed(1) + ' 50 50)');
         }
     }
+    flight_update_info_row();
+}
+
+// 仪表上方的四个数字框（空速/高度/转弯速率/垂直速率）：与指针同源同口径，
+// 但不像指针那样被量程夹住——超出刻度范围时数字仍报真值。
+// 数字每帧重算，只在文本真的变了才写 DOM，免得每帧触发排版。
+const FLIGHT_INFO_TEXT = {};
+function flight_info_text(id, txt) {
+    if (FLIGHT_INFO_TEXT[id] === txt) return;
+    FLIGHT_INFO_TEXT[id] = txt;
+    const el = document.getElementById(id);
+    if (el) el.textContent = txt;
+}
+
+// 带符号格式化：+3.2 / −1.0；四舍五入后为 0 的一律去掉负号（避免出现 -0.0）
+function flight_signed(v, digits) {
+    const p = Math.pow(10, digits);
+    const r = Math.round(v * p) / p;
+    return (r < 0 ? '' : '+') + r.toFixed(digits);
+}
+
+function flight_update_info_row() {
+    const ready = flight.ready === true;
+    const v = ready ? flight.V : 0.0;
+    const alt = ready ? flight.alt : 0.0;
+    const turnRad = ready ? flight.headingRate : 0.0;          // 机头方位角速度
+    const vs = ready ? flight.V * Math.sin(flight.gamma) : 0.0; // 垂直速率
+    flight_info_text('fi_airspeed_a', v.toFixed(0) + ' m/s');
+    flight_info_text('fi_airspeed_b', (v * KNOT_PER_MS).toFixed(0) + ' kt');
+    flight_info_text('fi_altitude_a', alt.toFixed(0) + ' m');
+    flight_info_text('fi_altitude_b', (alt * FT_PER_M).toFixed(0) + ' ft');
+    flight_info_text('fi_turn_a', flight_signed(turnRad * FLIGHT.RAD, 1) + ' °/s');
+    flight_info_text('fi_turn_b', flight_signed(turnRad, 3) + ' rad/s');
+    flight_info_text('fi_vsi_a', flight_signed(vs, 1) + ' m/s');
+    flight_info_text('fi_vsi_b', flight_signed(vs * FPM_PER_MS, 0) + ' ft/min');
 }
 
 
