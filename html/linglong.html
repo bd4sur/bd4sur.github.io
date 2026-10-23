@@ -664,6 +664,26 @@ a {
         inset 0 5px 8px #000000e6;
 }
 
+/* 荧光指示的高频闪烁：0.5 秒一个周期（2 Hz），亮度小幅起伏；
+   全部同步闪动（不加相位差），linear 让明暗切换更干脆。熄灭的状态字不参与。 */
+@keyframes ak_flicker {
+    0%, 100% { opacity: 1; }
+    6%       { opacity: 0.93; }
+    9%       { opacity: 1; }
+    43%      { opacity: 0.965; }
+    46%      { opacity: 1; }
+    69%      { opacity: 0.94; }
+    73%      { opacity: 1; }
+}
+.ak_state.lit,
+.ak_onoff.on {
+    animation: ak_flicker 0.5s linear infinite;
+}
+@media (prefers-reduced-motion: reduce) {
+    .ak_state.lit,
+    .ak_onoff.on { animation: none; }
+}
+
 /* ---- 日夜配色 ---- */
 /* 默认是夜间：黑底 + 浅黄标签/边框（.ak_name 与 .ak_socket 的基础值） */
 /* 白天：页面底色转深蓝灰，顶部按钮的标签与安装座边框转浅灰 */
@@ -15299,6 +15319,7 @@ function refresh_button_status() {
         const state = face ? face.querySelector(".ak_state") : null;
         const off = state ? state.querySelector(".switch_off") : null;
         lamp.classList.toggle("on", !off);
+        if (state) state.classList.toggle("lit", !off);   // 亮着的状态字才微微闪烁
     });
 
     refresh_view_angle();
