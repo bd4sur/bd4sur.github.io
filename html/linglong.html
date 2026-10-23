@@ -321,21 +321,7 @@ a {
     justify-content: center;
     flex-wrap: wrap;
     gap: 4px 8px;
-    margin-top: 4px;
-}
-.flight_readout {
-    font-size: 9px;
-    font-family: monospace;
-    color: #9fe6ea;
-    white-space: nowrap;
-}
-/* 飞行状态参数（空速/高度/航向/升降/油门）：置于油门与摇杆上方 */
-.flight_readout_row {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    margin: 2px auto 0 auto;
-    padding: 0 4px;
+    margin: 2px auto 0 auto;    /* 位于操纵杆等控件上方，与下方的间距由 .flight_panel 的 padding-top 给 */
 }
 .flight_reset_btn {
     flex: none;
@@ -729,6 +715,7 @@ a {
             <button class="setting_button" id="toggle_webgl">GPU渲染<br><span class="status_label" id="webgl_status">-</span></button>
             <button class="setting_button" id="toggle_atmospheric_scattering">大气散射<br><span class="status_label" id="scattering_status">-</span></button>
             <button class="setting_button" id="toggle_landscape">地景<br><span class="status_label" id="landscape_status">-</span></button>
+            <button class="setting_button" id="toggle_ocean_params">海洋参数<br><span class="status_label" id="ocean_params_status">-</span></button>
         </div>
 
         <!-- 体积云（解耦自模型5，全散射模型可用）专属调节：云量/云类/云亮度(自动读数)/镜头光晕/雷达云图 -->
@@ -741,8 +728,18 @@ a {
         </div>
 
         <!-- 实时海洋（web-ocean 移植）专属调节：风速/风向/风区/涌浪/泡沫/浑浊度/霾 -->
-        <!-- 地景设为“实时海洋”时显示于 canvas 上方；由 wo_init_sliders 动态填充 -->
+        <!-- 由 wo_init_sliders 动态填充；默认收起（display:none），点「海洋参数」按钮展开，见 ocean_params_refresh() -->
         <div class="setting_buttons_container ocean_sliders" id="ocean_controller"></div>
+
+        <!-- 时间控制：紧贴主画布上方 -->
+        <div class="setting_buttons_container" id="timemachine_controller">
+            <button class="setting_button" id="toggle_timemachine_backward_day">▕◀◀</button>
+            <button class="setting_button" id="toggle_timemachine_backward">▕◀</button>
+            <button class="setting_button" id="toggle_timemachine_now">实时</button>
+            <button class="setting_button" id="toggle_timemachine_pause">暂停/运行<br><span class="status_label" id="timemachine_status">-</span></button>
+            <button class="setting_button" id="toggle_timemachine_forward">▶▏</button>
+            <button class="setting_button" id="toggle_timemachine_forward_day">▶▶▏</button>
+        </div>
 
         <canvas class="mainCanvas" id="skyCanvas" width="400" height="300" style="width: 100%; max-width: 400px;"></canvas>
 
@@ -795,15 +792,6 @@ a {
              整行宽度与主 canvas 一致；刻度与双单位数字由 instrument_init() 生成 -->
         <div class="instrument_panel" id="instrument_panel"></div>
 
-        <div class="setting_buttons_container" id="timemachine_controller">
-            <button class="setting_button" id="toggle_timemachine_backward_day">▕◀◀</button>
-            <button class="setting_button" id="toggle_timemachine_backward">▕◀</button>
-            <button class="setting_button" id="toggle_timemachine_now">实时</button>
-            <button class="setting_button" id="toggle_timemachine_pause">暂停/运行<br><span class="status_label" id="timemachine_status">-</span></button>
-            <button class="setting_button" id="toggle_timemachine_forward">▶▏</button>
-            <button class="setting_button" id="toggle_timemachine_forward_day">▶▶▏</button>
-        </div>
-
         <!-- 视角控制 / 飞行控制 选项卡：原视角按钮整体移入「视角控制」页，「飞行控制」页为新增 -->
         <div class="control_panel">
             <div class="control_tabs" role="tablist">
@@ -832,9 +820,13 @@ a {
             </div>
 
             <div class="control_page" id="page_flight_control">
-                <!-- 飞行状态参数：放在油门/摇杆上方，操纵时不必低头看下方 -->
-                <div class="flight_readout_row">
-                    <div class="flight_readout" id="flight_readout">空速 — 高度 — 航向 — 油门 —</div>
+                <!-- 复位 / 演示 / 五边 与自动驾驶指示灯：置于操纵杆等控件上方 -->
+                <div class="flight_status_row">
+                    <button class="flight_reset_btn" id="flight_reset">复位</button>
+                    <button class="flight_reset_btn" id="flight_autopilot">失速尾旋与改出演示</button>
+                    <button class="flight_reset_btn" id="flight_pattern">五边起落</button>
+                    <span class="ap_lamp" id="ap_lamp" title="自动驾驶"></span>
+                    <span class="ap_status" id="ap_status">待机</span>
                 </div>
                 <div class="flight_panel">
                     <div class="throttle_area">
@@ -857,13 +849,6 @@ a {
                 <div class="rudder_row">
                     <button class="rudder_btn" id="flight_rudder_left">◀ 左舵</button>
                     <button class="rudder_btn" id="flight_rudder_right">右舵 ▶</button>
-                </div>
-                <div class="flight_status_row">
-                    <button class="flight_reset_btn" id="flight_reset">复位</button>
-                    <button class="flight_reset_btn" id="flight_autopilot">一键自动飞行</button>
-                    <button class="flight_reset_btn" id="flight_pattern">五边起落</button>
-                    <span class="ap_lamp" id="ap_lamp" title="自动驾驶"></span>
-                    <span class="ap_status" id="ap_status">待机</span>
                 </div>
                 <div class="flight_hint">键盘：W/S 推拉杆 · A/D 滚转 · Q/E 偏航 · R/F 油门</div>
                 <!-- 导航显示器：航迹朝上的移动地图（飞机不动、地图动），底图为全国主要民用机场 -->
@@ -1049,12 +1034,12 @@ a {
                     <li>拖动屏幕改变视角。</li>
                     <li>「天体名称」默认为全部。页面初始化时会先算一次太阳高度：低于 −18°（天文晨昏蒙影已结束）就自动打开「赤道坐标」网格并显示地平方位角（只出方位文字，地平网格仍关闭）；天还亮着则这两项保持关闭。切到「飞行控制」选项卡时会自动打开「姿态指示」并改为「透视投影」。这些自动设置之后都能手动改回。</li>
                     <li>「飞行控制」选项卡模拟一架小型固定翼飞机（初教五、动力三角翼一类）的第一人称座舱视角：左侧竖向滑轨是油门（向上加大推力），右侧圆形摇杆的横向控制滚转、纵向控制俯仰（向下拉杆抬头、向上推杆低头），下方两个按钮控制左右方向舵。滚转产生坡度后会进入协调转弯（水平向心运动），方向舵会造成侧滑。PC 上也可用键盘：W/S 推拉杆、A/D 左右坡度、Q/E 左右偏航、R/F 增减油门；点「复位」以当前位置和航向重新开始一次飞行。飞行只在「飞行控制」页生效，切回「视角控制」即暂停模拟并保留飞机状态。速度不设上限：全油门平飞极速约 131 m/s（471 km/h，海平面；越高空气稀薄越低），俯冲时重力参与，垂直俯冲可达约 176 m/s（635 km/h），完全由寄生阻力与推力衰减决定。</li>
-                    <li>主画布下方、时间控制按钮上方是四只指针式飞行仪表：空速表（内圈 m/s / 外圈 kt，0–200 m/s 即 0–389 kt）、高度表（内圈 m / 外圈 ft；短粗针读 0–12000 m 全量程、对应当前刻度数字，细长针每转一圈 1000 m 用于读出低空的精确高度）、转弯协调表（°/s，绿色刻度为标准转弯率 3°/s）、垂直速率表（内圈 m/s / 外圈 ft/min）。数字沿表盘切向排布，两种单位用颜色区分。指针随飞行状态实时转动；尚未开始飞行时指针归零，切回「视角控制」后停在最后一次读数。</li>
+                    <li>主画布下方依次是经纬度/时间那排参数框与其下的飞行参数数字框，再往下是四只指针式飞行仪表：空速表（内圈 m/s / 外圈 kt，0–200 m/s 即 0–389 kt）、高度表（内圈 m / 外圈 ft；短粗针读 0–12000 m 全量程、对应当前刻度数字，细长针每转一圈 1000 m 用于读出低空的精确高度）、转弯协调表（°/s，绿色刻度为标准转弯率 3°/s）、垂直速率表（内圈 m/s / 外圈 ft/min）。数字沿表盘切向排布，两种单位用颜色区分。指针随飞行状态实时转动；尚未开始飞行时指针归零，切回「视角控制」后停在最后一次读数。</li>
                     <li>经纬度/时间那一排参数框的下面另有一排同样的四个数字框，对应上面四只仪表：空速（m/s / kt）、高度（m / ft）、转弯速率（°/s / rad/s）、垂直速率（m/s / ft/min），公制单位在上、另一种单位在下，配色与表盘内圈(青)/外圈(琥珀)一致。数字取的是原始值，不受指针量程限制——比如空速超过 200 m/s 或转弯率超过 30°/s 时指针顶在刻度尽头，数字照报真值；未开始飞行时与指针一样归零。</li>
                     <li>飞行页的主画面上，中央的黄色短线是机头基准（航迹指示），绿色圆圈带左右短翼的符号是飞行航迹矢量（FPV）：它指向飞机速度的实际方向——平飞时压在机头基准上，拉杆爬升时落在基准下方（两者的夹角就是迎角），侧滑时左右偏开（偏角即侧滑角）。速度低于 2 m/s 停住时或该方向转出画面时不显示；切回「视角控制」后消失。</li>
                     <li>飞行页控件下方是导航显示器（ND）：黑底方形屏，飞机符号固定在水平中央、竖直 3/4 处，地图随飞机对地移动而平移并旋转，始终保持「航迹朝上」。显示范围可由显示屏底边的按钮在 10 / 50 / 100 / 200 / 500 / 1000 km 之间切换（指机位到上边缘的距离，默认 200 km），底图是全国主要民用机场（大型机场，标 IATA 三字码，取自 OurAirports 开放数据集）；距离环按量程四等分自动缩放，另有每 30° 一条方位辐射线。飞过的航迹用品红折线记录，每移动 0.35 km 采一点；复位时清空。顶部弧形罗盘刻度随航迹滚动，正上方恒为当前航迹方位（品红三角所指），刻度数字即罗盘方位角；左上角小罗盘指示北向。左下角为显示范围，右下角为航迹与地速。</li>
                     <li>「五边起落」按钮是另一套自动驾驶场景：起飞航向直接取当前时刻的太阳方位（五边模式的滑跑状态会显示"朝太阳 xxx°"），离地后按标准左航线飞完整五边——离场边爬升到 600 m、侧风边左转 90°、下风边与跑道平行反向、底边再左转 90° 下降到进场高度、最后进近对正跑道落地；航线速度保持约 58 m/s，转弯半径约 500 m，整圈几何按起飞点闭合。</li>
-                    <li>「一键自动飞行」按钮会接管全部操纵（期间摇杆、油门键都不响应），从地面起飞爬升穿云到 7500 m，减速到失速边界后故意拉出失速、蹬满舵进入尾旋——进入约 20 秒后再顺舵加副翼，转速会从 30°/s 一路压到 140°/s，一直转到 1600 m 才改出（反舵打停自转、推杆让机翼附着、低空大过载拉起），随后进近、拉平、刹停；结束后指示灯自动熄灭。再点一次按钮或按「复位」可随时中止。</li>
+                    <li>「失速尾旋与改出演示」按钮会接管全部操纵（期间摇杆、油门键都不响应），从地面起飞爬升穿云到 7500 m，减速到失速边界后故意拉出失速、蹬满舵进入尾旋——进入约 20 秒后再顺舵加副翼，转速会从 30°/s 一路压到 140°/s，一直转到 1600 m 才改出（反舵打停自转、推杆让机翼附着、低空大过载拉起），随后进近、拉平、刹停；结束后指示灯自动熄灭。再点一次按钮或按「复位」可随时中止。</li>
                     <li>触地后按起落架接地处理：姿态立即放平为地面姿态（机翼水平、机头放平、无侧滑），随后进入滑跑。滑跑时油门对抗气动阻力、滚动阻力与刹车阻力——收油门（或按 F）会带刹车在约十秒内逐渐滑停，速度可降到 0；加到约 22 m/s 抬轮速度后再拉杆即可重新离地，低于该速度拉杆无效（机头被前轮/尾轮撑住）。</li>
                     <li>飞行动力学是六自由度刚体：副翼/升降舵/方向舵给的是气动力矩，升力与阻力按左右机翼各自的当地迎角算（含失速后的升力塌陷与阻力上升），姿态用四元数积分，所以筋斗、横滚、过顶、倒飞都可以做，也不会出现欧拉角锁死；HUD 里的"高度/升降"始终是世界竖直方向。</li>
                     <li>失速与尾旋是真的算出来的：失速速度约 25 m/s（相当于 90 km/h），超过约 15° 迎角升力就开始塌陷、机头自然下坠；慢车 + 满拉杆 + 满舵可以进入尾旋——两翼当地迎角不等造成的自转力矩让机头绕垂轴持续旋转、近垂直下降，α 稳定在 20°–30°。改出用反舵（抵消自转）+ 推杆（减小迎角让机翼重新附着），松杆通常也能自己改出。抬轮速度 30 m/s，且要升力真能托住重量才离得地。</li>
@@ -1070,7 +1055,7 @@ a {
                     <li>启用体积云后，可用其下的"云量/云类"按钮调节云的档位（6档）与显示种类（按层掩码 0-7 共 8 种组合：无云/仅低层/仅中层/低+中/仅高层/低+高/中+高/所有云）。云亮度不再是手动档位，而是太阳高度的经验函数 0.75·tanh(0.2·太阳高度−0.6)+1.25：太阳越高云越白亮（上限 2.0），日落后转暗，天文暮光之后压到 0.5；"云亮度(自动)"按钮上的数字只是当前值，点了不改变任何东西。</li>
                     <li>"雷达云图"开启后（默认开启），体积云天空的初始云模式取自中央气象台组合反射率图（radar.png 减 radar_background.png 底图、形态学去地图元素、色标反演 dBZ），雷达 256km 范围与地平圈直接对齐；dBZ 经三通道调制云场：覆盖率决定有无疏密（封顶 35/45/55dBZ）、云顶高度决定类别（弱回波压扁为层云、强回波发展为全塔积雨云）、密度系数决定厚薄；中高度云另以双频噪声调制破碎边缘、消除周期感，并对回波轮廓做域扭曲（~2.5km 特征）与高频 dBZ 抖动，使大片云的平直硬边变成曲折破碎的自然边缘；处理全部在页面内完成，图片缺失或处理失败时自动回退程序化云图。</li>
                     <li>「海洋天空」（模型 6）与「实时海洋」地景移植自开源项目 web-ocean（MIT）：Hillaire 式 LUT 大气（透射率/多重散射/天空视图三张 LUT，JS 与 GLSL 共享同一份数据）、JONSWAP 风浪谱+窄涌浪的解析波列级数（方差守恒，烘焙为可平铺波场纹理并按群速度平流）、各向异性高斯太阳耀光（Smith 掩蔽）、天空环境反射、水体上涌与波峰透射辉光、雅可比白帽、大气透视与 AgX 色调映射。观察者默认位于海平面以上 50 米（1.5 米~10 公里对数刻度可调）；无 WebGL2 时自动回退到较慢的 JS 逐像素渲染。</li>
-                    <li>地景设为「实时海洋」时，canvas 上方会出现海洋参数滑块（观察高度/风速/风向/风区/涌浪波高/涌浪波长/涌浪方向/泡沫强度/水体浑浊度/霾）：波浪与涌浪参数在停止拖动约 0.25 秒后重烘焙波场（约 0.1 秒）；「霾」与「观察高度」会重建大气 LUT（约 0.5 秒）；泡沫强度与水体浑浊度立即生效。风浪行进方向与涌浪方向以罗盘方位角表示（0=北，90=东）。「观察高度」同时是体积云与天空的观察点高度（飞行控制页内则改由飞机接管，滑块只作显示），因此调高它会一起抬升海面相机和云层视角。</li>
+                    <li>地景为「实时海洋」时，点按钮区的「海洋参数」可以展开/收起海面参数滑块区（观察高度/风速/风向/风区/涌浪波高/涌浪波长/涌浪方向/泡沫强度/水体浑浊度/霾），默认收起；地景不是实时海洋时该按钮只显示“需实时海洋”。滑块本身：波浪与涌浪参数在停止拖动约 0.25 秒后重烘焙波场（约 0.1 秒）；「霾」与「观察高度」会重建大气 LUT（约 0.5 秒），「霾」默认 0（无霾，空气清透）；泡沫强度与水体浑浊度立即生效。风浪行进方向与涌浪方向以罗盘方位角表示（0=北，90=东）。「观察高度」同时是体积云与天空的观察点高度（飞行控制页内则改由飞机接管，滑块只作显示），因此调高它会一起抬升海面相机和云层视角。</li>
                     <li>性能选项：「天空降帧」开启时，若视线/太阳/云参数未变，天空每 4 帧才重绘一次、其余帧复用上次结果（海洋与天体/网格叠加仍逐帧更新）；「云半分辨率」开启时体积云以半分辨率光线步进再双线性放大（云边缘略软，开销降至 1/4）。二者可独立开关，全景拖动时自动失效以保证响应。</li>
                     <li>本系统由 Kimi K2.7、K3、本地部署的 DeepSeek-V4-Flash、GLM5.3-Flash 辅助编码。</li>
                 </ul>
@@ -1151,6 +1136,9 @@ const skyCache = { key: null, pixels: null, counter: 0 };
 
 // 地景选项：0-无地景；1-地形生成；7-实时海洋（web-ocean 移植，类型字段=2）
 let landscape_index = 7;
+// 实时海洋参数滑块区是否展开（由「海洋参数」按钮切换；默认收起，且与地景是否实时海洋无关，
+// 换回实时海洋时保持上次的展开状态）
+let ocean_params_open = false;
 
 // 是否启用体积云（解耦自模型5的体积云算法，任意散射模型下均可用；模型5默认内建启用）
 let enable_volumetric_cloud = true;
@@ -8636,7 +8624,7 @@ const WO_MIE_S = 3.996e-3;
 const WO_MIE_E = 4.40e-3;
 const WO_OZO_A = [0.650e-3, 1.881e-3, 0.085e-3];
 const WO_SUN_ANG_R = 0.004675;        // 太阳角半径 rad
-let WO_HAZE = 3.0;                    // 气溶胶霾倍率（web-ocean 默认；可由“霾”滑块调节）
+let WO_HAZE = 0.0;                    // 气溶胶霾倍率（默认 0 = 无霾，清透空气；可由“霾”滑块调节）
 const WO_SUN_SCALE = 14.0;            // 太阳辐照定标（web-ocean sunDir.w）
 let WO_CAM_ALT_KM = 0.05;             // 观察者高度（km；默认 50 m，随“观察高度”滑块联动，最高 10 km）
 let WO_CAM_Y = 50.0;                  // 平均海平面以上高度 m（观察高度，默认 50 m，最高 10 km）
@@ -10507,7 +10495,7 @@ const WO_SLIDERS = [
     ['swellDir',  '涌浪方向', 0,   360, 1,    'wave',    (v) => v.toFixed(0) + '°'],
     ['foam',      '泡沫强度', 0,   3,   0.05, 'uniform', (v) => v.toFixed(2)],
     ['turbidity', '水体浑浊度', 0.2, 3, 0.05, 'uniform', (v) => v.toFixed(2)],
-    ['haze',      '霾',       0.5, 15,  0.1,  'lut',     (v) => v.toFixed(1)],
+    ['haze',      '霾',       0,   15,  0.1,  'lut',     (v) => v.toFixed(1)],
 ];
 const WO_SLIDER_GETTERS = {
     camY: () => WO_CAM_Y,
@@ -13546,18 +13534,6 @@ function flight_update_stick_ui() {
 }
 
 function flight_update_readout() {
-    const el = document.getElementById('flight_readout');
-    if (el) {
-        const hdg = Math.round(flight.psi * FLIGHT.RAD) % 360;
-        const vs = flight.V * Math.sin(flight.gamma);
-        const state = flight.wow
-            ? '地面滑跑'
-            : ('升降 ' + (vs >= 0 ? '+' : '') + vs.toFixed(1) + ' m/s');
-        el.textContent =
-            '空速 ' + flight.V.toFixed(0) + ' m/s · 高度 ' + flight.alt.toFixed(0) + ' m · 航向 '
-            + String(hdg).padStart(3, '0') + '° · ' + state
-            + ' · 油门 ' + Math.round(flight.throttle * 100) + '%';
-    }
     // 经纬度信息框与天象同源，随飞行实时刷新
     const latEl = document.getElementById('info_latitude');
     const lonEl = document.getElementById('info_longitude');
@@ -14580,6 +14556,20 @@ function refresh_view_angle() {
 }
 
 
+// 实时海洋参数滑块区的显隐：只有地景是实时海洋、且用户点开了「海洋参数」才展开。
+// 收起时整块不进布局（不只是视觉隐藏），canvas 因此上移。
+function ocean_params_refresh() {
+    const ctl = document.getElementById("ocean_controller");
+    const isOcean = !!(LANDSCAPES[landscape_index] && LANDSCAPES[landscape_index][2] === 2);
+    if (ctl) ctl.style.display = (isOcean && ocean_params_open) ? "flex" : "none";
+    const st = document.getElementById("ocean_params_status");
+    if (st) {
+        if (!isOcean) st.innerHTML = `<span class="switch_off">需实时海洋</span>`;
+        else if (ocean_params_open) st.innerHTML = `<span class="switch_on">展开</span>`;
+        else st.innerHTML = `<span class="switch_off">收起</span>`;
+    }
+}
+
 function refresh_button_status() {
     let status = null;
 
@@ -14799,15 +14789,8 @@ function refresh_button_status() {
         cloud_sky_ctl.style.display = "none";
     }
 
-    // 实时海洋专属调节（地景为实时海洋时显示于 canvas 上方）
-    const ocean_ctl = document.getElementById("ocean_controller");
-    if (ocean_ctl) {
-        if (LANDSCAPES[landscape_index] && LANDSCAPES[landscape_index][2] === 2) {
-            ocean_ctl.style.display = "flex";
-        } else {
-            ocean_ctl.style.display = "none";
-        }
-    }
+    // 「海洋参数」按钮的展开/收起状态与滑块区的显隐（默认收起）
+    ocean_params_refresh();
 
 
     // toggle_landscape
@@ -15202,6 +15185,12 @@ function init() {
         landscape_index++;
         if (landscape_index >= LANDSCAPES.length) landscape_index = 0;
         load_landscape_texture(landscape_index);
+        refresh_button_status();
+    });
+
+    // 海洋参数滑块区的展开/收起（默认收起；地景不是实时海洋时按钮只提示、不展开）
+    document.getElementById("toggle_ocean_params").addEventListener("click", function(e) {
+        ocean_params_open = !ocean_params_open;
         refresh_button_status();
     });
 
