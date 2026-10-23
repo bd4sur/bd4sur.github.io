@@ -35,6 +35,35 @@ a {
     border-radius: 5px;
 }
 
+/* ---- 拟物窗框：主画面、导航显示器、仪表区共用同一套注塑金属边框外观 ---- */
+/* 只有边框；玻璃反光、指示灯这类装饰由各块自己加（目前只有 ND 有） */
+.bezel {
+    box-sizing: border-box;
+    padding: 6px;
+    border-radius: 12px;
+    background: linear-gradient(180deg, #4a525c 0%, #2d333a 38%, #1b1f24 72%, #101316 100%);
+    box-shadow:
+        inset 0 1px 0 #838e9a,            /* 上沿高光 */
+        inset 0 -2px 4px #000000b8,       /* 下沿内凹 */
+        inset 0 0 0 1px #0a0c0f,          /* 内框暗线 */
+        0 3px 8px #000000cc,              /* 落到黑底的近影 */
+        0 12px 24px #00000073;            /* 远影 */
+}
+
+/* ---- 主画面窗框：左右 8px、上下 6px，内容框正好 4:3，画面按原生比例铺满不拉伸 ---- */
+.canvas_frame {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+    aspect-ratio: 4 / 3;
+    padding: 6px 8px;
+}
+.canvas_frame > .mainCanvas {
+    border-radius: 3px;
+    box-shadow: 0 0 0 1px #00000099;
+}
+
 /* ---- 主舞台：中列是主 canvas，PC 上左右两列分别是导航显示器与 2×2 仪表 ---- */
 /* 窄屏（手机/平板）：单列 —— canvas、经纬度参数框、飞行参数框各占满一行，
    最后一行把导航显示器与 2×2 仪表左右均分，两边都取正方形 */
@@ -48,11 +77,11 @@ a {
     max-width: 400px;
     margin: 10px auto 0 auto;
 }
-.stage > .mainCanvas { grid-column: 1 / -1; grid-row: 1; width: 100%; max-width: 400px; justify-self: center; }
+.stage > .canvas_frame { grid-column: 1 / -1; grid-row: 1; width: 100%; max-width: 400px; justify-self: center; }
 .stage > .info_box_row_tight { grid-column: 1 / -1; grid-row: 2; }
 .stage > .flight_info_row { grid-column: 1 / -1; grid-row: 3; }
 .stage > .nd_panel { grid-column: 1; grid-row: 4; }
-.stage > .instrument_panel { grid-column: 2; grid-row: 4; }
+.stage > .instrument_frame { grid-column: 2; grid-row: 4; }
 
 /* PC：三列固定为 300 / 400 / 300，左右两块与 canvas 等高（400×300 → 高 300），
    canvas 仍在页面绝对水平中央（两侧等宽，整体居中） */
@@ -62,11 +91,11 @@ a {
         column-gap: 14px;
         max-width: none;
     }
-    .stage > .mainCanvas { grid-column: 2; grid-row: 1; width: 400px; max-width: 400px; }
+    .stage > .canvas_frame { grid-column: 2; grid-row: 1; width: 400px; max-width: 400px; }
     .stage > .info_box_row_tight { grid-column: 2; grid-row: 2; }
     .stage > .flight_info_row { grid-column: 2; grid-row: 3; }
     .stage > .nd_panel { grid-column: 1; grid-row: 1; width: 300px; height: 300px; }
-    .stage > .instrument_panel { grid-column: 3; grid-row: 1; width: 300px; height: 300px; }
+    .stage > .instrument_frame { grid-column: 3; grid-row: 1; width: 300px; height: 300px; }
 }
 
 .info_box_container {
@@ -376,14 +405,21 @@ a {
 }
 
 /* ---- 飞行仪表：空速表 / 高度表 / 转弯协调表 / 垂直速率表 ---- */
-/* 2×2 排成一个正方形块，边长由 .stage 的格子决定（PC 上 300px，即 canvas 的高） */
+/* 2×2 排成一个正方形块，边长由 .instrument_frame 的内容框决定（PC 上 300 外框 → 288 内容） */
+.instrument_frame {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+    aspect-ratio: 1 / 1;
+}
 .instrument_panel {
     display: grid;
     grid-template-columns: 1fr 1fr;
     grid-template-rows: 1fr 1fr;
     gap: 4px;
     width: 100%;
-    aspect-ratio: 1 / 1;
+    height: 100%;
     margin: 0;
 }
 .instrument {
@@ -403,7 +439,8 @@ a {
     pointer-events: none;
 }
 
-/* ---- 导航显示器（ND）：黑底方形移动地图，尺寸由 .stage 的格子决定 ---- */
+/* ---- 导航显示器（ND）：现代航电风格——金属边框（.bezel）+ 屏幕玻璃反光 + 电源灯 ---- */
+/* 尺寸由 .stage 的格子决定；border-box 让 300px 这个边长含左右各 6px 的边框 */
 .nd_panel {
     position: relative;
     width: 100%;
@@ -412,13 +449,39 @@ a {
     aspect-ratio: 1 / 1;
 }
 #ndCanvas {
+    position: relative;
+    z-index: 0;
     display: block;
     width: 100%;
     aspect-ratio: 1 / 1;
     box-sizing: border-box;    /* 边框算在 100% 内，正方形才与 .nd_panel 严丝合缝 */
     background: #050708;
-    border: 1px solid #2a2f35;
-    border-radius: 4px;
+    border: 1px solid #05070a;
+    border-radius: 3px;
+    box-shadow: 0 0 0 1px #00000099, 0 0 16px #35b8b826;
+}
+/* 屏幕玻璃：斜向高光 + 顶部弧光，压在画面上但不吃鼠标事件 */
+.nd_panel::before {
+    content: "";
+    position: absolute;
+    inset: 6px;
+    border-radius: 3px;
+    z-index: 2;
+    pointer-events: none;
+    background:
+        linear-gradient(124deg, #ffffff26 0%, #ffffff0d 20%, #ffffff00 42%),
+        radial-gradient(115% 55% at 50% -8%, #ffffff14 0%, #ffffff00 68%);
+}
+/* 边框上的电源指示灯 */
+.nd_panel::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    z-index: 3;
+    pointer-events: none;
+    background: radial-gradient(circle at calc(100% - 26px) calc(100% - 5px),
+        #35ffc9 0 1.1px, #35ffc94d 1.1px 2.6px, #35ffc900 3px);
 }
 /* 自动驾驶指示灯（一键任务的按钮旁边） */
 .ap_lamp {
@@ -444,12 +507,13 @@ a {
     vertical-align: middle;
 }
 
-/* 显示范围切换：叠在显示屏底边内侧的一条小按钮 */
+/* 显示范围切换：叠在显示屏底边内侧的一条软键按钮（避开 6px 金属边框） */
 .nd_range_row {
     position: absolute;
-    left: 0;
-    right: 0;
-    bottom: 4px;
+    left: 6px;
+    right: 6px;
+    bottom: 10px;
+    z-index: 4;
     display: flex;
     justify-content: center;
     gap: 3px;
@@ -461,10 +525,11 @@ a {
     font-size: 9px;
     line-height: 1;
     padding: 2px 4px;
-    border-radius: 4px;
+    border-radius: 3px;
     color: #6f8b99;
-    background: #0d1418;
+    background: linear-gradient(180deg, #131c21, #0a1014);
     border: 1px solid #22343d;
+    box-shadow: inset 0 1px 0 #ffffff14, 0 1px 2px #000000b3;
     cursor: pointer;
 }
 /* 窄屏下 ND 只占半屏宽，量程按钮再收小一点，六个才排得进一行 */
@@ -476,8 +541,9 @@ a {
 }
 .nd_range_btn.active {
     color: #35e0e0;
-    background: #12242a;
+    background: linear-gradient(180deg, #16333a, #0e1c21);
     border-color: #35b8b8;
+    box-shadow: inset 0 0 6px #35b8b855, inset 0 1px 0 #ffffff1f, 0 0 7px #35b8b840;
 }
 .setting_button, .joystick_button {
     color: #ffffff;
@@ -788,12 +854,15 @@ a {
              各占一半屏宽、都取正方形。布局见 .stage 与其后的 @media -->
         <div class="stage">
             <!-- 导航显示器：航迹朝上的移动地图（飞机不动、地图动），底图为全国主要民用机场 -->
-            <div class="nd_panel">
+            <div class="nd_panel bezel">
                 <canvas id="ndCanvas" width="640" height="640" role="img" aria-label="导航显示器"></canvas>
                 <div class="nd_range_row" id="nd_range_row"></div>
             </div>
 
-            <canvas class="mainCanvas" id="skyCanvas" width="400" height="300" style="width: 100%; max-width: 400px;"></canvas>
+            <!-- 主画面：外面套一圈与 ND 同款的注塑窗框（不做表面玻璃反光） -->
+            <div class="canvas_frame bezel">
+                <canvas class="mainCanvas" id="skyCanvas" width="400" height="300" style="width: 100%; max-width: 400px;"></canvas>
+            </div>
 
             <div class="info_box_container info_box_row_tight">
                 <div class="info_box" id="set_coord">
@@ -841,8 +910,11 @@ a {
             </div>
 
             <!-- 飞行仪表（六大仪表中的四个）：空速/高度/转弯协调/垂直速率，指针式圆盘，
-                 2×2 排布成一个正方形；刻度与双单位数字由 instrument_init() 生成 -->
-            <div class="instrument_panel" id="instrument_panel"></div>
+                 2×2 排成正方形后套一圈与 ND 同款的窗框（无玻璃反光）；
+                 刻度与双单位数字由 instrument_init() 生成 -->
+            <div class="instrument_frame bezel">
+                <div class="instrument_panel" id="instrument_panel"></div>
+            </div>
         </div>
 
         <!-- 视角控制 / 飞行控制 选项卡：原视角按钮整体移入「视角控制」页，「飞行控制」页为新增 -->
@@ -13657,8 +13729,37 @@ function instrument_svg(def) {
         return [C + r * Math.sin(a), C - r * Math.cos(a)];
     };
 
-    out.push(`<svg viewBox="0 0 100 100" role="img" aria-label="${def.title}表">`);
-    out.push(`<circle cx="${C}" cy="${C}" r="${R_FACE}" fill="#0d0f11" stroke="#2a2f35" stroke-width="0.8"/>`);
+    // 拟物风格：viewBox 四周各留 4 个单位给金属表圈与螺丝（表盘几何仍以 50 为圆心、48 为半径）
+    out.push(`<svg viewBox="-4 -4 108 108" role="img" aria-label="${def.title}表">`);
+
+    // ---- 材质：拉丝金属圈 / 内凹盘面 / 螺丝头 / 玻璃反光 ----
+    out.push('<defs>');
+    out.push(`<linearGradient id="ibe_${def.id}" x1="0.12" y1="0" x2="0.88" y2="1">`
+        + '<stop offset="0" stop-color="#f2f6fa"/><stop offset="0.16" stop-color="#b9c2cc"/>'
+        + '<stop offset="0.36" stop-color="#7c848e"/><stop offset="0.52" stop-color="#474e56"/>'
+        + '<stop offset="0.74" stop-color="#8d959f"/><stop offset="1" stop-color="#31373e"/></linearGradient>');
+    out.push(`<radialGradient id="ifa_${def.id}" cx="50%" cy="38%" r="70%">`
+        + '<stop offset="0" stop-color="#1e242a"/><stop offset="0.55" stop-color="#0d1114"/>'
+        + '<stop offset="1" stop-color="#04060a"/></radialGradient>');
+    out.push(`<radialGradient id="isc_${def.id}" cx="35%" cy="30%" r="72%">`
+        + '<stop offset="0" stop-color="#e2e9f1"/><stop offset="0.55" stop-color="#98a1ab"/>'
+        + '<stop offset="1" stop-color="#464d55"/></radialGradient>');
+    out.push(`<linearGradient id="igl_${def.id}" x1="0.12" y1="0" x2="0.74" y2="1">`
+        + '<stop offset="0" stop-color="#ffffff" stop-opacity="0.20"/>'
+        + '<stop offset="0.32" stop-color="#ffffff" stop-opacity="0.05"/>'
+        + '<stop offset="0.55" stop-color="#ffffff" stop-opacity="0"/></linearGradient>');
+    // 表圈外侧的柔和暗影（画在 SVG 里，静态、不随指针转动重算，比 CSS 滤镜便宜）
+    out.push(`<radialGradient id="ish_${def.id}" cx="50%" cy="50%" r="50%">`
+        + '<stop offset="0.93" stop-color="#000000" stop-opacity="0"/>'
+        + '<stop offset="0.947" stop-color="#000000" stop-opacity="0.75"/>'
+        + '<stop offset="1" stop-color="#000000" stop-opacity="0"/></radialGradient>');
+    out.push('</defs>');
+
+    // 表圈外侧暗影（在表盘之下）
+    out.push(`<circle cx="${C}" cy="${C}" r="53" fill="url(#ish_${def.id})"/>`);
+
+    // 盘面：中心稍亮、边缘压暗，像一块略内凹的黑漆
+    out.push(`<circle cx="${C}" cy="${C}" r="${R_FACE}" fill="url(#ifa_${def.id})"/>`);
 
     // ---- 刻度线 ----
     const steps = Math.round((def.max - def.min) / def.minor);
@@ -13709,6 +13810,21 @@ function instrument_svg(def) {
         out.push(`<text x="${C}" y="${78}" font-size="5.6" fill="${INST_COLOR_A}">${def.unitA}</text>`);
     }
 
+    // ---- 玻璃：斜向反光压在刻度之上，边缘一圈暗影表示玻璃嵌进表圈 ----
+    out.push(`<circle cx="${C}" cy="${C}" r="47.7" fill="url(#igl_${def.id})"/>`);
+    out.push(`<circle cx="${C}" cy="${C}" r="47.3" fill="none" stroke="#000000" stroke-width="1.2" opacity="0.5"/>`);
+
+    // ---- 金属表圈：内亮外暗的倒角 + 一圈外沿阴影 ----
+    out.push(`<circle cx="${C}" cy="${C}" r="48.9" fill="none" stroke="url(#ibe_${def.id})" stroke-width="2.7"/>`);
+    out.push(`<circle cx="${C}" cy="${C}" r="50.2" fill="none" stroke="#000000" stroke-width="0.7" opacity="0.6"/>`);
+
+    // ---- 四颗固定螺丝（45°/135°/225°/315°，一字槽统一朝左上）----
+    for (const sa of [45, 135, 225, 315]) {
+        const sp = pt(48.9, sa);
+        out.push(`<circle cx="${sp[0].toFixed(2)}" cy="${sp[1].toFixed(2)}" r="1.45" fill="url(#isc_${def.id})" stroke="#2b3138" stroke-width="0.3"/>`);
+        out.push(`<line x1="${(sp[0] - 0.85).toFixed(2)}" y1="${(sp[1] - 0.85).toFixed(2)}" x2="${(sp[0] + 0.85).toFixed(2)}" y2="${(sp[1] + 0.85).toFixed(2)}" stroke="#0d1116" stroke-width="0.45" stroke-linecap="round"/>`);
+    }
+
     // ---- 指针（初始指向最小值；逐帧由 flight_update_instruments 旋转）----
     const nLen = def.needleLen || R_NEEDLE;
     const nHalf = def.needleHalfWidth || 1.5;
@@ -13722,7 +13838,9 @@ function instrument_svg(def) {
     out.push(`<polygon points="${(C - nHalf).toFixed(2)},${C} ${(C + nHalf).toFixed(2)},${C} ${C},${(C - nLen).toFixed(2)}" fill="#f0f6ff"/>`);
     out.push(`<polygon points="${(C - nHalf * 0.7).toFixed(2)},${C} ${(C + nHalf * 0.7).toFixed(2)},${C} ${C},${(C + 5.5).toFixed(2)}" fill="#8b98a3"/>`);
     out.push(`</g>`);
-    out.push(`<circle cx="${C}" cy="${C}" r="3.1" fill="#20262c" stroke="#c3ced8" stroke-width="0.7"/>`);
+    // 中心轴：金属轴帽 + 一点高光
+    out.push(`<circle cx="${C}" cy="${C}" r="3.1" fill="url(#isc_${def.id})" stroke="#2b3138" stroke-width="0.6"/>`);
+    out.push(`<circle cx="${(C - 0.9).toFixed(2)}" cy="${(C - 1.0).toFixed(2)}" r="0.9" fill="#ffffff" opacity="0.55"/>`);
     out.push(`</svg>`);
     return out.join('');
 }
