@@ -366,6 +366,30 @@ a {
     border: 1px solid #2a2f35;
     border-radius: 4px;
 }
+/* 自动驾驶指示灯（一键任务的按钮旁边） */
+.ap_lamp {
+    display: inline-block;
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: #23282e;
+    border: 1px solid #39434c;
+    vertical-align: middle;
+    transition: background 0.15s, box-shadow 0.15s;
+}
+.ap_lamp.on {
+    background: #35ff8a;
+    border-color: #8dffc0;
+    box-shadow: 0 0 7px #35ff8a, inset 0 0 2px #ffffff;
+}
+.ap_status {
+    font-size: 9px;
+    font-family: monospace;
+    color: #7f9aa8;
+    white-space: nowrap;
+    vertical-align: middle;
+}
+
 /* 显示范围切换：叠在显示屏底边内侧的一条小按钮 */
 .nd_range_row {
     position: absolute;
@@ -777,6 +801,9 @@ a {
                 </div>
                 <div class="flight_status_row">
                     <button class="flight_reset_btn" id="flight_reset">复位</button>
+                    <button class="flight_reset_btn" id="flight_autopilot">一键自动飞行</button>
+                    <span class="ap_lamp" id="ap_lamp" title="自动驾驶"></span>
+                    <span class="ap_status" id="ap_status">待机</span>
                 </div>
                 <div class="flight_hint">键盘：W/S 推拉杆 · A/D 滚转 · Q/E 偏航 · R/F 油门</div>
                 <!-- 导航显示器：航迹朝上的移动地图（飞机不动、地图动），底图为全国主要民用机场 -->
@@ -12739,6 +12766,261 @@ function flight_integrate_ground(dt, eff) {
 
 // 单步运动学积分（dt 秒）。测试时可脱离渲染循环直接调用。
 // ============================================================
+// 一键自动驾驶任务
+// 全流程：地面滑跑起飞 → 爬升穿云到约 4000 m → 平飞 → 故意失速进入尾旋 →
+//         反舵推杆改出 → 下降返场 → 拉平接地 → 刹停滑跑。
+// 期间接管全部操纵（杆/舵/油门都不再响应外部输入），并点亮指示灯；
+// 再点一次按钮可随时中止。控制律是简单的串级 P-D：
+//   垂速 → 航迹角 → 目标俯仰角（前馈 α）→ 升降舵 + q 阻尼；
+//   坡度保持用 φ 误差 + p 阻尼；尾旋用满舵 + 满杆，改出用反舵 + 推杆。
+// 控制器在积分的每个子步里跑（4 ms 一次），与帧率无关，5 fps 下也不会抖。
+// ============================================================
+const AUTOPILOT = {
+    active: false,
+    phase: 'idle',
+    phaseT: 0.0,
+    vsInt: 0.0,          // 垂速通道积分项
+    msg: '待机',
+    shownMsg: null,
+    shownLamp: null,
+};
+
+const AP_CLOUD_ALT = 4000.0;     // 穿云/目标高度 m
+const AP_CLIMB_VS = 40.0;        // 爬升率 m/s
+const AP_DESC_VS = -45.0;        // 下降率 m/s
+const AP_FLARE_VS = -2.2;        // 拉平时的下沉率 m/s
+const AP_STALL_ENTRY_V = 36.0;   // 进入失速动作的空速阈值 m/s（失速速度约 25）
+
+function ap_wrap_deg(a) {
+    let t = a % 360.0;
+    if (t > 180.0) t -= 360.0;
+    if (t < -180.0) t += 360.0;
+    return t;
+}
+// 俯仰通道：目标俯仰角（度）→ 升降舵量（+ 为拉杆）
+function ap_pitch_cmd(thetaTargetDeg) {
+    const err = thetaTargetDeg - flight.theta * FLIGHT.RAD;
+    return flight_clamp(0.06 * err - 0.02 * (flight.q * FLIGHT.RAD), -1.0, 1.0);
+}
+// 滚转通道：目标坡度（度，0=机翼水平）→ 副翼量（+ 为右滚），走最短方向
+function ap_roll_cmd(phiTargetDeg) {
+    const err = ap_wrap_deg(phiTargetDeg - flight.phi * FLIGHT.RAD);
+    return flight_clamp(0.06 * err - 0.02 * (flight.p * FLIGHT.RAD), -1.0, 1.0);
+}
+// 垂速通道：升降舵在稳定状态下定的是迎角、迎角再通过升力改变航迹角，
+// 所以纯角度比例控制会留稳态误差——这里用垂速误差积分 + 比例，积分限幅防饱和。
+function ap_vs_pitch(vsTarget, dt) {
+    const vs = flight.V * Math.sin(flight.gamma);
+    const vsCap = Math.max(flight.V * 0.6, 4.0);
+    const err = flight_clamp(vsTarget, -vsCap, vsCap) - vs;
+    AUTOPILOT.vsInt = flight_clamp(AUTOPILOT.vsInt + flight_clamp(0.03 * err, -2.0, 2.0) * dt, -1.0, 1.0);
+    return flight_clamp(AUTOPILOT.vsInt + 0.05 * err, -1.0, 1.0);
+}
+
+// 指示灯与阶段文案（文本不变就不写 DOM）
+function ap_refresh_ui() {
+    const lamp = document.getElementById('ap_lamp');
+    const status = document.getElementById('ap_status');
+    const wantLamp = AUTOPILOT.active;
+    if (lamp && AUTOPILOT.shownLamp !== wantLamp) {
+        AUTOPILOT.shownLamp = wantLamp;
+        lamp.classList.toggle('on', wantLamp);
+    }
+    if (status && AUTOPILOT.shownMsg !== AUTOPILOT.msg) {
+        AUTOPILOT.shownMsg = AUTOPILOT.msg;
+        status.textContent = AUTOPILOT.msg;
+    }
+}
+
+function autopilot_engage() {
+    if (AUTOPILOT.active) {
+        AUTOPILOT.active = false;
+        AUTOPILOT.phase = 'idle';
+        AUTOPILOT.msg = '已中止';
+        ap_refresh_ui();
+        return;
+    }
+    // 进入飞行页并从地面静止开始
+    if (!flight.active) flight_select_tab('flight');
+    flight_reset();
+    flight.alt = FLIGHT.GROUND_ALT;
+    flight.wow = true;
+    flight.V = 0.4;
+    flight.throttle = 0.0;
+    flight.alpha = 0.0;
+    flight.theta = 0.0;
+    flight.phi = 0.0;
+    flight.gamma = 0.0;
+    flight.chi = flight.psi;
+    flight_set_body_state(0.4, 0.0, flight.psi, 0.0, 0.0);
+    nd_reset_track();
+
+    AUTOPILOT.active = true;
+    AUTOPILOT.phase = 'roll';
+    AUTOPILOT.phaseT = 0.0;
+    AUTOPILOT.msg = '起飞滑跑';
+    ap_refresh_ui();
+}
+
+// 每子步调用：返回 {throttle, pitch, roll, yaw}，并推进状态机
+function autopilot_step(dt) {
+    const alt = flight.alt, V = flight.V;
+    const alphaDeg = flight.alpha * FLIGHT.RAD;
+    AUTOPILOT.phaseT += dt;
+
+    const cmd = { throttle: 0.0, pitch: 0.0, roll: 0.0, yaw: 0.0 };
+    const to = (phase, msg) => {
+        if (AUTOPILOT.phase !== phase) {
+            AUTOPILOT.phase = phase;
+            AUTOPILOT.phaseT = 0.0;
+            AUTOPILOT.vsInt = 0.0;      // 换阶段清积分，避免旧阶段的饱和值带过去
+        }
+        AUTOPILOT.msg = msg;
+    };
+
+    switch (AUTOPILOT.phase) {
+        case 'roll':
+            to('roll', '起飞滑跑');
+            cmd.throttle = 1.0;
+            if (V >= FLIGHT.ROTATE_V + 2.0) { AUTOPILOT.phase = 'rotate'; AUTOPILOT.phaseT = 0.0; }
+            break;
+
+        case 'rotate':
+            to('rotate', '抬轮');
+            cmd.throttle = 1.0;
+            cmd.pitch = ap_pitch_cmd(9.0);
+            if ((!flight.wow && alt > FLIGHT.GROUND_ALT + 10.0) || AUTOPILOT.phaseT > 10.0) {
+                AUTOPILOT.phase = 'climb';
+                AUTOPILOT.phaseT = 0.0;
+            }
+            break;
+
+        case 'climb':
+            to('climb', '爬升穿云 → ' + Math.round(AP_CLOUD_ALT) + ' m');
+            cmd.throttle = 1.0;
+            cmd.roll = ap_roll_cmd(0.0);
+            {
+                const vsT = Math.min(AP_CLIMB_VS, Math.max(5.0, (AP_CLOUD_ALT - alt) * 0.12));
+                cmd.pitch = ap_vs_pitch(vsT, dt);
+            }
+            if (alt >= AP_CLOUD_ALT - 60.0) { AUTOPILOT.phase = 'cruise'; AUTOPILOT.phaseT = 0.0; }
+            break;
+
+        case 'cruise':
+            to('cruise', '云中平飞');
+            cmd.throttle = 0.45;
+            cmd.roll = ap_roll_cmd(0.0);
+            cmd.pitch = ap_vs_pitch(0.0, dt);
+            if (AUTOPILOT.phaseT > 4.0) { AUTOPILOT.phase = 'slowdown'; AUTOPILOT.phaseT = 0.0; }
+            break;
+
+        case 'slowdown':
+            // 先把速度收到失速边界附近，否则高速满拉杆会直接拉成筋斗
+            to('slowdown', '减速至失速边界');
+            cmd.throttle = 0.0;
+            cmd.roll = ap_roll_cmd(0.0);
+            cmd.pitch = ap_vs_pitch(-2.0, dt);
+            if (V < AP_STALL_ENTRY_V || AUTOPILOT.phaseT > 30.0) { AUTOPILOT.phase = 'stall'; AUTOPILOT.phaseT = 0.0; }
+            break;
+
+        case 'stall':
+            to('stall', '故意失速');
+            cmd.throttle = 0.0;
+            cmd.pitch = 1.0;
+            cmd.roll = 0.0;
+            if (alphaDeg > 18.0) { AUTOPILOT.phase = 'spin'; AUTOPILOT.phaseT = 0.0; }
+            else if (AUTOPILOT.phaseT > 8.0) { AUTOPILOT.phase = 'spin'; AUTOPILOT.phaseT = 0.0; }
+            break;
+
+        case 'spin':
+            to('spin', '尾旋中');
+            cmd.throttle = 0.0;
+            cmd.pitch = 1.0;
+            cmd.roll = 0.0;
+            cmd.yaw = 1.0;                       // 满右舵
+            if (AUTOPILOT.phaseT > 14.0) { AUTOPILOT.phase = 'recover'; AUTOPILOT.phaseT = 0.0; }
+            break;
+
+        case 'recover':
+            to('recover', '改出尾旋');
+            cmd.throttle = 0.35;
+            cmd.pitch = -0.45;                   // 推杆减小迎角
+            cmd.yaw = -1.0;                      // 反舵
+            if ((alphaDeg < 8.0 && AUTOPILOT.phaseT > 2.5) || AUTOPILOT.phaseT > 18.0) {
+                AUTOPILOT.phase = 'level';
+                AUTOPILOT.phaseT = 0.0;
+            }
+            break;
+
+        case 'level':
+            to('level', '改平');
+            cmd.throttle = 0.5;
+            cmd.yaw = -0.6;
+            cmd.roll = ap_roll_cmd(0.0);
+            cmd.pitch = ap_vs_pitch(-3.0, dt);
+            if ((Math.abs(ap_wrap_deg(flight.phi * FLIGHT.RAD)) < 15.0 && AUTOPILOT.phaseT > 3.0) ||
+                AUTOPILOT.phaseT > 20.0) {
+                AUTOPILOT.phase = 'descend';
+                AUTOPILOT.phaseT = 0.0;
+            }
+            break;
+
+        case 'descend':
+            to('descend', '下降返场');
+            cmd.throttle = 0.0;
+            cmd.roll = ap_roll_cmd(0.0);
+            cmd.pitch = ap_vs_pitch(AP_DESC_VS, dt);
+            if (alt < 450.0) { AUTOPILOT.phase = 'approach'; AUTOPILOT.phaseT = 0.0; }
+            break;
+
+        case 'approach':
+            // 低空先减到进近速度，免得高速接地把起落架拍坏（模型里没有起落架，但要合理）
+            to('approach', '进近');
+            cmd.throttle = (V < 38.0) ? 0.45 : 0.0;      // 进近速度保持在 1.5 倍失速以上
+            cmd.roll = ap_roll_cmd(0.0);
+            cmd.pitch = ap_vs_pitch(-8.0, dt);
+            if (alt < 25.0) { AUTOPILOT.phase = 'flare'; AUTOPILOT.phaseT = 0.0; }
+            break;
+
+        case 'flare':
+            to('flare', '拉平接地');
+            cmd.throttle = 0.0;
+            cmd.roll = ap_roll_cmd(0.0);
+            cmd.pitch = ap_vs_pitch(AP_FLARE_VS, dt);
+            if (flight.wow || alt <= FLIGHT.GROUND_ALT + 0.6) { AUTOPILOT.phase = 'rollout'; AUTOPILOT.phaseT = 0.0; }
+            break;
+
+        case 'rollout':
+            to('rollout', '刹车滑跑');
+            cmd.throttle = 0.0;
+            cmd.pitch = 0.0;
+            cmd.roll = 0.0;
+            cmd.yaw = 0.0;
+            if (V < 1.5) {
+                AUTOPILOT.phase = 'done';
+                AUTOPILOT.phaseT = 0.0;
+                AUTOPILOT.active = false;        // 任务完成自动断开
+                AUTOPILOT.msg = '任务完成';
+            }
+            break;
+
+        default:
+            break;
+    }
+    return cmd;
+}
+
+// 把自动驾驶指令写到操纵量上（一阶平滑，与手动输入同一套执行机构）
+function ap_apply_command(cmd, dt) {
+    const a = 1.0 - Math.exp(-dt / Math.max(FLIGHT.AXIS_TAU, 1e-3));
+    flight.inRoll  += (flight_clamp(cmd.roll,  -1.0, 1.0) - flight.inRoll)  * a;
+    flight.inPitch += (flight_clamp(cmd.pitch, -1.0, 1.0) - flight.inPitch) * a;
+    flight.inYaw   += (flight_clamp(cmd.yaw,   -1.0, 1.0) - flight.inYaw)   * a;
+    flight.throttle = flight_clamp(cmd.throttle, 0.0, 1.0);
+    ap_refresh_ui();
+}
+
+// ============================================================
 // 六自由度刚体飞行动力学
 // 机体轴：x 前、y 右、z 下（右手系）；世界系 NED（北/东/下），经度纬度与 alt 照旧。
 // 姿态用四元数积分（p、q、r 经欧拉角速率无意义时会撞万向锁，筋斗/尾旋都会遇到），
@@ -12843,10 +13125,14 @@ function flight_integrate(dt) {
     const tgtRoll  = flight_clamp(flight.stickX + kRoll, -1.0, 1.0);
     const tgtPitch = flight_clamp(flight.stickY + kPitch, -1.0, 1.0);
     const tgtYaw   = flight_clamp(kYaw + kRudder, -1.0, 1.0);
-    const a = 1.0 - Math.exp(-dt / FLIGHT.AXIS_TAU);
-    flight.inRoll  += (tgtRoll  - flight.inRoll) * a;
-    flight.inPitch += (tgtPitch - flight.inPitch) * a;
-    flight.inYaw   += (tgtYaw   - flight.inYaw) * a;
+    // 自动驾驶接管时不再走"用户输入 → 操纵量"的平滑：否则每帧都会把 AP 的指令
+    // 往回拉一次（帧率越低拉得越狠），实际舵量只有一半。操纵量由 ap_apply_command 独占。
+    if (!AUTOPILOT.active) {
+        const a = 1.0 - Math.exp(-dt / FLIGHT.AXIS_TAU);
+        flight.inRoll  += (tgtRoll  - flight.inRoll) * a;
+        flight.inPitch += (tgtPitch - flight.inPitch) * a;
+        flight.inYaw   += (tgtYaw   - flight.inYaw) * a;
+    }
     flight.rudder = tgtYaw;
 
     // ---- 操纵效能随空速变化 ----
@@ -12854,6 +13140,7 @@ function flight_integrate(dt) {
 
     // ---- 轮胎接地：走地面滑跑模型 ----
     if (flight.wow) {
+        if (AUTOPILOT.active) ap_apply_command(autopilot_step(dt), dt);
         flight_integrate_ground(dt, eff);
         return;
     }
@@ -12861,12 +13148,14 @@ function flight_integrate(dt) {
     // ---- 六自由度积分：固定子步长，与帧率无关 ----
     const n = Math.max(1, Math.min(80, Math.ceil(dt / AERO.subStep)));
     const h = dt / n;
-    const de = flight.inPitch * eff;      // 升降舵：+ 抬头
-    const da = flight.inRoll * eff;       // 副翼：+ 右滚
-    const dr = flight.inYaw * eff;        // 方向舵：+ 右偏航
     const yB = AERO.b * 0.25;             // 左右机翼代表站位（b/4）
 
     for (let i = 0; i < n; i++) {
+        // 自动驾驶接管：每个子步重算一次操纵量，外部输入被完全覆盖
+        if (AUTOPILOT.active) ap_apply_command(autopilot_step(h), h);
+        const de = flight.inPitch * eff;      // 升降舵：+ 抬头
+        const da = flight.inRoll * eff;       // 副翼：+ 右滚
+        const dr = flight.inYaw * eff;        // 方向舵：+ 右偏航
         const u = flight.u, v = flight.v, w = flight.w;
         const p = flight.p, qq = flight.q, rr = flight.r;
         const V = Math.sqrt(u * u + v * v + w * w);
@@ -12959,6 +13248,20 @@ function flight_integrate(dt) {
     flight.headingRate = (flight.q * Math.sin(flight.phi) + flight.r * Math.cos(flight.phi)) /
                          Math.max(Math.abs(Math.cos(flight.theta)), 0.2);
 
+    // ---- 数值安全网：任何一项变成 NaN/Inf 就从当前状态重建一次，别让页面卡死 ----
+    if (!Number.isFinite(flight.u) || !Number.isFinite(flight.v) || !Number.isFinite(flight.w) ||
+        !Number.isFinite(flight.p) || !Number.isFinite(flight.q) || !Number.isFinite(flight.r) ||
+        !Number.isFinite(flight.qw) || !Number.isFinite(flight.alt) || !Number.isFinite(flight.x) ||
+        !Number.isFinite(flight.z) || !Number.isFinite(flight.V)) {
+        console.warn('飞行动力学出现非有限值，已就地重置机体状态');
+        flight.V = Math.max(flight.V, 0.0) || FLIGHT.START_V;
+        if (!Number.isFinite(flight.V)) flight.V = FLIGHT.START_V;
+        flight.alt = Number.isFinite(flight.alt) ? flight.alt : FLIGHT.START_ALT;
+        flight.x = Number.isFinite(flight.x) ? flight.x : 0.0;
+        flight.z = Number.isFinite(flight.z) ? flight.z : 0.0;
+        flight_set_body_state(flight.V, 0.0, flight.psi, 0.0, 0.0);
+    }
+
     // ---- 触地：轮胎接地，姿态置为地面姿态，转入滑跑 ----
     if (flight.alt <= FLIGHT.GROUND_ALT) {
         flight_touchdown();
@@ -12975,6 +13278,7 @@ function flight_step(nowMs) {
     flight_integrate(dt);
     flight_sync_view();
     flight_apply_world(nowMs);
+    ap_refresh_ui();
 
     if (nowMs - flight.readoutAt > 180.0) {
         flight.readoutAt = nowMs;
@@ -13589,7 +13893,20 @@ function flight_init_controls() {
     if (resetBtn) {
         resetBtn.addEventListener('click', function(e) {
             e.preventDefault();
+            if (AUTOPILOT.active) {
+                AUTOPILOT.active = false;
+                AUTOPILOT.phase = 'idle';
+                AUTOPILOT.msg = '已中止';
+                ap_refresh_ui();
+            }
             flight_reset();
+        });
+    }
+    const apBtn = document.getElementById('flight_autopilot');
+    if (apBtn) {
+        apBtn.addEventListener('click', function(e) {
+            e.preventDefault();
+            autopilot_engage();
         });
     }
 
