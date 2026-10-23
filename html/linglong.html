@@ -992,6 +992,7 @@ a {
                     <li>主画布下方、时间控制按钮上方是四只指针式飞行仪表：空速表（内圈 m/s / 外圈 kt，0–200 m/s 即 0–389 kt）、高度表（内圈 m / 外圈 ft；短粗针读 0–12000 m 全量程、对应当前刻度数字，细长针每转一圈 1000 m 用于读出低空的精确高度）、转弯协调表（°/s，绿色刻度为标准转弯率 3°/s）、垂直速率表（内圈 m/s / 外圈 ft/min）。数字沿表盘切向排布，两种单位用颜色区分。指针随飞行状态实时转动；尚未开始飞行时指针归零，切回「视角控制」后停在最后一次读数。</li>
                     <li>飞行页的主画面上，中央的黄色短线是机头基准（航迹指示），绿色圆圈带左右短翼的符号是飞行航迹矢量（FPV）：它指向飞机速度的实际方向——平飞时压在机头基准上，拉杆爬升时落在基准下方（两者的夹角就是迎角），侧滑时左右偏开（偏角即侧滑角）。速度低于 2 m/s 停住时或该方向转出画面时不显示；切回「视角控制」后消失。</li>
                     <li>飞行页控件下方是导航显示器（ND）：黑底方形屏，飞机符号固定在水平中央、竖直 3/4 处，地图随飞机对地移动而平移并旋转，始终保持「航迹朝上」。显示范围可由显示屏底边的按钮在 10 / 50 / 100 / 200 / 500 / 1000 km 之间切换（指机位到上边缘的距离，默认 200 km），底图是全国主要民用机场（大型机场，标 IATA 三字码，取自 OurAirports 开放数据集）；距离环按量程四等分自动缩放，另有每 30° 一条方位辐射线。飞过的航迹用品红折线记录，每移动 0.35 km 采一点；复位时清空。顶部弧形罗盘刻度随航迹滚动，正上方恒为当前航迹方位（品红三角所指），刻度数字即罗盘方位角；左上角小罗盘指示北向。左下角为显示范围，右下角为航迹与地速。</li>
+                    <li>「一键自动飞行」按钮会接管全部操纵（期间摇杆、油门键都不响应），从地面起飞爬升穿云到 7500 m，减速到失速边界后故意拉出失速、蹬满舵进入尾旋——进入约 20 秒后再顺舵加副翼，转速会从 30°/s 一路压到 140°/s，一直转到 1600 m 才改出（反舵打停自转、推杆让机翼附着、低空大过载拉起），随后进近、拉平、刹停；结束后指示灯自动熄灭。再点一次按钮或按「复位」可随时中止。</li>
                     <li>触地后按起落架接地处理：姿态立即放平为地面姿态（机翼水平、机头放平、无侧滑），随后进入滑跑。滑跑时油门对抗气动阻力、滚动阻力与刹车阻力——收油门（或按 F）会带刹车在约十秒内逐渐滑停，速度可降到 0；加到约 22 m/s 抬轮速度后再拉杆即可重新离地，低于该速度拉杆无效（机头被前轮/尾轮撑住）。</li>
                     <li>飞行动力学是六自由度刚体：副翼/升降舵/方向舵给的是气动力矩，升力与阻力按左右机翼各自的当地迎角算（含失速后的升力塌陷与阻力上升），姿态用四元数积分，所以筋斗、横滚、过顶、倒飞都可以做，也不会出现欧拉角锁死；HUD 里的"高度/升降"始终是世界竖直方向。</li>
                     <li>失速与尾旋是真的算出来的：失速速度约 25 m/s（相当于 90 km/h），超过约 15° 迎角升力就开始塌陷、机头自然下坠；慢车 + 满拉杆 + 满舵可以进入尾旋——两翼当地迎角不等造成的自转力矩让机头绕垂轴持续旋转、近垂直下降，α 稳定在 20°–30°。改出用反舵（抵消自转）+ 推杆（减小迎角让机翼重新附着），松杆通常也能自己改出。抬轮速度 30 m/s，且要升力真能托住重量才离得地。</li>
@@ -12785,11 +12786,19 @@ const AUTOPILOT = {
     shownLamp: null,
 };
 
-const AP_CLOUD_ALT = 4000.0;     // 穿云/目标高度 m
-const AP_CLIMB_VS = 40.0;        // 爬升率 m/s
+const AP_CLOUD_ALT = 7500.0;     // 穿云/目标高度 m（云层 3–11 km，给尾旋留足高度）
+const AP_CLIMB_VS = 55.0;        // 爬升率 m/s（大推力爬升，尽快上到云顶附近）
 const AP_DESC_VS = -45.0;        // 下降率 m/s
 const AP_FLARE_VS = -2.2;        // 拉平时的下沉率 m/s
-const AP_STALL_ENTRY_V = 36.0;   // 进入失速动作的空速阈值 m/s（失速速度约 25）
+const AP_SPIN_FLOOR = 1600.0;    // 尾旋改出底线高度 m（再往下就没余量了）
+const AP_SPIN_MAX_T = 130.0;     // 尾旋最长保持时间 s（兜底；正常情况下先撞底线高度）
+const AP_SPIN_AILERON_AT = 18.0; // 尾旋转到这个时刻开始加副翼，越转越狠
+
+// 当地失速速度（密度随高度下降，高空失速速度明显变大）
+function ap_stall_speed() {
+    const rho = aero_rho(flight.alt);
+    return Math.sqrt(2.0 * AERO.mass * 9.80665 / Math.max(rho * AERO.S * 1.60, 1e-6));
+}
 
 function ap_wrap_deg(a) {
     let t = a % 360.0;
@@ -12920,7 +12929,7 @@ function autopilot_step(dt) {
             cmd.throttle = 0.0;
             cmd.roll = ap_roll_cmd(0.0);
             cmd.pitch = ap_vs_pitch(-2.0, dt);
-            if (V < AP_STALL_ENTRY_V || AUTOPILOT.phaseT > 30.0) { AUTOPILOT.phase = 'stall'; AUTOPILOT.phaseT = 0.0; }
+            if (V < 1.30 * ap_stall_speed() || AUTOPILOT.phaseT > 40.0) { AUTOPILOT.phase = 'stall'; AUTOPILOT.phaseT = 0.0; }
             break;
 
         case 'stall':
@@ -12933,20 +12942,25 @@ function autopilot_step(dt) {
             break;
 
         case 'spin':
-            to('spin', '尾旋中');
+            // 一直转到接近底线再改出；后半程顺舵再加副翼，转速越压越狠
+            to('spin', '尾旋中 · ' + (Math.round(alt / 100.0) * 100) + ' m');
             cmd.throttle = 0.0;
             cmd.pitch = 1.0;
-            cmd.roll = 0.0;
             cmd.yaw = 1.0;                       // 满右舵
-            if (AUTOPILOT.phaseT > 14.0) { AUTOPILOT.phase = 'recover'; AUTOPILOT.phaseT = 0.0; }
+            cmd.roll = (AUTOPILOT.phaseT > AP_SPIN_AILERON_AT) ? 0.55 : 0.0;   // 顺舵副翼
+            if (alt < AP_SPIN_FLOOR || AUTOPILOT.phaseT > AP_SPIN_MAX_T) {
+                AUTOPILOT.phase = 'recover';
+                AUTOPILOT.phaseT = 0.0;
+            }
             break;
 
         case 'recover':
-            to('recover', '改出尾旋');
-            cmd.throttle = 0.35;
-            cmd.pitch = -0.45;                   // 推杆减小迎角
-            cmd.yaw = -1.0;                      // 反舵
-            if ((alphaDeg < 8.0 && AUTOPILOT.phaseT > 2.5) || AUTOPILOT.phaseT > 18.0) {
+            to('recover', '改出尾旋 · ' + (Math.round(alt / 100.0) * 100) + ' m');
+            cmd.throttle = 0.0;
+            cmd.yaw = -1.0;                      // 反舵打停自转
+            // 先推杆卸掉迎角让机翼重新附着，再尽快拉起来——低空大过载改出
+            cmd.pitch = (alphaDeg > 2.0) ? -0.55 : 1.0;
+            if ((alphaDeg < 6.0 && AUTOPILOT.phaseT > 1.2) || AUTOPILOT.phaseT > 20.0) {
                 AUTOPILOT.phase = 'level';
                 AUTOPILOT.phaseT = 0.0;
             }
