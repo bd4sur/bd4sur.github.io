@@ -966,7 +966,8 @@ a {
                     <li>飞行页的主画面上，中央的黄色短线是机头基准（航迹指示），绿色圆圈带左右短翼的符号是飞行航迹矢量（FPV）：它指向飞机速度的实际方向——平飞时压在机头基准上，拉杆爬升时落在基准下方（两者的夹角就是迎角），侧滑时左右偏开（偏角即侧滑角）。速度低于 2 m/s 停住时或该方向转出画面时不显示；切回「视角控制」后消失。</li>
                     <li>飞行页控件下方是导航显示器（ND）：黑底方形屏，飞机符号固定在水平中央、竖直 3/4 处，地图随飞机对地移动而平移并旋转，始终保持「航迹朝上」。显示范围可由显示屏底边的按钮在 10 / 50 / 100 / 200 / 500 / 1000 km 之间切换（指机位到上边缘的距离，默认 200 km），底图是全国主要民用机场（大型机场，标 IATA 三字码，取自 OurAirports 开放数据集）；距离环按量程四等分自动缩放，另有每 30° 一条方位辐射线。飞过的航迹用品红折线记录，每移动 0.35 km 采一点；复位时清空。顶部弧形罗盘刻度随航迹滚动，正上方恒为当前航迹方位（品红三角所指），刻度数字即罗盘方位角；左上角小罗盘指示北向。左下角为显示范围，右下角为航迹与地速。</li>
                     <li>触地后按起落架接地处理：姿态立即放平为地面姿态（机翼水平、机头放平、无侧滑），随后进入滑跑。滑跑时油门对抗气动阻力、滚动阻力与刹车阻力——收油门（或按 F）会带刹车在约十秒内逐渐滑停，速度可降到 0；加到约 22 m/s 抬轮速度后再拉杆即可重新离地，低于该速度拉杆无效（机头被前轮/尾轮撑住）。</li>
-                    <li>姿态与航迹角均不限位：滚转、筋斗、过顶、倒飞都可以做。俯仰/滚转控制的是迎角与坡度，载荷因数按小型机限制在 −3g～+4g；HUD 里的"高度/升降"仍是世界竖直方向。倒飞时要把杆推下去（机头低于地平线）才能保持高度，过顶时地平线会在画面上方，视角随姿态自动翻转，不会出现欧拉角锁死。</li>
+                    <li>飞行动力学是六自由度刚体：副翼/升降舵/方向舵给的是气动力矩，升力与阻力按左右机翼各自的当地迎角算（含失速后的升力塌陷与阻力上升），姿态用四元数积分，所以筋斗、横滚、过顶、倒飞都可以做，也不会出现欧拉角锁死；HUD 里的"高度/升降"始终是世界竖直方向。</li>
+                    <li>失速与尾旋是真的算出来的：失速速度约 25 m/s（相当于 90 km/h），超过约 15° 迎角升力就开始塌陷、机头自然下坠；慢车 + 满拉杆 + 满舵可以进入尾旋——两翼当地迎角不等造成的自转力矩让机头绕垂轴持续旋转、近垂直下降，α 稳定在 20°–30°。改出用反舵（抵消自转）+ 推杆（减小迎角让机翼重新附着），松杆通常也能自己改出。抬轮速度 30 m/s，且要升力真能托住重量才离得地。</li>
                     <li>飞行时飞机的姿态决定相机视角；地面投影点的经纬度只用于驱动天象（太阳/月亮/行星/恒星方位），海拔高度只用于驱动「实时海洋」的观察高度。地景为「实时海洋」时，相机会随飞机在海面上平移——波场、泡沫与太阳耀光固定在世界坐标中，因此能看出真实的相对运动；其他地景不随飞行移动，只改变相机视角。</li>
                     <li>点击"重力感应"按钮，启用姿态传感器。</li>
                     <li>姿态角的精度取决于设备，未必准确。</li>
@@ -12443,21 +12444,21 @@ let last_point_azi = 0;
 // ============================================================
 // 坐标系与符号约定：
 //   x 向东、z 向北（米），alt 为海拔高度（米）；
-//   航向 psi（机头）与 chi（速度矢量）为罗盘方位角，0=北、90=东，顺时针为正（弧度）；
-//   姿态：滚转 phi（右坡度为正，可任意角）、俯仰 theta = γ + α（由航迹角与迎角合成）；
-//   迎角代理 alpha（升降舵直接控制，俯仰静稳定使其回零）；侧滑 beta = psi − chi。
+//   姿态用欧拉角 ψ（航向，0=北、90=东）、θ（俯仰，抬头为正）、φ（滚转，右坡度为正）
+//   对外表达；内部积分用四元数 + 机体轴（x 前 / y 右 / z 下）的刚体方程，见 AERO 与
+//   flight_integrate()。迎角 α、侧滑 β、航迹角 γ、航迹方位 χ 都由机体速度每步反解。
 //
-// 最小可用控制律（质点 + 载荷因数模型，支持筋斗/横滚/倒飞）：
-//   副翼    → 滚转角速度（不限位，可连续横滚）。
-//   升降舵  → 迎角变化率；拉杆增大 α，n = 1 + α/α_ref 随之增大。
-//             机头姿态 θ = γ + α 随航迹一起转，因此筋斗时不会锁在某个俯仰角上。
-//   升力    → 载荷因数 n 沿机背方向；竖直方向 γ̇ = g(n·cosφ − cosγ)/V，
-//             水平方向 χ̇ = g·n·sinφ/V。φ=0 时即常规协调转弯；φ=180° 时 n<0，
-//             升力指向世界下方（即"向上"），所以倒飞需要推杆而不是拉杆。
-//   方向舵  → 偏航角速度，使机头偏出速度矢量形成侧滑 β；风标效应让 β 指数衰减，
-//             同时把速度矢量带向机头（侧滑 → 侧向加速度 → 速度矢量转向）。
-//   油门    → 推力加速度；寄生阻力 ∝ V²，诱导阻力由载荷因数 n² 给出。
-//   失速    → 低速时舵效下降、迎角被压低；触地后转为地面滑跑模型。
+// 六自由度刚体模型（支持失速、尾旋及其改出）：
+//   操纵    → 升降舵/副翼/方向舵给出俯仰、滚转、偏航力矩（含 q̄ 随空速变化、舵效衰减）；
+//   气动    → 升力/阻力按左右机翼各自的当地迎角算：α 超过 15° 后升力陡降、阻力上升，
+//             两翼因滚转/偏航引起的上下洗速度不同而升力不等，这个不对称力矩就是尾旋
+//             自转的来源；另有侧滑侧力、风标稳定性、上反效应、各轴阻尼。
+//   配平    → 松杆在约 36 m/s 定直飞；速度稳定性与长周期（起伏）振荡都是自然涌现的。
+//   失速    → 失速速度约 25 m/s（Clmax 1.60、翼载 62.5 kg/m²）；失速后机头自然下坠，
+//             拉满杆可把 α 撑在 25° 左右挂着下沉。
+//   尾旋    → 慢车 + 满拉杆 + 满舵可进入：α 稳定在 20°-30°、机头绕垂轴自转、近垂直
+//             下降；反舵 + 推杆（减小 α）即可改出，松杆通常也能自行改出。
+//   地面    → 独立的滑跑模型：抬轮速度 30 m/s，还要升力真能托住重量才离地。
 // ============================================================
 const FLIGHT = {
     G: 9.80665,
@@ -12470,23 +12471,10 @@ const FLIGHT = {
     THRUST_LAPSE_MIN: 0.40,    // 高空推力下限比例（保证 9~11 km 云顶附近仍能持续爬升）
     DRAG_K: 7.0e-4,         // 寄生阻力 a = k·V²：全油门平飞极速 sqrt(12/7e-4)≈131 m/s（含高度衰减更低），
                             // 俯冲时重力沿航迹分量参与，垂直俯冲约 176 m/s——极速由阻力决定，不设上限
-    INDUCED_K: 300.0,       // 诱导阻力 a = k·(n²−1)/V²
-    V_MIN: 8.0,             // 低速端夹断（失速地板），与高速端无关
-    STALL_V: 20.0,          // 低于该空速时舵效衰减并出现低头力矩
 
-    ROLL_RATE: 1.55,        // rad/s ≈ 89°/s
-    PITCH_RATE: 0.50,       // rad/s ≈ 29°/s
-    YAW_RATE: 0.30,         // rad/s ≈ 17°/s
-    // 姿态与航迹角均不限位：可筋斗、横滚、倒飞
-    BETA_K: 1.15,           // 侧滑风标回正速率 1/s
-    BETA_LIMIT: 0.42,       // 最大侧滑 ≈ 24°（超过即接近尾旋，保留限位）
-    ALPHA_REF: 0.15,        // 迎角代理 → 载荷因数 的参考量 rad（约 8.6°/1g）
-    ALPHA_DAMP: 1.6,        // 俯仰静稳定性：松杆后迎角回零的速率 1/s
-    ALPHA_MIN: -0.55,       // 迎角下限（推杆倒飞）rad ≈ −31°
-    ALPHA_MAX: 0.55,        // 迎角上限（拉杆）rad ≈ +31°
-    LOAD_MIN: -3.0,         // 载荷因数下限（推杆到倒飞）
-    LOAD_MAX: 4.0,          // 载荷因数上限（小型机结构限制，约 +4g）
-    TURN_RATE_MAX: 3.0,     // 航向角速度数值安全限 rad/s（≈172°/s）
+
+    PITCH_RATE: 0.50,       // 地面抬轮时的机头俯仰角速度 rad/s
+    YAW_RATE: 0.30,         // 地面滑跑时的前轮转向角速度 rad/s
     AXIS_TAU: 0.12,         // 操纵输入一阶平滑时间常数 s
     SPEED_EFF_V: 38.0,      // 舵效达到满值的空速 m/s
     SPEED_EFF_MIN: 0.35,
@@ -12503,9 +12491,9 @@ const FLIGHT = {
 
     // ---- 地面滑跑 / 起落架 ----
     GROUND_ALT: 1.0,        // 轮胎接地高度基准 m
-    ROTATE_V: 22.0,         // 抬轮速度 m/s（低于此速拉杆无效，机头被前轮/尾轮撑住）
+    ROTATE_V: 30.0,         // 抬轮速度 m/s（失速速度约 25 m/s，抬轮离地还要看升力是否够）
     LIFTOFF_PITCH: 0.06,    // 离地所需最小抬头角 rad（≈3.4°）
-    GROUND_PITCH_MAX: 0.30, // 地面滑跑允许的最大抬头角 rad（≈17°，防擦尾）
+    GROUND_PITCH_MAX: 0.21, // 地面滑跑允许的最大抬头角 rad（≈12°，防擦尾）
     TAXI_V: 5.0,            // 前轮转向达到满效的地速 m/s
     MU_ROLL: 0.03,          // 滚动阻力系数
     MU_BRAKE: 0.25,         // 收油门时的刹车阻力系数（随油门线性减小；满油门为纯滚动）
@@ -12518,13 +12506,17 @@ const flight = {
     // 位置与高度
     x: 0.0, z: 0.0, alt: FLIGHT.START_ALT,
     lat0: 0.0, lon0: 0.0,
-    // 运动学状态
+    // 六自由度状态（机体轴：x 前 / y 右 / z 下）
+    u: FLIGHT.START_V, v: 0.0, w: 0.0,      // 机体速度 m/s
+    p: 0.0, q: 0.0, r: 0.0,                  // 机体角速度 rad/s
+    qw: 1.0, qx: 0.0, qy: 0.0, qz: 0.0,      // 姿态四元数（机体 → NED）
+    // 派生量（由上面的状态每步反解，供相机/仪表/FPV/ND 使用）
     V: FLIGHT.START_V,
     gamma: 0.0,
     chi: 0.0, psi: 0.0,
-    alpha: 0.0,          // 迎角代理（升降舵直接控制它；俯仰姿态 θ = γ + α）
+    alpha: 0.0,          // 迎角（由机体速度反解，不再是被直接积分的控制代理）
     theta: 0.0, phi: 0.0, beta: 0.0,
-    headingRate: 0.0,    // 机头方位角速度 rad/s（转弯协调表用；空中含协调转弯 + 方向舵）
+    headingRate: 0.0,    // 机头方位角速度 rad/s（转弯协调表用）
     // 操纵
     throttle: 0.0,
     stickX: 0.0, stickY: 0.0,
@@ -12680,6 +12672,17 @@ function flight_touchdown() {
 
 // 地面滑跑：轮胎支撑住机头与机翼，油门对抗气动阻力 + 滚动阻力 + 刹车，速度可降到 0。
 // 达到抬轮速度后拉杆才能把机头拉起离地。
+// 当前升力（地面滑跑判断离地用；空中不用它，那里由左右机翼分别算）
+function flight_lift() {
+    const qbar = 0.5 * aero_rho(flight.alt) * flight.V * flight.V;
+    return qbar * AERO.S * aero_cl(flight.alpha);
+}
+// 配平空速 START_V 下平飞所需的升力系数
+function flight_trim_cl() {
+    const qbar = 0.5 * aero_rho(FLIGHT.START_ALT) * FLIGHT.START_V * FLIGHT.START_V;
+    return (AERO.mass * 9.80665) / Math.max(qbar * AERO.S, 1e-6);
+}
+
 function flight_integrate_ground(dt, eff) {
     // 地面姿态约束
     flight.phi = 0.0;
@@ -12720,10 +12723,12 @@ function flight_integrate_ground(dt, eff) {
     flight.x += flight.V * Math.sin(flight.chi) * dt;
     flight.z += flight.V * Math.cos(flight.chi) * dt;
 
-    // 抬轮离地：速度足够且机头已拉起，交给空中动力学接管
-    if (flight.V >= FLIGHT.ROTATE_V && flight.theta > FLIGHT.LIFTOFF_PITCH) {
+    // 抬轮离地：速度足够、机头已拉起，且升力真的能托住重量
+    if (flight.V >= FLIGHT.ROTATE_V && flight.theta > FLIGHT.LIFTOFF_PITCH && flight_lift() >= AERO.mass * 9.80665) {
         flight.wow = false;
         flight.gamma = Math.max(flight.theta * 0.5, 0.02);
+        // 交给六自由度模型：按当前空速与姿态接管，迎角取滑跑时的机头仰角
+        flight_set_body_state(flight.V, flight.alpha, flight.psi, flight.theta, 0.0);
     }
     // 地面（γ=0）上迎角与俯仰姿态等价；离地瞬间按 θ=γ+α 对齐，保证视角连续
     flight.alpha = flight.theta - flight.gamma;
@@ -12733,6 +12738,91 @@ function flight_integrate_ground(dt, eff) {
 }
 
 // 单步运动学积分（dt 秒）。测试时可脱离渲染循环直接调用。
+// ============================================================
+// 六自由度刚体飞行动力学
+// 机体轴：x 前、y 右、z 下（右手系）；世界系 NED（北/东/下），经度纬度与 alt 照旧。
+// 姿态用四元数积分（p、q、r 经欧拉角速率无意义时会撞万向锁，筋斗/尾旋都会遇到），
+// 每步反解出 ψ/θ/φ 供相机、仪表、FPV、ND 使用（这几个字段的口径与旧模型一致）。
+//
+// 与旧的"三自由度运动学"的根本区别：
+//   · 姿态不再由杆量直接积分，而是由气动力矩驱动（有滚转阻尼、风标稳定性、上反效应）；
+//   · 升力来自可失速的升力曲线 Cl(α)：α 超过 15° 后向平板行为过渡，Cl 塌陷、阻力抬升；
+//   · 左右机翼各按自己的当地迎角（含 p、r 引起的上下洗速度）算升力与阻力，两侧不对称
+//     就是自转力矩的来源——尾旋能自己转下去，靠的就是这一项，而不是脚本；
+//   · 没有速度上限，也没有速度地板：失速后空速真的会掉下去。
+// ============================================================
+const AERO = {
+    mass: 1000.0,           // 质量 kg
+    S: 16.0,                // 机翼面积 m²
+    b: 10.0,                // 翼展 m
+    cbar: 1.6,              // 平均气动弦长 m
+    Ix: 1285.0, Iy: 1825.0, Iz: 2667.0,   // 转动惯量 kg·m²
+    // 升力：线性段 Cl0 + ClAlpha·α，α ≥ alphaStall 后向 0.9·sin2α 过渡（平板分离流）
+    Cl0: 0.25, ClAlpha: 5.2, alphaStall: 0.26,   // Clmax ≈ 1.60 @ 14.9° → 失速速度 ≈ 25 m/s
+    // 阻力：零升 + 诱导 + 失速后附加（分离带来的压差阻力）
+    Cd0: 0.070, kInduced: 0.05, CdStall: 0.35,
+    CyBeta: -0.60,          // 侧力随侧滑稳定性
+    ClBeta: -0.075,         // 上反效应（正侧滑 → 滚转回正）
+    ClP: -0.45, ClR: 0.12,  // 滚转/偏航阻尼交叉项
+    ClDa: 0.080, ClDr: 0.010,
+    Cm0: 0.060,             // 配平：松杆在约 36 m/s 定直飞
+    CmAlpha: -0.60, CmQ: -12.0, CmDe: 0.20,
+    CnBeta: 0.09,           // 风标稳定性（侧滑 → 机头回到来流）
+    CnR: -0.25, CnP: -0.04,
+    CnDa: -0.012, CnDr: 0.015,   // 副翼不利偏航 / 方向舵
+    rho0: 1.225, rhoScale: 8500.0,   // 指数大气
+    subStep: 1.0 / 240.0,   // 固定子步长：与帧率解耦，0.2 s 的帧也切成 48 个子步
+};
+
+function aero_rho(alt) {
+    return AERO.rho0 * Math.exp(-Math.max(0.0, alt) / AERO.rhoScale);
+}
+function aero_smoothstep(e0, e1, x) {
+    const t = Math.max(0.0, Math.min(1.0, (x - e0) / (e1 - e0)));
+    return t * t * (3.0 - 2.0 * t);
+}
+// 升力系数：线性段 → 失速后陡降（斜率约 −2/rad，这是自转力矩的来源）→ 45° 之后接平板
+function aero_cl(alpha) {
+    const a = Math.abs(alpha), sg = (alpha < 0.0) ? -1.0 : 1.0;
+    const clMax = AERO.Cl0 + AERO.ClAlpha * AERO.alphaStall;
+    if (a <= AERO.alphaStall) return AERO.Cl0 + AERO.ClAlpha * alpha;
+    const a45 = Math.PI * 0.25;
+    if (a < a45) {
+        const t = (a - AERO.alphaStall) / (a45 - AERO.alphaStall);
+        return sg * clMax * (0.85 - 0.35 * t);      // 失速后从 0.85·Clmax 线性掉到 0.50·Clmax
+    }
+    return 0.9 * Math.sin(2.0 * alpha);
+}
+function aero_cd(alpha) {
+    const s = aero_smoothstep(AERO.alphaStall, AERO.alphaStall + 0.18, Math.abs(alpha));
+    const cl = aero_cl(alpha);
+    return AERO.Cd0 + AERO.kInduced * cl * cl + AERO.CdStall * s * Math.sin(alpha) * Math.sin(alpha);
+}
+// 欧拉角 → 四元数（ZYX：先偏航 ψ，再俯仰 θ，最后滚转 φ）
+function aero_quat_from_euler(psi, theta, phi) {
+    const cy = Math.cos(psi * 0.5), sy = Math.sin(psi * 0.5);
+    const cp = Math.cos(theta * 0.5), sp = Math.sin(theta * 0.5);
+    const cr = Math.cos(phi * 0.5), sr = Math.sin(phi * 0.5);
+    return [
+        cy * cp * cr + sy * sp * sr,
+        cy * cp * sr - sy * sp * cr,
+        cy * sp * cr + sy * cp * sr,
+        sy * cp * cr - cy * sp * sr
+    ];
+}
+
+// 由 (空速 V, 迎角 α, 航向 ψ, 俯仰 θ, 滚转 φ) 直接给出机体速度与姿态（复位、起飞瞬间用）
+function flight_set_body_state(V, alpha, psi, theta, phi) {
+    flight.u = V * Math.cos(alpha);
+    flight.v = 0.0;
+    flight.w = V * Math.sin(alpha);
+    flight.p = 0.0;
+    flight.q = 0.0;
+    flight.r = 0.0;
+    const q = aero_quat_from_euler(psi, theta, phi);
+    flight.qw = q[0]; flight.qx = q[1]; flight.qy = q[2]; flight.qz = q[3];
+}
+
 function flight_integrate(dt) {
     if (!(dt > 0.0)) return;
     if (dt > 0.25) dt = 0.25;
@@ -12768,76 +12858,106 @@ function flight_integrate(dt) {
         return;
     }
 
-    // ---- 副翼 → 滚转姿态（不限位，可连续横滚/倒飞） ----
-    flight.phi += FLIGHT.ROLL_RATE * eff * flight.inRoll * dt;
-    const cosPhi = Math.cos(flight.phi);
-    const sinPhi = Math.sin(flight.phi);
+    // ---- 六自由度积分：固定子步长，与帧率无关 ----
+    const n = Math.max(1, Math.min(80, Math.ceil(dt / AERO.subStep)));
+    const h = dt / n;
+    const de = flight.inPitch * eff;      // 升降舵：+ 抬头
+    const da = flight.inRoll * eff;       // 副翼：+ 右滚
+    const dr = flight.inYaw * eff;        // 方向舵：+ 右偏航
+    const yB = AERO.b * 0.25;             // 左右机翼代表站位（b/4）
 
-    // ---- 升降舵 → 迎角（俯仰姿态 θ = γ + α，因此姿态不再受任何限位） ----
-    // 直接对迎角积分而不是对俯仰姿态积分：飞机"握杆定迎角"，机头随航迹一起转，
-    // 筋斗/倒飞时不会因为姿态被钉住而发散；松杆后迎角被静稳定性拉回 0（机头跟随航迹）。
-    flight.alpha += FLIGHT.PITCH_RATE * eff * flight.inPitch * dt;
-    if (flight.V < FLIGHT.STALL_V) {
-        flight.alpha -= (FLIGHT.STALL_V - flight.V) * 0.018 * dt;   // 失速低头
+    for (let i = 0; i < n; i++) {
+        const u = flight.u, v = flight.v, w = flight.w;
+        const p = flight.p, qq = flight.q, rr = flight.r;
+        const V = Math.sqrt(u * u + v * v + w * w);
+        const Vc = Math.max(V, 6.0);
+
+        // 姿态矩阵（机体 → NED）
+        const qw = flight.qw, qx = flight.qx, qy = flight.qy, qz = flight.qz;
+        const R11 = 1.0 - 2.0 * (qy * qy + qz * qz), R12 = 2.0 * (qx * qy - qw * qz), R13 = 2.0 * (qx * qz + qw * qy);
+        const R21 = 2.0 * (qx * qy + qw * qz), R22 = 1.0 - 2.0 * (qx * qx + qz * qz), R23 = 2.0 * (qy * qz - qw * qx);
+        const R31 = 2.0 * (qx * qz - qw * qy), R32 = 2.0 * (qy * qz + qw * qx), R33 = 1.0 - 2.0 * (qx * qx + qy * qy);
+        const theta = Math.asin(flight_clamp(-R31, -1.0, 1.0));
+        const phi = Math.atan2(R32, R33);
+
+        const qbar = 0.5 * aero_rho(flight.alt) * V * V;
+        const alpha = Math.atan2(w, u);
+        const beta = Math.asin(flight_clamp(v / Math.max(V, 1e-3), -1.0, 1.0));
+
+        // 左右机翼的当地迎角：滚转角速度让一侧下洗、一侧上洗，偏航角速度让一侧前进
+        const aR = Math.atan2(w + p * yB, u - rr * yB);
+        const aL = Math.atan2(w - p * yB, u + rr * yB);
+        const halfQS = qbar * AERO.S * 0.5;
+        const LR = halfQS * aero_cl(aR), LL = halfQS * aero_cl(aL);
+        const DR = halfQS * aero_cd(aR), DL = halfQS * aero_cd(aL);
+        const Yside = qbar * AERO.S * AERO.CyBeta * beta;
+
+        // 气动力矩：导数项 + 左右机翼不对称项（自转/尾旋的来源）
+        const phat = p * AERO.b / (2.0 * Vc), qhat = qq * AERO.cbar / (2.0 * Vc), rhat = rr * AERO.b / (2.0 * Vc);
+        const Lm = qbar * AERO.S * AERO.b * (AERO.ClBeta * beta + AERO.ClP * phat + AERO.ClR * rhat + AERO.ClDa * da + AERO.ClDr * dr)
+                 - yB * (LR - LL);
+        const Mm = qbar * AERO.S * AERO.cbar * (AERO.Cm0 + AERO.CmAlpha * alpha + AERO.CmQ * qhat + AERO.CmDe * de);
+        const Nm = qbar * AERO.S * AERO.b * (AERO.CnBeta * beta + AERO.CnR * rhat + AERO.CnP * phat + AERO.CnDa * da + AERO.CnDr * dr)
+                 + yB * (DR - DL);
+
+        // 推力（带高度衰减）与重力在机体轴的分量
+        const lapse = Math.max(FLIGHT.THRUST_LAPSE_MIN, 1.0 - flight.alt / FLIGHT.THRUST_LAPSE_ALT);
+        const thrust = flight.throttle * FLIGHT.THRUST_MAX * lapse * AERO.mass;
+        const gx = -AERO.mass * 9.80665 * Math.sin(theta);
+        const gy = AERO.mass * 9.80665 * Math.cos(theta) * Math.sin(phi);
+        const gz = AERO.mass * 9.80665 * Math.cos(theta) * Math.cos(phi);
+
+        // 平动方程（机体轴，含科氏项）
+        const Fx = thrust - (DR + DL) + gx;
+        const Fy = Yside + gy;
+        const Fz = -(LR + LL) + gz;
+        flight.u += (Fx / AERO.mass - qq * w + rr * v) * h;
+        flight.v += (Fy / AERO.mass - rr * u + p * w) * h;
+        flight.w += (Fz / AERO.mass - p * v + qq * u) * h;
+
+        // 转动方程（Ixz 忽略）
+        flight.p += ((Lm + (AERO.Iy - AERO.Iz) * qq * rr) / AERO.Ix) * h;
+        flight.q += ((Mm + (AERO.Iz - AERO.Ix) * rr * p) / AERO.Iy) * h;
+        flight.r += ((Nm + (AERO.Ix - AERO.Iy) * p * qq) / AERO.Iz) * h;
+
+        // 四元数积分并归一化
+        let nw = qw - 0.5 * h * (qx * flight.p + qy * flight.q + qz * flight.r);
+        let nx = qx + 0.5 * h * (qw * flight.p + qy * flight.r - qz * flight.q);
+        let ny = qy + 0.5 * h * (qw * flight.q - qx * flight.r + qz * flight.p);
+        let nz = qz + 0.5 * h * (qw * flight.r + qx * flight.q - qy * flight.p);
+        const nl = Math.sqrt(nw * nw + nx * nx + ny * ny + nz * nz);
+        flight.qw = nw / nl; flight.qx = nx / nl; flight.qy = ny / nl; flight.qz = nz / nl;
+
+        // 位置积分（世界系 NED → 页面用的东/北/高）
+        const Vn = R11 * flight.u + R12 * flight.v + R13 * flight.w;
+        const Ve = R21 * flight.u + R22 * flight.v + R23 * flight.w;
+        const Vd = R31 * flight.u + R32 * flight.v + R33 * flight.w;
+        flight.x += Ve * h;
+        flight.z += Vn * h;
+        flight.alt -= Vd * h;
     }
-    // 速度稳定性：低于配平空速时升力不足，迎角自然减小（不拉杆则转入下滑）
-    if (flight.V < FLIGHT.TRIM_V) {
-        const deficit = 1.0 - (flight.V * flight.V) / (FLIGHT.TRIM_V * FLIGHT.TRIM_V);
-        flight.alpha -= deficit * FLIGHT.SPEED_STAB * dt;
-    }
-    // 俯仰静稳定性（尾翼回中）：α → 0，时间常数约 1/ALPHA_DAMP
-    flight.alpha -= flight.alpha * FLIGHT.ALPHA_DAMP * dt;
-    flight.alpha = flight_clamp(flight.alpha, FLIGHT.ALPHA_MIN, FLIGHT.ALPHA_MAX);
 
-    // ---- 载荷因数：机翼升力沿机背方向，配平（α=0）时 n=1；拉杆增大、推杆可为负 ----
-    // 去掉 g·tanφ 形式后不再有 90° 坡度的奇点，倒飞时 n<0 使升力指向世界下方（即"向上"）。
-    let loadN = 1.0 + flight.alpha / FLIGHT.ALPHA_REF;
-    loadN = flight_clamp(loadN, FLIGHT.LOAD_MIN, FLIGHT.LOAD_MAX);
+    // ---- 由四元数反解姿态与派生量（供相机/仪表/FPV/ND）----
+    const qw = flight.qw, qx = flight.qx, qy = flight.qy, qz = flight.qz;
+    const R11 = 1.0 - 2.0 * (qy * qy + qz * qz), R21 = 2.0 * (qx * qy + qw * qz), R31 = 2.0 * (qx * qz - qw * qy);
+    const R22 = 1.0 - 2.0 * (qx * qx + qz * qz), R32 = 2.0 * (qy * qz + qw * qx), R33 = 1.0 - 2.0 * (qx * qx + qy * qy);
+    const u = flight.u, v = flight.v, w = flight.w;
+    flight.V = Math.sqrt(u * u + v * v + w * w);
+    flight.theta = Math.asin(flight_clamp(-R31, -1.0, 1.0));
+    flight.phi = Math.atan2(R32, R33);
+    flight.psi = flight_wrap_2pi(Math.atan2(R21, R11));
+    flight.alpha = Math.atan2(w, u);
+    flight.beta = Math.asin(flight_clamp(v / Math.max(flight.V, 1e-3), -1.0, 1.0));
 
-    // ---- 协调转弯 + 方向舵：机头方位 psi 与速度矢量方位 chi ----
-    // 水平向心加速度 = 升力水平分量 L·sinφ/m → ω = g·n·sinφ / V
-    const turnRate = flight_clamp(FLIGHT.G * loadN * sinPhi / Math.max(flight.V, 8.0),
-                                  -FLIGHT.TURN_RATE_MAX, FLIGHT.TURN_RATE_MAX);
-    const yawRate = FLIGHT.YAW_RATE * eff * flight.inYaw;
-    const betaPrev = flight_wrap_pi(flight.psi - flight.chi);
-    flight.headingRate = turnRate + yawRate;   // 转弯协调表的输入
-    flight.psi += flight.headingRate * dt;
-    flight.chi += (turnRate + FLIGHT.BETA_K * betaPrev) * dt;
-    let beta = flight_wrap_pi(flight.psi - flight.chi);
-    if (beta > FLIGHT.BETA_LIMIT) {
-        beta = FLIGHT.BETA_LIMIT;
-        flight.chi = flight.psi - beta;
-    } else if (beta < -FLIGHT.BETA_LIMIT) {
-        beta = -FLIGHT.BETA_LIMIT;
-        flight.chi = flight.psi - beta;
-    }
-    flight.beta = beta;
-    flight.psi = flight_wrap_2pi(flight.psi);
-    flight.chi = flight_wrap_2pi(flight.chi);
-
-    // ---- 航迹倾角：升力竖直分量与重力法向分量之差（γ 不限位，可绕圈）----
-    // γ̇ = g·(n·cosφ − cosγ)/V：水平时 cosγ=1 退化为常规配平；倒飞/过顶时 cosγ<0，
-    // 重力改为"帮着"压弯航迹，筋斗因此不会在顶点失速卡住。
-    const gammaDot = FLIGHT.G * (loadN * cosPhi - Math.cos(flight.gamma)) / Math.max(flight.V, 8.0);
-    flight.gamma += gammaDot * dt;
-
-    // 俯仰姿态由航迹角与迎角合成（仅供视角/地面模型使用，不做限位）
-    flight.theta = flight.gamma + flight.alpha;
-
-    // ---- 推力 / 阻力 / 重力沿航迹 ----
-    const thrustLapse = Math.max(FLIGHT.THRUST_LAPSE_MIN, 1.0 - flight.alt / FLIGHT.THRUST_LAPSE_ALT);
-    const drag = FLIGHT.DRAG_K * flight.V * flight.V
-               + FLIGHT.INDUCED_K * (loadN * loadN - 1.0) / Math.max(flight.V * flight.V, 80.0);
-    flight.V += (flight.throttle * FLIGHT.THRUST_MAX * thrustLapse
-                 - drag
-                 - FLIGHT.G * Math.sin(flight.gamma)) * dt;
-    flight.V = Math.max(flight.V, FLIGHT.V_MIN);   // 只留低速地板；高速端由阻力自然收敛
-
-    // ---- 位置积分（速度矢量方向 chi、航迹倾角 gamma） ----
-    const vH = flight.V * Math.cos(flight.gamma);
-    flight.x += vH * Math.sin(flight.chi) * dt;
-    flight.z += vH * Math.cos(flight.chi) * dt;
-    flight.alt += flight.V * Math.sin(flight.gamma) * dt;
+    // 世界系速度（NED）→ 航迹角 γ 与航迹方位 χ
+    const Vn = R11 * u + 2.0 * (qx * qy - qw * qz) * v + 2.0 * (qx * qz + qw * qy) * w;
+    const Ve = R21 * u + R22 * v + 2.0 * (qy * qz - qw * qx) * w;
+    const Vd = R31 * u + R32 * v + R33 * w;
+    flight.gamma = (flight.V > 1e-3) ? Math.asin(flight_clamp(-Vd / flight.V, -1.0, 1.0)) : 0.0;
+    flight.chi = flight_wrap_2pi(Math.atan2(Ve, Vn));
+    // 机头方位角速度（转弯协调表用）：ψ̇ = (q·sinφ + r·cosφ)/cosθ，接近天顶时夹住分母
+    flight.headingRate = (flight.q * Math.sin(flight.phi) + flight.r * Math.cos(flight.phi)) /
+                         Math.max(Math.abs(Math.cos(flight.theta)), 0.2);
 
     // ---- 触地：轮胎接地，姿态置为地面姿态，转入滑跑 ----
     if (flight.alt <= FLIGHT.GROUND_ALT) {
@@ -13370,11 +13490,19 @@ function flight_reset() {
     flight.psi = flight_wrap_2pi(normalize_angle(view_azi) * FLIGHT.DEG);
     flight.chi = flight.psi;
     flight.beta = 0.0;
-    flight.alpha = 0.0;
-    flight.theta = 0.0;
     flight.phi = 0.0;
     flight.headingRate = 0.0;
     nd_reset_track();          // 导航显示器的航迹重新开始
+
+    // 以配平迎角起步：地面高度就按滑跑姿态，空中按该空速下平飞所需迎角
+    flight.wow = (flight.alt <= FLIGHT.GROUND_ALT);
+    {
+        const trimAlpha = Math.max(0.0, (flight_trim_cl() - AERO.Cl0) / AERO.ClAlpha);
+        const a0 = flight.wow ? 0.0 : trimAlpha;
+        flight.alpha = a0;
+        flight.theta = a0;
+        flight_set_body_state(flight.V, a0, flight.psi, a0, 0.0);
+    }
 
     flight.throttle = 0.0;
     flight.stickX = 0.0;
