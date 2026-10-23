@@ -12784,7 +12784,8 @@ const AUTOPILOT = {
     phaseT: 0.0,
     vsInt: 0.0,          // 垂速通道积分项
     mode: 'demo',        // 'demo' 全流程尾旋任务 / 'pattern' 五边起落
-    wps: [],             // 五边航路点 [east, north]
+    wps: [],             // 五边航路点 [east, north]（P1..P4，P4 即起飞点）
+    runwayPt: [0.0, 0.0],// 跑道参考点（起飞点，五边 1/5 边共用这条中心线）
     wpHdg: 0.0,          // 当前边锁定的航向（进入该边时算一次）
     legPhase: '',        // 上一次所处的边（用于识别换边）
     runwayHdg: 0.0,      // 跑道/起飞航向（= 起飞时的太阳方位）
@@ -12798,10 +12799,10 @@ const AP_CLIMB_VS = 55.0;        // 爬升率 m/s（大推力爬升，尽快上�
 const AP_DESC_VS = -45.0;        // 下降率 m/s
 const AP_FLARE_VS = -2.2;        // 拉平时的下沉率 m/s
 // 五边起落（traffic pattern）：朝太阳方位起飞，左航线一圈后落地
-const AP_PATTERN_ALT = 600.0;    // 航线高度 m
+const AP_PATTERN_ALT = 700.0;    // 航线高度 m
 const AP_PATTERN_V = 58.0;       // 航线速度 m/s（转弯半径约 500 m，航路点不容易被冲过头）
-const AP_PATTERN_LEN = 2500.0;   // 离场/下风边长度 m
-const AP_PATTERN_WIDE = 1800.0;  // 侧风/底边横向宽度 m
+const AP_PATTERN_LEN = 4000.0;   // 离场/下风边长度 m
+const AP_PATTERN_WIDE = 2500.0;  // 侧风/底边横向宽度 m
 
 function ap_dir(hdgDeg) { return [Math.sin(hdgDeg * Math.PI / 180.0), Math.cos(hdgDeg * Math.PI / 180.0)]; }
 function ap_step_pt(pt, hdgDeg, dist) {
@@ -12812,14 +12813,35 @@ function ap_dist_to(pt) { return Math.hypot(pt[0] - flight.x, pt[1] - flight.z);
 function ap_bearing_to(pt) {
     return (Math.atan2(pt[0] - flight.x, pt[1] - flight.z) * FLIGHT.RAD + 360.0) % 360.0;
 }
-// 航向保持：航向误差 → 目标坡度 → 副翼
+// 航向保持：航向误差 → 期望转弯率 → 协调转弯坡度 φ = atan(V·ω/g) → 副翼。
+// 旧写法直接把航向误差当坡度用（误差 30° 就给 33° 坡度），外环没有阻尼，
+// 转弯会冲过目标航向再来回修正，航线就被拖成 S 形。
 function ap_heading_roll(hdgDeg) {
     const err = ap_wrap_deg(hdgDeg - flight.psi * FLIGHT.RAD);
-    return ap_roll_cmd(flight_clamp(err * 1.1, -35.0, 35.0));
+    const omegaDeg = flight_clamp(err * 0.8, -7.0, 7.0);            // 期望转弯率 °/s
+    const v = Math.max(flight.V, 12.0);
+    const bank = Math.atan(v * omegaDeg * Math.PI / 180.0 / 9.80665) * FLIGHT.RAD;
+    return ap_roll_cmd(flight_clamp(bank, -30.0, 30.0));
 }
 // 五边用的速度保持：油门 ≈ 基底 + 比例（T/W 1.2，开环油门会把航线飞成 110 m/s）
 function ap_throttle_for_speed(vTarget) {
     return flight_clamp(0.16 + 0.05 * (vTarget - flight.V), 0.0, 1.0);
+}
+
+// 沿"边线"飞：把追踪目标点放在这条边的前方 lookAhead 处，而不是航路点上。
+// 只要目标点在这条边的中心线上，横向偏差就会被逐渐压回去——五边的每一条边（含
+// 最后进近）都用它，因此第 1 边与第 5 边严格落在同一条跑道中心线上。
+function ap_line_heading(pt0, hdgDeg, lookAhead) {
+    const u = ap_dir(hdgDeg);
+    const along = (flight.x - pt0[0]) * u[0] + (flight.z - pt0[1]) * u[1];
+    const tx = pt0[0] + u[0] * (along + lookAhead);
+    const tz = pt0[1] + u[1] * (along + lookAhead);
+    return (Math.atan2(tx - flight.x, tz - flight.z) * FLIGHT.RAD + 360.0) % 360.0;
+}
+// 沿边线的已飞距离（用来判断这条边飞完没有，比"距航路点多远"稳）
+function ap_along_track(pt0, hdgDeg) {
+    const u = ap_dir(hdgDeg);
+    return (flight.x - pt0[0]) * u[0] + (flight.z - pt0[1]) * u[1];
 }
 
 // 是否已到达/越过某航路点（距离够近，或已跑到它在航线方向上的后方）
@@ -12863,6 +12885,15 @@ function ap_vs_pitch(vsTarget, dt) {
     const err = flight_clamp(vsTarget, -vsCap, vsCap) - vs;
     AUTOPILOT.vsInt = flight_clamp(AUTOPILOT.vsInt + flight_clamp(0.03 * err, -2.0, 2.0) * dt, -1.0, 1.0);
     return flight_clamp(AUTOPILOT.vsInt + 0.05 * err, -1.0, 1.0);
+}
+
+// 换阶段：phase / 计时 / 垂速积分一起复位。
+// 不能只写 AUTOPILOT.phase——下一帧 to() 看到阶段已经相同就不会重置计时，
+// phaseT 会一路累加，各段的超时判据于是提前触发（五边就是被这个切成歪航线的）。
+function ap_goto(phase) {
+    AUTOPILOT.phase = phase;
+    AUTOPILOT.phaseT = 0.0;
+    AUTOPILOT.vsInt = 0.0;
 }
 
 // 指示灯与阶段文案（文本不变就不写 DOM）
@@ -12927,8 +12958,10 @@ function autopilot_engage(mode) {
         const p3 = ap_step_pt(p2, R - 180.0, AP_PATTERN_LEN);
         const p4 = ap_step_pt(p3, R + 90.0, AP_PATTERN_WIDE);
         AUTOPILOT.wps = [p1, p2, p3, p4];
+        AUTOPILOT.runwayPt = [p0[0], p0[1]];
     } else {
         AUTOPILOT.wps = [];
+        AUTOPILOT.runwayPt = [flight.x, flight.z];
     }
 
     AUTOPILOT.mode = mode;
@@ -12970,8 +13003,7 @@ function autopilot_step(dt) {
             cmd.throttle = 1.0;
             cmd.pitch = ap_pitch_cmd(9.0);
             if ((!flight.wow && alt > FLIGHT.GROUND_ALT + 10.0) || AUTOPILOT.phaseT > 10.0) {
-                AUTOPILOT.phase = (AUTOPILOT.mode === 'pattern') ? 'p_upwind' : 'climb';
-                AUTOPILOT.phaseT = 0.0;
+                ap_goto((AUTOPILOT.mode === 'pattern') ? 'p_upwind' : 'climb');
             }
             break;
 
@@ -12980,49 +13012,54 @@ function autopilot_step(dt) {
         case 'p_down':
         case 'p_base':
         case 'p_final': {
-            // 五边：每条边进入时把"到航路点的方位"锁定成该边的航向，
-            // 不能每步重算——否则飞过航路点后方位会跟着转，"已越过"永远判不出来
-            const idx = { p_upwind: 0, p_cross: 1, p_down: 2, p_base: 3, p_final: 4 }[AUTOPILOT.phase];
-            const wp = (idx < 4) ? AUTOPILOT.wps[idx] : null;
-            if (AUTOPILOT.legPhase !== AUTOPILOT.phase) {
-                AUTOPILOT.legPhase = AUTOPILOT.phase;
-                AUTOPILOT.wpHdg = wp ? ap_bearing_to(wp)
-                                     : AUTOPILOT.runwayHdg;   // 最后进近一律对正跑道
-            }
-            const hdg = AUTOPILOT.wpHdg;
+            // 五边：每条边都沿"边线"飞（不是飞向航路点），并用沿边距离判断换边。
+            // 航路点只用来确定边线起点；第 5 边与第 1 边用的是同一条跑道中心线。
+            const R = AUTOPILOT.runwayHdg;
+            const wp = AUTOPILOT.wps;
+            const p0 = AUTOPILOT.runwayPt;
+            let pt0, legHdg, legLen, look;
+            if (AUTOPILOT.phase === 'p_upwind') { pt0 = p0; legHdg = R; legLen = AP_PATTERN_LEN; look = 1000.0; }
+            else if (AUTOPILOT.phase === 'p_cross') { pt0 = wp[0]; legHdg = R - 90.0; legLen = AP_PATTERN_WIDE; look = 800.0; }
+            else if (AUTOPILOT.phase === 'p_down') { pt0 = wp[1]; legHdg = R - 180.0; legLen = AP_PATTERN_LEN; look = 1000.0; }
+            else if (AUTOPILOT.phase === 'p_base') { pt0 = wp[2]; legHdg = R + 90.0; legLen = AP_PATTERN_WIDE; look = 800.0; }
+            else { pt0 = p0; legHdg = R; legLen = Infinity; look = 600.0; }   // 五边：与第 1 边同一条跑道线
+
+            if (!pt0) { cmd.roll = ap_heading_roll(legHdg); break; }
+            const hdg = ap_line_heading(pt0, legHdg, look);
             cmd.roll = ap_heading_roll(hdg);
+            const along = ap_along_track(pt0, legHdg);
 
             if (AUTOPILOT.phase === 'p_upwind') {
                 to('p_upwind', '离场边 · ' + Math.round(alt) + ' m');
-                cmd.throttle = 1.0;
+                cmd.throttle = (alt < 120.0) ? 1.0 : ap_throttle_for_speed(AP_PATTERN_V);
+                if (alt >= 120.0) cmd.pitch = ap_vs_pitch(0.0, dt);
                 cmd.pitch = ap_vs_pitch(alt < AP_PATTERN_ALT - 20.0 ? Math.min(12.0, (AP_PATTERN_ALT - alt) * 0.12) : 0.0, dt);
-                if (!wp || ap_wp_reached(wp, hdg) || AUTOPILOT.phaseT > 70.0) AUTOPILOT.phase = 'p_cross';
+                if (along >= legLen || AUTOPILOT.phaseT > 90.0) ap_goto('p_cross');
             }
             else if (AUTOPILOT.phase === 'p_cross') {
                 to('p_cross', '侧风边 · ' + Math.round(alt) + ' m');
                 cmd.throttle = ap_throttle_for_speed(AP_PATTERN_V);
                 cmd.pitch = ap_vs_pitch(alt < AP_PATTERN_ALT - 20.0 ? 8.0 : 0.0, dt);
-                if (!wp || ap_wp_reached(wp, hdg) || AUTOPILOT.phaseT > 60.0) AUTOPILOT.phase = 'p_down';
+                if (along >= legLen || AUTOPILOT.phaseT > 70.0) ap_goto('p_down');
             }
             else if (AUTOPILOT.phase === 'p_down') {
                 to('p_down', '下风边 · ' + Math.round(alt) + ' m');
                 cmd.throttle = ap_throttle_for_speed(AP_PATTERN_V);
                 cmd.pitch = ap_vs_pitch(alt > AP_PATTERN_ALT * 0.65 ? -2.0 : 0.0, dt);
-                if (!wp || ap_wp_reached(wp, hdg) || AUTOPILOT.phaseT > 80.0) AUTOPILOT.phase = 'p_base';
+                if (along >= legLen || AUTOPILOT.phaseT > 90.0) ap_goto('p_base');
             }
             else if (AUTOPILOT.phase === 'p_base') {
                 to('p_base', '底边 · ' + Math.round(alt) + ' m');
                 cmd.throttle = ap_throttle_for_speed(AP_PATTERN_V);
                 cmd.pitch = ap_vs_pitch(-3.5, dt);
-                if (!wp || ap_wp_reached(wp, hdg) || AUTOPILOT.phaseT > 60.0) AUTOPILOT.phase = 'p_final';
+                if (along >= legLen - 420.0 || AUTOPILOT.phaseT > 70.0) ap_goto('p_final');   // 提前 420 m 起转
             }
             else {
                 to('p_final', '最后进近 · ' + Math.round(alt) + ' m');
                 cmd.throttle = ap_throttle_for_speed(AP_PATTERN_V - 12.0);
                 cmd.pitch = ap_vs_pitch(-flight_clamp(alt * 0.05, 1.5, 8.0), dt);
-                if (alt < 25.0 || AUTOPILOT.phaseT > 120.0) AUTOPILOT.phase = 'flare';
+                if (alt < 25.0 || AUTOPILOT.phaseT > 140.0) ap_goto('flare');
             }
-            if (AUTOPILOT.phase !== AUTOPILOT.legPhase) AUTOPILOT.phaseT = 0.0;
             break;
         }
 
@@ -13071,8 +13108,7 @@ function autopilot_step(dt) {
             cmd.yaw = 1.0;                       // 满右舵
             cmd.roll = (AUTOPILOT.phaseT > AP_SPIN_AILERON_AT) ? 0.55 : 0.0;   // 顺舵副翼
             if (alt < AP_SPIN_FLOOR || AUTOPILOT.phaseT > AP_SPIN_MAX_T) {
-                AUTOPILOT.phase = 'recover';
-                AUTOPILOT.phaseT = 0.0;
+                ap_goto('recover');
             }
             break;
 
@@ -13083,8 +13119,7 @@ function autopilot_step(dt) {
             // 先推杆卸掉迎角让机翼重新附着，再尽快拉起来——低空大过载改出
             cmd.pitch = (alphaDeg > 2.0) ? -0.55 : 1.0;
             if ((alphaDeg < 6.0 && AUTOPILOT.phaseT > 1.2) || AUTOPILOT.phaseT > 20.0) {
-                AUTOPILOT.phase = 'level';
-                AUTOPILOT.phaseT = 0.0;
+                ap_goto('level');
             }
             break;
 
@@ -13096,8 +13131,7 @@ function autopilot_step(dt) {
             cmd.pitch = ap_vs_pitch(-3.0, dt);
             if ((Math.abs(ap_wrap_deg(flight.phi * FLIGHT.RAD)) < 15.0 && AUTOPILOT.phaseT > 3.0) ||
                 AUTOPILOT.phaseT > 20.0) {
-                AUTOPILOT.phase = 'descend';
-                AUTOPILOT.phaseT = 0.0;
+                ap_goto('descend');
             }
             break;
 
@@ -13133,8 +13167,7 @@ function autopilot_step(dt) {
             cmd.roll = 0.0;
             cmd.yaw = 0.0;
             if (V < 1.5) {
-                AUTOPILOT.phase = 'done';
-                AUTOPILOT.phaseT = 0.0;
+                ap_goto('done');
                 AUTOPILOT.active = false;        // 任务完成自动断开
                 AUTOPILOT.msg = '任务完成';
             }
