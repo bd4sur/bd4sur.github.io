@@ -219,21 +219,21 @@ a {
 }
 .throttle_fill {
     position: absolute;
-    left: 4px;
-    right: 4px;
-    bottom: 4px;
+    left: 8px;
+    right: 8px;
+    bottom: 5px;
     height: 0%;
-    border-radius: 12px;
+    border-radius: 8px;
     background: linear-gradient(to top, #1b4f57, #35b8b8);
     pointer-events: none;
 }
 .throttle_knob {
     position: absolute;
     left: 50%;
-    width: 28px;
-    height: 13px;
-    margin-left: -14px;
-    border-radius: 3px;
+    width: 22px;
+    height: 22px;
+    margin-left: -11px;
+    border-radius: 50%;
     background: #dfe3e8;
     box-shadow: 0 1px 3px #000c;
     pointer-events: none;
@@ -304,10 +304,16 @@ a {
     touch-action: none;
     user-select: none;
     -webkit-user-select: none;
+    /* 与「设置」「视角」按钮同一套凸起质感 */
+    box-shadow: inset 1px 1px 1px #515151ba, inset -1px -1px 1px #0000003b, .222px .222px .314px -.5px #0003, .605px .605px .856px -1px #0000002e, 1.329px 1.329px 1.88px -1.5px #00000040, 2.95px 2.95px 4.172px -2px #0000001a, 2.5px 2.5px 3px -2.5px #00000026, -.5px -.5px #0000001a;
 }
-.rudder_btn.pressed {
-    background: #2f6b72;
-    box-shadow: inset 1px 1px 3px #0008;
+/* 按住生效：按下去是凹下的样子，与其余按钮一致 */
+.rudder_btn.pressed,
+.rudder_btn:active {
+    background: #232323;
+    padding: 1px 0 0 1px;
+    color: #ffffffaa;
+    box-shadow: inset 1px 1px 3px 0px rgba(0, 0, 0, 0.5);
 }
 .flight_status_row {
     display: flex;
@@ -13517,10 +13523,15 @@ function flight_update_throttle_ui() {
     const val = document.getElementById('flight_throttle_val');
     const v = flight_clamp(flight.throttle, 0.0, 1.0);
     if (track && fill && knob) {
+        // 档把与蓝条共用一个基准：蓝条的顶端始终落在档把圆心上，圆心就是开度读数位置。
+        // 两端各留 END 的空白，档把走到行程尽头时正好贴在轨道圆头内侧，不会被圆角切到。
         const H = track.clientHeight || 120;
-        const travel = Math.max(1.0, H - 8.0 - 13.0);
-        fill.style.height = (4.0 + v * (H - 8.0)).toFixed(1) + 'px';
-        knob.style.bottom = (4.0 + v * travel).toFixed(1) + 'px';
+        const KH = knob.offsetHeight || 22;                 // 圆形档把的直径
+        const END = 5.0;
+        const travel = Math.max(1.0, H - 2.0 * END - KH);   // 档把底边的行程
+        const kb = END + v * travel;                        // 档把底边距轨道底
+        knob.style.bottom = kb.toFixed(1) + 'px';
+        fill.style.height = Math.max(0.0, kb + KH * 0.5 - END).toFixed(1) + 'px';
     }
     if (val) val.textContent = Math.round(v * 100) + '%';
     if (track) track.setAttribute('aria-valuenow', String(Math.round(v * 100)));
@@ -14179,12 +14190,17 @@ function flight_init_controls() {
     }
 
     // ---- 油门：竖向轨道，向上推满、向下收光，按下即跳到该位置 ----
+    // 位置 → 开度按档把圆心算：手指按在哪儿，档把圆心就落在哪儿（两端夹住）
     const track = document.getElementById('flight_throttle_track');
     if (track) {
         let dragId = null;
         const setFromEvent = function(e) {
             const rect = track.getBoundingClientRect();
-            const v = 1.0 - (e.clientY - rect.top) / Math.max(rect.height, 1.0);
+            const knob = document.getElementById('flight_throttle_knob');
+            const KH = (knob && knob.offsetHeight) || 22;
+            const END = 5.0;
+            const travel = Math.max(1.0, rect.height - 2.0 * END - KH);
+            const v = ((rect.bottom - e.clientY) - END - KH * 0.5) / travel;
             flight.throttle = flight_clamp(v, 0.0, 1.0);
             flight_update_throttle_ui();
         };
