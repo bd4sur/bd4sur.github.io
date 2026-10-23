@@ -568,7 +568,7 @@ a {
     width: 58px;
     height: 58px;
     padding: 3px;
-    border: 1px solid #e6cf9c;
+    border: 1px solid #e8d5a6;      /* 夜间配色；白天由 body.is-day 覆盖 */
     border-radius: 5px;
     box-shadow:
         inset 0 2px 4px #000000d9,        /* 井底暗影：缝隙靠上沿最深 */
@@ -662,6 +662,19 @@ a {
         inset -1px 0 0 #060908,
         inset 0 -1px 0 #000000,
         inset 0 5px 8px #000000e6;
+}
+
+/* ---- 日夜配色 ---- */
+/* 默认是夜间：黑底 + 浅黄标签/边框（.ak_name 与 .ak_socket 的基础值） */
+/* 白天：页面底色转深蓝灰，顶部按钮的标签与安装座边框转浅灰 */
+body.is-day {
+    background-color: #28333e;
+}
+body.is-day .ak_name {
+    color: #c6c6c6;
+}
+body.is-day .ak_socket {
+    border-color: #c6c6c6;
 }
 
 .setting_button, .joystick_button {
@@ -12191,6 +12204,7 @@ function render_all(
     const sun_horizontal_coord = where_is_the_sun(year, month, day, hour, minute, second, timezone, longitude, latitude);
     const sun_alt = sun_horizontal_coord[0];
     const sun_azi = sun_horizontal_coord[1];
+    ui_apply_day_night(sun_alt);     // 日夜配色跟着太阳高度走
     const sun_vec = horizontal_to_xyz(sun_azi, sun_alt, RADIUS);
     const sun_proj_xy = fisheye_project(sun_azi, sun_alt, RADIUS, center_x, center_y, view_alt, view_azi, view_roll, f);
 
@@ -15328,6 +15342,19 @@ function clamp_view_angle() {
 // ============================================================
 const AUTO_NIGHT_SUN_ALT = -18.0;   // 触发夜间自动显示所需的太阳高度上限（度）
 
+// ============================================================
+// 日夜配色：太阳高度大于 0 为白天（body.is-day），否则夜间（默认）。
+// 只在状态翻转时改一次 body 的 class，逐帧调用没有额外开销。
+// ============================================================
+let ui_day_night = null;      // null = 尚未判定；true = 白天；false = 夜间
+function ui_apply_day_night(sun_alt_deg) {
+    if (!Number.isFinite(sun_alt_deg)) return;
+    const isDay = sun_alt_deg > 0.0;
+    if (ui_day_night === isDay) return;
+    ui_day_night = isDay;
+    document.body.classList.toggle('is-day', isDay);
+}
+
 function auto_night_display() {
     // 时间取与首帧相同来源：实时模式用系统当前时间，否则用页面上的时刻变量
     let y, mo, d, h, mi, s;
@@ -16491,6 +16518,7 @@ function init() {
     const init_sun_alt = auto_night_display();
     if (init_sun_alt !== null) {
         cloud_sky_apply_brightness(cloud_sky_brightness_from_sun_alt(init_sun_alt));
+        ui_apply_day_night(init_sun_alt);
     }
 
     (async function preload() {
