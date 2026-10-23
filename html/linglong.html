@@ -802,6 +802,7 @@ a {
                 <div class="flight_status_row">
                     <button class="flight_reset_btn" id="flight_reset">复位</button>
                     <button class="flight_reset_btn" id="flight_autopilot">一键自动飞行</button>
+                    <button class="flight_reset_btn" id="flight_pattern">五边起落</button>
                     <span class="ap_lamp" id="ap_lamp" title="自动驾驶"></span>
                     <span class="ap_status" id="ap_status">待机</span>
                 </div>
@@ -992,6 +993,7 @@ a {
                     <li>主画布下方、时间控制按钮上方是四只指针式飞行仪表：空速表（内圈 m/s / 外圈 kt，0–200 m/s 即 0–389 kt）、高度表（内圈 m / 外圈 ft；短粗针读 0–12000 m 全量程、对应当前刻度数字，细长针每转一圈 1000 m 用于读出低空的精确高度）、转弯协调表（°/s，绿色刻度为标准转弯率 3°/s）、垂直速率表（内圈 m/s / 外圈 ft/min）。数字沿表盘切向排布，两种单位用颜色区分。指针随飞行状态实时转动；尚未开始飞行时指针归零，切回「视角控制」后停在最后一次读数。</li>
                     <li>飞行页的主画面上，中央的黄色短线是机头基准（航迹指示），绿色圆圈带左右短翼的符号是飞行航迹矢量（FPV）：它指向飞机速度的实际方向——平飞时压在机头基准上，拉杆爬升时落在基准下方（两者的夹角就是迎角），侧滑时左右偏开（偏角即侧滑角）。速度低于 2 m/s 停住时或该方向转出画面时不显示；切回「视角控制」后消失。</li>
                     <li>飞行页控件下方是导航显示器（ND）：黑底方形屏，飞机符号固定在水平中央、竖直 3/4 处，地图随飞机对地移动而平移并旋转，始终保持「航迹朝上」。显示范围可由显示屏底边的按钮在 10 / 50 / 100 / 200 / 500 / 1000 km 之间切换（指机位到上边缘的距离，默认 200 km），底图是全国主要民用机场（大型机场，标 IATA 三字码，取自 OurAirports 开放数据集）；距离环按量程四等分自动缩放，另有每 30° 一条方位辐射线。飞过的航迹用品红折线记录，每移动 0.35 km 采一点；复位时清空。顶部弧形罗盘刻度随航迹滚动，正上方恒为当前航迹方位（品红三角所指），刻度数字即罗盘方位角；左上角小罗盘指示北向。左下角为显示范围，右下角为航迹与地速。</li>
+                    <li>「五边起落」按钮是另一套自动驾驶场景：起飞航向直接取当前时刻的太阳方位（五边模式的滑跑状态会显示"朝太阳 xxx°"），离地后按标准左航线飞完整五边——离场边爬升到 600 m、侧风边左转 90°、下风边与跑道平行反向、底边再左转 90° 下降到进场高度、最后进近对正跑道落地；航线速度保持约 58 m/s，转弯半径约 500 m，整圈几何按起飞点闭合。</li>
                     <li>「一键自动飞行」按钮会接管全部操纵（期间摇杆、油门键都不响应），从地面起飞爬升穿云到 7500 m，减速到失速边界后故意拉出失速、蹬满舵进入尾旋——进入约 20 秒后再顺舵加副翼，转速会从 30°/s 一路压到 140°/s，一直转到 1600 m 才改出（反舵打停自转、推杆让机翼附着、低空大过载拉起），随后进近、拉平、刹停；结束后指示灯自动熄灭。再点一次按钮或按「复位」可随时中止。</li>
                     <li>触地后按起落架接地处理：姿态立即放平为地面姿态（机翼水平、机头放平、无侧滑），随后进入滑跑。滑跑时油门对抗气动阻力、滚动阻力与刹车阻力——收油门（或按 F）会带刹车在约十秒内逐渐滑停，速度可降到 0；加到约 22 m/s 抬轮速度后再拉杆即可重新离地，低于该速度拉杆无效（机头被前轮/尾轮撑住）。</li>
                     <li>飞行动力学是六自由度刚体：副翼/升降舵/方向舵给的是气动力矩，升力与阻力按左右机翼各自的当地迎角算（含失速后的升力塌陷与阻力上升），姿态用四元数积分，所以筋斗、横滚、过顶、倒飞都可以做，也不会出现欧拉角锁死；HUD 里的"高度/升降"始终是世界竖直方向。</li>
@@ -12781,6 +12783,11 @@ const AUTOPILOT = {
     phase: 'idle',
     phaseT: 0.0,
     vsInt: 0.0,          // 垂速通道积分项
+    mode: 'demo',        // 'demo' 全流程尾旋任务 / 'pattern' 五边起落
+    wps: [],             // 五边航路点 [east, north]
+    wpHdg: 0.0,          // 当前边锁定的航向（进入该边时算一次）
+    legPhase: '',        // 上一次所处的边（用于识别换边）
+    runwayHdg: 0.0,      // 跑道/起飞航向（= 起飞时的太阳方位）
     msg: '待机',
     shownMsg: null,
     shownLamp: null,
@@ -12790,6 +12797,38 @@ const AP_CLOUD_ALT = 7500.0;     // 穿云/目标高度 m（云层 3–11 km，�
 const AP_CLIMB_VS = 55.0;        // 爬升率 m/s（大推力爬升，尽快上到云顶附近）
 const AP_DESC_VS = -45.0;        // 下降率 m/s
 const AP_FLARE_VS = -2.2;        // 拉平时的下沉率 m/s
+// 五边起落（traffic pattern）：朝太阳方位起飞，左航线一圈后落地
+const AP_PATTERN_ALT = 600.0;    // 航线高度 m
+const AP_PATTERN_V = 58.0;       // 航线速度 m/s（转弯半径约 500 m，航路点不容易被冲过头）
+const AP_PATTERN_LEN = 2500.0;   // 离场/下风边长度 m
+const AP_PATTERN_WIDE = 1800.0;  // 侧风/底边横向宽度 m
+
+function ap_dir(hdgDeg) { return [Math.sin(hdgDeg * Math.PI / 180.0), Math.cos(hdgDeg * Math.PI / 180.0)]; }
+function ap_step_pt(pt, hdgDeg, dist) {
+    const d = ap_dir(hdgDeg);
+    return [pt[0] + d[0] * dist, pt[1] + d[1] * dist];
+}
+function ap_dist_to(pt) { return Math.hypot(pt[0] - flight.x, pt[1] - flight.z); }
+function ap_bearing_to(pt) {
+    return (Math.atan2(pt[0] - flight.x, pt[1] - flight.z) * FLIGHT.RAD + 360.0) % 360.0;
+}
+// 航向保持：航向误差 → 目标坡度 → 副翼
+function ap_heading_roll(hdgDeg) {
+    const err = ap_wrap_deg(hdgDeg - flight.psi * FLIGHT.RAD);
+    return ap_roll_cmd(flight_clamp(err * 1.1, -35.0, 35.0));
+}
+// 五边用的速度保持：油门 ≈ 基底 + 比例（T/W 1.2，开环油门会把航线飞成 110 m/s）
+function ap_throttle_for_speed(vTarget) {
+    return flight_clamp(0.16 + 0.05 * (vTarget - flight.V), 0.0, 1.0);
+}
+
+// 是否已到达/越过某航路点（距离够近，或已跑到它在航线方向上的后方）
+function ap_wp_reached(pt, legHdg) {
+    if (ap_dist_to(pt) < 320.0) return true;
+    const d = ap_dir(legHdg);
+    return ((flight.x - pt[0]) * d[0] + (flight.z - pt[1]) * d[1]) > 250.0;
+}
+
 const AP_SPIN_FLOOR = 1600.0;    // 尾旋改出底线高度 m（再往下就没余量了）
 const AP_SPIN_MAX_T = 130.0;     // 尾旋最长保持时间 s（兜底；正常情况下先撞底线高度）
 const AP_SPIN_AILERON_AT = 18.0; // 尾旋转到这个时刻开始加副翼，越转越狠
@@ -12841,7 +12880,8 @@ function ap_refresh_ui() {
     }
 }
 
-function autopilot_engage() {
+function autopilot_engage(mode) {
+    mode = (mode === 'pattern') ? 'pattern' : 'demo';
     if (AUTOPILOT.active) {
         AUTOPILOT.active = false;
         AUTOPILOT.phase = 'idle';
@@ -12864,9 +12904,38 @@ function autopilot_engage() {
     flight_set_body_state(0.4, 0.0, flight.psi, 0.0, 0.0);
     nd_reset_track();
 
+    if (mode === 'pattern') {
+        // 朝太阳方位起飞：取当前时刻的太阳方位作为跑道/起飞航向
+        const now = enable_realtime ? new Date() : timemachine_current_time;
+        let sunAzi = 90.0;
+        try {
+            sunAzi = where_is_the_sun(now.getFullYear(), now.getMonth() + 1, now.getDate(),
+                now.getHours(), now.getMinutes(), now.getSeconds(),
+                timezone, longitude, latitude)[1];
+        } catch (err) {
+            console.warn('太阳方位计算失败，五边按正东起飞：', err);
+        }
+        AUTOPILOT.runwayHdg = (sunAzi + 360.0) % 360.0;
+        flight.psi = flight_wrap_2pi(AUTOPILOT.runwayHdg * FLIGHT.DEG);
+        flight.chi = flight.psi;
+        flight_set_body_state(0.4, 0.0, flight.psi, 0.0, 0.0);
+        // 左航线：离场 → 左转侧风 → 左转下风 → 左转底边 → 左转对正
+        const R = AUTOPILOT.runwayHdg;
+        const p0 = [flight.x, flight.z];
+        const p1 = ap_step_pt(p0, R, AP_PATTERN_LEN);
+        const p2 = ap_step_pt(p1, R - 90.0, AP_PATTERN_WIDE);
+        const p3 = ap_step_pt(p2, R - 180.0, AP_PATTERN_LEN);
+        const p4 = ap_step_pt(p3, R + 90.0, AP_PATTERN_WIDE);
+        AUTOPILOT.wps = [p1, p2, p3, p4];
+    } else {
+        AUTOPILOT.wps = [];
+    }
+
+    AUTOPILOT.mode = mode;
     AUTOPILOT.active = true;
     AUTOPILOT.phase = 'roll';
     AUTOPILOT.phaseT = 0.0;
+    AUTOPILOT.vsInt = 0.0;
     AUTOPILOT.msg = '起飞滑跑';
     ap_refresh_ui();
 }
@@ -12889,7 +12958,9 @@ function autopilot_step(dt) {
 
     switch (AUTOPILOT.phase) {
         case 'roll':
-            to('roll', '起飞滑跑');
+            to('roll', (AUTOPILOT.mode === 'pattern')
+                ? ('起飞滑跑 · 朝太阳 ' + String(Math.round(AUTOPILOT.runwayHdg) % 360).padStart(3, '0') + '°')
+                : '起飞滑跑');
             cmd.throttle = 1.0;
             if (V >= FLIGHT.ROTATE_V + 2.0) { AUTOPILOT.phase = 'rotate'; AUTOPILOT.phaseT = 0.0; }
             break;
@@ -12899,10 +12970,61 @@ function autopilot_step(dt) {
             cmd.throttle = 1.0;
             cmd.pitch = ap_pitch_cmd(9.0);
             if ((!flight.wow && alt > FLIGHT.GROUND_ALT + 10.0) || AUTOPILOT.phaseT > 10.0) {
-                AUTOPILOT.phase = 'climb';
+                AUTOPILOT.phase = (AUTOPILOT.mode === 'pattern') ? 'p_upwind' : 'climb';
                 AUTOPILOT.phaseT = 0.0;
             }
             break;
+
+        case 'p_upwind':
+        case 'p_cross':
+        case 'p_down':
+        case 'p_base':
+        case 'p_final': {
+            // 五边：每条边进入时把"到航路点的方位"锁定成该边的航向，
+            // 不能每步重算——否则飞过航路点后方位会跟着转，"已越过"永远判不出来
+            const idx = { p_upwind: 0, p_cross: 1, p_down: 2, p_base: 3, p_final: 4 }[AUTOPILOT.phase];
+            const wp = (idx < 4) ? AUTOPILOT.wps[idx] : null;
+            if (AUTOPILOT.legPhase !== AUTOPILOT.phase) {
+                AUTOPILOT.legPhase = AUTOPILOT.phase;
+                AUTOPILOT.wpHdg = wp ? ap_bearing_to(wp)
+                                     : AUTOPILOT.runwayHdg;   // 最后进近一律对正跑道
+            }
+            const hdg = AUTOPILOT.wpHdg;
+            cmd.roll = ap_heading_roll(hdg);
+
+            if (AUTOPILOT.phase === 'p_upwind') {
+                to('p_upwind', '离场边 · ' + Math.round(alt) + ' m');
+                cmd.throttle = 1.0;
+                cmd.pitch = ap_vs_pitch(alt < AP_PATTERN_ALT - 20.0 ? Math.min(12.0, (AP_PATTERN_ALT - alt) * 0.12) : 0.0, dt);
+                if (!wp || ap_wp_reached(wp, hdg) || AUTOPILOT.phaseT > 70.0) AUTOPILOT.phase = 'p_cross';
+            }
+            else if (AUTOPILOT.phase === 'p_cross') {
+                to('p_cross', '侧风边 · ' + Math.round(alt) + ' m');
+                cmd.throttle = ap_throttle_for_speed(AP_PATTERN_V);
+                cmd.pitch = ap_vs_pitch(alt < AP_PATTERN_ALT - 20.0 ? 8.0 : 0.0, dt);
+                if (!wp || ap_wp_reached(wp, hdg) || AUTOPILOT.phaseT > 60.0) AUTOPILOT.phase = 'p_down';
+            }
+            else if (AUTOPILOT.phase === 'p_down') {
+                to('p_down', '下风边 · ' + Math.round(alt) + ' m');
+                cmd.throttle = ap_throttle_for_speed(AP_PATTERN_V);
+                cmd.pitch = ap_vs_pitch(alt > AP_PATTERN_ALT * 0.65 ? -2.0 : 0.0, dt);
+                if (!wp || ap_wp_reached(wp, hdg) || AUTOPILOT.phaseT > 80.0) AUTOPILOT.phase = 'p_base';
+            }
+            else if (AUTOPILOT.phase === 'p_base') {
+                to('p_base', '底边 · ' + Math.round(alt) + ' m');
+                cmd.throttle = ap_throttle_for_speed(AP_PATTERN_V);
+                cmd.pitch = ap_vs_pitch(-3.5, dt);
+                if (!wp || ap_wp_reached(wp, hdg) || AUTOPILOT.phaseT > 60.0) AUTOPILOT.phase = 'p_final';
+            }
+            else {
+                to('p_final', '最后进近 · ' + Math.round(alt) + ' m');
+                cmd.throttle = ap_throttle_for_speed(AP_PATTERN_V - 12.0);
+                cmd.pitch = ap_vs_pitch(-flight_clamp(alt * 0.05, 1.5, 8.0), dt);
+                if (alt < 25.0 || AUTOPILOT.phaseT > 120.0) AUTOPILOT.phase = 'flare';
+            }
+            if (AUTOPILOT.phase !== AUTOPILOT.legPhase) AUTOPILOT.phaseT = 0.0;
+            break;
+        }
 
         case 'climb':
             to('climb', '爬升穿云 → ' + Math.round(AP_CLOUD_ALT) + ' m');
@@ -13920,7 +14042,14 @@ function flight_init_controls() {
     if (apBtn) {
         apBtn.addEventListener('click', function(e) {
             e.preventDefault();
-            autopilot_engage();
+            autopilot_engage('demo');
+        });
+    }
+    const patBtn = document.getElementById('flight_pattern');
+    if (patBtn) {
+        patBtn.addEventListener('click', function(e) {
+            e.preventDefault();
+            autopilot_engage('pattern');
         });
     }
 
