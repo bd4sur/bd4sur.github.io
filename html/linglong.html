@@ -167,7 +167,7 @@ a {
     display: flex;
     margin: 3px auto;
     justify-content: center;
-    gap: 3px;
+    gap: 13px 9px;
     flex-wrap: wrap;
     flex-direction: row;
 }
@@ -546,9 +546,9 @@ a {
     box-shadow: inset 0 0 6px #35b8b855, inset 0 1px 0 #ffffff1f, 0 0 7px #35b8b840;
 }
 /* ---- 顶部功能按钮：拟物化空客式方形开关 ---- */
-/* 结构：.ak_sw（外部上方浅黄发光标签 + 按钮本体）；按钮面内两行荧光：
-   .ak_state（绿色，实际功能状态，由 refresh_button_status 写入 xx_status）
-   .ak_onoff（天蓝方框的 ON，二值开关：开时发光、关时熄灭） */
+/* 结构：.ak_sw（上方浅黄标签 + 固定安装座 .ak_socket）
+   浅黄细边框长在安装座（面板）上，按钮本身不带边框，边框与文字都不发光；
+   .ak_btn 是方形按键，面内上半是绿色实际状态、下半是带框的天蓝 ON */
 .ak_sw {
     display: flex;
     flex-direction: column;
@@ -559,49 +559,58 @@ a {
     font-size: 8.5px;
     line-height: 1.15;
     letter-spacing: 0.4px;
-    color: #f4dfae;
-    text-shadow: 0 0 5px #ffcf7a99, 0 0 12px #ff9f3355;
+    color: #e8d5a6;
     white-space: nowrap;
 }
-.ak_btn {
-    position: relative;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    gap: 3px;
-    min-width: 62px;
-    min-height: 44px;
-    margin: 0;
-    padding: 5px 7px 6px 7px;
-    border: 0;
-    border-radius: 7px;
-    background: linear-gradient(180deg, #1e2523 0%, #131817 50%, #0a0d0c 100%);
-    box-shadow:
-        inset 0 1px 0 #3c4742,            /* 上沿高光 */
-        inset 0 -3px 6px #000000d9,       /* 下沿内凹 */
-        0 2px 3px #000000cc,              /* 外投影 */
-        0 0 0 1px #000000;                /* 硬边 */
-    cursor: pointer;
-    -webkit-tap-highlight-color: transparent;
-    transition: transform 0.05s ease-out, box-shadow 0.05s ease-out;
-}
-/* 浅黄色发光边框线 */
-.ak_btn::before {
-    content: "";
-    position: absolute;
-    inset: 2px;
+/* 面板上的固定安装座：浅黄细边框 + 一圈很窄的缝隙（按钮井），不带任何辉光 */
+.ak_socket {
+    box-sizing: border-box;
+    width: 58px;
+    height: 58px;
+    padding: 3px;
     border: 1px solid #e6cf9c;
     border-radius: 5px;
-    box-shadow: 0 0 5px #e6cf9c99, inset 0 0 6px #e6cf9c44;
-    opacity: 0.9;
-    pointer-events: none;
-    transition: opacity 0.05s ease-out;
+    box-shadow:
+        inset 0 2px 4px #000000d9,        /* 井底暗影：缝隙靠上沿最深 */
+        inset 0 -1px 2px #00000080;
 }
+/* 方形按键：平整、略内凹；边缘一圈极窄的倒角（上/左亮，下/右暗），与安装座之间留出缝隙 */
+.ak_btn {
+    position: relative;
+    display: block;
+    box-sizing: border-box;
+    width: 50px;
+    height: 50px;
+    margin: 0;
+    padding: 0;
+    border: 2px solid #000;
+    border-radius: 5px;
+    background: linear-gradient(180deg, #000000 0%, #1a1f26 58%, #272d36 100%);
+    box-shadow:
+        inset 0 1px 0 #5b6a62,            /* 上缘倒角高光 */
+        inset 1px 0 0 #313b36,            /* 左缘倒角 */
+        inset -1px 0 0 #0a0e0d,           /* 右缘倒角（暗） */
+        inset 0 -1px 0 #000000,           /* 下缘倒角（暗） */
+        inset 0 3px 5px #000000ad;        /* 浅碟：上沿落下的暗影 */
+    cursor: pointer;
+    -webkit-tap-highlight-color: transparent;
+    transition: transform 0.05s ease-out, box-shadow 0.05s ease-out, background 0.05s ease-out;
+}
+/* 版心四周留一圈黑边（键面本身的 padding）：状态字与 ON 框都不贴键边 */
+/* 面上半：绿色荧光，实际功能状态 */
 .ak_state {
+    position: absolute;
+    left: 4px;
+    right: 4px;
+    top: 4px;
+    height: calc(50% - 7px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
     font-family: monospace;
     font-size: 8px;
-    line-height: 1.2;
+    line-height: 1;
     color: #57ff70;
     text-shadow: 0 0 5px #22ff47, 0 0 12px #12b83299;
     white-space: nowrap;
@@ -615,18 +624,26 @@ a {
     color: #46544b;
     text-shadow: none;
 }
+/* 面下半：带框的 ON（开时天蓝荧光，关时熄灭），同样让开 4px 的黑边 */
 .ak_onoff {
-    font-family: monospace;
-    font-size: 7px;
-    line-height: 1.1;
-    letter-spacing: 1px;
-    padding: 1px 8px;
-    border: 1px solid #24313a;
+    position: absolute;
+    left: 4px;
+    right: 4px;
+    bottom: 4px;
+    height: calc(50% - 5px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-sizing: border-box;
+    border: 1px solid #2f3a42;
     border-radius: 2px;
-    color: #1f2a31;
-    background: #04080a;
+    font-family: monospace;
+    font-size: 12px;
+    line-height: 1;
+    letter-spacing: 1px;
+    color: #2f3a42;
+    background: transparent;
     text-shadow: none;
-    box-shadow: inset 0 0 3px #000000;
     transition: color 0.12s, border-color 0.12s, box-shadow 0.12s, text-shadow 0.12s;
 }
 .ak_onoff.on {
@@ -635,18 +652,16 @@ a {
     text-shadow: 0 0 5px #35b8ff, 0 0 11px #1c86c799;
     box-shadow: 0 0 7px #35b8ff66, inset 0 0 6px #35b8ff3d;
 }
-/* 按下：整体下沉、外圈荧光减弱、内凹加重 */
+/* 按下：碟面加深、倒角高光减弱、按键下沉 1px（上沿缝隙变宽） */
 .ak_btn:active {
     transform: translateY(1px);
-    background: linear-gradient(180deg, #0c1010 0%, #161c1a 100%);
+    background: linear-gradient(180deg, #090c0b 0%, #101513 100%);
     box-shadow:
-        inset 0 3px 7px #000000f2,
-        inset 0 0 0 1px #000000,
-        0 1px 1px #00000080;
-}
-.ak_btn:active::before {
-    opacity: 0.45;
-    box-shadow: inset 0 0 6px #e6cf9c33;
+        inset 0 1px 0 #3f4b45,
+        inset 1px 0 0 #222a26,
+        inset -1px 0 0 #060908,
+        inset 0 -1px 0 #000000,
+        inset 0 5px 8px #000000e6;
 }
 
 .setting_button, .joystick_button {
@@ -914,115 +929,147 @@ a {
         <div class="setting_buttons_container">
             <div class="ak_sw">
                 <div class="ak_name">投影算法</div>
-                <button class="ak_btn" id="toggle_projection">
-                    <span class="ak_state" id="projection_status">-</span>
-                    <span class="ak_onoff">ON</span>
-                </button>
+                <div class="ak_socket">
+                    <button class="ak_btn" id="toggle_projection">
+                        <span class="ak_state" id="projection_status">-</span>
+                        <span class="ak_onoff">ON</span>
+                    </button>
+                </div>
             </div>
             <div class="ak_sw">
                 <div class="ak_name">赤道坐标</div>
-                <button class="ak_btn" id="toggle_equatorial_coord">
-                    <span class="ak_state" id="equatorial_coord_status">-</span>
-                    <span class="ak_onoff">ON</span>
-                </button>
+                <div class="ak_socket">
+                    <button class="ak_btn" id="toggle_equatorial_coord">
+                        <span class="ak_state" id="equatorial_coord_status">-</span>
+                        <span class="ak_onoff">ON</span>
+                    </button>
+                </div>
             </div>
             <div class="ak_sw">
                 <div class="ak_name">地平方位</div>
-                <button class="ak_btn" id="toggle_horizontal_coord">
-                    <span class="ak_state" id="horizontal_coord_status">-</span>
-                    <span class="ak_onoff">ON</span>
-                </button>
+                <div class="ak_socket">
+                    <button class="ak_btn" id="toggle_horizontal_coord">
+                        <span class="ak_state" id="horizontal_coord_status">-</span>
+                        <span class="ak_onoff">ON</span>
+                    </button>
+                </div>
             </div>
             <div class="ak_sw" style="display: none;">
                 <div class="ak_name">星芒</div>
-                <button class="ak_btn" id="toggle_star_burst">
-                    <span class="ak_state" id="star_burst_status">-</span>
-                    <span class="ak_onoff">ON</span>
-                </button>
+                <div class="ak_socket">
+                    <button class="ak_btn" id="toggle_star_burst">
+                        <span class="ak_state" id="star_burst_status">-</span>
+                        <span class="ak_onoff">ON</span>
+                    </button>
+                </div>
             </div>
             <div class="ak_sw">
                 <div class="ak_name">黄道</div>
-                <button class="ak_btn" id="toggle_ecliptic_circle">
-                    <span class="ak_state" id="ecliptic_circle_status">-</span>
-                    <span class="ak_onoff">ON</span>
-                </button>
+                <div class="ak_socket">
+                    <button class="ak_btn" id="toggle_ecliptic_circle">
+                        <span class="ak_state" id="ecliptic_circle_status">-</span>
+                        <span class="ak_onoff">ON</span>
+                    </button>
+                </div>
             </div>
             <div class="ak_sw">
                 <div class="ak_name">天体名称</div>
-                <button class="ak_btn" id="toggle_star_name">
-                    <span class="ak_state" id="star_name_status">-</span>
-                    <span class="ak_onoff">ON</span>
-                </button>
+                <div class="ak_socket">
+                    <button class="ak_btn" id="toggle_star_name">
+                        <span class="ak_state" id="star_name_status">-</span>
+                        <span class="ak_onoff">ON</span>
+                    </button>
+                </div>
             </div>
             <div class="ak_sw">
                 <div class="ak_name">体积云</div>
-                <button class="ak_btn" id="toggle_cloud">
-                    <span class="ak_state" id="cloud_status">-</span>
-                    <span class="ak_onoff">ON</span>
-                </button>
+                <div class="ak_socket">
+                    <button class="ak_btn" id="toggle_cloud">
+                        <span class="ak_state" id="cloud_status">-</span>
+                        <span class="ak_onoff">ON</span>
+                    </button>
+                </div>
             </div>
             <div class="ak_sw">
                 <div class="ak_name">重力感应</div>
-                <button class="ak_btn" id="toggle_gyro">
-                    <span class="ak_state" id="gyro_status">-</span>
-                    <span class="ak_onoff">ON</span>
-                </button>
+                <div class="ak_socket">
+                    <button class="ak_btn" id="toggle_gyro">
+                        <span class="ak_state" id="gyro_status">-</span>
+                        <span class="ak_onoff">ON</span>
+                    </button>
+                </div>
             </div>
             <div class="ak_sw">
                 <div class="ak_name">姿态指示</div>
-                <button class="ak_btn" id="toggle_att_indicator">
-                    <span class="ak_state" id="att_indicator_status">-</span>
-                    <span class="ak_onoff">ON</span>
-                </button>
+                <div class="ak_socket">
+                    <button class="ak_btn" id="toggle_att_indicator">
+                        <span class="ak_state" id="att_indicator_status">-</span>
+                        <span class="ak_onoff">ON</span>
+                    </button>
+                </div>
             </div>
             <div class="ak_sw">
                 <div class="ak_name">平滑滤波</div>
-                <button class="ak_btn" id="toggle_opt_bilinear">
-                    <span class="ak_state" id="opt_bilinear_status">-</span>
-                    <span class="ak_onoff">ON</span>
-                </button>
+                <div class="ak_socket">
+                    <button class="ak_btn" id="toggle_opt_bilinear">
+                        <span class="ak_state" id="opt_bilinear_status">-</span>
+                        <span class="ak_onoff">ON</span>
+                    </button>
+                </div>
             </div>
             <div class="ak_sw">
                 <div class="ak_name">天空降帧</div>
-                <button class="ak_btn" id="toggle_sky_skip">
-                    <span class="ak_state" id="sky_skip_status">-</span>
-                    <span class="ak_onoff">ON</span>
-                </button>
+                <div class="ak_socket">
+                    <button class="ak_btn" id="toggle_sky_skip">
+                        <span class="ak_state" id="sky_skip_status">-</span>
+                        <span class="ak_onoff">ON</span>
+                    </button>
+                </div>
             </div>
             <div class="ak_sw">
                 <div class="ak_name">云半分辨率</div>
-                <button class="ak_btn" id="toggle_cloud_halfres">
-                    <span class="ak_state" id="cloud_halfres_status">-</span>
-                    <span class="ak_onoff">ON</span>
-                </button>
+                <div class="ak_socket">
+                    <button class="ak_btn" id="toggle_cloud_halfres">
+                        <span class="ak_state" id="cloud_halfres_status">-</span>
+                        <span class="ak_onoff">ON</span>
+                    </button>
+                </div>
             </div>
             <div class="ak_sw">
                 <div class="ak_name">GPU渲染</div>
-                <button class="ak_btn" id="toggle_webgl">
-                    <span class="ak_state" id="webgl_status">-</span>
-                    <span class="ak_onoff">ON</span>
-                </button>
+                <div class="ak_socket">
+                    <button class="ak_btn" id="toggle_webgl">
+                        <span class="ak_state" id="webgl_status">-</span>
+                        <span class="ak_onoff">ON</span>
+                    </button>
+                </div>
             </div>
             <div class="ak_sw">
                 <div class="ak_name">大气散射</div>
-                <button class="ak_btn" id="toggle_atmospheric_scattering">
-                    <span class="ak_state" id="scattering_status">-</span>
-                    <span class="ak_onoff">ON</span>
-                </button>
+                <div class="ak_socket">
+                    <button class="ak_btn" id="toggle_atmospheric_scattering">
+                        <span class="ak_state" id="scattering_status">-</span>
+                        <span class="ak_onoff">ON</span>
+                    </button>
+                </div>
             </div>
             <div class="ak_sw">
                 <div class="ak_name">地景</div>
-                <button class="ak_btn" id="toggle_landscape">
-                    <span class="ak_state" id="landscape_status">-</span>
-                    <span class="ak_onoff">ON</span>
-                </button>
+                <div class="ak_socket">
+                    <button class="ak_btn" id="toggle_landscape">
+                        <span class="ak_state" id="landscape_status">-</span>
+                        <span class="ak_onoff">ON</span>
+                    </button>
+                </div>
             </div>
             <div class="ak_sw">
                 <div class="ak_name">海洋参数</div>
-                <button class="ak_btn" id="toggle_ocean_params">
-                    <span class="ak_state" id="ocean_params_status">-</span>
-                    <span class="ak_onoff">ON</span>
-                </button>
+                <div class="ak_socket">
+                    <button class="ak_btn" id="toggle_ocean_params">
+                        <span class="ak_state" id="ocean_params_status">-</span>
+                        <span class="ak_onoff">ON</span>
+                    </button>
+                </div>
             </div>
         </div>
 
@@ -1030,38 +1077,48 @@ a {
         <div class="setting_buttons_container" id="cloud_sky_controller" style="display: none;">
             <div class="ak_sw">
                 <div class="ak_name">云量</div>
-                <button class="ak_btn" id="toggle_cloud_coverage">
-                    <span class="ak_state" id="cloud_coverage_status">-</span>
-                    <span class="ak_onoff">ON</span>
-                </button>
+                <div class="ak_socket">
+                    <button class="ak_btn" id="toggle_cloud_coverage">
+                        <span class="ak_state" id="cloud_coverage_status">-</span>
+                        <span class="ak_onoff">ON</span>
+                    </button>
+                </div>
             </div>
             <div class="ak_sw">
                 <div class="ak_name">云类</div>
-                <button class="ak_btn" id="toggle_cloud_layer">
-                    <span class="ak_state" id="cloud_layer_status">-</span>
-                    <span class="ak_onoff">ON</span>
-                </button>
+                <div class="ak_socket">
+                    <button class="ak_btn" id="toggle_cloud_layer">
+                        <span class="ak_state" id="cloud_layer_status">-</span>
+                        <span class="ak_onoff">ON</span>
+                    </button>
+                </div>
             </div>
             <div class="ak_sw">
                 <div class="ak_name">云亮度(自动)</div>
-                <button class="ak_btn" id="toggle_cloud_brightness">
-                    <span class="ak_state" id="cloud_brightness_status">-</span>
-                    <span class="ak_onoff">ON</span>
-                </button>
+                <div class="ak_socket">
+                    <button class="ak_btn" id="toggle_cloud_brightness">
+                        <span class="ak_state" id="cloud_brightness_status">-</span>
+                        <span class="ak_onoff">ON</span>
+                    </button>
+                </div>
             </div>
             <div class="ak_sw">
                 <div class="ak_name">镜头光晕</div>
-                <button class="ak_btn" id="toggle_cloud_lens">
-                    <span class="ak_state" id="cloud_lens_status">-</span>
-                    <span class="ak_onoff">ON</span>
-                </button>
+                <div class="ak_socket">
+                    <button class="ak_btn" id="toggle_cloud_lens">
+                        <span class="ak_state" id="cloud_lens_status">-</span>
+                        <span class="ak_onoff">ON</span>
+                    </button>
+                </div>
             </div>
             <div class="ak_sw">
                 <div class="ak_name">雷达云图</div>
-                <button class="ak_btn" id="toggle_radar_cloud">
-                    <span class="ak_state" id="radar_cloud_status">-</span>
-                    <span class="ak_onoff">ON</span>
-                </button>
+                <div class="ak_socket">
+                    <button class="ak_btn" id="toggle_radar_cloud">
+                        <span class="ak_state" id="radar_cloud_status">-</span>
+                        <span class="ak_onoff">ON</span>
+                    </button>
+                </div>
             </div>
         </div>
 
