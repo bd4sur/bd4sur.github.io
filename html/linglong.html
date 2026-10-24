@@ -1508,7 +1508,8 @@ body.is-day .ak_socket {
                     <li>体积云的观察者在三维云场中移动：飞行控制页内观察点完全取飞机位置——爬升会真正进入云层（视野被云包围、逐步白化），穿云到云顶之上可向下俯视云海，水平飞行时云场固定在世界坐标中、云与飞机的相对位置一一对应，观察高度严格取飞机海拔（按球面半径反算，水平飞远不会凭空升高）；不在飞行页时观察高度由「观察高度」滑块决定（默认 50 米，1.5 米~10 公里），把滑块推过 3 公里就能站进云层里。云层高度为 3–11 km；模型 5 的天空按纯天空渲染，云层统一在地景之后合成。</li>
                     <li>启用体积云后，可用其下的"云量/云类"按钮调节云的档位（6档）与显示种类（按层掩码 0-7 共 8 种组合：无云/仅低层/仅中层/低+中/仅高层/低+高/中+高/所有云）。云亮度不再是手动档位，而是太阳高度的经验函数 0.75·tanh(0.2·太阳高度−0.6)+1.25：太阳越高云越白亮（上限 2.0），日落后转暗，天文暮光之后压到 0.5；"云亮度(自动)"按钮上的数字只是当前值，点了不改变任何东西。</li>
                     <li>"雷达云图"开启后（默认开启），体积云天空的初始云模式取自中央气象台组合反射率图（radar.png 减 radar_background.png 底图、形态学去地图元素、色标反演 dBZ），雷达 256km 范围与地平圈直接对齐；dBZ 经三通道调制云场：覆盖率决定有无疏密（封顶 35/45/55dBZ）、云顶高度决定类别（弱回波压扁为层云、强回波发展为全塔积雨云）、密度系数决定厚薄；中高度云另以双频噪声调制破碎边缘、消除周期感，并对回波轮廓做域扭曲（~2.5km 特征）与高频 dBZ 抖动，使大片云的平直硬边变成曲折破碎的自然边缘；处理全部在页面内完成，图片缺失或处理失败时自动回退程序化云图。</li>
-                    <li>「实时海洋」的地形可以换成<b>真实高程数据</b>：URL 加 <code>?terrain=名字</code> 就会去载入 <code>terrain/名字.bin</code>+<code>.json</code>（用 <code>tools/dem_bake.py</code> 从 Copernicus DEM GLO-30 烘焙，30 m 原始格网、重采样到渲染器需要的窗口与格距），例如 <code>?terrain=qingdao</code> 是青岛崂山一带 25.6 km × 25.6 km、25 m 格距，<code>?terrain=qingdao50</code> 是 51.2 km 的更大窗口。载入后世界边长、分辨率、飞行回绕周期都跟着数据走，地形与海岸线都是真实的；数据缺失时自动回退到程序化群岛。高程数据版权：© DLR e.V. 2010-2014 and © Airbus Defence and Space GmbH 2014-2018 provided under COPERNICUS by the European Union and ESA，按 Copernicus DEM licence 使用。</li>
+                    <li>「实时海洋」的地形可以换成<b>真实高程数据</b>：URL 加 <code>?terrain=名字</code> 就会去载入 <code>terrain/名字.bin</code>+<code>.json</code>（用 <code>tools/dem_bake.py</code> 从 Copernicus DEM GLO-30 烘焙，30 m 原始格网、重采样到渲染器需要的窗口与格距），例如 <code>?terrain=qingdao</code> 是青岛崂山一带 25.6 km × 25.6 km、25 m 格距，<code>?terrain=qingdao50</code> 是 51.2 km 的更大窗口；<code>?terrain=china</code> 走全国分块流式模式（见下一条）。载入后世界边长、分辨率、飞行回绕周期都跟着数据走，地形与海岸线都是真实的；数据缺失时自动回退到程序化群岛。高程数据版权：© DLR e.V. 2010-2014 and © Airbus Defence and Space GmbH 2014-2018 provided under COPERNICUS by the European Union and ESA，按 Copernicus DEM licence 使用。</li>
+                    <li><b>全国分块流式地形</b>：URL 加 <code>?terrain=china&amp;lat=36.1&amp;lon=120.55</code>（纬度经度可省，默认青岛）就进入全国高程模式。地形被切成 0.25°×0.25° 的块（<code>l1</code> 900²≈30 m、<code>l0</code> 225²≈120 m），页面以相机为中心维护一个 51.2 km / 2048² 的世界窗口：先取十几 KB 的 l0 秒出，再后台换 l1；飞离窗口中心超过 28% 边长就重定中心，中心按 512 m（波场平铺周期）对齐，所以重定时波相位不跳。块是按需取的——只有窗口覆盖到、并且清单里确实有的块才会发请求，缺块（纯海面/未下载）按海处理。窗口组装约 0.1–0.6 秒（含到岸距离合成的海底），飞行时几分钟才触发一次。数据来源是 Copernicus DEM GLO-30，用 <code>tools/dem_fetch_china.py</code> 下载、<code>tools/dem_tiles.py</code> 切块，全国陆地的块约 2 万个、合计约 7 GB（gzip 后）。「海洋参数」里另有「能见度」滑块（默认 27 km，真实地形模式自动放宽到 90 km），大气透视的浓淡看它。</li>
                     <li>「海洋天空」（模型 6）与「实时海洋」地景移植自开源项目 web-ocean（MIT）：Hillaire 式 LUT 大气（透射率/多重散射/天空视图三张 LUT，JS 与 GLSL 共享同一份数据）、JONSWAP 风浪谱+窄涌浪的解析波列级数（方差守恒，烘焙为可平铺波场纹理并按群速度平流）、各向异性高斯太阳耀光（Smith 掩蔽）、天空环境反射、水体上涌与波峰透射辉光、雅可比白帽、大气透视与 AgX 色调映射。观察者默认位于海平面以上 50 米（1.5 米~10 公里对数刻度可调）；无 WebGL2 时自动回退到较慢的 JS 逐像素渲染。</li>
                     <li>「实时海洋」上叠了一片可平铺的岛屿地形（岛屿随机生成，直径约 4~11 公里）：海线由低阶谐波加两级角度噪声给出，曲折且带小海湾与岬角；高程按 25 米纹素烘焙成一张 1024² 的世界高程场（陆地为正、海底为负，含陆架与浅滩），所以海岸线、沙滩、近岸浅水色与拍岸泡沫都出自同一份数据。求交用两级「格内最大高程」网格做 2D DDA 跳格、再逐纹素步进加二分细化；岛体只有当它比海面更近时才遮挡海面，因此“岛挡海”与“海挡岛”都自洽。地形着色与海面共用同一份透射率 LUT 与 AgX：高程梯度算法线、太阳直射 + 天空半球环境光，陡坡偏岩、海线以上一条沙滩带。世界坐标以 25.6 公里为周期回绕（与飞行模拟的相机回绕周期一致），所以朝任意方向一直飞都还能再遇到陆地；飞行时相机不会钻进山体。整套求交与着色只依赖高程图与粗网格，将来换成真实地理高程数据（DEM）时只需替换生成那一段。</li>
                     <li>地景为「实时海洋」时，点按钮区的「海洋参数」可以展开/收起海面参数滑块区（观察高度/风速/风向/风区/涌浪波高/涌浪波长/涌浪方向/泡沫强度/水体浑浊度/霾），默认收起；地景不是实时海洋时该按钮只显示“需实时海洋”。面板最下面一行是「岛屿」：左边按钮切换岛屿显示（关掉可对比原始海面），中间「重新生成」换一批随机岛屿（海线、尺寸、布局都变，约 70 毫秒）。滑块本身：波浪与涌浪参数在停止拖动约 0.25 秒后重烘焙波场（约 0.1 秒）；「霾」与「观察高度」会重建大气 LUT（约 0.5 秒），「霾」默认 0（无霾，空气清透）；泡沫强度与水体浑浊度立即生效。风浪行进方向与涌浪方向以罗盘方位角表示（0=北，90=东）。「观察高度」同时是体积云与天空的观察点高度（飞行控制页内则改由飞机接管，滑块只作显示），因此调高它会一起抬升海面相机和云层视角。</li>
@@ -9132,7 +9133,7 @@ let WO_FOG_EXT = [
     (5.802e-3 + 4.40e-3 * WO_HAZE) * 1e-3,
     (13.558e-3 + 4.40e-3 * WO_HAZE) * 1e-3,
     (33.1e-3 + 4.40e-3 * WO_HAZE) * 1e-3];
-const WO_FOG_FLOOR = 1.1e-4;
+let WO_FOG_FLOOR = 1.1e-4;            // 大气透视消光系数 1/m（由「能见度」滑块换算）
 
 const WO_state = {
     transLut: null, msLut: null, skyLut: null,   // Float32Array（RGB 交错）
@@ -10239,6 +10240,320 @@ async function isl_load_terrain(name) {
     }
 }
 
+// ============================================================
+// === [TerrainStream] ===
+// 全国分块高程的流式加载：0.25° 块 → 51.2 km / 2048² 的世界窗口
+// ============================================================
+// 数据：tools/dem_tiles.py 把 Copernicus GLO-30 切成 0.25° 块（l1 = 900²≈30 m、
+// l0 = 225²≈120 m），Int16、行 0 在北，存 terrain/china/<bx//16>/<bx>_<by>.<level>.bin.gz；
+// manifest.json 里两份位图说明哪些块存在。
+//
+// 运行时：以相机为中心维护一个 51.2 km 的世界窗口（2048²、25 m 格距）。
+//  · 相机飞离窗口中心超过 28% 边长时重定中心；中心按 512 m（波场平铺周期）对齐，
+//    重定后波相位不跳；
+//  · 窗口按「经纬度局部平面」组装：x = (lon-lonC)·kLat·cos(latC)、z = (lat-latC)·kLat；
+//  · 先上 l0（十几 KB/块，秒出）再后台换 l1（约 350 KB/块），两级渐进；
+//  · 水面由数据本身判定（Copernicus 把水面抹平为 0、海上没有瓦片），
+//    再用「到岸距离」合成一条陆架水深，近岸才有青绿色与拍岸带。
+// ============================================================
+
+const TSTR = {
+    on: false,
+    base: 'terrain/china/',
+    manifest: null,
+    bits: { l0: null, l1: null },
+    cache: new Map(),          // "l1:bx_by" -> Int16Array（null 表示确认没有）
+    win: null,                 // { lonC, latC, S, N }
+    level: 'l1',
+    loading: false,
+    queued: null,              // 待处理的重定中心 { lon, lat }
+    lastMs: 0,
+    stats: { windows: 0, blocks: 0, ms: 0 },
+    msg: '',
+};
+
+const TSTR_KLAT = 111319.49;   // 每纬度米数
+const TSTR_SNAP = 512.0;       // 重定中心对齐到波场周期
+const TSTR_WIN_S = 51200.0;    // 世界窗口边长 m
+const TSTR_WIN_N = 2048;       // 窗口纹素数
+
+function tstr_set_msg(m) {
+    TSTR.msg = m;
+    if (typeof ISL_UI_SYNC === 'function' && ISL_UI_SYNC) ISL_UI_SYNC();
+}
+
+function tstr_b64_to_bytes(b64) {
+    const bin = atob(b64);
+    const out = new Uint8Array(bin.length);
+    for (let i = 0; i < bin.length; i++) out[i] = bin.charCodeAt(i);
+    return out;
+}
+
+function tstr_has_block(bx, by, level) {
+    const bits = TSTR.bits[level];
+    if (!bits) return false;
+    const g = TSTR.manifest.grid;
+    const i = bx - g.bx0, j = by - g.by0;
+    if (i < 0 || j < 0 || i >= g.w || j >= g.h) return false;
+    const idx = j * g.w + i;
+    return ((bits[idx >> 3] >> (idx & 7)) & 1) === 1;
+}
+
+async function tstr_fetch_block(bx, by, level) {
+    const key = level + ':' + bx + '_' + by;
+    if (TSTR.cache.has(key)) return TSTR.cache.get(key);
+    let out = null;
+    try {
+        const url = TSTR.base + Math.floor(bx / 16) + '/' + bx + '_' + by + '.' + level + '.bin.gz';
+        const res = await fetch(url, { cache: 'force-cache' });
+        if (res.ok) {
+            let buf = await res.arrayBuffer();
+            if (typeof DecompressionStream !== 'undefined') {
+                const ds = new DecompressionStream('gzip');
+                const stream = new Blob([buf]).stream().pipeThrough(ds);
+                buf = await new Response(stream).arrayBuffer();
+            }
+            out = new Int16Array(buf);
+            TSTR.stats.blocks++;
+        }
+    } catch (e) {
+        out = null;
+    }
+    TSTR.cache.set(key, out);
+    if (TSTR.cache.size > 512) {          // 简单的容量上限
+        const it = TSTR.cache.keys();
+        for (let k = 0; k < 128; k++) { const v = it.next(); if (v.done) break; TSTR.cache.delete(v.value); }
+    }
+    return out;
+}
+
+// 组装一个世界窗口（返回 Float32Array(N*N)，行 0 = 南，与纹理 v 方向一致）
+async function tstr_build_window(level, lonC, latC) {
+    const t0 = (typeof performance !== 'undefined') ? performance.now() : Date.now();
+    const N = TSTR_WIN_N, S = TSTR_WIN_S, texel = S / N;
+    const kLat = TSTR_KLAT, kLon = kLat * Math.cos(latC * Math.PI / 180.0);
+    const n = TSTR.manifest.levels[level].size;
+    const h = new Float32Array(N * N);              // 0 = 水面（稍后补海底）
+    const wet = new Uint8Array(N * N).fill(1);      // 1 = 水面；没数据的块（海外/未下载）= 海
+
+    const lonL = lonC - (S / 2) / kLon, lonR = lonC + (S / 2) / kLon;
+    const latB = latC - (S / 2) / kLat, latT = latC + (S / 2) / kLat;
+    const bx0 = Math.floor(lonL * 4), bx1 = Math.floor(lonR * 4);
+    const by0 = Math.floor(latB * 4), by1 = Math.floor(latT * 4);
+
+    // 先把需要的块并发取回来（l0 很快，l1 视网络）
+    const jobs = [];
+    for (let by = by0; by <= by1; by++) {
+        for (let bx = bx0; bx <= bx1; bx++) {
+            if (tstr_has_block(bx, by, level)) jobs.push(tstr_fetch_block(bx, by, level));
+        }
+    }
+    if (jobs.length) await Promise.all(jobs);
+
+    const k = 0.25 / n;                              // 每格度数
+    for (let by = by0; by <= by1; by++) {
+        for (let bx = bx0; bx <= bx1; bx++) {
+            const blk = TSTR.cache.get(level + ':' + bx + '_' + by);
+            if (!blk) continue;
+            const blon = bx * 0.25, blat = by * 0.25;
+            // 该块覆盖的输出列/行范围
+            let i0 = Math.ceil(((blon - lonL) * kLon) / texel - 0.5);
+            let i1 = Math.ceil(((blon + 0.25 - lonL) * kLon) / texel - 0.5);
+            let j0 = Math.ceil(((blat - latB) * kLat) / texel - 0.5);
+            let j1 = Math.ceil(((blat + 0.25 - latB) * kLat) / texel - 0.5);
+            i0 = Math.max(0, i0); i1 = Math.min(N, i1);
+            j0 = Math.max(0, j0); j1 = Math.min(N, j1);
+            if (i1 <= i0 || j1 <= j0) continue;
+            // 列方向：c 随 i 线性变化
+            const cStep = (texel / kLon) / k;            // 每个输出像素对应多少块列
+            // 注意 texel / kLon：像素步长是米，要先换成度再和块的经度比
+            const cStart = ((((lonL + (i0 + 0.5) * texel / kLon) - blon) / k) - 0.5);
+            for (let j = j0; j < j1; j++) {
+                const lat = latB + (j + 0.5) * texel / kLat;
+                const rF = ((blat + 0.25 - lat) / k) - 0.5;
+                let r0 = Math.floor(rF); const fr = rF - r0;
+                let r1 = r0 + 1;
+                if (r0 < 0) r0 = 0; if (r0 > n - 1) r0 = n - 1;
+                if (r1 < 0) r1 = 0; if (r1 > n - 1) r1 = n - 1;
+                const rowA = r0 * n, rowB = r1 * n;
+                let cF = cStart;
+                const base = j * N;
+                for (let i = i0; i < i1; i++, cF += cStep) {
+                    let c0 = Math.floor(cF); const fc = cF - c0;
+                    let c1 = c0 + 1;
+                    if (c0 < 0) c0 = 0; if (c0 > n - 1) c0 = n - 1;
+                    if (c1 < 0) c1 = 0; if (c1 > n - 1) c1 = n - 1;
+                    const v00 = blk[rowA + c0], v01 = blk[rowA + c1];
+                    const v10 = blk[rowB + c0], v11 = blk[rowB + c1];
+                    const a = v00 + (v01 - v00) * fc;
+                    const b = v10 + (v11 - v10) * fc;
+                    const v = a + (b - a) * fr;
+                    const idx = base + i;
+                    h[idx] = v;
+                    wet[idx] = (v === 0) ? 1 : 0;
+                }
+            }
+        }
+    }
+
+    // 合成海底：水面按到最近陆地的距离给一条陆架（两遍 chamfer 距离变换）
+    const INF = 1e9;
+    const d = new Float32Array(N * N);
+    for (let i = 0; i < d.length; i++) d[i] = wet[i] ? INF : 0;
+    const A = 1.0, BQ = 1.41421356;
+    for (let j = 0; j < N; j++) {
+        const base = j * N;
+        for (let i = 0; i < N; i++) {
+            const kk = base + i; let v = d[kk];
+            if (i > 0) { const w = d[kk - 1] + A; if (w < v) v = w; }
+            if (j > 0) {
+                const w = d[kk - N] + A; if (w < v) v = w;
+                if (i > 0) { const w2 = d[kk - N - 1] + BQ; if (w2 < v) v = w2; }
+                if (i < N - 1) { const w2 = d[kk - N + 1] + BQ; if (w2 < v) v = w2; }
+            }
+            d[kk] = v;
+        }
+    }
+    for (let j = N - 1; j >= 0; j--) {
+        const base = j * N;
+        for (let i = N - 1; i >= 0; i--) {
+            const kk = base + i; let v = d[kk];
+            if (i < N - 1) { const w = d[kk + 1] + A; if (w < v) v = w; }
+            if (j < N - 1) {
+                const w = d[kk + N] + A; if (w < v) v = w;
+                if (i < N - 1) { const w2 = d[kk + N + 1] + BQ; if (w2 < v) v = w2; }
+                if (i > 0) { const w2 = d[kk + N - 1] + BQ; if (w2 < v) v = w2; }
+            }
+            d[kk] = v;
+        }
+    }
+    for (let i = 0; i < h.length; i++) {
+        if (wet[i]) {
+            const dist = d[i] * texel;
+            h[i] = -Math.min(ISL_DEEP, dist * 0.06);
+        } else if (h[i] < 0.35) {
+            // 数据里有低于海平面的陆地（如吐鲁番盆地）：抬到水面之上，别当海
+            h[i] = 0.35;
+        }
+    }
+    const ms = ((typeof performance !== 'undefined') ? performance.now() : Date.now()) - t0;
+    TSTR.stats.ms = ms;
+    return { h: h, lonC: lonC, latC: latC };
+}
+
+// 把组装好的窗口交给渲染器
+function tstr_apply(built) {
+    const h = built.h;
+    isl_set_world_scale(TSTR_WIN_S, TSTR_WIN_N);
+    const grids = isl_build_grids(h);
+    ISL_state.h = h;
+    ISL_state.coarse = grids.coarse;
+    ISL_state.far = grids.far;
+    ISL_state.maxH = grids.maxH;
+    ISL_state.islands = [];
+    ISL_state.ready = true;
+    ISL_state.glDirty = true;
+    TSTR.win = { lonC: built.lonC, latC: built.latC, S: TSTR_WIN_S, N: TSTR_WIN_N };
+    TSTR.stats.windows++;
+    // 站在内陆时别把相机埋进山里：非飞行模式下按窗口中心地面高度抬起来
+    if (!flight.active) {
+        const hc = isl_height(0.0, 0.0);
+        if (Number.isFinite(hc) && WO_CAM_Y < hc + 60.0) {
+            WO_CAM_Y = hc + 60.0;
+            WO_CAM_ALT_KM = WO_CAM_Y / 1000.0;
+            if (typeof wo_sync_camY_ui === 'function') wo_sync_camY_ui(WO_CAM_Y);
+        }
+    }
+}
+
+// 重定窗口中心（按 512 m 对齐到原中心，保证波场相位连续）
+async function tstr_recenter(lon, lat, level) {
+    if (TSTR.loading) { TSTR.queued = { lon: lon, lat: lat }; return; }
+    TSTR.loading = true;
+    try {
+        const kLat = TSTR_KLAT;
+        const w = TSTR.win;
+        let lonC = lon, latC = lat;
+        if (w) {
+            const kLon = kLat * Math.cos(w.latC * Math.PI / 180.0);
+            const dx = (lon - w.lonC) * kLon, dz = (lat - w.latC) * kLat;
+            const sx = Math.round(dx / TSTR_SNAP) * TSTR_SNAP;
+            const sz = Math.round(dz / TSTR_SNAP) * TSTR_SNAP;
+            lonC = w.lonC + sx / kLon;
+            latC = w.latC + sz / kLat;
+        }
+        const lv = level || TSTR.level;
+        const built = await tstr_build_window(lv, lonC, latC);
+        tstr_apply(built);
+        tstr_update_cam(lon, lat);
+        tstr_set_msg('地形 ' + lonC.toFixed(2) + '°E ' + latC.toFixed(2) + '°N · ' +
+            (lv === 'l1' ? '30 m' : '120 m') + ' · ' + Math.round(TSTR.stats.ms) + ' ms');
+    } finally {
+        TSTR.loading = false;
+        const q = TSTR.queued;
+        TSTR.queued = null;
+        if (q) tstr_tick(q.lon, q.lat, true);
+    }
+}
+
+// 由相机经纬度更新世界坐标（相对窗口中心），必要时重定中心
+function tstr_update_cam(lon, lat) {
+    const w = TSTR.win;
+    if (!w) return;
+    const kLat = TSTR_KLAT, kLon = kLat * Math.cos(w.latC * Math.PI / 180.0);
+    WO_CAM_XZ[0] = (lon - w.lonC) * kLon;
+    WO_CAM_XZ[1] = (lat - w.latC) * kLat;
+}
+
+function tstr_tick(lon, lat, force) {
+    if (!TSTR.on || !TSTR.win) return;
+    tstr_update_cam(lon, lat);
+    const w = TSTR.win;
+    const kLat = TSTR_KLAT, kLon = kLat * Math.cos(w.latC * Math.PI / 180.0);
+    const dx = (lon - w.lonC) * kLon, dz = (lat - w.latC) * kLat;
+    const lim = w.S * 0.28;
+    if (force || Math.abs(dx) > lim || Math.abs(dz) > lim) {
+        tstr_recenter(lon, lat);
+    }
+}
+
+// 进入全国地形模式：先 l0 秒出，再换 l1
+async function tstr_start(lon, lat) {
+    TSTR.on = true;
+    tstr_set_msg('载入地形清单…');
+    try {
+        // 数据目录默认与页面同级（html/terrain/china/），也接受仓库根（../terrain/china/）
+        let res = await fetch(TSTR.base + 'manifest.json', { cache: 'no-cache' });
+        if (!res.ok) {
+            TSTR.base = '../terrain/china/';
+            res = await fetch(TSTR.base + 'manifest.json', { cache: 'no-cache' });
+        }
+        if (!res.ok) throw new Error('HTTP ' + res.status);
+        TSTR.manifest = await res.json();
+        TSTR.bits.l0 = tstr_b64_to_bytes(TSTR.manifest.present.l0);
+        TSTR.bits.l1 = tstr_b64_to_bytes(TSTR.manifest.present.l1);
+    } catch (e) {
+        console.warn('[terrain] 清单载入失败：' + (e && e.message));
+        TSTR.on = false;
+        tstr_set_msg('地形清单缺失，回退程序化');
+        return false;
+    }
+    // 真实地形要看得到远山：默认把大气透视放宽到约 90 km 能见度（可用「能见度」滑块再调）
+    WO_FOG_FLOOR = 3.0 / 90000.0;
+    if (WO_SLIDER_CONTROLS['visKm']) {
+        WO_SLIDER_CONTROLS['visKm'].inp.value = 90;
+        WO_SLIDER_CONTROLS['visKm'].val.textContent = '90 km';
+    }
+    TSTR.win = null;
+    await tstr_recenter(lon, lat, 'l0');
+    const msg0 = TSTR.msg;
+    await tstr_recenter(lon, lat, 'l1');
+    if (TSTR.msg.indexOf('ms') < 0) TSTR.msg = msg0;
+    console.log('[terrain] 全国分块地形就绪：' + (TSTR.manifest.counts.l0 || 0) + ' 个 l0 块 / ' +
+        (TSTR.manifest.counts.l1 || 0) + ' 个 l1 块');
+    return true;
+}
+
 // ---- 高程采样：双线性 + 周期回绕，与 GLSL texture() 的行为一致 ----
 function isl_height(px, pz) {
     const H = ISL_state.h;
@@ -10402,7 +10717,7 @@ function isl_shade(dx, dy, dz, tHit, out) {
     a0 = wo_mix(a0, 0.100, rock);
     a1 = wo_mix(a1, 0.095, rock);
     a2 = wo_mix(a2, 0.078, rock);
-    const sand = wo_smoothstep(3.6, 0.45, hgt);
+    const sand = wo_smoothstep(1.2, 0.2, hgt);
     a0 = wo_mix(a0, 0.430, sand);
     a1 = wo_mix(a1, 0.380, sand);
     a2 = wo_mix(a2, 0.270, sand);
@@ -11541,7 +11856,7 @@ vec3 islShade(vec3 d, float t) {
     vec3 alb = mix(vec3(0.042, 0.120 + 0.040 * n3, 0.030), vec3(0.105, 0.245, 0.062), grassMix);
     float rock = smoothstep(0.30, 0.75, slope) * 0.65;
     alb = mix(alb, vec3(0.100, 0.095, 0.078), rock);
-    float sand = smoothstep(3.6, 0.45, hgt);
+    float sand = smoothstep(1.2, 0.2, hgt);
     alb = mix(alb, vec3(0.430, 0.380, 0.270), sand);
 
     // 太阳辐照与天空环境（与海面同一份 LUT）
@@ -11816,6 +12131,8 @@ const WO_SLIDERS = [
     ['foam',      '泡沫强度', 0,   3,   0.05, 'uniform', (v) => v.toFixed(2)],
     ['turbidity', '水体浑浊度', 0.2, 3, 0.05, 'uniform', (v) => v.toFixed(2)],
     ['haze',      '霾',       0,   15,  0.1,  'lut',     (v) => v.toFixed(1)],
+    // 能见度：按「3/可视距离」折算成大气透视的消光系数（10~150 km）
+    ['visKm',     '能见度',   10,  150, 1,    'uniform', (v) => v.toFixed(0) + ' km'],
 ];
 const WO_SLIDER_GETTERS = {
     camY: () => WO_CAM_Y,
@@ -11827,7 +12144,8 @@ const WO_SLIDER_GETTERS = {
     swellDir: () => WO_SWELL_DIR,
     foam: () => WO_FOAM_INTENSITY,
     turbidity: () => WO_TURBIDITY,
-    haze: () => WO_HAZE
+    haze: () => WO_HAZE,
+    visKm: () => 3.0 / Math.max(WO_FOG_FLOOR, 1e-7) / 1000.0
 };
 
 // 应用滑块变更：更新参数并标记对应脏标记（由 wo_prepare_frame 防抖消费）
@@ -11846,6 +12164,7 @@ function wo_apply_slider(key, value) {
         case 'foam': WO_FOAM_INTENSITY = value; break;
         case 'turbidity': WO_TURBIDITY = value; break;
         case 'haze': WO_HAZE = value; break;
+        case 'visKm': WO_FOG_FLOOR = 3.0 / Math.max(value, 1.0) / 1000.0; break;
     }
     if (key === 'turbidity' || key === 'haze' || key === 'windDir' || key === 'swellDir') {
         wo_update_derived_params();   // 水体色/雾消光/风向向量/平流速度
@@ -11915,6 +12234,10 @@ function wo_init_sliders() {
         bRegen.classList.toggle('off', !enable_islands);
         const st = ISL_state;
         if (!st.ready) { valI.textContent = '-'; return; }
+        if (TSTR.on) {
+            valI.textContent = TSTR.msg || '全国地形';
+            return;
+        }
         if (ISL_real.name) {
             valI.textContent = 'DEM ' + ISL_real.name;
             return;
@@ -14082,9 +14405,14 @@ function flight_apply_world(nowMs) {
 
     // 实时海洋：相机水平位置与观察高度（天空散射渲染不受飞机高度影响）
     if (LANDSCAPES[landscape_index][2] === 2) {
-        const w = FLIGHT.CAM_WRAP;
-        WO_CAM_XZ[0] = flight.x - w * Math.floor(flight.x / w);
-        WO_CAM_XZ[1] = flight.z - w * Math.floor(flight.z / w);
+        if (TSTR.on) {
+            // 全国分块地形：相机世界坐标 = 相对当前窗口中心的米数，必要时重定中心
+            tstr_tick(longitude, latitude);
+        } else {
+            const w = FLIGHT.CAM_WRAP;
+            WO_CAM_XZ[0] = flight.x - w * Math.floor(flight.x / w);
+            WO_CAM_XZ[1] = flight.z - w * Math.floor(flight.z / w);
+        }
 
         // 观察高度 = 飞机海拔；贴着浪飞时抬高到浪面之上（web-ocean 的相机浮空处理）
         let camY = Math.max(flight.alt, FLIGHT.CAM_MIN_Y);
@@ -17502,10 +17830,21 @@ function init() {
             loading_status.textContent = "正在生成岛屿地形…";
             await loading_yield();
             // ?terrain=<名字>：载入 tools/dem_bake.py 烘焙的真实高程数据（缺数据时自动回退）
-            const terrainName = (typeof URLSearchParams !== 'undefined')
-                ? new URLSearchParams(location.search).get('terrain') : null;
+            const qs = (typeof URLSearchParams !== 'undefined') ? new URLSearchParams(location.search) : null;
+            const terrainName = qs ? qs.get('terrain') : null;
             let terrainOK = false;
-            if (terrainName) {
+            if (terrainName === 'china') {
+                // 全国分块流式地形：?terrain=china&lat=36.10&lon=120.55
+                const la = parseFloat(qs.get('lat') || '36.10');
+                const lo = parseFloat(qs.get('lon') || '120.55');
+                loading_status.textContent = "正在载入全国分块地形…";
+                await loading_yield();
+                terrainOK = await tstr_start(lo, la);
+                if (terrainOK) {
+                    latitude = la; longitude = lo;
+                    flight.lat0 = la; flight.lon0 = lo;
+                }
+            } else if (terrainName) {
                 loading_status.textContent = "正在载入真实高程数据 " + terrainName + "…";
                 await loading_yield();
                 terrainOK = await isl_load_terrain(terrainName);

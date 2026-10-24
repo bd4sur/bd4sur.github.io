@@ -2,3 +2,4 @@ terrain/.cache/
 terrain/*.bin.part
 terrain/qingdao50.bin
 terrain/qingdao50.json
+terrain/china/
