@@ -1508,6 +1508,7 @@ body.is-day .ak_socket {
                     <li>体积云的观察者在三维云场中移动：飞行控制页内观察点完全取飞机位置——爬升会真正进入云层（视野被云包围、逐步白化），穿云到云顶之上可向下俯视云海，水平飞行时云场固定在世界坐标中、云与飞机的相对位置一一对应，观察高度严格取飞机海拔（按球面半径反算，水平飞远不会凭空升高）；不在飞行页时观察高度由「观察高度」滑块决定（默认 50 米，1.5 米~10 公里），把滑块推过 3 公里就能站进云层里。云层高度为 3–11 km；模型 5 的天空按纯天空渲染，云层统一在地景之后合成。</li>
                     <li>启用体积云后，可用其下的"云量/云类"按钮调节云的档位（6档）与显示种类（按层掩码 0-7 共 8 种组合：无云/仅低层/仅中层/低+中/仅高层/低+高/中+高/所有云）。云亮度不再是手动档位，而是太阳高度的经验函数 0.75·tanh(0.2·太阳高度−0.6)+1.25：太阳越高云越白亮（上限 2.0），日落后转暗，天文暮光之后压到 0.5；"云亮度(自动)"按钮上的数字只是当前值，点了不改变任何东西。</li>
                     <li>"雷达云图"开启后（默认开启），体积云天空的初始云模式取自中央气象台组合反射率图（radar.png 减 radar_background.png 底图、形态学去地图元素、色标反演 dBZ），雷达 256km 范围与地平圈直接对齐；dBZ 经三通道调制云场：覆盖率决定有无疏密（封顶 35/45/55dBZ）、云顶高度决定类别（弱回波压扁为层云、强回波发展为全塔积雨云）、密度系数决定厚薄；中高度云另以双频噪声调制破碎边缘、消除周期感，并对回波轮廓做域扭曲（~2.5km 特征）与高频 dBZ 抖动，使大片云的平直硬边变成曲折破碎的自然边缘；处理全部在页面内完成，图片缺失或处理失败时自动回退程序化云图。</li>
+                    <li>「实时海洋」的地形可以换成<b>真实高程数据</b>：URL 加 <code>?terrain=名字</code> 就会去载入 <code>terrain/名字.bin</code>+<code>.json</code>（用 <code>tools/dem_bake.py</code> 从 Copernicus DEM GLO-30 烘焙，30 m 原始格网、重采样到渲染器需要的窗口与格距），例如 <code>?terrain=qingdao</code> 是青岛崂山一带 25.6 km × 25.6 km、25 m 格距，<code>?terrain=qingdao50</code> 是 51.2 km 的更大窗口。载入后世界边长、分辨率、飞行回绕周期都跟着数据走，地形与海岸线都是真实的；数据缺失时自动回退到程序化群岛。高程数据版权：© DLR e.V. 2010-2014 and © Airbus Defence and Space GmbH 2014-2018 provided under COPERNICUS by the European Union and ESA，按 Copernicus DEM licence 使用。</li>
                     <li>「海洋天空」（模型 6）与「实时海洋」地景移植自开源项目 web-ocean（MIT）：Hillaire 式 LUT 大气（透射率/多重散射/天空视图三张 LUT，JS 与 GLSL 共享同一份数据）、JONSWAP 风浪谱+窄涌浪的解析波列级数（方差守恒，烘焙为可平铺波场纹理并按群速度平流）、各向异性高斯太阳耀光（Smith 掩蔽）、天空环境反射、水体上涌与波峰透射辉光、雅可比白帽、大气透视与 AgX 色调映射。观察者默认位于海平面以上 50 米（1.5 米~10 公里对数刻度可调）；无 WebGL2 时自动回退到较慢的 JS 逐像素渲染。</li>
                     <li>「实时海洋」上叠了一片可平铺的岛屿地形（岛屿随机生成，直径约 4~11 公里）：海线由低阶谐波加两级角度噪声给出，曲折且带小海湾与岬角；高程按 25 米纹素烘焙成一张 1024² 的世界高程场（陆地为正、海底为负，含陆架与浅滩），所以海岸线、沙滩、近岸浅水色与拍岸泡沫都出自同一份数据。求交用两级「格内最大高程」网格做 2D DDA 跳格、再逐纹素步进加二分细化；岛体只有当它比海面更近时才遮挡海面，因此“岛挡海”与“海挡岛”都自洽。地形着色与海面共用同一份透射率 LUT 与 AgX：高程梯度算法线、太阳直射 + 天空半球环境光，陡坡偏岩、海线以上一条沙滩带。世界坐标以 25.6 公里为周期回绕（与飞行模拟的相机回绕周期一致），所以朝任意方向一直飞都还能再遇到陆地；飞行时相机不会钻进山体。整套求交与着色只依赖高程图与粗网格，将来换成真实地理高程数据（DEM）时只需替换生成那一段。</li>
                     <li>地景为「实时海洋」时，点按钮区的「海洋参数」可以展开/收起海面参数滑块区（观察高度/风速/风向/风区/涌浪波高/涌浪波长/涌浪方向/泡沫强度/水体浑浊度/霾），默认收起；地景不是实时海洋时该按钮只显示“需实时海洋”。面板最下面一行是「岛屿」：左边按钮切换岛屿显示（关掉可对比原始海面），中间「重新生成」换一批随机岛屿（海线、尺寸、布局都变，约 70 毫秒）。滑块本身：波浪与涌浪参数在停止拖动约 0.25 秒后重烘焙波场（约 0.1 秒）；「霾」与「观察高度」会重建大气 LUT（约 0.5 秒），「霾」默认 0（无霾，空气清透）；泡沫强度与水体浑浊度立即生效。风浪行进方向与涌浪方向以罗盘方位角表示（0=北，90=东）。「观察高度」同时是体积云与天空的观察点高度（飞行控制页内则改由飞机接管，滑块只作显示），因此调高它会一起抬升海面相机和云层视角。</li>
@@ -9885,15 +9886,28 @@ function wo_height_at(px, pz, t) {
 
 let enable_islands = true;                    // 岛屿渲染开关
 
-const ISL_WORLD = 25600.0;                    // 世界周期 m（= FLIGHT.CAM_WRAP）
-const ISL_RES = 1024;                         // 高程图分辨率
-const ISL_TEXEL = ISL_WORLD / ISL_RES;        // 纹素 25 m
-const ISL_COARSE = 64;                        // 近层粗网格（400 m/格）
-const ISL_FAR = 8;                            // 远层粗网格（3200 m/格）
-const ISL_COARSE_CELL = ISL_WORLD / ISL_COARSE;
-const ISL_FAR_CELL = ISL_WORLD / ISL_FAR;
-const ISL_HALF = ISL_WORLD * 0.5;             // 世界原点 → 高程图中心
+// 世界尺寸与高程图分辨率：程序化岛屿固定 25.6 km / 1024²，
+// 载入真实 DEM 时由数据文件的元信息改写（isl_set_world_scale）。
+let ISL_WORLD = 25600.0;                      // 世界周期 m（飞行回绕周期与之对齐）
+let ISL_RES = 1024;                           // 高程图分辨率（纹素数）
+let ISL_TEXEL = ISL_WORLD / ISL_RES;          // 纹素边长 m
+const ISL_COARSE = 64;                        // 近层粗网格格数
+const ISL_FAR = 8;                            // 远层粗网格格数
+let ISL_COARSE_CELL = ISL_WORLD / ISL_COARSE; // 近层格边长 m
+let ISL_FAR_CELL = ISL_WORLD / ISL_FAR;       // 远层格边长 m
+let ISL_HALF = ISL_WORLD * 0.5;               // 世界原点 → 高程图中心
 const ISL_DEEP = 70.0;                        // 深海海底高程 m（负值）
+
+// 设定世界边长与分辨率（载入真实 DEM 前调用；同时把飞行回绕周期对齐）
+function isl_set_world_scale(sizeM, res) {
+    ISL_WORLD = sizeM;
+    ISL_RES = res;
+    ISL_TEXEL = ISL_WORLD / ISL_RES;
+    ISL_COARSE_CELL = ISL_WORLD / ISL_COARSE;
+    ISL_FAR_CELL = ISL_WORLD / ISL_FAR;
+    ISL_HALF = ISL_WORLD * 0.5;
+    if (typeof FLIGHT !== 'undefined') FLIGHT.CAM_WRAP = ISL_WORLD;
+}
 
 const ISL_state = {
     seed: 0,
@@ -10091,6 +10105,7 @@ function isl_layout(rnd) {
 function isl_generate(seed) {
     const t0 = (typeof performance !== 'undefined') ? performance.now() : Date.now();
     seed = seed >>> 0;
+    isl_set_world_scale(25600.0, 1024);   // 程序化岛屿固定用 25.6 km / 1024²
     const rnd = wo_mulberry32(seed);
     const islands = isl_layout(rnd);
     const N = ISL_RES;
@@ -10114,40 +10129,8 @@ function isl_generate(seed) {
         }
     }
 
-    // ---- 近层粗网格：格内最大高程（保守上界，用于空域跳过）----
-    const C = ISL_COARSE, cs = (N / C) | 0;
-    const coarse = new Float32Array(C * C);
-    for (let j = 0; j < C; j++) {
-        for (let i = 0; i < C; i++) {
-            let m = -1e9;
-            for (let jj = 0; jj < cs; jj++) {
-                const row = (j * cs + jj) * N + i * cs;
-                for (let ii = 0; ii < cs; ii++) {
-                    const v = h[row + ii];
-                    if (v > m) m = v;
-                }
-            }
-            coarse[j * C + i] = m;
-        }
-    }
-    // ---- 远层粗网格 ----
-    const F = ISL_FAR, fs = (C / F) | 0;
-    const far = new Float32Array(F * F);
-    for (let j = 0; j < F; j++) {
-        for (let i = 0; i < F; i++) {
-            let m = -1e9;
-            for (let jj = 0; jj < fs; jj++) {
-                const row = (j * fs + jj) * C + i * fs;
-                for (let ii = 0; ii < fs; ii++) {
-                    const v = coarse[row + ii];
-                    if (v > m) m = v;
-                }
-            }
-            far[j * F + i] = m;
-        }
-    }
-    let maxH = -1e9;
-    for (let i = 0; i < h.length; i++) if (h[i] > maxH) maxH = h[i];
+    const grids = isl_build_grids(h);
+    const coarse = grids.coarse, far = grids.far, maxH = grids.maxH;
 
     ISL_state.seed = seed;
     ISL_state.h = h;
@@ -10169,6 +10152,91 @@ function isl_regen(seed) {
 function isl_ensure() {
     if (!ISL_state.ready) isl_generate(ISL_state.seed || ((Math.random() * 2147483647) | 0));
     return ISL_state;
+}
+
+// 由高程图重建两级「格内最大高程」粗网格（程序化生成与真实 DEM 共用）
+function isl_build_grids(h) {
+    const N = ISL_RES;
+    const C = ISL_COARSE, cs = (N / C) | 0;
+    const coarse = new Float32Array(C * C);
+    for (let j = 0; j < C; j++) {
+        for (let i = 0; i < C; i++) {
+            let m = -1e9;
+            for (let jj = 0; jj < cs; jj++) {
+                const row = (j * cs + jj) * N + i * cs;
+                for (let ii = 0; ii < cs; ii++) {
+                    const v = h[row + ii];
+                    if (v > m) m = v;
+                }
+            }
+            coarse[j * C + i] = m;
+        }
+    }
+    const F = ISL_FAR, fs = (C / F) | 0;
+    const far = new Float32Array(F * F);
+    for (let j = 0; j < F; j++) {
+        for (let i = 0; i < F; i++) {
+            let m = -1e9;
+            for (let jj = 0; jj < fs; jj++) {
+                const row = (j * fs + jj) * C + i * fs;
+                for (let ii = 0; ii < fs; ii++) {
+                    const v = coarse[row + ii];
+                    if (v > m) m = v;
+                }
+            }
+            far[j * F + i] = m;
+        }
+    }
+    let maxH = -1e9;
+    for (let i = 0; i < h.length; i++) if (h[i] > maxH) maxH = h[i];
+    return { coarse: coarse, far: far, maxH: maxH };
+}
+
+// ---- 真实高程数据（DEM）载入 ----
+// tools/dem_bake.py 烘焙出的 1024² Int16 高程图（行 0 = 最南，与纹理 v 方向一致），
+// 单位米、相对平均海平面；海面与海底为负值。窗口边长即渲染器世界周期 25.6 km。
+const ISL_real = { name: null, meta: null };
+async function isl_load_terrain(name) {
+    // 数据目录默认与页面同级（html/terrain/），也接受仓库根目录（../terrain/）
+    let base = 'terrain/' + name;
+    try {
+        let metaRes = await fetch(base + '.json', { cache: 'no-cache' });
+        if (!metaRes.ok) {
+            base = '../terrain/' + name;
+            metaRes = await fetch(base + '.json', { cache: 'no-cache' });
+        }
+        if (!metaRes.ok) throw new Error('HTTP ' + metaRes.status);
+        const meta = await metaRes.json();
+        const binRes = await fetch(base + '.bin', { cache: 'no-cache' });
+        if (!binRes.ok) throw new Error('HTTP ' + binRes.status);
+        const buf = await binRes.arrayBuffer();
+        // 先按元信息设定世界边长与分辨率，再校验数据长度
+        const n = meta.res;
+        isl_set_world_scale(meta.sizeKm * 1000.0, n);
+        if (buf.byteLength !== n * n * 2) {
+            throw new Error('高程图尺寸不符：' + buf.byteLength + ' != ' + (n * n * 2));
+        }
+        const src = new Int16Array(buf);
+        const h = new Float32Array(n * n);
+        for (let i = 0; i < h.length; i++) h[i] = src[i];
+        const grids = isl_build_grids(h);
+        ISL_state.h = h;
+        ISL_state.coarse = grids.coarse;
+        ISL_state.far = grids.far;
+        ISL_state.maxH = grids.maxH;
+        ISL_state.islands = [];
+        ISL_state.ready = true;
+        ISL_state.glDirty = true;
+        ISL_real.name = name;
+        ISL_real.meta = meta;
+        console.log('[terrain] 已载入真实高程 ' + name + '：' + meta.sizeKm + ' km / ' +
+            meta.res + '² / ' + meta.texelM.toFixed(1) + ' m 格距，高程 ' +
+            Math.round(meta.minH) + '~' + Math.round(meta.maxH) + ' m');
+        return true;
+    } catch (e) {
+        console.warn('[terrain] 真实高程载入失败，回退程序化岛屿：' + (e && e.message));
+        return false;
+    }
 }
 
 // ---- 高程采样：双线性 + 周期回绕，与 GLSL texture() 的行为一致 ----
@@ -10923,7 +10991,8 @@ const OceanSkyWebGL = {
             'u_water_col', 'u_unres', 'u_sss_col', 'u_sss_k',
             'u_foam_j_thresh', 'u_foam_j_gain', 'u_foam_intensity',
             'u_fog_ext', 'u_fog_floor',
-            'u_isl_h', 'u_isl_max', 'u_isl_far', 'u_isl_on', 'u_isl_maxh'];
+            'u_isl_h', 'u_isl_max', 'u_isl_far', 'u_isl_on', 'u_isl_maxh',
+            'u_isl_world', 'u_isl_texel', 'u_isl_half', 'u_isl_coarse_cell', 'u_isl_far_cell'];
         for (const n of names) {
             this.uniformsSky[n] = gl.getUniformLocation(this.skyProgram, n);
             this.uniformsOcean[n] = gl.getUniformLocation(this.oceanProgram, n);
@@ -11040,6 +11109,11 @@ const OceanSkyWebGL = {
         gl.uniform1f(U.u_fog_floor, WO_FOG_FLOOR);
         gl.uniform1f(U.u_isl_on, (enable_islands && ISL_state.ready) ? 1.0 : 0.0);
         gl.uniform1f(U.u_isl_maxh, ISL_state.ready ? ISL_state.maxH : 0.0);
+        gl.uniform1f(U.u_isl_world, ISL_WORLD);
+        gl.uniform1f(U.u_isl_texel, ISL_TEXEL);
+        gl.uniform1f(U.u_isl_half, ISL_HALF);
+        gl.uniform1f(U.u_isl_coarse_cell, ISL_COARSE_CELL);
+        gl.uniform1f(U.u_isl_far_cell, ISL_FAR_CELL);
     },
 
     bindTextures: function (U) {
@@ -11347,11 +11421,16 @@ const float MARCH_FAR = 900.0;
 
 // ---------------- 岛屿（高程场求交与着色）----------------
 // 与 JS 侧 isl_* 逐式对应；世界周期 25600 m = FLIGHT.CAM_WRAP
-const float ISL_WORLD = 25600.0;
-const float ISL_TEXEL = 25.0;
-const float ISL_HALF = 12800.0;
-const float ISL_COARSE_CELL = 400.0;
-const float ISL_FAR_CELL = 3200.0;
+uniform float u_isl_world;        // 世界周期 m（程序化 25600，真实 DEM 随数据）
+uniform float u_isl_texel;        // 纹素边长 m
+uniform float u_isl_half;         // 世界半边长 m
+uniform float u_isl_coarse_cell;  // 近层格边长 m
+uniform float u_isl_far_cell;     // 远层格边长 m
+#define ISL_WORLD u_isl_world
+#define ISL_TEXEL u_isl_texel
+#define ISL_HALF u_isl_half
+#define ISL_COARSE_CELL u_isl_coarse_cell
+#define ISL_FAR_CELL u_isl_far_cell
 
 float islHeight(vec2 xz) {
     return texture(u_isl_h, (xz + ISL_HALF) * (1.0 / ISL_WORLD)).r;
@@ -11836,6 +11915,10 @@ function wo_init_sliders() {
         bRegen.classList.toggle('off', !enable_islands);
         const st = ISL_state;
         if (!st.ready) { valI.textContent = '-'; return; }
+        if (ISL_real.name) {
+            valI.textContent = 'DEM ' + ISL_real.name;
+            return;
+        }
         let maxD = 0.0;
         for (let i = 0; i < st.islands.length; i++) {
             const d2 = st.islands[i].rLand * 2.0;
@@ -11845,6 +11928,7 @@ function wo_init_sliders() {
     };
     bToggle.addEventListener('click', () => { enable_islands = !enable_islands; syncIsl(); });
     bRegen.addEventListener('click', () => {
+        if (ISL_real.name) { ISL_real.name = null; ISL_real.meta = null; }   // 从真实 DEM 切回程序化
         isl_regen();
         enable_islands = true;
         syncIsl();
@@ -17417,7 +17501,16 @@ function init() {
             // 阶段 2.5：生成岛屿高程场（1024^2 纹素，约 70 ms，与波场烘焙同级）
             loading_status.textContent = "正在生成岛屿地形…";
             await loading_yield();
-            isl_ensure();
+            // ?terrain=<名字>：载入 tools/dem_bake.py 烘焙的真实高程数据（缺数据时自动回退）
+            const terrainName = (typeof URLSearchParams !== 'undefined')
+                ? new URLSearchParams(location.search).get('terrain') : null;
+            let terrainOK = false;
+            if (terrainName) {
+                loading_status.textContent = "正在载入真实高程数据 " + terrainName + "…";
+                await loading_yield();
+                terrainOK = await isl_load_terrain(terrainName);
+            }
+            if (!terrainOK) isl_ensure();
             if (ISL_UI_SYNC) ISL_UI_SYNC();
 
             // 阶段 3：渲染第一帧（内含散射 LUT 预计算等剩余初始化），完成后关闭模态框

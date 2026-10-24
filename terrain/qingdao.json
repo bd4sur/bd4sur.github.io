@@ -1,0 +1,17 @@
+{
+  "name": "qingdao",
+  "sizeKm": 25.6,
+  "res": 1024,
+  "texelM": 25.0,
+  "centerLon": 120.55,
+  "centerLat": 36.1,
+  "utmEpsg": 32651,
+  "eastM": 279445.7,
+  "northM": 3997819.4,
+  "minH": -101.5,
+  "maxH": 1105.1470947265625,
+  "waterFrac": 0.5183525085449219,
+  "source": "Copernicus DEM GLO-30 Public (AWS Open Data, s3://copernicus-dem-30m), 1 arc-second DSM",
+  "attribution": "© DLR e.V. 2010-2014 and © Airbus Defence and Space GmbH 2014-2018 provided under COPERNICUS by the European Union and ESA; all rights reserved. Distributed under the Copernicus DEM licence.",
+  "built": "2026-10-24T08:40:05"
+}
