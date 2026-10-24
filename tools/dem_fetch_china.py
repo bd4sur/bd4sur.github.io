@@ -25,7 +25,9 @@ import urllib.request
 
 BUCKET = "https://copernicus-dem-30m.s3.amazonaws.com"
 TILE_LIST_URL = BUCKET + "/tileList.txt"
-TILE_MIN_BYTES = 200_000          # 小于这个值基本是错误页
+TILE_MIN_BYTES = 4_096            # 小于这个值基本是错误页
+# 注：近岸瓦片大半是海，压缩后只有一百多 KB，不能用体积判断有效性；
+# 用 TIFF 文件头（II*\0 / MM\0*）校验更稳。
 
 
 def tile_key(lat, lon):
@@ -41,8 +43,19 @@ def parse_key(key):
     return la, lo
 
 
+def is_valid_tif(path):
+    try:
+        if not os.path.exists(path) or os.path.getsize(path) < TILE_MIN_BYTES:
+            return False
+        with open(path, "rb") as f:
+            head = f.read(4)
+        return head[:2] == b"II" or head[:2] == b"MM"
+    except Exception:
+        return False
+
+
 def fetch_tile(url, path, retries=4):
-    if os.path.exists(path) and os.path.getsize(path) > TILE_MIN_BYTES:
+    if is_valid_tif(path):
         return "skip"
     os.makedirs(os.path.dirname(path), exist_ok=True)
     tmp = path + ".part"
@@ -55,8 +68,8 @@ def fetch_tile(url, path, retries=4):
                     if not chunk:
                         break
                     f.write(chunk)
-            if os.path.getsize(tmp) < TILE_MIN_BYTES:
-                raise IOError("too small: %d" % os.path.getsize(tmp))
+            if not is_valid_tif(tmp):
+                raise IOError("bad tif: %d bytes" % os.path.getsize(tmp))
             os.replace(tmp, path)
             return "ok"
         except urllib.error.HTTPError as e:

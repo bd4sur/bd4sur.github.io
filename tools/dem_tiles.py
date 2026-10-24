@@ -137,10 +137,10 @@ def main():
                 print("  %d/%d 瓦片，新增块 %d" % (done, len(files), len(written)), flush=True)
 
     # ---- 重建清单：扫描输出目录，得到两级位图 ----
+    # 网格范围取「名义 bbox」与「实际块范围」的并集：下游瓦片（含外扩）可能越过 bbox 边界
     w, s, e, n = bbox
-    bx0, by0 = int(np.floor(w * 4)), int(np.floor(s * 4))
-    bx1, by1 = int(np.ceil(e * 4)), int(np.ceil(n * 4))
-    gw, gh = bx1 - bx0, by1 - by0
+    bx_min, by_min = int(np.floor(w * 4)), int(np.floor(s * 4))
+    bx_max, by_max = int(np.ceil(e * 4)) - 1, int(np.ceil(n * 4)) - 1
     present = {ln: set() for ln in LEVELS}
     for ln in LEVELS:
         for p in glob.glob(os.path.join(args.out, "*", "*.%s.bin.gz" % ln)):
@@ -148,7 +148,13 @@ def main():
             if not m:
                 continue
             bx, by = int(m.group(1)), int(m.group(2))
-            present[ln].add((bx - bx0, by - by0))
+            present[ln].add((bx, by))
+            bx_min, by_min = min(bx_min, bx), min(by_min, by)
+            bx_max, by_max = max(bx_max, bx), max(by_max, by)
+    bx0, by0 = bx_min, by_min
+    gw, gh = bx_max - bx0 + 1, by_max - by0 + 1
+    for ln in LEVELS:
+        present[ln] = {(bx - bx0, by - by0) for (bx, by) in present[ln]}
     manifest = {
         "version": 1,
         "kind": "china-dem-blocks",
