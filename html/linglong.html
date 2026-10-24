@@ -819,6 +819,26 @@ body.is-day .ak_socket {
         color: #666;
         margin-left: 2px;
     }
+    .modal-select {
+        background: #141516;
+        border: 1px solid #333;
+        color: #fff;
+        height: 24px;
+        font-size: 12px;
+        border-radius: 3px;
+        padding: 0 4px;
+        font-family: inherit;
+        outline: none;
+        width: 190px;
+    }
+    .modal-select:focus {
+        border-color: #99ddff;
+    }
+    .modal-select option,
+    .modal-select optgroup {
+        background: #141516;
+        color: #ddd;
+    }
     .modal-dir-btn {
         background: #252629;
         color: #929397;
@@ -1371,6 +1391,59 @@ body.is-day .ak_socket {
     <div class="modal-overlay" id="coordModal">
         <div class="modal-box">
             <div class="modal-title">设置观测位置</div>
+            <div class="modal-row">
+                <span class="modal-label">城市</span>
+                <select class="modal-select" id="coordCity">
+                    <option value="">— 选一个城市快速定位 —</option>
+                    <optgroup label="直辖市">
+                        <option value="116.4074,39.9042">北京</option>
+                        <option value="117.2008,39.0842">天津</option>
+                        <option value="121.4737,31.2304">上海</option>
+                        <option value="106.5516,29.5630">重庆</option>
+                    </optgroup>
+                    <optgroup label="省会 / 首府">
+                        <option value="114.5149,38.0428">石家庄（河北）</option>
+                        <option value="112.5489,37.8706">太原（山西）</option>
+                        <option value="111.7492,40.8424">呼和浩特（内蒙古）</option>
+                        <option value="123.4315,41.8057">沈阳（辽宁）</option>
+                        <option value="125.3235,43.8171">长春（吉林）</option>
+                        <option value="126.5349,45.8038">哈尔滨（黑龙江）</option>
+                        <option value="118.7969,32.0603">南京（江苏）</option>
+                        <option value="120.1551,30.2741">杭州（浙江）</option>
+                        <option value="117.2272,31.8206">合肥（安徽）</option>
+                        <option value="119.2965,26.0745">福州（福建）</option>
+                        <option value="115.8582,28.6820">南昌（江西）</option>
+                        <option value="117.1201,36.6512">济南（山东）</option>
+                        <option value="113.6254,34.7466">郑州（河南）</option>
+                        <option value="114.3055,30.5928">武汉（湖北）</option>
+                        <option value="112.9388,28.2282">长沙（湖南）</option>
+                        <option value="113.2644,23.1291">广州（广东）</option>
+                        <option value="108.3665,22.8170">南宁（广西）</option>
+                        <option value="110.1999,20.0444">海口（海南）</option>
+                        <option value="104.0665,30.5723">成都（四川）</option>
+                        <option value="106.6302,26.6477">贵阳（贵州）</option>
+                        <option value="102.8329,24.8801">昆明（云南）</option>
+                        <option value="91.1409,29.6456">拉萨（西藏）</option>
+                        <option value="108.9402,34.3416">西安（陕西）</option>
+                        <option value="103.8343,36.0611">兰州（甘肃）</option>
+                        <option value="101.7782,36.6171">西宁（青海）</option>
+                        <option value="106.2309,38.4872">银川（宁夏）</option>
+                        <option value="87.6168,43.8256">乌鲁木齐（新疆）</option>
+                        <option value="121.5654,25.0330">台北（台湾）</option>
+                    </optgroup>
+                    <optgroup label="计划单列市">
+                        <option value="121.6147,38.9140">大连（辽宁）</option>
+                        <option value="120.3826,36.0671">青岛（山东）</option>
+                        <option value="121.5440,29.8683">宁波（浙江）</option>
+                        <option value="118.0894,24.4798">厦门（福建）</option>
+                        <option value="114.0579,22.5431">深圳（广东）</option>
+                    </optgroup>
+                    <optgroup label="特别行政区">
+                        <option value="114.1694,22.3193">香港</option>
+                        <option value="113.5439,22.1987">澳门</option>
+                    </optgroup>
+                </select>
+            </div>
             <div class="modal-row">
                 <span class="modal-label">纬度</span>
                 <div class="modal-input-group">
@@ -17052,6 +17125,23 @@ function init() {
         return sign * (deg + min / 60 + sec / 3600);
     }
 
+    // 城市预设：选中后把十进制度数填进度分秒输入框（确认后才会真正应用）
+    document.getElementById('coordCity').addEventListener('change', function() {
+        if (!this.value) return;
+        const parts = this.value.split(',');
+        const lon = parseFloat(parts[0]);
+        const lat = parseFloat(parts[1]);
+        let la = decimalToDMS(lat);
+        if (la.sec >= 60) { la.sec = 0; la.min += 1; }
+        if (la.min >= 60) { la.min = 0; la.deg += 1; }
+        let lo = decimalToDMS(lon);
+        if (lo.sec >= 60) { lo.sec = 0; lo.min += 1; }
+        if (lo.min >= 60) { lo.min = 0; lo.deg += 1; }
+        modalLatDeg = la.deg; modalLatMin = la.min; modalLatSec = la.sec; modalLatNS = la.sign;
+        modalLonDeg = lo.deg; modalLonMin = lo.min; modalLonSec = lo.sec; modalLonEW = lo.sign;
+        updateCoordDisplay();
+    });
+
     // 打开经纬度模态框
     function openCoordModal() {
         const lat = decimalToDMS(latitude);
@@ -17065,6 +17155,7 @@ function init() {
         modalLonSec = lon.sec;
         modalLonEW = lon.sign;
         updateCoordDisplay();
+        document.getElementById('coordCity').value = '';
         document.getElementById('coordModal').classList.add('active');
     }
 
