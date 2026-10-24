@@ -10541,7 +10541,9 @@ async function tstr_start(lon, lat) {
     } catch (e) {
         console.warn('[terrain] 清单载入失败：' + (e && e.message));
         TSTR.on = false;
-        tstr_set_msg('地形清单缺失，回退程序化');
+        const why = (typeof location !== 'undefined' && location.protocol === 'file:')
+            ? 'file:// 打不开地形（需用 http 服务）' : '地形清单缺失，回退程序化';
+        tstr_set_msg(why);
         return false;
     }
     // 真实地形要看得到远山：默认把大气透视放宽到约 90 km 能见度（可用「能见度」滑块再调）
@@ -12247,6 +12249,11 @@ function wo_init_sliders() {
         if (!st.ready) { valI.textContent = '-'; return; }
         if (TSTR.on) {
             valI.textContent = TSTR.msg || '全国地形';
+            return;
+        }
+        // 没进全国模式时，把「为什么没进」显示出来（比如 file:// 打开、数据目录缺失）
+        if (TSTR.msg && TSTR.msg.indexOf('回退') >= 0) {
+            valI.textContent = TSTR.msg;
             return;
         }
         if (ISL_real.name) {
