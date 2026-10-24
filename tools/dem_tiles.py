@@ -157,8 +157,10 @@ def main():
         "source": "Copernicus DEM GLO-30 Public via AWS Open Data, blocks cut at 0.25 deg",
         "attribution": "© DLR e.V. 2010-2014 and © Airbus Defence and Space GmbH 2014-2018 under COPERNICUS/ESA; Copernicus DEM licence",
     }
-    with open(manifest_path, "w", encoding="utf-8") as f:
+    tmp = manifest_path + ".tmp"
+    with open(tmp, "w", encoding="utf-8") as f:
         json.dump(manifest, f, ensure_ascii=False, separators=(",", ":"))
+    os.replace(tmp, manifest_path)          # 原子替换：浏览器可能正在读
     print("清单 %s：l0=%d 块，l1=%d 块，位图 %dx%d"
           % (manifest_path, manifest["counts"]["l0"], manifest["counts"]["l1"], gw, gh), flush=True)
 

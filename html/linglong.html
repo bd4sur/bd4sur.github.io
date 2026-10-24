@@ -10351,10 +10351,12 @@ async function tstr_build_window(level, lonC, latC) {
     if (jobs.length) await Promise.all(jobs);
 
     const k = 0.25 / n;                              // 每格度数
+    let loaded = 0;                                  // 实际参与组装的块数
     for (let by = by0; by <= by1; by++) {
         for (let bx = bx0; bx <= bx1; bx++) {
             const blk = TSTR.cache.get(level + ':' + bx + '_' + by);
             if (!blk) continue;
+            loaded++;
             const blon = bx * 0.25, blat = by * 0.25;
             // 该块覆盖的输出列/行范围
             let i0 = Math.ceil(((blon - lonL) * kLon) / texel - 0.5);
@@ -10438,7 +10440,7 @@ async function tstr_build_window(level, lonC, latC) {
     }
     const ms = ((typeof performance !== 'undefined') ? performance.now() : Date.now()) - t0;
     TSTR.stats.ms = ms;
-    return { h: h, lonC: lonC, latC: latC };
+    return { h: h, lonC: lonC, latC: latC, blocks: loaded };
 }
 
 // 把组装好的窗口交给渲染器
@@ -10487,7 +10489,8 @@ async function tstr_recenter(lon, lat, level) {
         tstr_apply(built);
         tstr_update_cam(lon, lat);
         tstr_set_msg('地形 ' + lonC.toFixed(2) + '°E ' + latC.toFixed(2) + '°N · ' +
-            (lv === 'l1' ? '30 m' : '120 m') + ' · ' + Math.round(TSTR.stats.ms) + ' ms');
+            (lv === 'l1' ? '30 m' : '120 m') + ' · ' + built.blocks + ' 块 · ' +
+            Math.round(TSTR.stats.ms) + ' ms' + (built.blocks === 0 ? '（该处暂无数据）' : ''));
     } finally {
         TSTR.loading = false;
         const q = TSTR.queued;
