@@ -12252,7 +12252,7 @@ function wo_init_sliders() {
             return;
         }
         // 没进全国模式时，把「为什么没进」显示出来（比如 file:// 打开、数据目录缺失）
-        if (TSTR.msg && TSTR.msg.indexOf('回退') >= 0) {
+        if (TSTR.msg) {
             valI.textContent = TSTR.msg;
             return;
         }
@@ -12272,6 +12272,7 @@ function wo_init_sliders() {
         if (TSTR.on) {
             TSTR.on = false;
             TSTR.win = null;
+            TSTR.msg = '';
             ISL_real.name = null; ISL_real.meta = null;
             isl_regen();
             enable_islands = true;
