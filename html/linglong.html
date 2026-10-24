@@ -10320,9 +10320,10 @@ async function tstr_fetch_block(bx, by, level) {
         out = null;
     }
     TSTR.cache.set(key, out);
-    if (TSTR.cache.size > 512) {          // 简单的容量上限
+    // 容量上限：一块 l1 是 900²×2 B ≈ 1.6 MB，缓存太多会把标签页撑爆
+    if (TSTR.cache.size > 96) {
         const it = TSTR.cache.keys();
-        for (let k = 0; k < 128; k++) { const v = it.next(); if (v.done) break; TSTR.cache.delete(v.value); }
+        for (let k = 0; k < 32; k++) { const v = it.next(); if (v.done) break; TSTR.cache.delete(v.value); }
     }
     return out;
 }
@@ -17122,6 +17123,10 @@ function init() {
         // 飞行中重新定位：以新坐标为新起点重启一次飞行，避免被飞行状态覆盖
         if (flight.active) {
             flight_reset();
+        }
+        // 真实地形跟着新坐标换窗口（否则地面还停在原来的地方，只有太阳位置变了）
+        if (TSTR.on) {
+            tstr_recenter(longitude, latitude, 'l1');
         }
         refresh_button_status();
     }
