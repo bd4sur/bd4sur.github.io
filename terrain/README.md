@@ -30,7 +30,7 @@ python3 tools/dem_tiles.py --workers 8
 
 `terrain/china_tiles.txt` 是按中国边界（含外扩一圈）筛出来的 1° 瓦片清单。
 约 1 280 块瓦片、下载 50 GB 左右；切出来的块约 2 万个（纯陆地），
-`l1` 约 7 GB、`l0` 约 0.5 GB（都是 gzip 后）。
+实测每对块约 0.8 MB，全国约 1.6~2 万个块、合计约 16 GB（gzip 后）。
 
 ## 数据来源与许可
 

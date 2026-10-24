@@ -58,35 +58,39 @@ def process_tile(args):
         return []
     lat0, lon0 = org
     written = []
-    with rasterio.open(path) as ds:
-        w, h = ds.width, ds.height
-        # 每 0.25° 对应的像元数（高纬瓦片宽度会变小，统一重采样到固定尺寸）
-        for dy in range(4):                       # dy=0 → 最北一条
-            for dx in range(4):
-                col = dx * (w / 4.0)
-                row = dy * (h / 4.0)
-                win = Window(col, row, w / 4.0, h / 4.0)
-                # dy=0 是最北一条：块的南边界 = lat0 + 0.75 - dy*0.25
-                block_lat_s = lat0 + 0.75 - dy * BLOCK_DEG
-                block_lon_s = lon0 + dx * BLOCK_DEG
-                bx = int(round(block_lon_s * 4))
-                by = int(round(block_lat_s * 4))
-                for lname in levels:
-                    n = LEVELS[lname]
-                    a = ds.read(1, window=win, out_shape=(n, n), resampling=Resampling.bilinear)
-                    if a.size == 0:
-                        continue
-                    a = np.nan_to_num(a.astype(np.float32), nan=0.0)
-                    if a.max() <= 0.0:            # 整块是水，不写
-                        continue
-                    d = os.path.join(out_dir, str(bx // 16))
-                    os.makedirs(d, exist_ok=True)
-                    dst = os.path.join(d, "%d_%d.%s.bin.gz" % (bx, by, lname))
-                    if os.path.exists(dst):
-                        continue
-                    with gzip.open(dst, "wb", compresslevel=6) as f:
-                        f.write(np.clip(a, -32760, 32760).astype("<i2").tobytes())
-                    written.append((bx, by, lname))
+    try:
+        ds = rasterio.open(path)
+        with ds:
+            w, h = ds.width, ds.height
+            # 每 0.25° 对应的像元数（高纬瓦片宽度会变小，统一重采样到固定尺寸）
+            for dy in range(4):                       # dy=0 → 最北一条
+                for dx in range(4):
+                    col = dx * (w / 4.0)
+                    row = dy * (h / 4.0)
+                    win = Window(col, row, w / 4.0, h / 4.0)
+                    # dy=0 是最北一条：块的南边界 = lat0 + 0.75 - dy*0.25
+                    block_lat_s = lat0 + 0.75 - dy * BLOCK_DEG
+                    block_lon_s = lon0 + dx * BLOCK_DEG
+                    bx = int(round(block_lon_s * 4))
+                    by = int(round(block_lat_s * 4))
+                    for lname in levels:
+                        n = LEVELS[lname]
+                        a = ds.read(1, window=win, out_shape=(n, n), resampling=Resampling.bilinear)
+                        if a.size == 0:
+                            continue
+                        a = np.nan_to_num(a.astype(np.float32), nan=0.0)
+                        if a.max() <= 0.0:            # 整块是水，不写
+                            continue
+                        d = os.path.join(out_dir, str(bx // 16))
+                        os.makedirs(d, exist_ok=True)
+                        dst = os.path.join(d, "%d_%d.%s.bin.gz" % (bx, by, lname))
+                        if os.path.exists(dst):
+                            continue
+                        with gzip.open(dst, "wb", compresslevel=6) as f:
+                            f.write(np.clip(a, -32760, 32760).astype("<i2").tobytes())
+                        written.append((bx, by, lname))
+    except Exception as e:                     # 下载中断/文件损坏的瓦片跳过，别中断整轮
+        print("  跳过有问题的瓦片 %s：%s" % (os.path.basename(path), e), flush=True)
     return written
 
 
