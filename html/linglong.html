@@ -214,6 +214,20 @@ a {
     font-size: 10px;
     font-family: monospace;
 }
+.ocean_slider_row .osl_btn {
+    flex: none;
+    padding: 1px 7px;
+    font-size: 10px;
+    line-height: 14px;
+    color: #ffffffdd;
+    background: #2a4a5588;
+    border: 1px solid #2e4a55;
+    border-radius: 4px;
+    cursor: pointer;
+    font-family: inherit;
+}
+.ocean_slider_row .osl_btn:hover { background: #356a77aa; }
+.ocean_slider_row .osl_btn.off { color: #929397; }
 
 .joystick_buttons_container {
     margin: 0px auto;
@@ -1495,7 +1509,8 @@ body.is-day .ak_socket {
                     <li>启用体积云后，可用其下的"云量/云类"按钮调节云的档位（6档）与显示种类（按层掩码 0-7 共 8 种组合：无云/仅低层/仅中层/低+中/仅高层/低+高/中+高/所有云）。云亮度不再是手动档位，而是太阳高度的经验函数 0.75·tanh(0.2·太阳高度−0.6)+1.25：太阳越高云越白亮（上限 2.0），日落后转暗，天文暮光之后压到 0.5；"云亮度(自动)"按钮上的数字只是当前值，点了不改变任何东西。</li>
                     <li>"雷达云图"开启后（默认开启），体积云天空的初始云模式取自中央气象台组合反射率图（radar.png 减 radar_background.png 底图、形态学去地图元素、色标反演 dBZ），雷达 256km 范围与地平圈直接对齐；dBZ 经三通道调制云场：覆盖率决定有无疏密（封顶 35/45/55dBZ）、云顶高度决定类别（弱回波压扁为层云、强回波发展为全塔积雨云）、密度系数决定厚薄；中高度云另以双频噪声调制破碎边缘、消除周期感，并对回波轮廓做域扭曲（~2.5km 特征）与高频 dBZ 抖动，使大片云的平直硬边变成曲折破碎的自然边缘；处理全部在页面内完成，图片缺失或处理失败时自动回退程序化云图。</li>
                     <li>「海洋天空」（模型 6）与「实时海洋」地景移植自开源项目 web-ocean（MIT）：Hillaire 式 LUT 大气（透射率/多重散射/天空视图三张 LUT，JS 与 GLSL 共享同一份数据）、JONSWAP 风浪谱+窄涌浪的解析波列级数（方差守恒，烘焙为可平铺波场纹理并按群速度平流）、各向异性高斯太阳耀光（Smith 掩蔽）、天空环境反射、水体上涌与波峰透射辉光、雅可比白帽、大气透视与 AgX 色调映射。观察者默认位于海平面以上 50 米（1.5 米~10 公里对数刻度可调）；无 WebGL2 时自动回退到较慢的 JS 逐像素渲染。</li>
-                    <li>地景为「实时海洋」时，点按钮区的「海洋参数」可以展开/收起海面参数滑块区（观察高度/风速/风向/风区/涌浪波高/涌浪波长/涌浪方向/泡沫强度/水体浑浊度/霾），默认收起；地景不是实时海洋时该按钮只显示“需实时海洋”。滑块本身：波浪与涌浪参数在停止拖动约 0.25 秒后重烘焙波场（约 0.1 秒）；「霾」与「观察高度」会重建大气 LUT（约 0.5 秒），「霾」默认 0（无霾，空气清透）；泡沫强度与水体浑浊度立即生效。风浪行进方向与涌浪方向以罗盘方位角表示（0=北，90=东）。「观察高度」同时是体积云与天空的观察点高度（飞行控制页内则改由飞机接管，滑块只作显示），因此调高它会一起抬升海面相机和云层视角。</li>
+                    <li>「实时海洋」上叠了一片可平铺的岛屿地形（岛屿随机生成，直径约 4~11 公里）：海线由低阶谐波加两级角度噪声给出，曲折且带小海湾与岬角；高程按 25 米纹素烘焙成一张 1024² 的世界高程场（陆地为正、海底为负，含陆架与浅滩），所以海岸线、沙滩、近岸浅水色与拍岸泡沫都出自同一份数据。求交用两级「格内最大高程」网格做 2D DDA 跳格、再逐纹素步进加二分细化；岛体只有当它比海面更近时才遮挡海面，因此“岛挡海”与“海挡岛”都自洽。地形着色与海面共用同一份透射率 LUT 与 AgX：高程梯度算法线、太阳直射 + 天空半球环境光，陡坡偏岩、海线以上一条沙滩带。世界坐标以 25.6 公里为周期回绕（与飞行模拟的相机回绕周期一致），所以朝任意方向一直飞都还能再遇到陆地；飞行时相机不会钻进山体。整套求交与着色只依赖高程图与粗网格，将来换成真实地理高程数据（DEM）时只需替换生成那一段。</li>
+                    <li>地景为「实时海洋」时，点按钮区的「海洋参数」可以展开/收起海面参数滑块区（观察高度/风速/风向/风区/涌浪波高/涌浪波长/涌浪方向/泡沫强度/水体浑浊度/霾），默认收起；地景不是实时海洋时该按钮只显示“需实时海洋”。面板最下面一行是「岛屿」：左边按钮切换岛屿显示（关掉可对比原始海面），中间「重新生成」换一批随机岛屿（海线、尺寸、布局都变，约 70 毫秒）。滑块本身：波浪与涌浪参数在停止拖动约 0.25 秒后重烘焙波场（约 0.1 秒）；「霾」与「观察高度」会重建大气 LUT（约 0.5 秒），「霾」默认 0（无霾，空气清透）；泡沫强度与水体浑浊度立即生效。风浪行进方向与涌浪方向以罗盘方位角表示（0=北，90=东）。「观察高度」同时是体积云与天空的观察点高度（飞行控制页内则改由飞机接管，滑块只作显示），因此调高它会一起抬升海面相机和云层视角。</li>
                     <li>性能选项：「天空降帧」开启时，若视线/太阳/云参数未变，天空每 4 帧才重绘一次、其余帧复用上次结果（海洋与天体/网格叠加仍逐帧更新）；「云半分辨率」开启时体积云以半分辨率光线步进再双线性放大（云边缘略软，开销降至 1/4）。二者可独立开关，全景拖动时自动失效以保证响应。</li>
                     <li>本系统由 Kimi K2.7、K3、本地部署的 DeepSeek-V4-Flash、GLM5.3-Flash 辅助编码。</li>
                 </ul>
@@ -9107,6 +9122,8 @@ let WO_WATER_COL = [0.016 * WO_TURBIDITY, 0.080 * WO_TURBIDITY, 0.096 * WO_TURBI
 const WO_UNRES = 0.0024;              // 未解析坡度方差基线
 const WO_SSS_COL = [0.035, 0.120, 0.085];
 const WO_SSS_K = 2.6;
+// 浅水水体色（近岸沙底反光 + 悬浮物；与 GLSL const vec3 SHALLOW_COL 保持一致）
+const WO_SHALLOW_COL = [0.055, 0.190, 0.150];
 const WO_FOAM_J_THRESH = 0.36 + 0.12 * 1.0;   // 雅可比白帽阈值
 const WO_FOAM_J_GAIN = 2.5;
 let WO_FOAM_INTENSITY = 0.0;   // 泡沫强度（默认 0：不显示白帽）
@@ -9845,6 +9862,523 @@ function wo_height_at(px, pz, t) {
     return WO_hTmp1[0] + WO_hTmp2[0];
 }
 
+// ============================================================
+// === [Islands] ===
+// 岛屿地形：世界高程场（DEM）+ 两级粗网格 + 射线步进求交 + 地形着色
+// ============================================================
+// 与海面同处海洋系（x 东, y 上, z 北），平均海平面 y = 0。
+//
+//  · 数据：一张可平铺的世界高程图（ISL_RES²，纹素 25 m），保存相对平均海平面的
+//    高程（m）——陆地为正，海底为负（含陆架与浅滩）。求交与着色只依赖这张图
+//    和两级「格内最大高程」粗网格，所以将来换成真实地理高程数据时，只需替换
+//    isl_generate() 里填高程图的那一段，其余不用动。
+//  · 世界周期 ISL_WORLD = 25600 m（= FLIGHT.CAM_WRAP）：飞行模拟回绕时地形无缝；
+//    高程图中心即世界原点，也就是相机起点，所以开局四周就有岛。
+//  · 求交：远层（3200 m 格）/近层（400 m 格）两级「格内最大高程」网格按 2D DDA
+//    逐格穿越：射线在该格出口处仍高于格内最大高程就整格跳过，否则降一级，最后在
+//    400 m 格内做纹素级细步进 + 二分细化。格子按 DDA 精确进出、不跳格，所以陡坡与
+//    掠射视线也不会漏。射线还受海面交点约束：岛体只有在比海面更近时才算可见。
+//  · 着色：高程梯度法线、太阳直射（复用透射率 LUT）、天空半球环境光、
+//    大气透视、AgX 色调映射；海线以上给一条沙滩带。
+//    水下高程同时供海面着色使用（浅水青绿 + 拍岸泡沫）。
+// ============================================================
+
+let enable_islands = true;                    // 岛屿渲染开关
+
+const ISL_WORLD = 25600.0;                    // 世界周期 m（= FLIGHT.CAM_WRAP）
+const ISL_RES = 1024;                         // 高程图分辨率
+const ISL_TEXEL = ISL_WORLD / ISL_RES;        // 纹素 25 m
+const ISL_COARSE = 64;                        // 近层粗网格（400 m/格）
+const ISL_FAR = 8;                            // 远层粗网格（3200 m/格）
+const ISL_COARSE_CELL = ISL_WORLD / ISL_COARSE;
+const ISL_FAR_CELL = ISL_WORLD / ISL_FAR;
+const ISL_HALF = ISL_WORLD * 0.5;             // 世界原点 → 高程图中心
+const ISL_DEEP = 70.0;                        // 深海海底高程 m（负值）
+
+const ISL_state = {
+    seed: 0,
+    h: null,              // Float32Array(ISL_RES²)：高程 m
+    coarse: null,         // Float32Array(ISL_COARSE²)：近层格内最大高程
+    far: null,            // Float32Array(ISL_FAR²)：远层格内最大高程
+    maxH: 0.0,            // 全图最高点 m
+    islands: [],          // 岛屿描述符（中心/海线表/峰值…）
+    ready: false,
+    glDirty: true,        // GL 侧需重新上传纹理
+    genMs: 0.0,           // 生成耗时（诊断）
+};
+
+// ---- 沿角度的周期插值噪声（用于海岸线曲折）----
+function isl_tab_noise(tab, th, n) {
+    const u = (th / (Math.PI * 2.0)) * n;
+    const i0 = Math.floor(u);
+    let f = u - i0;
+    f = f * f * (3.0 - 2.0 * f);
+    const a = tab[((i0 % n) + n) % n];
+    const b = tab[(((i0 + 1) % n) + n) % n];
+    return a + (b - a) * f;
+}
+
+// 海岸线极径表 r(θ)：低阶谐波（海湾、半岛）+ 两个尺度的角度噪声（小尺度曲折）。
+// 这是「用真实海岸线数据替换」的那个接口：真实数据下这里就是一张按方位角
+// 索引的海岸线半径表（或直接是高程场本身）。
+function isl_coast_table(rnd, R0) {
+    const K = 512, KS = 64;
+    const tab = new Float32Array(K);
+    const tabS = new Float32Array(KS);
+    const ks = [2, 3, 4, 5, 7];
+    const ka = [], kp = [];
+    for (let i = 0; i < ks.length; i++) {
+        ka.push((0.030 + rnd() * 0.075) * (i < 3 ? 1.0 : 0.7));
+        kp.push(rnd() * Math.PI * 2.0);
+    }
+    const n1 = 61, n2 = 181;      // 角度上的噪声格数：约 460 m / 160 m 尺度（R≈4.5 km 时）
+    const t1 = new Float32Array(n1), t2 = new Float32Array(n2);
+    for (let i = 0; i < n1; i++) t1[i] = rnd() * 2.0 - 1.0;
+    for (let i = 0; i < n2; i++) t2[i] = rnd() * 2.0 - 1.0;
+    for (let i = 0; i < KS; i++) {
+        const th = (i / KS) * Math.PI * 2.0;
+        let r = 1.0;
+        for (let k = 0; k < ks.length; k++) r += ka[k] * Math.sin(ks[k] * th + kp[k]);
+        if (r < 0.30) r = 0.30;
+        tabS[i] = r * R0;
+    }
+    for (let i = 0; i < K; i++) {
+        const th = (i / K) * Math.PI * 2.0;
+        let r = 1.0;
+        for (let k = 0; k < ks.length; k++) r += ka[k] * Math.sin(ks[k] * th + kp[k]);
+        r += 0.048 * isl_tab_noise(t1, th, n1);
+        r += 0.016 * isl_tab_noise(t2, th, n2);
+        if (r < 0.30) r = 0.30;
+        tab[i] = r * R0;
+    }
+    return { detail: tab, smooth: tabS };
+}
+
+// 周期表采样（线性插值 + 回绕）
+function isl_tab_sample(tab, K, th) {
+    let u = th * (K / (Math.PI * 2.0));
+    u -= K * Math.floor(u / K);
+    const i0 = u | 0;
+    const f = u - i0;
+    const a = tab[i0];
+    const b = tab[i0 + 1 < K ? i0 + 1 : 0];
+    return a + (b - a) * f;
+}
+
+function isl_coast_r(is, th) { return isl_tab_sample(is.coast, 512, th); }
+function isl_coast_rs(is, th) { return isl_tab_sample(is.coastS, 64, th); }
+
+// 单座岛的高程场（m，相对平均海平面）。d 为到岛心的水平距离。
+function isl_field_at(is, x, z) {
+    const dx = x - is.cx, dz = z - is.cz;
+    const d2 = dx * dx + dz * dz;
+    if (d2 > is.rOut2) return -ISL_DEEP;
+    const d = Math.sqrt(d2);
+    const th = Math.atan2(dz, dx);
+    const rc = isl_coast_r(is, th);
+    const rcS = isl_coast_rs(is, th);
+    if (d >= rc) {
+        // 海床：从海线迅速跌到陆架深度，再渐近深海。
+        // 近岸跟随曲折海线，离岸 500 m 后过渡到平滑海线（低阶谐波）——
+        // 否则曲折细节的外偏移会在浅水里产生放射状自交条纹。
+        const dOut = d - rc;
+        const w = wo_smoothstep(0.0, 500.0, dOut);
+        const dEff = d - (rc + (rcS - rc) * w);
+        if (dEff <= 0.0) return 0.0;
+        return -ISL_DEEP * (1.0 - Math.exp(-dEff / is.shelfLen));
+    }
+    const inv = 1.0 - d / rc;                 // 0 = 海线，1 = 岛心
+    let hh = is.peak * Math.pow(inv, is.domeExp);
+    // 丘陵：海线附近淡出，保证沙滩与水线干净
+    const fade = wo_smoothstep(0.02, 0.45, inv);
+    if (fade > 0.0) {
+        const nx = (x + ISL_HALF) * (1.0 / ISL_WORLD);
+        const nz = (z + ISL_HALF) * (1.0 / ISL_WORLD);
+        // 丘陵（fbm）+ 山脊（ridged fbm）：后者让山体有脊线，而不只是一个圆包。
+        // cells 取与跨度相同的整数 → 噪声在世界贴图边界处自然回绕，无接缝。
+        // 域扭曲：把采样坐标先按低频噪声推开半格，消除值噪声在方格点上的“绗缝”感
+        const wx = (wo_valueNoiseTile(nx * 8.0, nz * 8.0, 8, is.nseed + 31) - 0.5) * 0.9;
+        const wz = (wo_valueNoiseTile(nx * 8.0 + 3.0, nz * 8.0 + 5.0, 8, is.nseed + 57) - 0.5) * 0.9;
+        const hx = nx * is.hillScale + wx, hz = nz * is.hillScale + wz;
+        const f1 = wo_fbmTile(hx, hz, is.hillScale, 5, is.nseed) - 0.5;
+        const f2r = wo_fbmTile(hx * 2.0, hz * 2.0, is.hillScale * 2, 4, is.nseed + 7);
+        const f2 = (1.0 - Math.abs(2.0 * f2r - 1.0)) - 0.5;
+        hh += (f1 * 0.60 + f2 * 0.40) * 2.0 * is.hillAmp * fade;
+        if (is.peakAdd > 0.0) {
+            const ax = dx - is.px, az = dz - is.pz;
+            hh += is.peakAdd * fade * Math.exp(-(ax * ax + az * az) / is.peakR2);
+        }
+    }
+    if (hh > is.hCap) hh = is.hCap;
+    // 海线附近的细碎起伏：把水线打成锯齿状（小海湾、小岬角、偶尔一条泻湖）。
+    // 只在 |h| < 14 m 的窄带里算，代价可忽略；幅度远小于海线坡度所需的 10 m 量级。
+    if (hh > -14.0 && hh < 14.0) {
+        const nx2 = (x + ISL_HALF) * (1.0 / ISL_WORLD);
+        const nz2 = (z + ISL_HALF) * (1.0 / ISL_WORLD);
+        const w2 = 1.0 - Math.abs(hh) * (1.0 / 14.0);
+        const rp = wo_fbmTile(nx2 * 220.0, nz2 * 220.0, 44, 3, is.nseed + 977) - 0.5;
+        hh += rp * 3.6 * w2 * w2;
+    }
+    return hh;
+}
+
+function isl_make(cx, cz, R0, rnd, hs) {
+    const ct = isl_coast_table(rnd, R0);
+    const coast = ct.detail;
+    let rLand = 0.0;
+    for (let i = 0; i < coast.length; i++) if (coast[i] > rLand) rLand = coast[i];
+    const peak = R0 * (0.095 + rnd() * 0.115) * hs;
+    const az = rnd() * Math.PI * 2.0;
+    const pd = rLand * (0.20 + rnd() * 0.25);
+    const rOut = rLand + 2600.0;
+    return {
+        cx: cx, cz: cz, coast: coast, coastS: ct.smooth, rLand: rLand,
+        rOut: rOut, rOut2: rOut * rOut,
+        peak: peak,
+        domeExp: 1.12 + rnd() * 0.22,
+        hillAmp: peak * (0.18 + rnd() * 0.14),
+        hillScale: 18 + Math.floor(rnd() * 16),
+        peakAdd: peak * (0.20 + rnd() * 0.35),
+        peakR2: Math.pow(R0 * (0.26 + rnd() * 0.14), 2.0),
+        px: Math.cos(az) * pd, pz: Math.sin(az) * pd,
+        shelfLen: 950.0 + rnd() * 550.0,
+        hCap: 980.0,
+        nseed: (rnd() * 2147483647) | 0,
+    };
+}
+
+// 岛屿布局：一座「主角岛」靠在相机起点附近（海岸 2.6~5.2 km），
+// 外加 2~3 座随机大小、互不重叠的岛。海床可以越过贴图边界（周期里自然接续），
+// 陆地则保持在边界内，避免一座岛被切到世界两端。
+function isl_layout(rnd) {
+    const list = [];
+    for (let att = 0; att < 60; att++) {
+        const R0 = 3400.0 + rnd() * 1200.0;
+        const az = rnd() * Math.PI * 2.0;
+        const dist = R0 + 2600.0 + rnd() * 2400.0;
+        const cx = Math.cos(az) * dist, cz = Math.sin(az) * dist;
+        const is = isl_make(cx, cz, R0, rnd, 1.0);
+        if (Math.abs(cx) + is.rLand > 12100.0) continue;
+        if (Math.abs(cz) + is.rLand > 12100.0) continue;
+        list.push(is);
+        break;
+    }
+    if (list.length === 0) list.push(isl_make(0.0, -7000.0, 3200.0, rnd, 1.0));
+
+    const want = 2 + Math.floor(rnd() * 2.0);
+    for (let k = 0; k < want; k++) {
+        for (let att = 0; att < 240; att++) {
+            const R0 = 1400.0 + rnd() * 2800.0;
+            const cx = (rnd() * 2.0 - 1.0) * 11200.0;
+            const cz = (rnd() * 2.0 - 1.0) * 11200.0;
+            if (Math.abs(cx) + R0 * 1.33 > 12000.0) continue;
+            if (Math.abs(cz) + R0 * 1.33 > 12000.0) continue;
+            let ok = true;
+            for (let i = 0; i < list.length; i++) {
+                const o = list[i];
+                const ddx = cx - o.cx, ddz = cz - o.cz;
+                if (Math.sqrt(ddx * ddx + ddz * ddz) < o.rLand + R0 * 1.33 + 2900.0) { ok = false; break; }
+            }
+            if (!ok) continue;
+            list.push(isl_make(cx, cz, R0, rnd, 0.8 + rnd() * 0.45));
+            break;
+        }
+    }
+    return list;
+}
+
+// 生成世界高程场与两级粗网格。seed 相同则结果确定。
+function isl_generate(seed) {
+    const t0 = (typeof performance !== 'undefined') ? performance.now() : Date.now();
+    seed = seed >>> 0;
+    const rnd = wo_mulberry32(seed);
+    const islands = isl_layout(rnd);
+    const N = ISL_RES;
+    const h = new Float32Array(N * N);
+    h.fill(-ISL_DEEP);
+
+    for (let k = 0; k < islands.length; k++) {
+        const is = islands[k];
+        const bx0 = Math.max(0, Math.floor((is.cx - is.rOut + ISL_HALF) / ISL_TEXEL));
+        const bx1 = Math.min(N - 1, Math.ceil((is.cx + is.rOut + ISL_HALF) / ISL_TEXEL));
+        const bz0 = Math.max(0, Math.floor((is.cz - is.rOut + ISL_HALF) / ISL_TEXEL));
+        const bz1 = Math.min(N - 1, Math.ceil((is.cz + is.rOut + ISL_HALF) / ISL_TEXEL));
+        for (let j = bz0; j <= bz1; j++) {
+            const wz = (j + 0.5) * ISL_TEXEL - ISL_HALF;
+            const row = j * N;
+            for (let i = bx0; i <= bx1; i++) {
+                const wx = (i + 0.5) * ISL_TEXEL - ISL_HALF;
+                const v = isl_field_at(is, wx, wz);
+                if (v > h[row + i]) h[row + i] = v;
+            }
+        }
+    }
+
+    // ---- 近层粗网格：格内最大高程（保守上界，用于空域跳过）----
+    const C = ISL_COARSE, cs = (N / C) | 0;
+    const coarse = new Float32Array(C * C);
+    for (let j = 0; j < C; j++) {
+        for (let i = 0; i < C; i++) {
+            let m = -1e9;
+            for (let jj = 0; jj < cs; jj++) {
+                const row = (j * cs + jj) * N + i * cs;
+                for (let ii = 0; ii < cs; ii++) {
+                    const v = h[row + ii];
+                    if (v > m) m = v;
+                }
+            }
+            coarse[j * C + i] = m;
+        }
+    }
+    // ---- 远层粗网格 ----
+    const F = ISL_FAR, fs = (C / F) | 0;
+    const far = new Float32Array(F * F);
+    for (let j = 0; j < F; j++) {
+        for (let i = 0; i < F; i++) {
+            let m = -1e9;
+            for (let jj = 0; jj < fs; jj++) {
+                const row = (j * fs + jj) * C + i * fs;
+                for (let ii = 0; ii < fs; ii++) {
+                    const v = coarse[row + ii];
+                    if (v > m) m = v;
+                }
+            }
+            far[j * F + i] = m;
+        }
+    }
+    let maxH = -1e9;
+    for (let i = 0; i < h.length; i++) if (h[i] > maxH) maxH = h[i];
+
+    ISL_state.seed = seed;
+    ISL_state.h = h;
+    ISL_state.coarse = coarse;
+    ISL_state.far = far;
+    ISL_state.maxH = maxH;
+    ISL_state.islands = islands;
+    ISL_state.ready = true;
+    ISL_state.glDirty = true;
+    ISL_state.genMs = ((typeof performance !== 'undefined') ? performance.now() : Date.now()) - t0;
+    return ISL_state;
+}
+
+function isl_regen(seed) {
+    if (seed === undefined) seed = (Math.random() * 2147483647) | 0;
+    return isl_generate(seed);
+}
+
+function isl_ensure() {
+    if (!ISL_state.ready) isl_generate(ISL_state.seed || ((Math.random() * 2147483647) | 0));
+    return ISL_state;
+}
+
+// ---- 高程采样：双线性 + 周期回绕，与 GLSL texture() 的行为一致 ----
+function isl_height(px, pz) {
+    const H = ISL_state.h;
+    if (H === null) return -ISL_DEEP;
+    const N = ISL_RES;
+    const u = (px + ISL_HALF) / ISL_TEXEL - 0.5;
+    const v = (pz + ISL_HALF) / ISL_TEXEL - 0.5;
+    const i0 = Math.floor(u), j0 = Math.floor(v);
+    const fu = u - i0, fv = v - j0;
+    const i0c = ((i0 % N) + N) % N, i1c = i0c + 1 < N ? i0c + 1 : 0;
+    const j0c = ((j0 % N) + N) % N, j1c = j0c + 1 < N ? j0c + 1 : 0;
+    const r0 = j0c * N, r1 = j1c * N;
+    const a = H[r0 + i0c], b = H[r0 + i1c];
+    const c = H[r1 + i0c], d = H[r1 + i1c];
+    return (a + (b - a) * fu) * (1.0 - fv) + (c + (d - c) * fu) * fv;
+}
+
+// ---- 粗网格采样（最近邻，与 GLSL texture(NEAREST) 一致）----
+function isl_cell_max(px, pz, far) {
+    const N = far ? ISL_FAR : ISL_COARSE;
+    const arr = far ? ISL_state.far : ISL_state.coarse;
+    if (arr === null) return -1e9;
+    const cell = far ? ISL_FAR_CELL : ISL_COARSE_CELL;
+    let i = Math.floor((px + ISL_HALF) / cell);
+    let j = Math.floor((pz + ISL_HALF) / cell);
+    i = ((i % N) + N) % N;
+    j = ((j % N) + N) % N;
+    return arr[j * N + i];
+}
+
+// ---- 射线与地形求交（海洋系；相机在原点，d 为单位方向）----
+// 返回最近交点距离 t（m），未命中返回 -1。
+// 两级「格内最大高程」网格做粗筛，格子按 2D DDA 逐格穿越（不跳格）：
+// 只要射线在该格出口处仍高于格内最大高程，整格跳过；否则降到下一级网格。
+function isl_cell_exit(px, pz, dx, dz, cell) {
+    let tx = 1e9, tz = 1e9;
+    if (dx > 1e-9 || dx < -1e-9) {
+        const i = Math.floor((px + ISL_HALF) / cell);
+        tx = ((i + (dx > 0.0 ? 1.0 : 0.0)) * cell - ISL_HALF - px) / dx;
+    }
+    if (dz > 1e-9 || dz < -1e-9) {
+        const j = Math.floor((pz + ISL_HALF) / cell);
+        tz = ((j + (dz > 0.0 ? 1.0 : 0.0)) * cell - ISL_HALF - pz) / dz;
+    }
+    if (tx < 0.0) tx = 0.0;
+    if (tz < 0.0) tz = 0.0;
+    let out = tx < tz ? tx : tz;
+    // 贴边滑行时保证前进量：下限取格子尺寸的 0.2%。
+    // 不能用固定的 1e-3——几千米外的坐标在 float32 里已经只有毫米级分辨率，
+    // 微小的推进会被舍入回同一条格线，迭代次数被白白烧光（高空格线状漏渲染的成因）。
+    const minStep = 0.002 * cell;
+    if (out < minStep) out = minStep;
+    return out;
+}
+
+// 在 [tA,tB] 内按纹素步进取第一个交点（内部再二分到毫米级）
+function isl_fine_hit(cx, cy, cz, dx, dy, dz, tA, tB, hl) {
+    const step = 0.9 * ISL_TEXEL / hl;
+    let tPos = tA;
+    if (cy + dy * tPos - isl_height(cx + dx * tPos, cz + dz * tPos) <= 0.0) {
+        return tPos > 1e-3 ? tPos : 1e-3;
+    }
+    for (let i = 0; i < 48; i++) {
+        const tNext = tPos + step < tB ? tPos + step : tB;
+        if (cy + dy * tNext - isl_height(cx + dx * tNext, cz + dz * tNext) <= 0.0) {
+            let lo = tPos, hi = tNext;
+            for (let r = 0; r < 20; r++) {
+                const mid = 0.5 * (lo + hi);
+                if (cy + dy * mid - isl_height(cx + dx * mid, cz + dz * mid) > 0.0) lo = mid; else hi = mid;
+            }
+            return hi;
+        }
+        tPos = tNext;
+        if (tPos >= tB) break;
+    }
+    return -1.0;
+}
+
+function isl_ray_hit(cx, cy, cz, dx, dy, dz, tMax) {
+    if (!enable_islands || !ISL_state.ready) return -1.0;
+    const hl = Math.sqrt(dx * dx + dz * dz);
+    if (hl < 1e-7) return (cy <= isl_height(cx, cz)) ? 1e-3 : -1.0;
+    let tEnd = Math.min(tMax, ISL_WORLD / hl);   // 一个世界周期内找不到就不必再找
+    if (dy > 1e-9) {
+        // 上升射线：越过全图最高点后不可能再命中
+        const tLim = (ISL_state.maxH - cy) / dy;
+        if (tLim <= 0.0) return -1.0;
+        if (tLim < tEnd) tEnd = tLim;
+    }
+    if (!(tEnd > 0.0)) return -1.0;
+
+    let t = 0.0;
+    for (let i = 0; i < 24; i++) {
+        if (t >= tEnd) return -1.0;
+        const px = cx + dx * t, pz = cz + dz * t;
+        let tExit = t + isl_cell_exit(px, pz, dx, dz, ISL_FAR_CELL);
+        if (tExit > tEnd) tExit = tEnd;
+        if (tExit <= t) return -1.0;
+        // 远层：出口处仍高于格内最大高程 → 整格跳过
+        if (cy + dy * tExit > isl_cell_max(px + dx * 0.5, pz + dz * 0.5, true)) { t = tExit; continue; }
+        // 近层 DDA
+        let tn = t;
+        for (let j = 0; j < 32; j++) {
+            if (tn >= tExit) break;
+            const pnx = cx + dx * tn, pnz = cz + dz * tn;
+            let tnExit = tn + isl_cell_exit(pnx, pnz, dx, dz, ISL_COARSE_CELL);
+            if (tnExit > tExit) tnExit = tExit;
+            if (tnExit <= tn) break;
+            if (cy + dy * tnExit <= isl_cell_max(pnx + dx * 0.5, pnz + dz * 0.5, false)) {
+                const hit = isl_fine_hit(cx, cy, cz, dx, dy, dz, tn, tnExit, hl);
+                if (hit > 0.0) return hit;
+            }
+            tn = tnExit;
+        }
+        t = tExit;
+    }
+    return -1.0;
+}
+
+// ---- 岛屿地形着色（与 GLSL islShade 逐式对应）----
+// 阳光/天空环境全部取自与海面同一份 LUT，最终同样走 AgX，保证海陆色调一致。
+const ISL_shTmp = new Float64Array(4);
+const ISL_skyTmp = new Float64Array(3);
+const ISL_sunE = new Float64Array(3);
+function isl_shade(dx, dy, dz, tHit, out) {
+    const px = WO_CAM_XZ[0] + dx * tHit;
+    const pz = WO_CAM_XZ[1] + dz * tHit;
+
+    // 法线：差分步长随像素足迹放大（远处等效 mip 平滑，避免近处噪点、远处锯齿）
+    let e = tHit * WO_state.pixAng * 1.3;
+    if (e < ISL_TEXEL) e = ISL_TEXEL;
+    if (e > 200.0) e = 200.0;
+    const hx = (isl_height(px + e, pz) - isl_height(px - e, pz)) / (2.0 * e);
+    const hz = (isl_height(px, pz + e) - isl_height(px, pz - e)) / (2.0 * e);
+    const nl = 1.0 / Math.sqrt(hx * hx + 1.0 + hz * hz);
+    const nx = -hx * nl, ny = nl, nz = -hz * nl;
+
+    const hgt = isl_height(px, pz);
+    const slope = 1.0 - ny;
+
+    // ---- 反照率：草地绿（噪声调制）+ 陡坡偏岩 + 海线沙滩带 ----
+    // 反照率纹理按距离淡出到均值：远处像素足迹远大于纹理尺度，再叠纹理只会出重复的花格
+    const albW = 1.0 - wo_smoothstep(2500.0, 9000.0, tHit);
+    wo_tile_sample(WO_state.foamTex, 256, 1.0, px * 0.00042, pz * 0.00042, ISL_shTmp);
+    let n1 = wo_mix(0.5, ISL_shTmp[0] * (1.0 / 255.0), albW);
+    wo_tile_sample(WO_state.foamTex, 256, 1.0, px * 0.0019 + 0.31, pz * 0.0019, ISL_shTmp);
+    let n2 = wo_mix(0.5, ISL_shTmp[1] * (1.0 / 255.0), albW);
+    const n3 = wo_mix(0.5, ISL_shTmp[2] * (1.0 / 255.0), albW);
+    // 近距离（<~400 m）再叠一层 50 m 量级的植被斑驳，远处按像素足迹淡出
+    const detailW = 1.0 - wo_smoothstep(120.0, 900.0, tHit);
+    if (detailW > 0.01) {
+        wo_tile_sample(WO_state.foamTex, 256, 1.0, px * 0.021 + 0.13, pz * 0.021 + 0.57, ISL_shTmp);
+        n1 += (ISL_shTmp[2] * (1.0 / 255.0) - 0.5) * 0.20 * detailW;
+        n2 += (ISL_shTmp[0] * (1.0 / 255.0) - 0.5) * 0.16 * detailW;
+    }
+    const grassMix = n1 * 0.65 + n2 * 0.35;
+    let a0 = wo_mix(0.042, 0.105, grassMix);
+    let a1 = wo_mix(0.120 + 0.040 * n3, 0.245, grassMix);
+    let a2 = wo_mix(0.030, 0.062, grassMix);
+    const rock = wo_smoothstep(0.30, 0.75, slope) * 0.65;
+    a0 = wo_mix(a0, 0.100, rock);
+    a1 = wo_mix(a1, 0.095, rock);
+    a2 = wo_mix(a2, 0.078, rock);
+    const sand = wo_smoothstep(3.6, 0.45, hgt);
+    a0 = wo_mix(a0, 0.430, sand);
+    a1 = wo_mix(a1, 0.380, sand);
+    a2 = wo_mix(a2, 0.270, sand);
+
+    // ---- 太阳辐照与天空环境（与海面同一份 LUT）----
+    wo_sampleTransLut(WO_RG + WO_CAM_ALT_KM, WO_state.sunDir[1], ISL_sunE);
+    const sunE0 = ISL_sunE[0] * WO_SUN_SCALE;
+    const sunE1 = ISL_sunE[1] * WO_SUN_SCALE;
+    const sunE2 = ISL_sunE[2] * WO_SUN_SCALE;
+    wo_sky_atmo(0.0, 1.0, 0.0, ISL_skyTmp);
+    const skyUp0 = ISL_skyTmp[0], skyUp1 = ISL_skyTmp[1], skyUp2 = ISL_skyTmp[2];
+    let hemi0 = skyUp0 * 0.4, hemi1 = skyUp1 * 0.4, hemi2 = skyUp2 * 0.4;
+    const OB = [[0.94, 0.34, 0.0], [-0.94, 0.34, 0.0], [0.0, 0.34, 0.94], [0.0, 0.34, -0.94]];
+    for (let i = 0; i < 4; i++) {
+        wo_sky_atmo(OB[i][0], OB[i][1], OB[i][2], ISL_skyTmp);
+        hemi0 += ISL_skyTmp[0] * 0.15; hemi1 += ISL_skyTmp[1] * 0.15; hemi2 += ISL_skyTmp[2] * 0.15;
+    }
+    wo_sky_atmo(nx, ny, nz, ISL_skyTmp);
+    const skyN0 = ISL_skyTmp[0], skyN1 = ISL_skyTmp[1], skyN2 = ISL_skyTmp[2];
+    const NdL = Math.max(nx * WO_state.sunDir[0] + ny * WO_state.sunDir[1] + nz * WO_state.sunDir[2], 0.0);
+    // 直射项系数与泡沫一致（0.318 ≈ 1/π）；天空环境光先向亮度去饱和再压低，
+    // 否则蓝天的高蓝光会把草地染成青灰（海面泡沫用同一份环境光，但它本来就该变白）。
+    const amb0 = hemi0 + skyN0 * 0.35, amb1 = hemi1 + skyN1 * 0.35, amb2 = hemi2 + skyN2 * 0.35;
+    const ambL = 0.2126 * amb0 + 0.7152 * amb1 + 0.0722 * amb2;
+    const e0 = wo_mix(amb0, ambL, 0.40) * 0.90;
+    const e1 = wo_mix(amb1, ambL, 0.40) * 0.90;
+    const e2 = wo_mix(amb2, ambL, 0.40) * 0.90;
+    let col0 = a0 * (sunE0 * NdL * 0.318 * 0.5 + e0);
+    let col1 = a1 * (sunE1 * NdL * 0.318 * 0.5 + e1);
+    let col2 = a2 * (sunE2 * NdL * 0.318 * 0.5 + e2);
+
+    // ---- 大气透视（与海面同一条雾）----
+    const Td = Math.exp(-WO_FOG_FLOOR * tHit);
+    const hzl = 1.0 / Math.sqrt(dx * dx + 0.002 * 0.002 + dz * dz);
+    wo_sky_atmo(dx * hzl, 0.002, dz * hzl, ISL_skyTmp);
+    col0 = col0 * Td + ISL_skyTmp[0] * (1.0 - Td);
+    col1 = col1 * Td + ISL_skyTmp[1] * (1.0 - Td);
+    col2 = col2 * Td + ISL_skyTmp[2] * (1.0 - Td);
+
+    const o = wo_agx_tonemap(col0, col1, col2);
+    out[0] = o[0]; out[1] = o[1]; out[2] = o[2];
+    return out;
+}
+
 // ---- 每帧预处理：时间推进 / 太阳方向 / LUT 构建 / 波场烘焙 ----
 let wo_time_freeze = false;   // 调试/测试用：冻结海面动画时间（CPU 与 GL 逐像素对比时置 true）
 function wo_prepare_frame(sun_alt, sun_azi, view_f, sky_radius) {
@@ -9897,6 +10431,7 @@ function wo_prepare_frame(sun_alt, sun_azi, view_f, sky_radius) {
         WO_state.lutDirty = true;
     }
     wo_ensure_waves();
+    isl_ensure();
 }
 
 // Smith 掩蔽项（web-ocean lambdaSmith；w 为方向，cov 为坡度协方差）
@@ -9917,18 +10452,16 @@ function wo_fresnel_water(c) {
     return 0.02 + 0.98 * x2 * x2 * x;
 }
 
-// ---- 海洋逐像素着色（web-ocean ocean.js fs 移植；d 为海洋系单位方向，d.y<0）----
-const WO_foamTmp = new Float64Array(4);
-const WO_slTmpA = new Float64Array(4), WO_slTmpB = new Float64Array(4);
-const WO_skyTmp2 = new Float64Array(3);
-const WO_sunETmp = new Float64Array(3);
-function wo_ocean_pixel(dx, dy, dz, out) {
+// ---- 海面求交（射线步进；返回最近海面距离 t，未命中返回 -1）----
+// maxDist 用于限制搜索范围（岛体求交时只需找比岛更近的海面）。
+function wo_ocean_march(dx, dy, dz, maxDist) {
+    if (dy >= -1e-4) return -1.0;
     const t = WO_state.appTime;
     const camY = WO_CAM_Y;
     const camX = WO_CAM_XZ[0], camZ = WO_CAM_XZ[1];
 
-    // ---- 射线步进求交 ----
     const tPlane = -camY / dy;
+    if (tPlane > maxDist) return -1.0;
     let tHit = tPlane;
     if (tPlane <= WO_MARCH_FAR) {
         const tEnd = tPlane * 0.999;
@@ -9957,6 +10490,19 @@ function wo_ocean_pixel(dx, dy, dz, out) {
         }
         if (!hit) tHit = tPlane;
     }
+    if (tHit > maxDist) return -1.0;
+    return tHit;
+}
+
+// ---- 海洋逐像素着色（web-ocean ocean.js fs 移植）；tHit 由 wo_ocean_march 给出 ----
+const WO_foamTmp = new Float64Array(4);
+const WO_slTmpA = new Float64Array(4), WO_slTmpB = new Float64Array(4);
+const WO_skyTmp2 = new Float64Array(3);
+const WO_sunETmp = new Float64Array(3);
+function wo_ocean_pixel(dx, dy, dz, tHit, out) {
+    const t = WO_state.appTime;
+    const camY = WO_CAM_Y;
+    const camX = WO_CAM_XZ[0], camZ = WO_CAM_XZ[1];
 
     const dist = tHit;
     const px = camX + dx * tHit, pz = camZ + dz * tHit;
@@ -10083,6 +10629,24 @@ function wo_ocean_pixel(dx, dy, dz, out) {
         body2 += WO_SSS_COL[2] * sunE2 * k1;
     }
 
+    // ---- 浅水：海底高程（岛屿高程场的负值部分）决定水色与拍岸泡沫 ----
+    // 深度取自高程图：近岸 10 m 以内水体明显偏青绿，越过陆架（约 40 m）回到深水色。
+    // 距离很远时海面交点已超出岛屿高程场的有效范围（周期贴图副本会随机落在陆地上），
+    // 且雾早已把那里压成天色，索性淡出浅水项，避免出现颗粒状伪色。
+    const nearIsl = 1.0 - wo_smoothstep(12000.0, 20000.0, dist);
+    const bathy = (enable_islands && nearIsl > 0.0) ? isl_height(px, pz) : -ISL_DEEP;
+    const depth = bathy < 0.0 ? -bathy : 0.0;
+    const shal = Math.exp(-depth * 0.115) * nearIsl;
+    if (shal > 0.004) {
+        const sdY = Math.max(WO_state.sunDir[1], 0.0);
+        const k0 = hemi0 * 1.6 + sunE0 * sdY * 0.8;
+        const k1 = hemi1 * 1.6 + sunE1 * sdY * 0.8;
+        const k2 = hemi2 * 1.6 + sunE2 * sdY * 0.8;
+        body0 = wo_mix(body0, WO_SHALLOW_COL[0] * k0, shal * 0.9);
+        body1 = wo_mix(body1, WO_SHALLOW_COL[1] * k1, shal * 0.9);
+        body2 = wo_mix(body2, WO_SHALLOW_COL[2] * k2, shal * 0.9);
+    }
+
     // ---- 泡沫 ----
     const J = 1.0 + jt;  // 雅可比行列式（仅存迹channel，J ≈ 1 + trace）
     const fresh = wo_clamp((WO_FOAM_J_THRESH - J) * WO_FOAM_J_GAIN, 0.0, 1.0);
@@ -10125,6 +10689,18 @@ function wo_ocean_pixel(dx, dy, dz, out) {
     col0 = wo_mix(col0, foamLit0, foamMask * 0.95);
     col1 = wo_mix(col1, foamLit1, foamMask * 0.95);
     col2 = wo_mix(col2, foamLit2, foamMask * 0.95);
+
+    // ---- 拍岸泡沫：水深 3 m 以内的窄带里一条断续、缓慢推移的白带 ----
+    if (depth < 3.4 && nearIsl > 0.0) {
+        const band = wo_smoothstep(3.2, 0.20, depth);
+        wo_tile_sample(WO_state.foamTex, 256, 1.0,
+            px * 0.055, pz * 0.055 + 0.02 * t, WO_foamTmp);
+        const sn = WO_foamTmp[2] / 255.0 * 0.65 + WO_foamTmp[1] / 255.0 * 0.35;
+        const surf = band * wo_smoothstep(0.34, 0.60, sn + 0.06 * Math.sin(t * 0.8)) * 0.9;
+        col0 = wo_mix(col0, foamLit0, surf);
+        col1 = wo_mix(col1, foamLit1, surf);
+        col2 = wo_mix(col2, foamLit2, surf);
+    }
 
     // ---- 大气透视 ----
     const Td = Math.exp(-WO_FOG_FLOOR * dist);
@@ -10170,19 +10746,25 @@ function draw_ocean_landscape(
         return;
     }
 
-    // CPU 路径：逐像素步进着色
+    // CPU 路径：逐像素步进着色（岛体优先于海面；地平线以上只可能是岛体）
     const out = [0.0, 0.0, 0.0];
+    const cxw = WO_CAM_XZ[0], cyw = WO_CAM_Y, czw = WO_CAM_XZ[1];
     for (let y = 0; y < fb_height; y++) {
         for (let x = 0; x < fb_width; x++) {
             const ray = fisheye_unproject(x, y, R, center_x, center_y, view_alt, view_azi, view_roll, f);
-            if (ray[2] >= 0.0) continue;   // 地平线以上属于天空
             // 换算到海洋系（x东, y上, z北）
             let dx = ray[0], dy = ray[2], dz = ray[1];
             const dl = Math.sqrt(dx * dx + dy * dy + dz * dz);
             if (dl < 1e-9) continue;
             dx /= dl; dy /= dl; dz /= dl;
-            if (dy >= -1e-4) continue;
-            wo_ocean_pixel(dx, dy, dz, out);
+            let tOcean = -1.0;
+            if (ray[2] < 0.0) tOcean = wo_ocean_march(dx, dy, dz, 1e9);
+            // 岛体只在比海面更近时可见（地平线以上没有海面，故搜索整个周期）
+            const tIsl = isl_ray_hit(cxw, cyw, czw, dx, dy, dz,
+                tOcean > 0.0 ? tOcean : 1e12);
+            if (tIsl > 0.0) isl_shade(dx, dy, dz, tIsl, out);
+            else if (tOcean > 0.0) wo_ocean_pixel(dx, dy, dz, tOcean, out);
+            else continue;
             const idx = (y * fb_width + x) * 4;
             frame_buffer[idx] = Math.min(255, out[0] * 255.0);
             frame_buffer[idx + 1] = Math.min(255, out[1] * 255.0);
@@ -10308,6 +10890,30 @@ const OceanSkyWebGL = {
         gl.bindTexture(gl.TEXTURE_2D, this.texFoam);
         gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, 1, 1, 0, gl.RGBA, gl.UNSIGNED_BYTE, new Uint8Array([0, 0, 0, 255]));
 
+        // 岛屿高程场：高程图用双线性（求交与法线都靠它），两级粗网格用最近邻
+        // （粗网格存的是格内最大高程，插值会破坏「保守上界」的语义）。
+        this.texIslH = mkRepeatTex();
+        const mkNearestRepeatTex = () => {
+            const t = gl.createTexture();
+            gl.bindTexture(gl.TEXTURE_2D, t);
+            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
+            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
+            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.REPEAT);
+            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.REPEAT);
+            return t;
+        };
+        this.texIslMax = mkNearestRepeatTex();
+        this.texIslFar = mkNearestRepeatTex();
+        // 占位：全负高程（无岛），待 islGenerate 上传真实数据
+        gl.texImage2D(gl.TEXTURE_2D, 0, gl.R16F, 1, 1, 0, gl.RED, gl.FLOAT,
+            new Float32Array([-70.0]));
+        gl.bindTexture(gl.TEXTURE_2D, this.texIslMax);
+        gl.texImage2D(gl.TEXTURE_2D, 0, gl.R16F, 1, 1, 0, gl.RED, gl.FLOAT,
+            new Float32Array([-70.0]));
+        gl.bindTexture(gl.TEXTURE_2D, this.texIslFar);
+        gl.texImage2D(gl.TEXTURE_2D, 0, gl.R16F, 1, 1, 0, gl.RED, gl.FLOAT,
+            new Float32Array([-70.0]));
+
         // uniform 位置
         const names = ['u_fb_width', 'u_fb_height', 'u_sky_radius', 'u_center_x', 'u_center_y',
             'u_view_alt', 'u_view_azi', 'u_view_roll', 'u_f', 'u_sun_dir', 'u_time', 'u_enable_fisheye_projection', 'u_wind_v',
@@ -10316,7 +10922,8 @@ const OceanSkyWebGL = {
             'u_scroll1', 'u_scroll2', 'u_L1', 'u_L2', 'u_cov', 'u_pix_ang',
             'u_water_col', 'u_unres', 'u_sss_col', 'u_sss_k',
             'u_foam_j_thresh', 'u_foam_j_gain', 'u_foam_intensity',
-            'u_fog_ext', 'u_fog_floor'];
+            'u_fog_ext', 'u_fog_floor',
+            'u_isl_h', 'u_isl_max', 'u_isl_far', 'u_isl_on', 'u_isl_maxh'];
         for (const n of names) {
             this.uniformsSky[n] = gl.getUniformLocation(this.skyProgram, n);
             this.uniformsOcean[n] = gl.getUniformLocation(this.oceanProgram, n);
@@ -10374,6 +10981,18 @@ const OceanSkyWebGL = {
             this.uploadedWaves = true;
             WO_state.glWavesDirty = false;
         }
+        // 岛屿高程场：Float32 数据 + R16F 内部格式，由 GL 完成 f16 转换
+        // （wo_toHalf 返回的是“值”而不是 16 位位型，不能直接塞进 Uint16Array）
+        if (ISL_state.ready && (!this.uploadedIsl || ISL_state.glDirty)) {
+            gl.bindTexture(gl.TEXTURE_2D, this.texIslH);
+            gl.texImage2D(gl.TEXTURE_2D, 0, gl.R16F, ISL_RES, ISL_RES, 0, gl.RED, gl.FLOAT, ISL_state.h);
+            gl.bindTexture(gl.TEXTURE_2D, this.texIslMax);
+            gl.texImage2D(gl.TEXTURE_2D, 0, gl.R16F, ISL_COARSE, ISL_COARSE, 0, gl.RED, gl.FLOAT, ISL_state.coarse);
+            gl.bindTexture(gl.TEXTURE_2D, this.texIslFar);
+            gl.texImage2D(gl.TEXTURE_2D, 0, gl.R16F, ISL_FAR, ISL_FAR, 0, gl.RED, gl.FLOAT, ISL_state.far);
+            this.uploadedIsl = true;
+            ISL_state.glDirty = false;
+        }
         if (this.uploadedSkyRef !== WO_state.skyLut || WO_state.glTransDirty) {
             this.uploadLutRGB(this.texSky, WO_SKY_W, WO_SKY_H, WO_state.skyLut);
             if (this.uploadedSkyRef === null || WO_state.glTransDirty) {
@@ -10419,6 +11038,8 @@ const OceanSkyWebGL = {
         gl.uniform1f(U.u_foam_intensity, WO_FOAM_INTENSITY);
         gl.uniform3f(U.u_fog_ext, WO_FOG_EXT[0], WO_FOG_EXT[1], WO_FOG_EXT[2]);
         gl.uniform1f(U.u_fog_floor, WO_FOG_FLOOR);
+        gl.uniform1f(U.u_isl_on, (enable_islands && ISL_state.ready) ? 1.0 : 0.0);
+        gl.uniform1f(U.u_isl_maxh, ISL_state.ready ? ISL_state.maxH : 0.0);
     },
 
     bindTextures: function (U) {
@@ -10433,6 +11054,12 @@ const OceanSkyWebGL = {
         gl.uniform1i(U.u_wave2, 3);
         gl.activeTexture(gl.TEXTURE4); gl.bindTexture(gl.TEXTURE_2D, this.texFoam);
         gl.uniform1i(U.u_foam_tex, 4);
+        gl.activeTexture(gl.TEXTURE5); gl.bindTexture(gl.TEXTURE_2D, this.texIslH);
+        gl.uniform1i(U.u_isl_h, 5);
+        gl.activeTexture(gl.TEXTURE6); gl.bindTexture(gl.TEXTURE_2D, this.texIslMax);
+        gl.uniform1i(U.u_isl_max, 6);
+        gl.activeTexture(gl.TEXTURE7); gl.bindTexture(gl.TEXTURE_2D, this.texIslFar);
+        gl.uniform1i(U.u_isl_far, 7);
     },
 
     renderFrame: function (program, U, params) {
@@ -10709,9 +11336,153 @@ uniform float u_foam_j_gain;
 uniform float u_foam_intensity;
 uniform vec3 u_fog_ext;
 uniform float u_fog_floor;
+uniform highp sampler2D u_isl_h;      // 1024^2 R16F 世界高程图（REPEAT + LINEAR）
+uniform highp sampler2D u_isl_max;    // 64^2 R16F 近层格内最大高程（REPEAT + NEAREST）
+uniform highp sampler2D u_isl_far;    // 8^2 R16F 远层格内最大高程（REPEAT + NEAREST）
+uniform float u_isl_on;               // 岛屿开关（0/1）
+uniform float u_isl_maxh;             // 全图最高点 m
 ` + WO_GLSL_COMMON + `
 const float HMAX = 2.2;
 const float MARCH_FAR = 900.0;
+
+// ---------------- 岛屿（高程场求交与着色）----------------
+// 与 JS 侧 isl_* 逐式对应；世界周期 25600 m = FLIGHT.CAM_WRAP
+const float ISL_WORLD = 25600.0;
+const float ISL_TEXEL = 25.0;
+const float ISL_HALF = 12800.0;
+const float ISL_COARSE_CELL = 400.0;
+const float ISL_FAR_CELL = 3200.0;
+
+float islHeight(vec2 xz) {
+    return texture(u_isl_h, (xz + ISL_HALF) * (1.0 / ISL_WORLD)).r;
+}
+float islCellMax(vec2 xz, bool farLev) {
+    vec2 uv = (xz + ISL_HALF) * (1.0 / ISL_WORLD);
+    return farLev ? texture(u_isl_far, uv).r : texture(u_isl_max, uv).r;
+}
+
+// 射线与地形求交：返回最近交点距离（m），未命中返回 -1。
+// 两级「格内最大高程」网格做粗筛，格子按 2D DDA 逐格穿越（不跳格）。
+float islCellExit(vec2 p, vec2 dir, float cell) {
+    // p / dir 的分量：(x, z)；vec2 只有 x/y 两个分量
+    float tx = 1e9, tz = 1e9;
+    if (abs(dir.x) > 1e-9) {
+        float i = floor((p.x + ISL_HALF) / cell);
+        tx = ((i + (dir.x > 0.0 ? 1.0 : 0.0)) * cell - ISL_HALF - p.x) / dir.x;
+    }
+    if (abs(dir.y) > 1e-9) {
+        float j = floor((p.y + ISL_HALF) / cell);
+        tz = ((j + (dir.y > 0.0 ? 1.0 : 0.0)) * cell - ISL_HALF - p.y) / dir.y;
+    }
+    if (tx < 0.0) tx = 0.0;
+    if (tz < 0.0) tz = 0.0;
+    // 最小推进量取格子尺寸的 0.2%：几千米外的坐标在 float32 里只有毫米级分辨率，
+    // 固定 1e-3 的前进会被舍入回同一条格线，把迭代次数烧光。
+    return max(min(tx, tz), 0.002 * cell);
+}
+
+// 在 [tA,tB] 内按纹素步进取第一个交点（内部二分到毫米级）
+float islFineHit(vec3 d, float hl, float tA, float tB) {
+    float step = 0.9 * ISL_TEXEL / hl;
+    float tPos = tA;
+    if (u_cam_y + d.y * tPos - islHeight(u_cam_xz + d.xz * tPos) <= 0.0) return max(tPos, 1e-3);
+    for (int i = 0; i < 48; i++) {
+        float tNext = min(tPos + step, tB);
+        if (u_cam_y + d.y * tNext - islHeight(u_cam_xz + d.xz * tNext) <= 0.0) {
+            float lo = tPos, hi = tNext;
+            for (int r = 0; r < 20; r++) {
+                float mid = 0.5 * (lo + hi);
+                if (u_cam_y + d.y * mid - islHeight(u_cam_xz + d.xz * mid) > 0.0) lo = mid; else hi = mid;
+            }
+            return hi;
+        }
+        tPos = tNext;
+        if (tPos >= tB) break;
+    }
+    return -1.0;
+}
+
+float islRayHit(vec3 d, float tMax) {
+    if (u_isl_on < 0.5) return -1.0;
+    float hl = length(d.xz);
+    if (hl < 1e-6) return (u_cam_y <= islHeight(u_cam_xz)) ? 1e-3 : -1.0;
+    float tEnd = min(tMax, ISL_WORLD / hl);
+    if (d.y > 1e-6) {
+        float tLim = (u_isl_maxh - u_cam_y) / d.y;
+        if (tLim <= 0.0) return -1.0;
+        tEnd = min(tEnd, tLim);
+    }
+    if (tEnd <= 0.0) return -1.0;
+
+    float t = 0.0;
+    for (int i = 0; i < 24; i++) {
+        if (t >= tEnd) return -1.0;
+        vec2 p = u_cam_xz + d.xz * t;
+        float tExit = min(tEnd, t + islCellExit(p, d.xz, ISL_FAR_CELL));
+        if (tExit <= t) return -1.0;
+        if (u_cam_y + d.y * tExit > islCellMax(p + d.xz * 0.5, true)) { t = tExit; continue; }
+        float tn = t;
+        for (int j = 0; j < 24; j++) {
+            if (tn >= tExit) break;
+            vec2 pn = u_cam_xz + d.xz * tn;
+            float tnExit = min(tExit, tn + islCellExit(pn, d.xz, ISL_COARSE_CELL));
+            if (tnExit <= tn) break;
+            if (u_cam_y + d.y * tnExit <= islCellMax(pn + d.xz * 0.5, false)) {
+                float hit = islFineHit(d, hl, tn, tnExit);
+                if (hit > 0.0) return hit;
+            }
+            tn = tnExit;
+        }
+        t = tExit;
+    }
+    return -1.0;
+}
+
+// 岛屿地形着色（与 JS isl_shade 逐式对应）
+vec3 islShade(vec3 d, float t) {
+    vec2 xz = u_cam_xz + d.xz * t;
+    float e = clamp(t * u_pix_ang * 1.3, ISL_TEXEL, 200.0);
+    float hx = (islHeight(xz + vec2(e, 0.0)) - islHeight(xz - vec2(e, 0.0))) / (2.0 * e);
+    float hz = (islHeight(xz + vec2(0.0, e)) - islHeight(xz - vec2(0.0, e))) / (2.0 * e);
+    vec3 nrm = normalize(vec3(-hx, 1.0, -hz));
+    float hgt = islHeight(xz);
+    float slope = 1.0 - nrm.y;
+
+    // 反照率：草地绿（噪声调制）+ 陡坡偏岩 + 海线沙滩带
+    float albW = 1.0 - smoothstep(2500.0, 9000.0, t);
+    float n1 = mix(0.5, texture(u_foam_tex, xz * 0.00042).r, albW);
+    float n2 = mix(0.5, texture(u_foam_tex, xz * 0.0019 + vec2(0.31, 0.0)).g, albW);
+    float n3 = mix(0.5, texture(u_foam_tex, xz * 0.0019 + vec2(0.31, 0.0)).b, albW);
+    float detailW = 1.0 - smoothstep(120.0, 900.0, t);
+    if (detailW > 0.01) {
+        n1 += (texture(u_foam_tex, xz * 0.021 + vec2(0.13, 0.57)).b - 0.5) * 0.20 * detailW;
+        n2 += (texture(u_foam_tex, xz * 0.021 + vec2(0.13, 0.57)).r - 0.5) * 0.16 * detailW;
+    }
+    float grassMix = n1 * 0.65 + n2 * 0.35;
+    vec3 alb = mix(vec3(0.042, 0.120 + 0.040 * n3, 0.030), vec3(0.105, 0.245, 0.062), grassMix);
+    float rock = smoothstep(0.30, 0.75, slope) * 0.65;
+    alb = mix(alb, vec3(0.100, 0.095, 0.078), rock);
+    float sand = smoothstep(3.6, 0.45, hgt);
+    alb = mix(alb, vec3(0.430, 0.380, 0.270), sand);
+
+    // 太阳辐照与天空环境（与海面同一份 LUT）
+    vec3 sunE = texture(u_trans_lut, wo_transRMuToUV(RG + u_cam_alt_km, u_sun_dir.y)).rgb * SUN_SCALE;
+    vec3 skyUp = wo_sky_atmo(vec3(0.0, 1.0, 0.0));
+    vec3 hemi = skyUp * 0.4 + 0.15 * (
+        wo_sky_atmo(vec3(0.94, 0.34, 0.0)) + wo_sky_atmo(vec3(-0.94, 0.34, 0.0)) +
+        wo_sky_atmo(vec3(0.0, 0.34, 0.94)) + wo_sky_atmo(vec3(0.0, 0.34, -0.94)));
+    vec3 skyN = wo_sky_atmo(nrm);
+    float NdL = max(dot(nrm, u_sun_dir), 0.0);
+    vec3 amb = hemi + skyN * 0.35;
+    float ambL = dot(amb, vec3(0.2126, 0.7152, 0.0722));
+    vec3 ambN = mix(amb, vec3(ambL), 0.40) * 0.90;
+    vec3 col = alb * (sunE * NdL * 0.318 * 0.5 + ambN);
+
+    float Td = exp(-u_fog_floor * t);
+    vec3 hz2 = normalize(vec3(d.x, 0.002, d.z));
+    col = col * Td + wo_sky_atmo(hz2) * (1.0 - Td);
+    return wo_agx_tonemap(col);
+}
 
 // 两级波场之和 (h, sx, sz, jt)
 vec4 waveField(vec2 xz, float t) {
@@ -10742,9 +11513,11 @@ float fresnelWater(float c) {
     return 0.02 + 0.98 * x2 * x2 * x;
 }
 
-vec3 woOceanShade(vec3 d, float t) {
+// 海面求交：返回最近海面距离（m），未命中返回 -1。maxDist 用于「岛体更近」的裁剪。
+float woOceanMarch(vec3 d, float maxDist, float t) {
     // ---- 射线步进求交（波场按世界坐标采样，相机水平移动即产生相对运动）----
     float tPlane = -u_cam_y / d.y;
+    if (tPlane > maxDist) return -1.0;
     float tHit = tPlane;
     if (tPlane <= MARCH_FAR) {
         float tEnd = tPlane * 0.999;
@@ -10774,7 +11547,11 @@ vec3 woOceanShade(vec3 d, float t) {
         }
         if (!hit) tHit = tPlane;
     }
+    if (tHit > maxDist) return -1.0;
+    return tHit;
+}
 
+vec3 woOceanShade(vec3 d, float tHit, float t) {
     float dist = tHit;
     vec2 xz = d.xz * tHit + u_cam_xz;
     vec3 V = -d;
@@ -10858,6 +11635,17 @@ vec3 woOceanShade(vec3 d, float t) {
         body += u_sss_col * sunE * k1;
     }
 
+    // ---- 浅水：海底高程（岛屿高程场的负值部分）决定水色与拍岸泡沫 ----
+    // 超远距离淡出浅水项（交点已超出高程场有效范围，且雾已压成天色）
+    float nearIsl = 1.0 - smoothstep(12000.0, 20000.0, dist);
+    float bathy = (u_isl_on > 0.5 && nearIsl > 0.0) ? islHeight(xz) : -70.0;
+    float depth = max(-bathy, 0.0);
+    float shal = exp(-depth * 0.115) * nearIsl;
+    if (shal > 0.004) {
+        vec3 kS = skyHemi * 1.6 + sunE * max(Ld.y, 0.0) * 0.8;
+        body = mix(body, vec3(0.055, 0.190, 0.150) * kS, shal * 0.9);
+    }
+
     // ---- 泡沫 ----
     float J = 1.0 + jt;   // 雅可比行列式（仅存迹分量，J ≈ 1 + trace）
     float fresh = clamp((u_foam_j_thresh - J) * u_foam_j_gain, 0.0, 1.0);
@@ -10883,6 +11671,15 @@ vec3 woOceanShade(vec3 d, float t) {
     vec3 col = body * (1.0 - Fr) + refl * Fr + spec;
     col = mix(col, foamLit, foamMask * 0.95);
 
+    // ---- 拍岸泡沫：水深 3 m 以内的窄带里一条断续、缓慢推移的白带 ----
+    if (depth < 3.4 && nearIsl > 0.0) {
+        float band = (1.0 - smoothstep(0.20, 3.2, depth)) * nearIsl;
+        float sn = texture(u_foam_tex, xz * 0.055 + vec2(0.0, 0.02 * t)).b * 0.65
+                 + texture(u_foam_tex, xz * 0.055 + vec2(0.0, 0.02 * t)).g * 0.35;
+        float surf = band * smoothstep(0.34, 0.60, sn + 0.06 * sin(t * 0.8)) * 0.9;
+        col = mix(col, foamLit, surf);
+    }
+
     // ---- 大气透视 ----
     float Td = exp(-u_fog_floor * dist);
     vec3 hz = normalize(vec3(-V.x, 0.002, -V.z));
@@ -10895,14 +11692,18 @@ vec3 woOceanShade(vec3 d, float t) {
 void main() {
     vec2 scr = floor(v_texCoord * vec2(u_fb_width, u_fb_height));
     vec3 rl = fisheye_unproject(scr);
-    if (rl.z >= 0.0) { fragColor = vec4(0.0, 0.0, 0.0, 0.0); return; }
     vec3 d = vec3(rl.x, rl.z, rl.y);   // 页面地平系 -> 海洋系（y 上）
     float dl = length(d);
     if (dl < 1e-9) { fragColor = vec4(0.0, 0.0, 0.0, 0.0); return; }
     d /= dl;
-    if (d.y >= -1e-4) { fragColor = vec4(0.0, 0.0, 0.0, 0.0); return; }
-    vec3 c = woOceanShade(d, u_time);
-    fragColor = vec4(c, 1.0);
+    bool below = (rl.z < 0.0) && (d.y < -1e-4);
+    // 先求海面（有海面才有「海面更近」的上界），再求岛体：岛体优先，其次是海面，
+    // 都没有就留空（地平线以上属于天空，alpha=0 由调用方保留）。
+    float tOcean = below ? woOceanMarch(d, 1e9, u_time) : -1.0;
+    float tIsl = islRayHit(d, tOcean > 0.0 ? tOcean : 1e12);
+    if (tIsl > 0.0) { fragColor = vec4(islShade(d, tIsl), 1.0); return; }
+    if (tOcean > 0.0) { fragColor = vec4(woOceanShade(d, tOcean, u_time), 1.0); return; }
+    fragColor = vec4(0.0, 0.0, 0.0, 0.0);
 }
 `;
 
@@ -10978,6 +11779,7 @@ function wo_apply_slider(key, value) {
 }
 
 // 构建滑块控件（脚本位于 body 末尾，DOM 已就绪；仅执行一次）
+let ISL_UI_SYNC = null;      // 岛屿参数行刷新钩子（生成/重建后调用）
 let wo_sliders_ready = false;
 const WO_SLIDER_CONTROLS = {};   // key → { inp, val }，供飞行模拟回写“观察高度”显示
 function wo_init_sliders() {
@@ -11012,6 +11814,48 @@ function wo_init_sliders() {
         box.appendChild(row);
         WO_SLIDER_CONTROLS[key] = { inp: inp, val: val, entry: entry };
     }
+
+    // ---- 岛屿：显示开关 + 重新随机生成 ----
+    const rowI = document.createElement('div');
+    rowI.className = 'ocean_slider_row';
+    const lblI = document.createElement('span');
+    lblI.className = 'osl_name';
+    lblI.textContent = '岛屿';
+    const bToggle = document.createElement('button');
+    bToggle.className = 'osl_btn';
+    bToggle.textContent = '显示';
+    const bRegen = document.createElement('button');
+    bRegen.className = 'osl_btn';
+    bRegen.textContent = '重新生成';
+    const valI = document.createElement('span');
+    valI.className = 'osl_val';
+    valI.style.width = '96px';
+    const syncIsl = () => {
+        bToggle.textContent = enable_islands ? '显示' : '隐藏';
+        bToggle.classList.toggle('off', !enable_islands);
+        bRegen.classList.toggle('off', !enable_islands);
+        const st = ISL_state;
+        if (!st.ready) { valI.textContent = '-'; return; }
+        let maxD = 0.0;
+        for (let i = 0; i < st.islands.length; i++) {
+            const d2 = st.islands[i].rLand * 2.0;
+            if (d2 > maxD) maxD = d2;
+        }
+        valI.textContent = st.islands.length + ' 座 ' + (maxD / 1000).toFixed(1) + ' km';
+    };
+    bToggle.addEventListener('click', () => { enable_islands = !enable_islands; syncIsl(); });
+    bRegen.addEventListener('click', () => {
+        isl_regen();
+        enable_islands = true;
+        syncIsl();
+    });
+    rowI.appendChild(lblI);
+    rowI.appendChild(bToggle);
+    rowI.appendChild(bRegen);
+    rowI.appendChild(valI);
+    box.appendChild(rowI);
+    ISL_UI_SYNC = syncIsl;
+    syncIsl();
 }
 wo_init_sliders();
 
@@ -12998,7 +13842,10 @@ const FLIGHT = {
     SPEED_EFF_V: 38.0,      // 舵效达到满值的空速 m/s
     SPEED_EFF_MIN: 0.35,
 
-    CAM_WRAP: 12800.0,      // 海洋世界坐标回绕周期 m（512 与 16 的公倍数，且整除以 px 为坐标的程序化泡沫图案周期；风向条纹项在回绕点有极轻微跳变，默认泡沫关闭）
+    // 海洋/岛屿世界坐标回绕周期 m：必须是波场平铺周期（512、16）的整数倍，
+    // 同时必须等于岛屿高程场周期 ISL_WORLD（25600），否则回绕时岛体会瞬移。
+    // 风向条纹项在回绕点有极轻微跳变，默认泡沫关闭。
+    CAM_WRAP: 25600.0,
     CAM_MIN_Y: 2.5,         // 海洋渲染的相机最低高度 m
     CAM_CLEARANCE: 1.5,     // 相机与浪面之间的最小间隙 m
 
@@ -13160,6 +14007,13 @@ function flight_apply_world(nowMs) {
         if (WO_state.wavesReady) {
             const seaH = wo_height_at(WO_CAM_XZ[0], WO_CAM_XZ[1], WO_state.appTime);
             if (Number.isFinite(seaH)) camY = Math.max(camY, seaH + FLIGHT.CAM_CLEARANCE);
+        }
+        // 岛屿地形：相机不得钻进山体（贴地飞行时沿陆面起伏）
+        if (enable_islands && ISL_state.ready) {
+            const landH = isl_height(WO_CAM_XZ[0], WO_CAM_XZ[1]);
+            if (Number.isFinite(landH) && camY < landH + FLIGHT.CAM_CLEARANCE) {
+                camY = landH + FLIGHT.CAM_CLEARANCE;
+            }
         }
         WO_CAM_Y = camY;
         WO_CAM_ALT_KM = camY / 1000.0;
@@ -16559,6 +17413,12 @@ function init() {
                     cloudSkyState.noiseReady = true;
                 }
             }
+
+            // 阶段 2.5：生成岛屿高程场（1024^2 纹素，约 70 ms，与波场烘焙同级）
+            loading_status.textContent = "正在生成岛屿地形…";
+            await loading_yield();
+            isl_ensure();
+            if (ISL_UI_SYNC) ISL_UI_SYNC();
 
             // 阶段 3：渲染第一帧（内含散射 LUT 预计算等剩余初始化），完成后关闭模态框
             loading_status.textContent = "正在渲染第一帧…";
