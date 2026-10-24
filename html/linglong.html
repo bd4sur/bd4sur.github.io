@@ -1508,8 +1508,8 @@ body.is-day .ak_socket {
                     <li>体积云的观察者在三维云场中移动：飞行控制页内观察点完全取飞机位置——爬升会真正进入云层（视野被云包围、逐步白化），穿云到云顶之上可向下俯视云海，水平飞行时云场固定在世界坐标中、云与飞机的相对位置一一对应，观察高度严格取飞机海拔（按球面半径反算，水平飞远不会凭空升高）；不在飞行页时观察高度由「观察高度」滑块决定（默认 50 米，1.5 米~10 公里），把滑块推过 3 公里就能站进云层里。云层高度为 3–11 km；模型 5 的天空按纯天空渲染，云层统一在地景之后合成。</li>
                     <li>启用体积云后，可用其下的"云量/云类"按钮调节云的档位（6档）与显示种类（按层掩码 0-7 共 8 种组合：无云/仅低层/仅中层/低+中/仅高层/低+高/中+高/所有云）。云亮度不再是手动档位，而是太阳高度的经验函数 0.75·tanh(0.2·太阳高度−0.6)+1.25：太阳越高云越白亮（上限 2.0），日落后转暗，天文暮光之后压到 0.5；"云亮度(自动)"按钮上的数字只是当前值，点了不改变任何东西。</li>
                     <li>"雷达云图"开启后（默认开启），体积云天空的初始云模式取自中央气象台组合反射率图（radar.png 减 radar_background.png 底图、形态学去地图元素、色标反演 dBZ），雷达 256km 范围与地平圈直接对齐；dBZ 经三通道调制云场：覆盖率决定有无疏密（封顶 35/45/55dBZ）、云顶高度决定类别（弱回波压扁为层云、强回波发展为全塔积雨云）、密度系数决定厚薄；中高度云另以双频噪声调制破碎边缘、消除周期感，并对回波轮廓做域扭曲（~2.5km 特征）与高频 dBZ 抖动，使大片云的平直硬边变成曲折破碎的自然边缘；处理全部在页面内完成，图片缺失或处理失败时自动回退程序化云图。</li>
-                    <li>「实时海洋」的地形可以换成<b>真实高程数据</b>：URL 加 <code>?terrain=名字</code> 就会去载入 <code>terrain/名字.bin</code>+<code>.json</code>（用 <code>tools/dem_bake.py</code> 从 Copernicus DEM GLO-30 烘焙，30 m 原始格网、重采样到渲染器需要的窗口与格距），例如 <code>?terrain=qingdao</code> 是青岛崂山一带 25.6 km × 25.6 km、25 m 格距，<code>?terrain=qingdao50</code> 是 51.2 km 的更大窗口；<code>?terrain=china</code> 走全国分块流式模式（见下一条）。载入后世界边长、分辨率、飞行回绕周期都跟着数据走，地形与海岸线都是真实的；数据缺失时自动回退到程序化群岛。高程数据版权：© DLR e.V. 2010-2014 and © Airbus Defence and Space GmbH 2014-2018 provided under COPERNICUS by the European Union and ESA，按 Copernicus DEM licence 使用。</li>
-                    <li><b>全国分块流式地形</b>：URL 加 <code>?terrain=china&amp;lat=36.1&amp;lon=120.55</code>（纬度经度可省，默认青岛）就进入全国高程模式。地形被切成 0.25°×0.25° 的块（<code>l1</code> 900²≈30 m、<code>l0</code> 225²≈120 m），页面以相机为中心维护一个 51.2 km / 2048² 的世界窗口：先取十几 KB 的 l0 秒出，再后台换 l1；飞离窗口中心超过 28% 边长就重定中心，中心按 512 m（波场平铺周期）对齐，所以重定时波相位不跳。块是按需取的——只有窗口覆盖到、并且清单里确实有的块才会发请求，缺块（纯海面/未下载）按海处理。窗口组装约 0.1–0.6 秒（含到岸距离合成的海底），飞行时几分钟才触发一次。数据来源是 Copernicus DEM GLO-30，用 <code>tools/dem_fetch_china.py</code> 下载、<code>tools/dem_tiles.py</code> 切块，全国陆地的块约 1.6~2 万个、合计约 16 GB（gzip 后）。「海洋参数」里另有「能见度」滑块（默认 27 km，真实地形模式自动放宽到 90 km），大气透视的浓淡看它。</li>
+                    <li>「实时海洋」的地形<b>默认就是真实高程</b>：只要页面旁边有 <code>terrain/china/</code> 分块数据，打开页面就按当前经纬度（默认南京）载入真实地形，看到的是长江与宁镇山脉，不再是随机群岛；没有数据（例如线上没带地形数据）才回退到程序化随机岛屿。想换地方：URL 加 <code>?lat=39.9&amp;lon=116.4</code>，或在「海洋参数 → 地形」里点按钮在「真实高程 / 程序化」之间来回切。<code>?terrain=名字</code> 是另一条路——载入单个烘焙窗口（<code>terrain/名字.bin</code>+<code>.json</code>，用 <code>tools/dem_bake.py</code> 生成），例如 <code>?terrain=qingdao</code>。地形数据版权：© DLR e.V. 2010-2014 and © Airbus Defence and Space GmbH 2014-2018 provided under COPERNICUS by the European Union and ESA，按 Copernicus DEM licence 使用。</li>
+                    <li><b>全国分块流式地形</b>（默认模式）：<code>?lat=36.1&amp;lon=120.55</code> 指定起点（省略就用页面的默认经纬度，即南京）。地形被切成 0.25°×0.25° 的块（<code>l1</code> 900²≈30 m、<code>l0</code> 225²≈120 m），页面以相机为中心维护一个 51.2 km / 2048² 的世界窗口：先取十几 KB 的 l0 秒出，再后台换 l1；飞离窗口中心超过 28% 边长就重定中心，中心按 512 m（波场平铺周期）对齐，所以重定时波相位不跳。块是按需取的——只有窗口覆盖到、并且清单里确实有的块才会发请求，缺块（纯海面/未下载）按海处理。窗口组装约 0.1–0.6 秒（含到岸距离合成的海底），飞行时几分钟才触发一次。数据来源是 Copernicus DEM GLO-30，用 <code>tools/dem_fetch_china.py</code> 下载、<code>tools/dem_tiles.py</code> 切块，全国陆地的块约 1.6~2 万个、合计约 16 GB（gzip 后）。「海洋参数」里另有「能见度」滑块（默认 27 km，真实地形模式自动放宽到 90 km），大气透视的浓淡看它。</li>
                     <li>「海洋天空」（模型 6）与「实时海洋」地景移植自开源项目 web-ocean（MIT）：Hillaire 式 LUT 大气（透射率/多重散射/天空视图三张 LUT，JS 与 GLSL 共享同一份数据）、JONSWAP 风浪谱+窄涌浪的解析波列级数（方差守恒，烘焙为可平铺波场纹理并按群速度平流）、各向异性高斯太阳耀光（Smith 掩蔽）、天空环境反射、水体上涌与波峰透射辉光、雅可比白帽、大气透视与 AgX 色调映射。观察者默认位于海平面以上 50 米（1.5 米~10 公里对数刻度可调）；无 WebGL2 时自动回退到较慢的 JS 逐像素渲染。</li>
                     <li>「实时海洋」上叠了一片可平铺的岛屿地形（岛屿随机生成，直径约 4~11 公里）：海线由低阶谐波加两级角度噪声给出，曲折且带小海湾与岬角；高程按 25 米纹素烘焙成一张 1024² 的世界高程场（陆地为正、海底为负，含陆架与浅滩），所以海岸线、沙滩、近岸浅水色与拍岸泡沫都出自同一份数据。求交用两级「格内最大高程」网格做 2D DDA 跳格、再逐纹素步进加二分细化；岛体只有当它比海面更近时才遮挡海面，因此“岛挡海”与“海挡岛”都自洽。地形着色与海面共用同一份透射率 LUT 与 AgX：高程梯度算法线、太阳直射 + 天空半球环境光，陡坡偏岩、海线以上一条沙滩带。世界坐标以 25.6 公里为周期回绕（与飞行模拟的相机回绕周期一致），所以朝任意方向一直飞都还能再遇到陆地；飞行时相机不会钻进山体。整套求交与着色只依赖高程图与粗网格，将来换成真实地理高程数据（DEM）时只需替换生成那一段。</li>
                     <li>地景为「实时海洋」时，点按钮区的「海洋参数」可以展开/收起海面参数滑块区（观察高度/风速/风向/风区/涌浪波高/涌浪波长/涌浪方向/泡沫强度/水体浑浊度/霾），默认收起；地景不是实时海洋时该按钮只显示“需实时海洋”。面板最下面一行是「岛屿」：左边按钮切换岛屿显示（关掉可对比原始海面），中间「重新生成」换一批随机岛屿（海线、尺寸、布局都变，约 70 毫秒）。滑块本身：波浪与涌浪参数在停止拖动约 0.25 秒后重烘焙波场（约 0.1 秒）；「霾」与「观察高度」会重建大气 LUT（约 0.5 秒），「霾」默认 0（无霾，空气清透）；泡沫强度与水体浑浊度立即生效。风浪行进方向与涌浪方向以罗盘方位角表示（0=北，90=东）。「观察高度」同时是体积云与天空的观察点高度（飞行控制页内则改由飞机接管，滑块只作显示），因此调高它会一起抬升海面相机和云层视角。</li>
@@ -10259,7 +10259,7 @@ async function isl_load_terrain(name) {
 
 const TSTR = {
     on: false,
-    base: 'terrain/china/',
+    base: '../terrain/china/',
     manifest: null,
     bits: { l0: null, l1: null },
     cache: new Map(),          // "l1:bx_by" -> Int16Array（null 表示确认没有）
@@ -10523,12 +10523,15 @@ function tstr_tick(lon, lat, force) {
 // 进入全国地形模式：先 l0 秒出，再换 l1
 async function tstr_start(lon, lat) {
     TSTR.on = true;
+    // 清单只在第一次取；来回切换「真实/程序化」不该再等一遍网络
+    if (TSTR.manifest) return tstr_start_ready(lon, lat);
     tstr_set_msg('载入地形清单…');
     try {
-        // 数据目录默认与页面同级（html/terrain/china/），也接受仓库根（../terrain/china/）
+        // 数据目录默认在仓库根（页面在 html/ 下，所以是 ../terrain/china/），
+        // 同目录部署时是 terrain/china/；两种都试一次。
         let res = await fetch(TSTR.base + 'manifest.json', { cache: 'no-cache' });
         if (!res.ok) {
-            TSTR.base = '../terrain/china/';
+            TSTR.base = TSTR.base === 'terrain/china/' ? '../terrain/china/' : 'terrain/china/';
             res = await fetch(TSTR.base + 'manifest.json', { cache: 'no-cache' });
         }
         if (!res.ok) throw new Error('HTTP ' + res.status);
@@ -10547,6 +10550,11 @@ async function tstr_start(lon, lat) {
         WO_SLIDER_CONTROLS['visKm'].inp.value = 90;
         WO_SLIDER_CONTROLS['visKm'].val.textContent = '90 km';
     }
+    return tstr_start_ready(lon, lat);
+}
+
+// 清单已在内存：直接建窗口（先 l0 秒出，再后台换 l1）
+async function tstr_start_ready(lon, lat) {
     TSTR.win = null;
     await tstr_recenter(lon, lat, 'l0');
     const msg0 = TSTR.msg;
@@ -12216,15 +12224,16 @@ function wo_init_sliders() {
         WO_SLIDER_CONTROLS[key] = { inp: inp, val: val, entry: entry };
     }
 
-    // ---- 岛屿：显示开关 + 重新随机生成 ----
+    // ---- 地形：真实高程 / 程序化岛屿 + 重新生成 ----
     const rowI = document.createElement('div');
     rowI.className = 'ocean_slider_row';
     const lblI = document.createElement('span');
     lblI.className = 'osl_name';
-    lblI.textContent = '岛屿';
+    lblI.textContent = '地形';
     const bToggle = document.createElement('button');
     bToggle.className = 'osl_btn';
-    bToggle.textContent = '显示';
+    bToggle.textContent = '真实高程';
+    bToggle.title = '在「真实高程」（全国 0.25° 分块）与「程序化岛屿」之间切换';
     const bRegen = document.createElement('button');
     bRegen.className = 'osl_btn';
     bRegen.textContent = '重新生成';
@@ -12232,9 +12241,8 @@ function wo_init_sliders() {
     valI.className = 'osl_val';
     valI.style.width = '96px';
     const syncIsl = () => {
-        bToggle.textContent = enable_islands ? '显示' : '隐藏';
-        bToggle.classList.toggle('off', !enable_islands);
-        bRegen.classList.toggle('off', !enable_islands);
+        bToggle.textContent = TSTR.on ? '真实高程' : '程序化';
+        bToggle.classList.toggle('off', !TSTR.on);
         const st = ISL_state;
         if (!st.ready) { valI.textContent = '-'; return; }
         if (TSTR.on) {
@@ -12252,11 +12260,30 @@ function wo_init_sliders() {
         }
         valI.textContent = st.islands.length + ' 座 ' + (maxD / 1000).toFixed(1) + ' km';
     };
-    bToggle.addEventListener('click', () => { enable_islands = !enable_islands; syncIsl(); });
+    // 「真实高程 / 程序化」一键切换：真实→按当前经纬度载入分块，程序化→随机群岛
+    bToggle.addEventListener('click', async () => {
+        if (TSTR.on) {
+            TSTR.on = false;
+            TSTR.win = null;
+            ISL_real.name = null; ISL_real.meta = null;
+            isl_regen();
+            enable_islands = true;
+            syncIsl();
+        } else {
+            const ok = await tstr_start(longitude, latitude);
+            if (!ok) { alert('没有找到地形数据目录 terrain/china（需要先跑 tools/dem_fetch_china.py + dem_tiles.py）'); }
+            syncIsl();
+        }
+    });
     bRegen.addEventListener('click', () => {
-        if (ISL_real.name) { ISL_real.name = null; ISL_real.meta = null; }   // 从真实 DEM 切回程序化
-        isl_regen();
-        enable_islands = true;
+        if (TSTR.on) {
+            // 真实高程：重取当前窗口（数据是边下边切的，重取能拿到新块）
+            tstr_recenter(longitude, latitude, 'l1');
+        } else {
+            if (ISL_real.name) { ISL_real.name = null; ISL_real.meta = null; }
+            isl_regen();
+            enable_islands = true;
+        }
         syncIsl();
     });
     rowI.appendChild(lblI);
@@ -17836,18 +17863,20 @@ function init() {
             const qs = (typeof URLSearchParams !== 'undefined') ? new URLSearchParams(location.search) : null;
             const terrainName = qs ? qs.get('terrain') : null;
             let terrainOK = false;
-            if (terrainName === 'china') {
-                // 全国分块流式地形：?terrain=china&lat=36.10&lon=120.55
-                const la = parseFloat(qs.get('lat') || '36.10');
-                const lo = parseFloat(qs.get('lon') || '120.55');
-                loading_status.textContent = "正在载入全国分块地形…";
+            // 默认就是真实高程：只要 terrain/china 的块清单在，就按页面当前经纬度（默认南京）
+            // 载入全国分块地形；清单不在（比如线上没带数据）才回退到程序化随机岛屿。
+            // ?terrain=<名字> 走单窗口数据，?terrain=china 显式指定全国分块。
+            if (terrainName === 'china' || !terrainName) {
+                const la = parseFloat((qs && qs.get('lat')) || latitude);
+                const lo = parseFloat((qs && qs.get('lon')) || longitude);
+                loading_status.textContent = "正在载入真实地形…";
                 await loading_yield();
                 terrainOK = await tstr_start(lo, la);
                 if (terrainOK) {
                     latitude = la; longitude = lo;
                     flight.lat0 = la; flight.lon0 = lo;
                 }
-            } else if (terrainName) {
+            } else {
                 loading_status.textContent = "正在载入真实高程数据 " + terrainName + "…";
                 await loading_yield();
                 terrainOK = await isl_load_terrain(terrainName);
