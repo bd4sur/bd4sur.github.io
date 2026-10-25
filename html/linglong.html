@@ -1187,7 +1187,20 @@ body.is-day .ak_socket {
                     </button>
                 </div>
             </div>
+            <div class="ak_sw">
+                <div class="ak_name">云参数</div>
+                <div class="ak_socket">
+                    <button class="ak_btn" id="toggle_cloud_params">
+                        <span class="ak_state" id="cloud_params_status">-</span>
+                        <span class="ak_onoff">ON</span>
+                    </button>
+                </div>
+            </div>
         </div>
+
+        <!-- 浓积云形状参数滑块：由 cloud_init_sliders 动态填充；默认收起（display:none），
+             点「云参数」按钮展开，见 cloud_params_refresh() -->
+        <div class="setting_buttons_container ocean_sliders" id="cloud_shape_controller"></div>
 
         <!-- 实时海洋（web-ocean 移植）专属调节：风速/风向/风区/涌浪/泡沫/浑浊度/霾 -->
         <!-- 由 wo_init_sliders 动态填充；默认收起（display:none），点「海洋参数」按钮展开，见 ocean_params_refresh() -->
@@ -1577,9 +1590,9 @@ body.is-day .ak_socket {
                     <li>二次散射（Nishita）计算量较大，速度较慢。</li>
                     <li>「二次散射改」在大气散射模型 3 的物理内核基础上改用透射率 LUT + 多重散射 LUT + 解析地影 + 地面回弹（Bruneton/Hillaire 工程优化），并去掉 global_gain / 夜天光经验补丁、改用 ACES 色调映射；暮光/地影更真实，且速度远快于二次散射（LUT 首次构建约数十毫秒，之后逐帧只查表）。</li>
                     <li>体积云渲染非常慢，请按需启用。</li>
-                    <li>「体积云」按钮启用三层体积云层（算法解耦自「体积云天空」模型，支持 JS 与 GLSL 双实现，可在任意大气散射模型上叠加；模型 5 的天空也统一走这条解耦云通道，只渲染纯天空，云层在地景之后合成，因此从云上向下俯视时云能正确遮挡地面/海面）。GPU 路径需要 WebGL2，首次启用需生成噪声纹理（约 1 秒），无 WebGL2 时自动回退到较慢的 JS 渲染。</li>
+                    <li>「体积云」按钮启用四层体积云层（浓积云/高积云/层积云/卷层云，算法解耦自「体积云天空」模型，支持 JS 与 GLSL 双实现，可在任意大气散射模型上叠加；模型 5 的天空也统一走这条解耦云通道，只渲染纯天空，云层在地景之后合成，因此从云上向下俯视时云能正确遮挡地面/海面）。GPU 路径需要 WebGL2，首次启用需生成噪声纹理（约 1 秒），无 WebGL2 时自动回退到较慢的 JS 渲染。</li>
                     <li>体积云的观察者在三维云场中移动：飞行控制页内观察点完全取飞机位置——爬升会真正进入云层（视野被云包围、逐步白化），穿云到云顶之上可向下俯视云海，水平飞行时云场固定在世界坐标中、云与飞机的相对位置一一对应，观察高度严格取飞机海拔（按球面半径反算，水平飞远不会凭空升高）；不在飞行页时观察高度由「观察高度」滑块决定（默认 50 米，1.5 米~10 公里），把滑块推过 3 公里就能站进云层里。云层高度为 3–11 km；模型 5 的天空按纯天空渲染，云层统一在地景之后合成。</li>
-                    <li>启用体积云后，可用其下的"云量/云类"按钮调节云的档位（6档）与显示种类（按层掩码 0-7 共 8 种组合：无云/仅低层/仅中层/低+中/仅高层/低+高/中+高/所有云）。云亮度不再是手动档位，而是太阳高度的经验函数 0.75·tanh(0.2·太阳高度−0.6)+1.25：太阳越高云越白亮（上限 2.0），日落后转暗，天文暮光之后压到 0.5；"云亮度(自动)"按钮上的数字只是当前值，点了不改变任何东西。</li>
+                    <li>启用体积云后，可用其下的"云量/云类"按钮调节云的档位（6档）与显示种类（按层掩码 0-15 共 16 种组合，按钮文案按当前启用的云层拼出，如"浓积云+高积云"；bit0 浓积云 / bit1 高积云 / bit2 层积云 / bit3 卷层云）。云亮度不再是手动档位，而是太阳高度的经验函数 0.75·tanh(0.2·太阳高度−0.6)+1.25：太阳越高云越白亮（上限 2.0），日落后转暗，天文暮光之后压到 0.5；"云亮度(自动)"按钮上的数字只是当前值，点了不改变任何东西。「云参数」按钮展开一组浓积云形状滑块（云底高度/云厚/塔顶参差/花椰菜/边界锐度/云胞尺度/云密度），与「海洋参数」同一套控件：滑块直接改写 CLOUD_SKY_CU_PARAMS，JS 与 GLSL 两条渲染路径即时生效，无需重建噪声或 LUT。</li>
                     <li>"雷达云图"开启后（默认开启），体积云天空的初始云模式取自中央气象台组合反射率图（radar.png 减 radar_background.png 底图、形态学去地图元素、色标反演 dBZ），雷达 256km 范围与地平圈直接对齐；dBZ 经三通道调制云场：覆盖率决定有无疏密（封顶 35/45/55dBZ）、云顶高度决定类别（弱回波压扁为层云、强回波发展为全塔积雨云）、密度系数决定厚薄；中高度云另以双频噪声调制破碎边缘、消除周期感，并对回波轮廓做域扭曲（~2.5km 特征）与高频 dBZ 抖动，使大片云的平直硬边变成曲折破碎的自然边缘；处理全部在页面内完成，图片缺失或处理失败时自动回退程序化云图。</li>
                     <li>「实时海洋」的地形<b>默认就是真实高程</b>：只要页面旁边有 <code>terrain/china/</code> 分块数据，打开页面就按当前经纬度（默认南京）载入真实地形，看到的是长江与宁镇山脉，不再是随机群岛；没有数据（例如线上没带地形数据）才回退到程序化随机岛屿。想换地方：URL 加 <code>?lat=39.9&amp;lon=116.4</code>，或在「海洋参数 → 地形」里点按钮在「真实高程 / 程序化」之间来回切。<code>?terrain=名字</code> 是另一条路——载入单个烘焙窗口（<code>terrain/名字.bin</code>+<code>.json</code>，用 <code>tools/dem_bake.py</code> 生成），例如 <code>?terrain=qingdao</code>。地形数据版权：© DLR e.V. 2010-2014 and © Airbus Defence and Space GmbH 2014-2018 provided under COPERNICUS by the European Union and ESA，按 Copernicus DEM licence 使用。</li>
                     <li><b>全国分块流式地形</b>（默认模式）：<code>?lat=36.1&amp;lon=120.55</code> 指定起点（省略就用页面的默认经纬度，即南京）。地形被切成 0.25°×0.25° 的块（<code>l1</code> 900²≈30 m、<code>l0</code> 225²≈120 m），页面以相机为中心维护一个 51.2 km / 2048² 的世界窗口：先取十几 KB 的 l0 秒出，再后台换 l1；飞离窗口中心超过 28% 边长就重定中心，中心按 512 m（波场平铺周期）对齐，所以重定时波相位不跳。块是按需取的——只有窗口覆盖到、并且清单里确实有的块才会发请求，缺块（纯海面/未下载）按海处理。窗口组装约 0.1–0.6 秒（含到岸距离合成的海底），飞行时几分钟才触发一次。数据来源是 Copernicus DEM GLO-30，用 <code>tools/dem_fetch_china.py</code> 下载、<code>tools/dem_tiles.py</code> 切块，全国陆地的块约 1.6~2 万个、合计约 16 GB（gzip 后）。「海洋参数」里另有「能见度」滑块（默认 27 km，真实地形模式自动放宽到 90 km），大气透视的浓淡看它。</li>
@@ -1669,6 +1682,8 @@ let landscape_index = 7;
 // 实时海洋参数滑块区是否展开（由「海洋参数」按钮切换；默认收起，且与地景是否实时海洋无关，
 // 换回实时海洋时保持上次的展开状态）
 let ocean_params_open = false;
+// 体积云「云参数」滑块区是否展开（同理放在全局区声明，refresh_button_status 早调也安全）
+let cloud_params_open = false;
 
 // 是否启用体积云（解耦自模型5的体积云算法，任意散射模型下均可用；模型5默认内建启用）
 let enable_volumetric_cloud = true;
@@ -4789,14 +4804,23 @@ function scatter_model_4(ray_vec, sun_vec) {
 // ============================================
 // 体积云天空（大气散射模型 5）：ui_cloud.c / flower-engine 移植
 // CPU (scatter_model_5) 与 GLSL (CloudSkyWebGL, WebGL2) 双实现；
-// 算法：Bruneton 天空散射 LUT + 三层体积云 ray-march + HDR 镜头光晕
+// 算法：Bruneton 天空散射 LUT + 四层体积云 ray-march + HDR 镜头光晕
 // ============================================
 // ============================================
-// 大气散射模型 5：Bruneton 天空散射 + 内建三层体积云（云层已解耦，可叠加于任意模型）
+// 大气散射模型 5：Bruneton 天空散射 + 内建四层体积云（云层已解耦，可叠加于任意模型）
 // ============================================
 // 参照 linglong/ui_cloud.c 移植（其算法核心来自 flower 引擎）：
-//   · 云形状：tileable Perlin-Worley / Worley FBM 噪声，低/中/高三层高度分层
-//     （0.5-3km / 3-7km / 7-11km 对应本端 3-11km 云壳内的三段归一化高度）
+//   · 云形状：tileable Perlin-Worley / Worley FBM 噪声，按物理高度分成四层：
+//       浓积云 0.8–4.6 km（云底 1.2 km，平底 + 破碎花椰菜顶，cloudMapCu）
+//       高积云 3.0–6.2 km（原"低层"，cloudMap0）
+//       层积云 6.2–9.4 km（原"中层"，cloudMap1）
+//       卷层云 9.4–11.0 km（原"高层"，cloudMap2）
+//     云壳（ray-march 的球壳）因此从 0.8 km 起（浓积云云底之下），顶仍为 11 km。
+//     浓积云塔顶与高积云层带在高空段重叠，同列可共存（分别求值取大者）。
+//   · 浓积云的顶面不是"整段高度上慢慢淡出"的包络，而是一张由疙瘩噪声决定的高度场
+//     （列顶 ± 0.45 km×cauli），越过它就在 90 m 内切到 0 —— 顶面因此是高低错落、
+//     边缘仍然锐利的一团团花椰菜，而不是一个光滑穹顶；底面则固定 1.2 km 平齐。
+//     几何与形态参数在 GUI「云参数」面板可调（CLOUD_SKY_CU_PARAMS，GLSL 侧走 uniform）。
 //   · 云着色：球壳相交、双叶 HG 相位、光照线积分 volumetricShadow、
 //     2 阶多重散射近似、powder 项（逆光金边）
 //   · 天空：Bruneton 密度剖面（Rayleigh/Mie/臭氧）单次散射积分 +
@@ -4892,6 +4916,12 @@ const CLOUD_SKY_MAX_TRACE_KM = 150.0;
 const CLOUD_SKY_NEAR_STEP_KM = 0.10;   // 近场步长（km），约 2 个噪声纹素
 const CLOUD_SKY_MIN_MARCH_STEPS = 24;
 const CLOUD_SKY_LIGHT_FOOTPRINT_KM = 0.25;
+// 环境光（天空下行漫射 + 地面回弹）探针长度（km）。
+// 直射光探针 15 km 判的是"太阳被云挡住多少"，厚云里它恒为 0（物理正确）；
+// 但环境光若也用 15 km，积云底部会被压成死黑——真实的积云底面是灰的，光是从
+// 云体侧面/顶部经多次散射漫进来的，有效穿透深度只有几百米到 1 km。故环境光改用
+// 短探针：衰减随深度正常增长，云底自然变暗而不发黑。与 GLSL 版同名常量一致。
+const CLOUD_SKY_AMBIENT_LEN_KM = 0.90;
 // 单次散射辐照度→辐亮度归一化（1/π），与 GLSL kCloudScatterNormalization 一致
 const CLOUD_SKY_SCATTER_NORMALIZATION = 1.0 / Math.PI;
 // 镜头光晕（离轴色散光斑）亮度增益：0.35 约为原来的三分之一观感亮度
@@ -4912,6 +4942,66 @@ const CLOUD_SKY_EDGE_JIT_DBZ = 8.0;   // dBZ 抖动幅度
 const CLOUD_SKY_CPU_MARCH_STEPS = 96;
 const CLOUD_SKY_CPU_LIGHT_STEPS = 6;
 
+// ---- 云壳与四个云层的层带（一律按**物理高度** km 计，自地面起算）----
+// 云壳（ray-march 的球壳）从 0.8 km 起——浓积云的云底约 1.2 km，要把它的平底与
+// 向上发展的塔身都包在壳内，壳底必须降到云底之下。壳顶仍为 11 km。
+// 层带按物理高度切分，既有三层的高度不搬迁：高积云 3.0–6.2 km（原"低层" cloudMap0）、
+// 层积云 6.2–9.4 km（原"中层" cloudMap1）、卷层云 9.4–11.0 km（原"高层" cloudMap2）；
+// 新加的浓积云占 0.8–4.6 km。它的塔顶与高积云层带在高空段重叠——真实的"积云在下、
+// 高积云在上"天空本来就可以同列共存，所以分发时两个层带都求值、取密度大者。
+const CLOUD_SKY_SHELL_BOTTOM_KM = 0.80;
+const CLOUD_SKY_SHELL_TOP_KM = 11.00;
+const CLOUD_SKY_SHELL_THICK_KM = CLOUD_SKY_SHELL_TOP_KM - CLOUD_SKY_SHELL_BOTTOM_KM;
+const CLOUD_SKY_BAND_CU = [0.80, 4.60];   // 浓积云（Cu congestus）
+const CLOUD_SKY_BAND_AC = [3.00, 6.20];   // 高积云（原低层）
+const CLOUD_SKY_BAND_SC = [6.20, 9.40];   // 层状高积云/层积云（原中层）
+const CLOUD_SKY_BAND_CS = [9.40, 11.00];  // 卷层云（原高层）
+// 层带 → 云壳归一化高度（分发与雷达云顶共用，避免魔法数散落各处）
+function cloud_sky_band_norm(hKm) {
+    return (hKm - CLOUD_SKY_SHELL_BOTTOM_KM) / CLOUD_SKY_SHELL_THICK_KM;
+}
+const CLOUD_SKY_N_CU1 = cloud_sky_band_norm(CLOUD_SKY_BAND_CU[1]);
+const CLOUD_SKY_N_AC0 = cloud_sky_band_norm(CLOUD_SKY_BAND_AC[0]);
+const CLOUD_SKY_N_AC1 = cloud_sky_band_norm(CLOUD_SKY_BAND_AC[1]);
+const CLOUD_SKY_N_SC1 = cloud_sky_band_norm(CLOUD_SKY_BAND_SC[1]);
+const CLOUD_SKY_N_CS0 = cloud_sky_band_norm(CLOUD_SKY_BAND_CS[0]);
+
+// ---- 浓积云（Cu congestus）形状参数 ----
+// 云底：同一天空下所有积云的凝结高度近乎相同，底面几乎在同一条水平线上，这是积云
+// 最直观的特征。故云底取固定高度（默认 1.2 km，面板可调 1.0–2.0 km），只给 9 km
+// 尺度的缓慢起伏与 100 m 抗锯齿过渡，不让底面跟着 3D 噪声起伏。
+//
+// 几何/形态的可调项集中在 CLOUD_SKY_CU_PARAMS（GUI「云参数」滑块实时写入；GLSL 侧
+// 以 uniform 同步同一份数值），下面是不对外暴露的内部常量。
+const CLOUD_SKY_CU_BASE_AMP_KM = 0.10;    // 云底缓慢起伏峰峰值
+const CLOUD_SKY_CU_BASE_RAMP_KM = 0.10;   // 云底 0→1 过渡厚度（≈100 m：平底且清晰）
+const CLOUD_SKY_CU_NOISE_SCALE = 0.20;    // 基础噪声尺度：鼓包 ≈1.2 km
+const CLOUD_SKY_CU_DETAIL_SCALE = 0.62;   // 细节噪声尺度：细边 ≈200 m
+const CLOUD_SKY_CU_LOBE_SCALE = 0.46;     // 疙瘩噪声尺度：花椰菜疙瘩 ≈270 m
+const CLOUD_SKY_CU_TOP_RAMP_KM = 0.09;    // 塔顶切边厚度（越小顶面越锐）
+const CLOUD_SKY_CU_TOP_RELIEF_KM = 0.45;  // 塔顶疙瘩高度场幅度（×(lobe−0.70)×2×cauli）
+// 塔高标定：列顶高度要乘这个增益，才能使"实测 p50 厚度"与面板上的「云厚」一致
+// （塔顶被锥形收窄与边界侵蚀削掉一截，实测厚度约为列顶高度的 0.58 倍）
+const CLOUD_SKY_CU_DEPTH_GAIN = 1.72;
+const CLOUD_SKY_CU_TAPER = 0.13;          // 门限随高度抬升量 → 塔身锥形收窄的强度
+const CLOUD_SKY_CU_GATE_NOISE = 0.26;     // 3D 噪声对门限的平移量（× cauli）
+const CLOUD_SKY_CU_ERO_BASE = 0.22;       // 云底处的侵蚀幅度
+const CLOUD_SKY_CU_ERO_TOP = 0.34;        // 塔顶额外侵蚀幅度（× cauli）
+
+// GUI 可调参数（「云参数」面板滑块实时写入）
+const CLOUD_SKY_CU_PARAMS = {
+    baseKm: 1.20,      // 云底高度（km）
+    depthKm: 0.30,     // 塔身平均厚度（km，云底 → 塔顶）
+    spread: 0.55,      // 塔顶参差（0 = 齐平，1 = 高低差近三倍）
+    cauli: 1.00,       // 花椰菜强度：顶部破碎 + 侧壁鼓包 + 边界侵蚀的总增益
+    sharp: 45.0,       // 边界锐度（1/过渡宽度）
+    cellKm: 1.15,      // 云胞尺度（km）
+    density: 0.0085,   // 云芯密度
+};
+// 云量档位的两端（1 号档=疏云 / 5 号档=满云），浓积云把这段线性铺成 0..1 的 u
+const CLOUD_SKY_CU_LEVEL_MIN = CLOUD_SKY_COVERAGE_LEVELS[1];
+const CLOUD_SKY_CU_LEVEL_MAX = CLOUD_SKY_COVERAGE_LEVELS[CLOUD_SKY_COVERAGE_LEVELS.length - 1];
+
 const cloudSkyScene = {
     // ---- atmosphere ----
     groundAlbedo: [0.3, 0.3, 0.3],
@@ -4928,9 +5018,9 @@ const cloudSkyScene = {
     absorptionDensity0ConstantTerm: -2.0 / 3.0,
     absorptionDensity1LinearTerm: -1.0 / 15.0,
     absorptionDensity1ConstantTerm: 8.0 / 3.0,
-    // ---- cloud（flower defaultCloudParameters） ----
-    cloudAreaStartHeight: CLOUD_SKY_BOTTOM_RADIUS + 3.0,
-    cloudAreaThickness: 8.0,
+    // ---- cloud（flower defaultCloudParameters；壳底/壳厚改为覆盖四层，见上方常量）----
+    cloudAreaStartHeight: CLOUD_SKY_BOTTOM_RADIUS + CLOUD_SKY_SHELL_BOTTOM_KM,
+    cloudAreaThickness: CLOUD_SKY_SHELL_THICK_KM,
     cloudWeatherUVScale: [0.02, 0.02],
     cloudCoverage: CLOUD_SKY_COVERAGE_LEVELS[CLOUD_SKY_COVERAGE_DEFAULT_LEVEL],
     cloudDensity: 1.0,
@@ -5054,22 +5144,25 @@ function cloud_sky_apply_coverage_level(level) {
     return level;
 }
 
-// 云层种类应用：补全层掩码的全部 8 种组合（ui_cloud.c 按键1 的 5 档扩展），
-// 按掩码 0-7 排序并取模卷绕。序号 idx 即掩码值（bit0 低层 / bit1 中层 / bit2 高层）。
-const CLOUD_SKY_LAYER_NAMES = [
-    "无云",     // 0: ——
-    "仅低层",   // 1: LAYER0
-    "仅中层",   // 2: LAYER1
-    "低+中",    // 3: LAYER0|LAYER1
-    "仅高层",   // 4: LAYER2
-    "低+高",    // 5: LAYER0|LAYER2
-    "中+高",    // 6: LAYER1|LAYER2
-    "所有云",   // 7: LAYER0|LAYER1|LAYER2
-];
+// 云层种类应用：四层齐备后层掩码共 2^4 = 16 种组合（ui_cloud.c 按键1 的 5 档扩展），
+// 按掩码 0-15 排序并取模卷绕。序号 idx 即掩码值：
+// bit0 浓积云 / bit1 高积云 / bit2 层积云 / bit3 卷层云。
+// 按钮文案按掩码拼出（只有一层时加"仅"字），不必硬编码 16 条字符串。
+const CLOUD_SKY_LAYER_SHORT_NAMES = ["浓积云", "高积云", "层积云", "卷层云"];
+function cloud_sky_layer_label(mask) {
+    if (mask === 0) return "无云";
+    if (mask === 15) return "所有云";
+    const parts = [];
+    for (let b = 0; b < 4; b++) {
+        if (mask & (1 << b)) parts.push(CLOUD_SKY_LAYER_SHORT_NAMES[b]);
+    }
+    return (parts.length === 1) ? ("仅" + parts[0]) : parts.join("+");
+}
+const CLOUD_SKY_LAYER_COUNT = 16;
 function cloud_sky_apply_layer_kind(idx) {
-    idx = ((idx % 8) + 8) % 8;
+    idx = ((idx % CLOUD_SKY_LAYER_COUNT) + CLOUD_SKY_LAYER_COUNT) % CLOUD_SKY_LAYER_COUNT;
     cloudSkyState.layerIdx = idx;
-    cloudSkyState.layerMask = idx; // 序号与掩码一一对应（0-7）
+    cloudSkyState.layerMask = idx; // 序号与掩码一一对应（0-15）
     return idx;
 }
 
@@ -5090,8 +5183,8 @@ const cloudSkyState = {
     frameIndex: 0,
     lastNow: 0.0,
     prepareSeq: -1,             // 完成预处理的帧序号（同一帧内重复调用去重）
-    layerMask: 3,               // 云层显示掩码（bit0 低层 / bit1 中层 / bit2 高层）——默认低+中
-    layerIdx: 3,                // 云层种类序号 = 层掩码（0-7，bit0 低层 / bit1 中层 / bit2 高层）
+    layerMask: 7,               // 云层显示掩码（bit0 浓积云 / bit1 高积云 / bit2 层积云 / bit3 卷层云）——默认前三层
+    layerIdx: 7,                // 云层种类序号 = 层掩码（0-15）
     coverageLevel: CLOUD_SKY_COVERAGE_DEFAULT_LEVEL, // 云量档位（0..5）
     groundUpwelling: [0.0, 0.0, 0.0],
     // 太阳镜头光晕（每帧由相机决定一次）
@@ -5855,9 +5948,14 @@ function cloud_sky_radarWeather(dbz, layer) {
     return Math.min(1.0, 0.9 + (dbz - dm) / (dx - dm) * 0.1);
 }
 
-// 通道2：dBZ → 云顶高度（云壳归一化 [0.10, 1.0]；6dBZ≈4km 薄层云，45dBZ+→11km 全塔）
+// 通道2：dBZ → 云顶**物理高度**（km）：6dBZ≈3.8 km 的薄层云、45dBZ+ → 11 km 全塔
+// （与 3–11 km 云壳时期的标定一致；物理高度不随云壳几何变化）
+function cloud_sky_radarTopKm(dbz) {
+    return 3.0 + 8.0 * cloud_sky_saturate((dbz - 6.0) / 49.0);
+}
+// 通道2（壳归一化版）：供各层用"云壳归一化高度"比较云顶
 function cloud_sky_radarTopH(dbz) {
-    return 0.10 + 0.90 * cloud_sky_saturate((dbz - 6.0) / 49.0);
+    return cloud_sky_band_norm(cloud_sky_radarTopKm(dbz));
 }
 
 // 通道3：dBZ → 密度系数（0.6~2.2；上限防光学厚度过大、云底死黑）
@@ -6298,7 +6396,7 @@ function cloud_sky_cloudMap0(px, py, pz, normalizeHeight, appTime, footprintKm) 
         const dbz = cloud_sky_radarDbzAt(kx, kz);
         weatherValue = cloud_sky_radarWeather(dbz, 0);
         localCoverage = 0.0;
-        const shellH = normalizeHeight * 0.4;   // 本层 → 云壳归一化高度
+        const shellH = CLOUD_SKY_N_AC0 + normalizeHeight * (CLOUD_SKY_N_AC1 - CLOUD_SKY_N_AC0);
         const hTop = cloud_sky_radarTopH(dbz);
         radarTopWindow = 1.0 - cloud_sky_smoothstep(hTop - 0.08, hTop, shellH);
         radarDensScale = cloud_sky_radarDensityScale(dbz);
@@ -6370,7 +6468,7 @@ function cloud_sky_cloudMap1(px, py, pz, normalizeHeight, appTime, footprintKm) 
     let localCoverage = cloud_sky_sampleWrap2D(cloudSkyNoise.local, CLOUD_SKY_CURL_DIM,
         (wA + mx) * 0.000001 - 0.11, (wA + mz) * 0.000001 - 0.11);
     localCoverage = cloud_sky_saturate(localCoverage * 4.0 - 2.0) * 0.5;
-    // 雷达云图三通道（中层；结构同低层，壳归一化高度 = 0.4+nH×0.4）
+    // 雷达云图三通道（中层；结构同低层，壳归一化高度按新层带边界换算）
     // + 双频噪声乘性调制（修复中高度云大尺度规律性与网格直边）：
     //   local 纹理 ~0.8km 细扰动打散 4km 网格阶梯边、~15km 粗调制破坏平铺周期感；
     //   乘性保证无回波处恒无云；weatherValue 封顶 1.0 不越过已验证的安全覆盖率
@@ -6389,7 +6487,7 @@ function cloud_sky_cloudMap1(px, py, pz, normalizeHeight, appTime, footprintKm) 
         weatherValue = cloud_sky_saturate(cloud_sky_radarWeather(dbz, 1) *
             (0.6 + 0.8 * localFine) * (0.7 + 0.6 * localCoarse));
         localCoverage = 0.0;
-        const shellH = 0.4 + normalizeHeight * 0.4;
+        const shellH = CLOUD_SKY_N_AC1 + normalizeHeight * (CLOUD_SKY_N_SC1 - CLOUD_SKY_N_AC1);
         const hTop = cloud_sky_radarTopH(dbz);
         radarTopWindow = 1.0 - cloud_sky_smoothstep(hTop - 0.08, hTop, shellH);
         radarDensScale = cloud_sky_radarDensityScale(dbz) * (0.7 + 0.6 * localCoarse);
@@ -6465,7 +6563,7 @@ function cloud_sky_cloudMap2(px, py, pz, normalizeHeight, appTime, footprintKm) 
     let localCoverage = cloud_sky_sampleWrap2D(cloudSkyNoise.local, CLOUD_SKY_CURL_DIM,
         (wA + mx) * 0.000001 - 0.39, (wA + mz) * 0.000001 - 0.39);
     localCoverage = cloud_sky_saturate(1.0 - Math.pow(cloud_sky_clamp(localCoverage, 0.0, 1.0), 8.0));
-    // 雷达云图三通道（高层；结构同低层，壳归一化高度 = 0.8+nH×0.2）
+    // 雷达云图三通道（高层；结构同低层，壳归一化高度按新层带边界换算）
     // + 双频噪声乘性调制（同中层分支注释）
     let radarTopWindow = 1.0, radarDensScale = 1.0;
     if (radarCloudState.enabled && radarCloudState.ready) {
@@ -6482,7 +6580,7 @@ function cloud_sky_cloudMap2(px, py, pz, normalizeHeight, appTime, footprintKm) 
         weatherValue = cloud_sky_saturate(cloud_sky_radarWeather(dbz, 2) *
             (0.6 + 0.8 * localFine) * (0.7 + 0.6 * localCoarse));
         localCoverage = 0.0;
-        const shellH = 0.8 + normalizeHeight * 0.2;
+        const shellH = CLOUD_SKY_N_CS0 + normalizeHeight * (1.0 - CLOUD_SKY_N_CS0);
         const hTop = cloud_sky_radarTopH(dbz);
         radarTopWindow = 1.0 - cloud_sky_smoothstep(hTop - 0.08, hTop, shellH);
         radarDensScale = cloud_sky_radarDensityScale(dbz) * (0.7 + 0.6 * localCoarse);
@@ -6513,39 +6611,198 @@ function cloud_sky_cloudMap2(px, py, pz, normalizeHeight, appTime, footprintKm) 
     return cloud_sky_saturate(cd);
 }
 
-// 云层显示掩码
-const CLOUD_SKY_LAYER0 = 1;
-const CLOUD_SKY_LAYER1 = 2;
-const CLOUD_SKY_LAYER2 = 4;
+function cloud_sky_cloudMapCu(px, py, pz, hKm, appTime, footprintKm) {
+    const s = cloudSkyScene;
+    const P = CLOUD_SKY_CU_PARAMS;
+    const cauli = P.cauli;
+    const wdx = s.cloudDirection[0], wdz = s.cloudDirection[2];
+    const wA = appTime * s.cloudSpeed * 50.0;   // 平流位移（米，与其它层同速）
+    const woT = appTime * s.cloudSpeed;
 
-// 云密度场分发（shadowDepth=1 时仅低层参与，供阴影光线复用）
+    // 塔身顺风轻微倾斜：层带内只飘百多米。其它层的 shear 是给薄层做风切变贴图用的
+    // （500 m/层内高度），积云塔被斜切会散架，这里只留一点倾角。
+    const shear = Math.max(0.0, hKm - P.baseKm) * 34.0;
+    const mx = px + wdx * shear, mz = pz + wdz * shear;
+    const kx = mx * 0.001, ky = py * 0.001, kz = mz * 0.001;
+
+    // ---- 云底：近乎平齐（9 km 尺度起伏，峰峰 100 m）----
+    const baseN = cloud_sky_valueNoise2Fbm((wA + mx) / 9000.0 + 0.13, (wA + mz) / 9000.0 + 0.13, 811);
+    const hBase = P.baseKm + (baseN - 0.5) * CLOUD_SKY_CU_BASE_AMP_KM;
+    const yb = hKm - hBase;                        // 距云底高度（km）
+    if (yb <= 0.0) return 0.0;
+
+    // ---- 云量档位 → 门限（u∈[0,1]：1 号档疏云 → 5 号档满云）----
+    // CLOUD_SKY_COVERAGE_LEVELS 的档间跨度只有 0.325..0.395（为高积云/层积云的软阈值
+    // 标定），浓积云需要完整的动态范围，故先归一成 u 再用：u 决定门限（云团数量）
+    // 与塔高（对流发展得多旺盛）。
+    if (s.cloudCoverage <= 0.0) return 0.0;
+    const u = cloud_sky_saturate(
+        (s.cloudCoverage - CLOUD_SKY_CU_LEVEL_MIN) / (CLOUD_SKY_CU_LEVEL_MAX - CLOUD_SKY_CU_LEVEL_MIN));
+    const gateC = 0.625 - 0.325 * u;
+
+    // ---- 横向细胞场（2D，非平铺哈希值噪声）----
+    // 云胞（GUI「云胞尺度」，默认 1.6 km）决定单朵云的粗细与位置；云团 5.2 km 决定
+    // 哪一片天空对流活跃（几朵云聚成一片对流区）。
+    const invCell = 1.0 / (P.cellKm * 1000.0);
+    const clusCell = cloud_sky_valueNoise2Fbm((wA + mx) * invCell + 1.1, (wA + mz) * invCell + 2.3, 829);
+    const clusReg = cloud_sky_valueNoise2Fbm((wA + mx) / 5200.0 + 0.31, (wA + mz) / 5200.0 + 0.31, 821);
+    const coverField = clusCell * 0.72 + clusReg * 0.28;
+    // 雷达云图模式：横向掩膜改由回波强度给出、塔顶按回波云顶截断，与其它三层同源
+    // （radarW < 0 表示走程序化路径）
+    let radarW = -1.0, radarTopRel = 1.0e9;
+    if (radarCloudState.enabled && radarCloudState.ready) {
+        const dbz = cloud_sky_radarDbzAt(kx, kz);
+        radarW = cloud_sky_radarWeather(dbz, 0);
+        radarTopRel = Math.max(cloud_sky_radarTopKm(dbz) - hBase, 0.35);
+    }
+    // 早退：3D 噪声最多把门限往下拉 GATE_NOISE×0.31（basicNoise 实测下限 0.52），
+    // 覆盖场连这点余量都够不着时就不必再取噪声纹理（雷达路径不受此判据约束）
+    if (radarW < 0.0 && coverField < gateC - CLOUD_SKY_CU_GATE_NOISE * cauli * 0.31) return 0.0;
+
+    // ---- 列顶高度 ----
+    // 平均塔厚由 GUI「云厚」给出（云底到塔顶），逐列再按塔强在 ±spread 之间摆动
+    // （一朵云一个顶，空间相干），云量档位越高整体越旺盛。
+    const towerField = cloud_sky_saturate((clusReg - 0.20) * 1.9);
+    const tMean = P.depthKm * CLOUD_SKY_CU_DEPTH_GAIN * (0.90 + 0.20 * u);
+    // 层带顶之下留 0.2 km 余量：滑块拉到极限时塔顶也不会被层带边界平切
+    const tCap = Math.max(CLOUD_SKY_BAND_CU[1] - 0.20 - hBase, 0.35);
+    let hTopRel = Math.min(tMean * (1.0 + P.spread * (2.0 * towerField - 1.0)), tCap);
+    if (radarW >= 0.0) hTopRel = Math.min(hTopRel, radarTopRel);
+    const upDown = cloud_sky_saturate(yb / Math.max(hTopRel, 0.30));   // 0=云底 1=本列塔顶
+
+    // ---- 弱点域扭曲：打散 2D 值噪声的格点感（浓积云边界要清晰，扭曲幅度很小）----
+    const cu = (wA + mx) * 0.0000013 + 0.17;
+    const cv = (wA + mz) * 0.0000013 + 0.61;
+    cloud_sky_sampleWrap2D3(cloudSkyNoise.curl, CLOUD_SKY_CURL_DIM, cu, cv, cloudSkyVec3);
+    const warpX = (cloudSkyVec3[0] * 2.0 - 1.0) * 0.16;   // ±160 m
+    const warpY = (cloudSkyVec3[1] * 2.0 - 1.0) * 0.05;   // ±50 m
+    const warpZ = (cloudSkyVec3[2] * 2.0 - 1.0) * 0.16;
+
+    // ---- 3D 噪声 ----
+    // 基础噪声（Perlin-Worley，鼓包 ≈1.2 km）：把覆盖率门限逐点平移，侧壁因此不是
+    //   光滑锥面，而是带鼓包的花椰菜轮廓。基准取实测均值 0.83，远处被 LOD 抹平后
+    //   自动回到均值，远景轮廓自然变光滑。
+    // 细节噪声（Worley FBM ≈200 m）：把边界啃出海绵状的细边。
+    // 疙瘩噪声（同一张细节图放大到 ≈370 m）：给出塔顶花椰菜的起伏高度场，顶面因此
+    //   是"高低错落的一团团"，而不是一个光滑穹顶。
+    const lodBasic = cloud_sky_noise_lod(footprintKm,
+        1000.0 / (CLOUD_SKY_CU_NOISE_SCALE * CLOUD_SKY_BASIC_DIM));
+    const lodDetail = cloud_sky_noise_lod(footprintKm,
+        1000.0 / (CLOUD_SKY_CU_DETAIL_SCALE * CLOUD_SKY_DETAIL_DIM));
+    const lodLobe = cloud_sky_noise_lod(footprintKm,
+        1000.0 / (CLOUD_SKY_CU_LOBE_SCALE * CLOUD_SKY_DETAIL_DIM));
+    const wx = wdx * woT, wy = (s.cloudDirection[1] + 0.1) * woT, wz = wdz * woT;
+    const basicNoise = cloud_sky_sampleMip3D(cloudSkyNoiseMip.basic,
+        (kx + warpX + wx) * CLOUD_SKY_CU_NOISE_SCALE,
+        (ky + warpY + wy) * CLOUD_SKY_CU_NOISE_SCALE,
+        (kz + warpZ + wz) * CLOUD_SKY_CU_NOISE_SCALE,
+        lodBasic);
+    const detailNoise = cloud_sky_sampleMip3D(cloudSkyNoiseMip.detail,
+        (kx - wx * 0.15) * CLOUD_SKY_CU_DETAIL_SCALE,
+        (ky - wy * 0.15) * CLOUD_SKY_CU_DETAIL_SCALE,
+        (kz - wz * 0.15) * CLOUD_SKY_CU_DETAIL_SCALE,
+        lodDetail);
+    const lobeNoise = cloud_sky_sampleMip3D(cloudSkyNoiseMip.detail,
+        (kx + warpX * 0.5 + wx) * CLOUD_SKY_CU_LOBE_SCALE + 11.3,
+        (ky + warpY + wy) * CLOUD_SKY_CU_LOBE_SCALE + 5.7,
+        (kz + warpZ * 0.5 + wz) * CLOUD_SKY_CU_LOBE_SCALE + 19.1,
+        lodLobe);
+
+    // ---- 横向轮廓 ----
+    // 门限 = 云量门限 + 高度抬升（塔身锥形收窄）− 3D 噪声平移（花椰菜鼓包）
+    const gateH = gateC
+        + CLOUD_SKY_CU_TAPER * Math.pow(upDown, 0.7)
+        - CLOUD_SKY_CU_GATE_NOISE * cauli * (basicNoise - 0.83);
+    let cell = cloud_sky_saturate((coverField - gateH) * P.sharp);
+    if (radarW >= 0.0) cell = cloud_sky_saturate((radarW - 0.12) * 1.5);
+    if (cell <= 0.0) return 0.0;
+
+    // ---- 顶盖：高度由疙瘩噪声决定 → 锐利而破碎的花椰菜顶 ----
+    // 不用"整段高度上慢慢淡出"的包络（那是层云的做法，顶面会糊成一片），而是给出一张
+    // 高低错落的截面高度：列顶 ± 疙瘩噪声，越过它就在 120 m 内切到 0。顶面因此是一
+    // 团团大小不一的圆顶，而边缘仍然是硬的。
+    // 疙瘩噪声实测均值 0.70、σ≈0.10（Worley FBM）：以均值居中再放大 2 倍，
+    // 顶面高差 p5–p95 约 ±0.3 km，塔顶才碎得开。
+    const capKm = hTopRel + CLOUD_SKY_CU_TOP_RELIEF_KM * cauli * (lobeNoise - 0.70) * 2.0;
+    const vertTop = 1.0 - cloud_sky_smoothstep(capKm - CLOUD_SKY_CU_TOP_RAMP_KM, capKm, yb);
+    // 云底 100 m 内由 0 升到 1：平底且清晰
+    const vertBase = cloud_sky_saturate(yb / CLOUD_SKY_CU_BASE_RAMP_KM);
+    const shape = cloud_sky_saturate(cell * vertBase * vertTop);
+    if (shape <= 0.02) return 0.0;
+
+    // ---- 边界侵蚀 ----
+    // 侵蚀幅度随高度增大（云底只轻啃、塔顶狠啃），并逐点被基础噪声调制 → 侧壁鼓包。
+    // 塔顶的破碎已由顶盖负责，故顶段不必再开很大。
+    const eroAmp = (CLOUD_SKY_CU_ERO_BASE + CLOUD_SKY_CU_ERO_TOP * cauli * upDown) *
+        (1.20 - 0.45 * u) * (0.60 + 0.85 * basicNoise);
+    const ero = eroAmp * (1.0 - detailNoise);
+    let density = cloud_sky_saturate((shape - ero) / Math.max(1.0 - ero, 1e-3));
+
+    // 云体内密度随基础噪声起伏：云芯更实、边缘更薄
+    density *= 0.75 + 0.25 * cloud_sky_saturate((basicNoise - 0.6) * 2.2);
+
+    // 云底附近略薄：底面透出下方的暗色，而不是一整块死黑
+    density *= cloud_sky_mix(0.60, 1.0, cloud_sky_saturate(yb / 0.30));
+
+    return cloud_sky_saturate(density * s.cloudDensity * P.density);
+}
+
+// 云层显示掩码（bit0 浓积云 / bit1 高积云 / bit2 层积云 / bit3 卷层云）
+const CLOUD_SKY_LAYER_CU = 1;
+const CLOUD_SKY_LAYER_AC = 2;
+const CLOUD_SKY_LAYER_SC = 4;
+const CLOUD_SKY_LAYER_CS = 8;
+
+// 云密度场分发。四层按物理高度分层带，其中浓积云层带（0.8–4.6 km）与高积云层带
+// （3.0–6.2 km）在 3.0–4.6 km 重叠：两层的层内归一化高度各自独立，因此可以分别
+// 求值，取密度大者（同列共存时不让某一层被裁掉），并把胜出层的层内归一化高度
+// 回传给 powder 项（cloudSky_actualH01）。
+// shadowDepth：历史参数（阴影光线复用入口），现在两路调用都传 0/false。
 // footprintKm：本采样的足迹（像素足迹与步长取大者），用于把噪声低通到可分辨尺度
 function cloud_sky_cloudMap(px, py, pz, normalizeHeight, appTime, shadowDepth, footprintKm) {
     const mask = cloudSkyState.layerMask;
-    if (normalizeHeight < 0.4) {
-        if (!(mask & CLOUD_SKY_LAYER0)) { cloudSky_actualH01 = 0.0; return 0.0; }
-        cloudSky_actualH01 = normalizeHeight / 0.4;
-        return cloud_sky_cloudMap0(px, py, pz, cloudSky_actualH01, appTime, footprintKm);
-    }
-    if (!shadowDepth) {
-        if (normalizeHeight < 0.8) {
-            if (!(mask & CLOUD_SKY_LAYER1)) { cloudSky_actualH01 = 0.0; return 0.0; }
-            cloudSky_actualH01 = (normalizeHeight - 0.4) / 0.4;
-            return cloud_sky_cloudMap1(px, py, pz, cloudSky_actualH01, appTime, footprintKm);
+    const hKm = CLOUD_SKY_SHELL_BOTTOM_KM + normalizeHeight * CLOUD_SKY_SHELL_THICK_KM;
+    let best = 0.0, bestH01 = 0.0;
+
+    if (normalizeHeight < CLOUD_SKY_N_CU1) {
+        if (mask & CLOUD_SKY_LAYER_CU) {
+            const h01 = cloud_sky_saturate(normalizeHeight / CLOUD_SKY_N_CU1);
+            const d = cloud_sky_cloudMapCu(px, py, pz, hKm, appTime, footprintKm);
+            if (d > best) { best = d; bestH01 = h01; }
         }
-        if (!(mask & CLOUD_SKY_LAYER2)) { cloudSky_actualH01 = 0.0; return 0.0; }
-        cloudSky_actualH01 = (normalizeHeight - 0.8) / 0.2;
-        return cloud_sky_cloudMap2(px, py, pz, cloudSky_actualH01, appTime, footprintKm);
+        // 3.0–4.6 km：浓积云塔顶与高积云层带重叠，同一列两层的云可以共存
+        if (normalizeHeight >= CLOUD_SKY_N_AC0 && (mask & CLOUD_SKY_LAYER_AC)) {
+            const h01 = (normalizeHeight - CLOUD_SKY_N_AC0) / (CLOUD_SKY_N_AC1 - CLOUD_SKY_N_AC0);
+            const d = cloud_sky_cloudMap0(px, py, pz, h01, appTime, footprintKm);
+            if (d > best) { best = d; bestH01 = h01; }
+        }
+    } else if (normalizeHeight < CLOUD_SKY_N_AC1) {
+        if (mask & CLOUD_SKY_LAYER_AC) {
+            const h01 = (normalizeHeight - CLOUD_SKY_N_AC0) / (CLOUD_SKY_N_AC1 - CLOUD_SKY_N_AC0);
+            best = cloud_sky_cloudMap0(px, py, pz, h01, appTime, footprintKm);
+            bestH01 = h01;
+        }
+    } else if (normalizeHeight < CLOUD_SKY_N_SC1) {
+        if (mask & CLOUD_SKY_LAYER_SC) {
+            const h01 = (normalizeHeight - CLOUD_SKY_N_AC1) / (CLOUD_SKY_N_SC1 - CLOUD_SKY_N_AC1);
+            best = cloud_sky_cloudMap1(px, py, pz, h01, appTime, footprintKm);
+            bestH01 = h01;
+        }
+    } else if (mask & CLOUD_SKY_LAYER_CS) {
+        const h01 = (normalizeHeight - CLOUD_SKY_N_CS0) / (1.0 - CLOUD_SKY_N_CS0);
+        best = cloud_sky_cloudMap2(px, py, pz, h01, appTime, footprintKm);
+        bestH01 = h01;
     }
-    cloudSky_actualH01 = 0.0;
-    return 0.0;
+    cloudSky_actualH01 = (best > 0.0) ? bestH01 : 0.0;
+    return best;
 }
 
 // flower volumetricShadow 直译（posKm 为千米制坐标）
 // out[0]=transmittanceToLight0, out[1]=transmittanceToLight1（多重散射阶）
-function cloud_sky_volumetricShadow(posKx, posKy, posKz, sdx, sdy, sdz, appTime, msExtinctionFactor, out) {
+function cloud_sky_volumetricShadow(posKx, posKy, posKz, sdx, sdy, sdz, appTime, msExtinctionFactor, out, totalLenKm) {
     const s = cloudSkyScene;
-    const kTotalLen = s.cloudLightBasicStep;
+    // totalLenKm 缺省为直射光探针长度（cloudLightBasicStep）；环境光传短探针长度
+    const kTotalLen = (totalLenKm === undefined) ? s.cloudLightBasicStep : totalLenKm;
     const shadowStepCount = cloudSkyState.lightSteps;
     const invShadowStepCount = 1.0 / shadowStepCount;
     // 阴影光线的采样间隔较粗（15 km / 6~12 步），轻度预滤波即可抑制颗粒：
@@ -6746,7 +7003,8 @@ function cloud_sky_cloudPixelCompute(wpx, wpy, wpz, wdx, wdy, wdz, appTime, jitt
 
             cloud_sky_volumetricShadow(spx, spy, spz, sdx, sdy, sdz, appTime, s.cloudMultiScatterExtinction, shadow0);
             if (bGroundContrib) {
-                cloud_sky_volumetricShadow(spx, spy, spz, 0.0, 1.0, 0.0, appTime, s.cloudMultiScatterExtinction, shadowAmb);
+                cloud_sky_volumetricShadow(spx, spy, spz, 0.0, 1.0, 0.0, appTime,
+                    s.cloudMultiScatterExtinction, shadowAmb, CLOUD_SKY_AMBIENT_LEN_KM);
             }
 
             // powder（奶油感边缘，方向性银边——逆光金边核心）
@@ -7637,7 +7895,14 @@ const CloudSkyWebGL = {
             u_light_steps: gl.getUniformLocation(this.program, 'u_light_steps'),
             u_radar_enable: gl.getUniformLocation(this.program, 'u_radar_enable'),
             u_cam_pos: gl.getUniformLocation(this.program, 'u_cam_pos'),
-            u_noise_sigma: gl.getUniformLocation(this.program, 'u_noise_sigma')
+            u_noise_sigma: gl.getUniformLocation(this.program, 'u_noise_sigma'),
+            u_cu_base_km: gl.getUniformLocation(this.program, 'u_cu_base_km'),
+            u_cu_depth_km: gl.getUniformLocation(this.program, 'u_cu_depth_km'),
+            u_cu_spread: gl.getUniformLocation(this.program, 'u_cu_spread'),
+            u_cu_cauli: gl.getUniformLocation(this.program, 'u_cu_cauli'),
+            u_cu_sharp: gl.getUniformLocation(this.program, 'u_cu_sharp'),
+            u_cu_cell_km: gl.getUniformLocation(this.program, 'u_cu_cell_km'),
+            u_cu_density: gl.getUniformLocation(this.program, 'u_cu_density')
         };
 
         console.log('WebGL2 cloud sky initialized');
@@ -7840,6 +8105,14 @@ const CloudSkyWebGL = {
         gl.uniform1f(this.uniforms.u_ambient_scale, cloudSkyScene.cloudAmbientScale);
         gl.uniform1i(this.uniforms.u_march_steps, cloudSkyScene.cloudMarchingStepNum);
         gl.uniform1i(this.uniforms.u_light_steps, cloudSkyScene.cloudLightStepNum);
+        // 浓积云形状参数（滑块改动后立即生效，无需重建噪声/LUT）
+        gl.uniform1f(this.uniforms.u_cu_base_km, CLOUD_SKY_CU_PARAMS.baseKm);
+        gl.uniform1f(this.uniforms.u_cu_depth_km, CLOUD_SKY_CU_PARAMS.depthKm);
+        gl.uniform1f(this.uniforms.u_cu_spread, CLOUD_SKY_CU_PARAMS.spread);
+        gl.uniform1f(this.uniforms.u_cu_cauli, CLOUD_SKY_CU_PARAMS.cauli);
+        gl.uniform1f(this.uniforms.u_cu_sharp, CLOUD_SKY_CU_PARAMS.sharp);
+        gl.uniform1f(this.uniforms.u_cu_cell_km, CLOUD_SKY_CU_PARAMS.cellKm);
+        gl.uniform1f(this.uniforms.u_cu_density, CLOUD_SKY_CU_PARAMS.density);
         gl.uniform1f(this.uniforms.u_radar_enable,
             (radarCloudState.enabled && radarCloudState.ready && this.radarUploaded) ? 1.0 : 0.0);
         // 天空源：0-模型5内建（天空+云一体）；1-纯天空（云关）；2-解耦云叠加（输出 alpha）
@@ -7980,6 +8253,14 @@ const CloudSkyWebGL = {
         uniform int u_march_steps;
         uniform int u_light_steps;
         uniform vec3 u_cam_pos;      // 观察点（云世界系 km，y 轴向上；随飞机移动）
+        // 浓积云可调形状参数（GUI「云参数」滑块 → CLOUD_SKY_CU_PARAMS → 这里）
+        uniform float u_cu_base_km;  // 云底高度
+        uniform float u_cu_depth_km; // 塔身平均厚度
+        uniform float u_cu_spread;   // 塔顶参差
+        uniform float u_cu_cauli;    // 花椰菜强度
+        uniform float u_cu_sharp;    // 边界锐度
+        uniform float u_cu_cell_km;  // 云胞尺度
+        uniform float u_cu_density;  // 云芯密度
 
         // 噪声与 LUT 纹理（CPU 预计算，与 scatter_model_5 共享同一份数据）
         uniform highp sampler3D u_basic_noise;   // 64^3 Perlin-Worley
@@ -8038,8 +8319,36 @@ const CloudSkyWebGL = {
         const float kCloudPowderScale = 1.5;
         const float kCloudPowderPow = 1.0;
         const float kCloudLightBasicStep = 15.0;
-        const float kCloudAreaStartHeight = 6363.0;
-        const float kCloudAreaThickness = 8.0;
+        // 云壳：0.8–11 km（与 JS 侧 CLOUD_SKY_SHELL_* 一致）。浓积云的云底约 1.2 km，
+        // 壳底必须降到云底之下，才能把它的平底和塔身都包进 ray-march 的球壳内。
+        const float kBandBottomKm = 0.80;
+        const float kCloudAreaThickness = 10.20;
+        const float kCloudAreaStartHeight = 6360.0 + kBandBottomKm;
+        // 层带边界（云壳归一化高度）：浓积云 [0,N_CU1]、高积云 [N_AC0,N_AC1]、
+        // 层积云 [N_AC1,N_SC1]、卷层云 [N_SC0,1]。浓积云塔顶与高积云层带在高空段重叠。
+        const float N_CU1 = 0.37254902;   // 4.6 km
+        const float N_AC0 = 0.21568627;   // 3.0 km
+        const float N_AC1 = 0.52941176;   // 6.2 km
+        const float N_SC1 = 0.84313725;   // 9.4 km
+        const float N_CS0 = 0.84313725;   // 9.4 km
+        // 浓积云形状参数（与 JS 侧 CLOUD_SKY_CU_* 逐个对应）
+        const float kCuBaseAmpKm = 0.10;       // 云底缓慢起伏峰峰
+        const float kCuBaseRampKm = 0.10;      // 云底 0→1 过渡厚度
+        const float kCuTaper = 0.13;           // 门限随高度抬升量（塔身锥形收窄强度）
+        const float kCuNoiseScale = 0.20;      // 基础噪声尺度（鼓包 ≈1.2 km）
+        const float kCuDetailScale = 0.62;     // 细节噪声尺度（细边 ≈200 m）
+        const float kCuLobeScale = 0.46;       // 疙瘩噪声尺度（花椰菜疙瘩 ≈270 m）
+        const float kCuTopRampKm = 0.09;       // 塔顶切边厚度（越小顶面越锐）
+        const float kCuDepthGain = 1.72;       // 塔高标定（使实测 p50 厚度 = 面板「云厚」）
+        const float kCuTopReliefKm = 0.45;     // 塔顶疙瘩高度场幅度（×(lobe−0.70)×2×cauli）
+        const float kCuEroBase = 0.22;         // 云底侵蚀幅度
+        const float kCuEroTop = 0.34;          // 塔顶额外侵蚀幅度（× cauli）
+        const float kCuGateNoise = 0.26;       // 3D 噪声对门限的平移量（× cauli）
+        const float kCuLevelMin = 0.325;       // 云量档位两端（疏云/满云）
+        const float kCuLevelMax = 0.395;
+        // 环境光探针长度（km，与 JS CLOUD_SKY_AMBIENT_LEN_KM 一致）：直射光用 15 km，
+        // 环境光（天空下行漫射）只有几百米到 1 km 的有效穿透深度，否则厚云底部死黑。
+        const float kCloudAmbientLenKm = 0.90;
 
         // 大气参数（与 cloudSkyScene 一致）
         const vec3 kGroundAlbedo = vec3(0.3, 0.3, 0.3);
@@ -8358,7 +8667,10 @@ const CloudSkyWebGL = {
             return min(1.0, 0.9 + (dbz - dbzMid) / (dbzMax - dbzMid) * 0.1);
         }
         // 通道2：dBZ → 云顶高度（云壳归一化）；通道3：dBZ → 密度系数（≤2.2 防死黑）
-        float radarTopH(float dbz) { return 0.10 + 0.90 * sat_((dbz - 6.0) / 49.0); }
+        // dBZ → 云顶物理高度（km），与 JS cloud_sky_radarTopKm 一致
+        float radarTopKm(float dbz) { return 3.0 + 8.0 * sat_((dbz - 6.0) / 49.0); }
+        // 壳归一化版（各层用云壳归一化高度比较云顶）
+        float radarTopH(float dbz) { return (radarTopKm(dbz) - kBandBottomKm) / kCloudAreaThickness; }
         float radarDensityScale(float dbz) { return 0.6 + 1.6 * sat_((dbz - 6.0) / 49.0); }
 
         // 非平铺哈希值噪声（2D）：与 JS cloud_sky_valueNoise2 逐位一致。
@@ -8461,7 +8773,7 @@ const CloudSkyWebGL = {
                 float dbz = radarDbz(posKm.xz);
                 weatherValue = radarWeather(dbz, 6.0, 14.0, 35.0);
                 localCoverage = 0.0;
-                float shellH = normalizeHeight * 0.4;   // 本层 → 云壳归一化高度
+                float shellH = N_AC0 + normalizeHeight * (N_AC1 - N_AC0);
                 float hTop = radarTopH(dbz);
                 radarTopWindow = 1.0 - smoothstep(hTop - 0.08, hTop, shellH);
                 radarDensScale = radarDensityScale(dbz);
@@ -8518,7 +8830,7 @@ const CloudSkyWebGL = {
                 (appTime * kCloudSpeed * 50.0 + posMeter.x) * 0.000001 - 0.11,
                 (appTime * kCloudSpeed * 50.0 + posMeter.z) * 0.000001 - 0.11)).r;
             localCoverage = sat_(localCoverage * 4.0 - 2.0) * 0.5;
-            // 雷达云图三通道（中层；壳归一化高度 = 0.4+nH×0.4）
+            // 雷达云图三通道（中层；壳归一化高度按新层带边界换算）
             // + 双频噪声乘性调制（同 JS cloud_sky_cloudMap1 雷达分支注释）
             float radarTopWindow = 1.0, radarDensScale = 1.0;
             if (u_radar_enable > 0.5) {
@@ -8539,7 +8851,7 @@ const CloudSkyWebGL = {
                 weatherValue = sat_(radarWeather(dbz, 10.0, 20.0, 45.0) *
                     (0.6 + 0.8 * localFine) * (0.7 + 0.6 * localCoarse));
                 localCoverage = 0.0;
-                float shellH = 0.4 + normalizeHeight * 0.4;
+                float shellH = N_AC1 + normalizeHeight * (N_SC1 - N_AC1);
                 float hTop = radarTopH(dbz);
                 radarTopWindow = 1.0 - smoothstep(hTop - 0.08, hTop, shellH);
                 radarDensScale = radarDensityScale(dbz) * (0.7 + 0.6 * localCoarse);
@@ -8603,7 +8915,7 @@ const CloudSkyWebGL = {
                 (appTime * kCloudSpeed * 50.0 + posMeter.x) * 0.000001 - 0.39,
                 (appTime * kCloudSpeed * 50.0 + posMeter.z) * 0.000001 - 0.39)).r;
             localCoverage = sat_(1.0 - pow(sat_(localCoverage), 8.0));
-            // 雷达云图三通道（高层；壳归一化高度 = 0.8+nH×0.2）
+            // 雷达云图三通道（高层；壳归一化高度按新层带边界换算）
             // + 双频噪声乘性调制（同 JS cloud_sky_cloudMap2 雷达分支注释）
             float radarTopWindow = 1.0, radarDensScale = 1.0;
             if (u_radar_enable > 0.5) {
@@ -8624,7 +8936,7 @@ const CloudSkyWebGL = {
                 weatherValue = sat_(radarWeather(dbz, 18.0, 30.0, 55.0) *
                     (0.6 + 0.8 * localFine) * (0.7 + 0.6 * localCoarse));
                 localCoverage = 0.0;
-                float shellH = 0.8 + normalizeHeight * 0.2;
+                float shellH = N_CS0 + normalizeHeight * (1.0 - N_CS0);
                 float hTop = radarTopH(dbz);
                 radarTopWindow = 1.0 - smoothstep(hTop - 0.08, hTop, shellH);
                 radarDensScale = radarDensityScale(dbz) * (0.7 + 0.6 * localCoarse);
@@ -8658,30 +8970,140 @@ const CloudSkyWebGL = {
             return sat_(cloudDensity);
         }
 
-        // 云密度场分发（shadowDepth 时仅低层参与，供阴影光线复用）
+        // ------------------------------------------------------------------
+        // 浓积云（Cu congestus）：垂直发展、边界清晰（与 JS cloud_sky_cloudMapCu 同算法）
+        // ------------------------------------------------------------------
+        // 平底（云底固定 1.2 km）+ 逐列塔顶（2D 场决定每朵云多高）+ 横向门限随高度抬升
+        // （横截面自下而上收窄成塔）+ 细节噪声侵蚀边界（花椰菜）。横向轮廓由 2D 细胞场
+        // 直接切出，3D 噪声不参与"哪里有云"，只平移门限与啃边界——否则各向同性的 3D 噪声
+        // 会把云塔切成一团团圆疙瘩，长不出竖向发展的塔身。
+        float cloudMapCu(vec3 posMeter, float hKm, float appTime, float footprintKm) {
+            vec3 pref = posMeter;
+            float wA = appTime * kCloudSpeed * 50.0;
+            float woT = appTime * kCloudSpeed;
+            float cauli = u_cu_cauli;
+
+            // 塔身顺风轻微倾斜（层带内只飘百多米）
+            float shear = max(0.0, hKm - u_cu_base_km) * 34.0;
+            float mx = pref.x + kCloudDirection.x * shear;
+            float mz = pref.z + kCloudDirection.z * shear;
+            vec3 posKm = vec3(mx * 0.001, pref.y * 0.001, mz * 0.001);
+
+            // 云底：近乎平齐（9 km 尺度起伏，峰峰 100 m）
+            float baseN = valueNoise2Fbm(vec2((wA + mx) / 9000.0 + 0.13, (wA + mz) / 9000.0 + 0.13), 811);
+            float hBase = u_cu_base_km + (baseN - 0.5) * kCuBaseAmpKm;
+            float yb = hKm - hBase;
+            if (yb <= 0.0) return 0.0;
+
+            // 云量档位 → 门限（u: 1 号档疏云 → 5 号档满云）
+            if (u_coverage <= 0.0) return 0.0;
+            float u = sat_((u_coverage - kCuLevelMin) / (kCuLevelMax - kCuLevelMin));
+            float gateC = 0.625 - 0.325 * u;
+
+            // 横向细胞场（2D 非平铺值噪声）：云胞（可调）+ 云团 5.2 km
+            float invCell = 1.0 / (u_cu_cell_km * 1000.0);
+            float clusCell = valueNoise2Fbm(vec2((wA + mx) * invCell + 1.1, (wA + mz) * invCell + 2.3), 829);
+            float clusReg = valueNoise2Fbm(vec2((wA + mx) / 5200.0 + 0.31, (wA + mz) / 5200.0 + 0.31), 821);
+            float coverField = clusCell * 0.72 + clusReg * 0.28;
+            // 雷达云图模式：横向掩膜取回波强度、塔顶按回波云顶截断（与其它三层同源）
+            float radarW = -1.0, radarTopRel = 1.0e9;
+            if (u_radar_enable > 0.5) {
+                float dbz = radarDbz(posKm.xz);
+                radarW = radarWeather(dbz, 6.0, 14.0, 35.0);
+                radarTopRel = max(radarTopKm(dbz) - hBase, 0.35);
+            }
+            if (radarW < 0.0 && coverField < gateC - kCuGateNoise * cauli * 0.31) return 0.0;
+
+            // 列顶高度：平均塔厚（可调）± 塔强摆动；层带顶之下留 0.2 km 余量
+            float towerField = sat_((clusReg - 0.20) * 1.9);
+            float tMean = u_cu_depth_km * kCuDepthGain * (0.90 + 0.20 * u);
+            float tCap = max(4.60 - 0.20 - hBase, 0.35);
+            float hTopRel = min(tMean * (1.0 + u_cu_spread * (2.0 * towerField - 1.0)), tCap);
+            if (radarW >= 0.0) hTopRel = min(hTopRel, radarTopRel);
+            float upDown = sat_(yb / max(hTopRel, 0.30));
+
+            // 弱点域扭曲
+            vec2 curlUv = vec2((wA + mx) * 0.0000013 + 0.17, (wA + mz) * 0.0000013 + 0.61);
+            vec3 curl = texture(u_curl_noise, curlUv).rgb * 2.0 - 1.0;
+            float warpX = curl.x * 0.16;
+            float warpY = curl.y * 0.05;
+            float warpZ = curl.z * 0.16;
+
+            // 3D 噪声：基础（鼓包）/ 细节（细边）/ 疙瘩（塔顶高度场）
+            float lodBasic = cloudNoiseLod(footprintKm, 1000.0 / (kCuNoiseScale * 64.0), 6.0);
+            float lodDetail = cloudNoiseLod(footprintKm, 1000.0 / (kCuDetailScale * 32.0), 6.0);
+            float lodLobe = cloudNoiseLod(footprintKm, 1000.0 / (kCuLobeScale * 32.0), 6.0);
+            vec3 windOffset = (kCloudDirection + vec3(0.0, 0.1, 0.0)) * woT;
+            float basicNoise = textureLod(u_basic_noise,
+                (posKm + vec3(warpX, warpY, warpZ) + windOffset) * kCuNoiseScale, lodBasic).r;
+            float detailNoise = textureLod(u_detail_noise,
+                (posKm - windOffset * 0.15) * kCuDetailScale, lodDetail).r;
+            float lobeNoise = textureLod(u_detail_noise,
+                (posKm + vec3(warpX * 0.5, warpY, warpZ * 0.5) + windOffset) * kCuLobeScale +
+                vec3(11.3, 5.7, 19.1), lodLobe).r;
+
+            // 横向轮廓：门限 = 云量门限 + 高度抬升 − 3D 噪声平移
+            float gateH = gateC + kCuTaper * pow(upDown, 0.7) - kCuGateNoise * cauli * (basicNoise - 0.83);
+            float cell = sat_((coverField - gateH) * u_cu_sharp);
+            if (radarW >= 0.0) cell = sat_((radarW - 0.12) * 1.5);
+            if (cell <= 0.0) return 0.0;
+
+            // 顶盖：高度由疙瘩噪声决定 → 锐利而破碎的花椰菜顶
+            // 疙瘩噪声实测均值 0.70、σ≈0.10：以均值居中再放大 2 倍
+            float capKm = hTopRel + kCuTopReliefKm * cauli * (lobeNoise - 0.70) * 2.0;
+            float vertTop = 1.0 - smoothstep(capKm - kCuTopRampKm, capKm, yb);
+            float vertBase = sat_(yb / kCuBaseRampKm);
+            float shape = sat_(cell * vertBase * vertTop);
+            if (shape <= 0.02) return 0.0;
+
+            // 边界侵蚀（云底轻、塔顶狠，逐点被基础噪声调制）
+            float eroAmp = (kCuEroBase + kCuEroTop * cauli * upDown) * (1.20 - 0.45 * u) * (0.60 + 0.85 * basicNoise);
+            float ero = eroAmp * (1.0 - detailNoise);
+            float density = sat_((shape - ero) / max(1.0 - ero, 1e-3));
+
+            density *= 0.75 + 0.25 * sat_((basicNoise - 0.6) * 2.2);
+            density *= mix(0.60, 1.0, sat_(yb / 0.30));
+            return sat_(density * u_cu_density);
+        }
+
+        // 云密度场分发（四层按物理高度分层带；浓积云层带与高积云层带在高空段重叠，
+        // 两层分别求值取密度大者，胜出层的层内归一化高度回传给 powder 项）。
         float cloudMap(vec3 posMeter, float normalizeHeight, float appTime, bool shadowDepth, float footprintKm, out float actualH01) {
-            if (normalizeHeight < 0.4) {
-                if ((u_layer_mask & 1) == 0) { actualH01 = 0.0; return 0.0; }
-                actualH01 = normalizeHeight / 0.4;
-                return cloudMap0(posMeter, actualH01, appTime, footprintKm);
-            }
-            if (!shadowDepth) {
-                if (normalizeHeight < 0.8) {
-                    if ((u_layer_mask & 2) == 0) { actualH01 = 0.0; return 0.0; }
-                    actualH01 = (normalizeHeight - 0.4) / 0.4;
-                    return cloudMap1(posMeter, actualH01, appTime, footprintKm);
-                }
-                if ((u_layer_mask & 4) == 0) { actualH01 = 0.0; return 0.0; }
-                actualH01 = (normalizeHeight - 0.8) / 0.2;
-                return cloudMap2(posMeter, actualH01, appTime, footprintKm);
-            }
+            float hKm = kBandBottomKm + normalizeHeight * kCloudAreaThickness;
+            float best = 0.0;
             actualH01 = 0.0;
-            return 0.0;
+            if (normalizeHeight < N_CU1) {
+                if ((u_layer_mask & 1) != 0) {
+                    float h01 = sat_(normalizeHeight / N_CU1);
+                    float d = cloudMapCu(posMeter, hKm, appTime, footprintKm);
+                    if (d > best) { best = d; actualH01 = h01; }
+                }
+                if (normalizeHeight >= N_AC0 && (u_layer_mask & 2) != 0) {
+                    float h01 = (normalizeHeight - N_AC0) / (N_AC1 - N_AC0);
+                    float d = cloudMap0(posMeter, h01, appTime, footprintKm);
+                    if (d > best) { best = d; actualH01 = h01; }
+                }
+            } else if (normalizeHeight < N_AC1) {
+                if ((u_layer_mask & 2) != 0) {
+                    actualH01 = (normalizeHeight - N_AC0) / (N_AC1 - N_AC0);
+                    best = cloudMap0(posMeter, actualH01, appTime, footprintKm);
+                }
+            } else if (normalizeHeight < N_SC1) {
+                if ((u_layer_mask & 4) != 0) {
+                    actualH01 = (normalizeHeight - N_AC1) / (N_SC1 - N_AC1);
+                    best = cloudMap1(posMeter, actualH01, appTime, footprintKm);
+                }
+            } else if ((u_layer_mask & 8) != 0) {
+                actualH01 = (normalizeHeight - N_CS0) / (1.0 - N_CS0);
+                best = cloudMap2(posMeter, actualH01, appTime, footprintKm);
+            }
+            return best;
         }
 
         // flower volumetricShadow 直译（posKm 为千米制坐标）
-        vec2 volumetricShadow(vec3 posKm, vec3 sunDirection, float appTime, float msExtinctionFactor) {
-            float kTotalLen = kCloudLightBasicStep;
+        vec2 volumetricShadow(vec3 posKm, vec3 sunDirection, float appTime, float msExtinctionFactor, float totalLenKm) {
+            // totalLenKm 缺省由调用方给：直射光 15 km、环境光 kCloudAmbientLenKm
+            float kTotalLen = totalLenKm;
             float shadowStepCount = float(u_light_steps);
             float invShadowStepCount = 1.0 / shadowStepCount;
             // 光线侧的平均采样间隔：阴影采样同样按该尺度预滤波噪声，否则每个像素会用
@@ -8851,11 +9273,11 @@ const CloudSkyWebGL = {
                     float opticalDepth = stepCloudDensity * stepLen * 1000.0;
                     float stepTransmittance = max(exp(-opticalDepth), exp(-opticalDepth * 0.25) * 0.7);
 
-                    vec2 shadow = volumetricShadow(samplePos, sunDirection, appTime, u_ms_extinction);
+                    vec2 shadow = volumetricShadow(samplePos, sunDirection, appTime, u_ms_extinction, kCloudLightBasicStep);
                     vec2 shadowAmbient = vec2(0.0);
                     bool bGroundContrib = (kCloudFogFade > 0.0);
                     if (bGroundContrib) {
-                        shadowAmbient = volumetricShadow(samplePos, vec3(0.0, 1.0, 0.0), appTime, u_ms_extinction);
+                        shadowAmbient = volumetricShadow(samplePos, vec3(0.0, 1.0, 0.0), appTime, u_ms_extinction, kCloudAmbientLenKm);
                     }
 
                     // 到相机的视线大气透射率（本样本）
@@ -12378,6 +12800,67 @@ function wo_init_sliders() {
 }
 wo_init_sliders();
 
+// ---------------------------------------------------------------------------
+// 体积云「云参数」滑块（浓积云形状）：与海洋参数同一套控件样式
+// ---------------------------------------------------------------------------
+// 面板默认收起，点「云参数」按钮展开。滑块直接改写 CLOUD_SKY_CU_PARAMS：
+// JS 路径逐样本读取它，GLSL 路径每帧以 uniform 上传同一份数值，所以拖动即时可见，
+// 既不需要重建噪声纹理，也不需要重算 LUT。
+const CLOUD_SKY_CU_SLIDERS = [
+    ['baseKm',  '云底高度', 1.00,  2.00,  0.05,   (v) => v.toFixed(2) + ' km'],
+    ['depthKm', '云厚',     0.30,  2.40,  0.05,   (v) => v.toFixed(2) + ' km'],
+    ['spread',  '塔顶参差', 0.00,  1.00,  0.02,   (v) => v.toFixed(2)],
+    ['cauli',   '花椰菜',   0.00,  2.00,  0.05,   (v) => v.toFixed(2)],
+    ['sharp',   '边界锐度', 8.0,   120.0, 2.0,    (v) => v.toFixed(0)],
+    ['cellKm',  '云胞尺度', 0.60,  3.00,  0.05,   (v) => v.toFixed(2) + ' km'],
+    ['density', '云密度',   0.002, 0.020, 0.0005, (v) => v.toFixed(4)],
+];
+let cloud_sliders_ready = false;
+function cloud_init_sliders() {
+    if (cloud_sliders_ready) return;
+    cloud_sliders_ready = true;
+    const box = document.getElementById('cloud_shape_controller');
+    if (!box) return;
+    for (const [key, name, min, max, step, fmt] of CLOUD_SKY_CU_SLIDERS) {
+        const row = document.createElement('div');
+        row.className = 'ocean_slider_row';
+        const label = document.createElement('span');
+        label.className = 'osl_name';
+        label.textContent = name;
+        const inp = document.createElement('input');
+        inp.type = 'range';
+        inp.min = min; inp.max = max; inp.step = step;
+        const v0 = CLOUD_SKY_CU_PARAMS[key];
+        inp.value = v0;
+        const val = document.createElement('span');
+        val.className = 'osl_val';
+        val.textContent = fmt(v0);
+        inp.addEventListener('input', () => {
+            const v = parseFloat(inp.value);
+            CLOUD_SKY_CU_PARAMS[key] = v;
+            val.textContent = fmt(v);
+            skyCache.key = null;   // 云形变了：天空缓存立即失效（否则「天空降帧」会显示旧帧）
+        });
+        row.appendChild(label);
+        row.appendChild(inp);
+        row.appendChild(val);
+        box.appendChild(row);
+    }
+}
+cloud_init_sliders();
+
+// 云参数滑块区的显隐：启用体积云、且用户点开了「云参数」才展开（收起时整块不进布局）
+function cloud_params_refresh() {
+    const ctl = document.getElementById('cloud_shape_controller');
+    if (ctl) ctl.style.display = (enable_volumetric_cloud && cloud_params_open) ? "flex" : "none";
+    const st = document.getElementById('cloud_params_status');
+    if (st) {
+        if (!enable_volumetric_cloud) st.innerHTML = `<span class="switch_off">需体积云</span>`;
+        else if (cloud_params_open) st.innerHTML = `<span class="switch_on">展开</span>`;
+        else st.innerHTML = `<span class="switch_off">收起</span>`;
+    }
+}
+
 // 飞行模拟改变观察高度后，同步“观察高度”滑块的位置与读数（不触发重建，重建由 camDirtyAt 防抖）
 function wo_sync_camY_ui(alt) {
     const ctl = WO_SLIDER_CONTROLS['camY'];
@@ -13694,7 +14177,12 @@ function render_all(
             sun_alt.toFixed(2), sun_azi.toFixed(2),
             cloudSkyState.coverageLevel, cloudSkyState.layerIdx,
             cloudSkyScene.brightness.toFixed(2), enable_cloud_sun_lens ? 1 : 0,
-            radarCloudState.enabled ? 1 : 0
+            radarCloudState.enabled ? 1 : 0,
+            // 浓积云形状参数（拖动「云参数」滑块时天空必须立即重绘）
+            CLOUD_SKY_CU_PARAMS.baseKm.toFixed(2), CLOUD_SKY_CU_PARAMS.depthKm.toFixed(2),
+            CLOUD_SKY_CU_PARAMS.spread.toFixed(2), CLOUD_SKY_CU_PARAMS.cauli.toFixed(2),
+            CLOUD_SKY_CU_PARAMS.sharp.toFixed(0), CLOUD_SKY_CU_PARAMS.cellKm.toFixed(2),
+            CLOUD_SKY_CU_PARAMS.density.toFixed(4)
         ].join('|');
         // 天空图像只取决于上面的键：与时间无关的部分（云已解耦为独立通道）没有理由周期性重绘。
         // 缓存持续有效，直到输入真正变化；避免每 SKY_SKIP_FRAMES 帧出现一次重绘尖峰。
@@ -16623,8 +17111,8 @@ function refresh_button_status() {
         status = `<span class="switch_active">${coverage_names[cloudSkyState.coverageLevel]} ${cloudSkyState.coverageLevel + 1}/6</span>`;
         document.getElementById("cloud_coverage_status").innerHTML = status;
 
-        // 云类（层掩码 0-7 共 8 种组合，按掩码排序）
-        status = `<span class="switch_active">${CLOUD_SKY_LAYER_NAMES[cloudSkyState.layerIdx]}</span>`;
+        // 云类（层掩码 0-15 共 16 种组合，按掩码排序）
+        status = `<span class="switch_active">${cloud_sky_layer_label(cloudSkyState.layerIdx)}</span>`;
         document.getElementById("cloud_layer_status").innerHTML = status;
 
         // 云亮度：随太阳高度自动变化，按钮只作读数显示（见 cloud_sky_brightness_from_sun_alt）
@@ -16653,6 +17141,9 @@ function refresh_button_status() {
     else {
         cloud_sky_ctl.style.display = "none";
     }
+
+    // 「云参数」按钮的展开/收起状态与滑块区的显隐（默认收起）
+    cloud_params_refresh();
 
     // 「海洋参数」按钮的展开/收起状态与滑块区的显隐（默认收起）
     ocean_params_refresh();
@@ -17070,6 +17561,12 @@ function init() {
         landscape_index++;
         if (landscape_index >= LANDSCAPES.length) landscape_index = 0;
         load_landscape_texture(landscape_index);
+        refresh_button_status();
+    });
+
+    // 云参数滑块区的展开/收起（默认收起；未启用体积云时只提示、不展开）
+    document.getElementById("toggle_cloud_params").addEventListener("click", function(e) {
+        cloud_params_open = !cloud_params_open;
         refresh_button_status();
     });
 
