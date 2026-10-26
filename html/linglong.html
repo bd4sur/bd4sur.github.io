@@ -734,12 +734,9 @@ body.is-day .np_plate {
 .ck_row_time {
     gap: 6px;
 }
-/* 各格横跨的列数（12 列底）：第一行 天文要素 4 / 图形与交互 4 / 大气 4；
-   第二行 云 5 / 地形与导航 3 / 时间 4 */
+/* 各格横跨的列数（12 列底）：两行都是 4 / 4 / 4 */
 .cockpit_panel:nth-child(1), .cockpit_panel:nth-child(2), .cockpit_panel:nth-child(3) { grid-column: span 4; }
-.cockpit_panel:nth-child(4) { grid-column: span 5; }
-.cockpit_panel:nth-child(5) { grid-column: span 3; }
-.cockpit_panel:nth-child(6) { grid-column: span 4; }
+.cockpit_panel:nth-child(4), .cockpit_panel:nth-child(5), .cockpit_panel:nth-child(6) { grid-column: span 4; }
 /* 时间面板的按钮略窄，六个才能排进一格一行 */
 .ck_row_time .setting_button {
     min-width: 46px;
@@ -1406,15 +1403,6 @@ body.is-day .ak_socket {
                                 </button>
                             </div>
                         </div>
-                        <div class="ak_sw">
-                            <div class="ak_name">云参数</div>
-                            <div class="ak_socket">
-                                <button class="ak_btn" id="toggle_cloud_params">
-                                    <span class="ak_state" id="cloud_params_status">-</span>
-                                    <span class="ak_onoff">ON</span>
-                                </button>
-                            </div>
-                        </div>
                     </div>
                 </div>
                 <div class="cockpit_panel">
@@ -1458,6 +1446,15 @@ body.is-day .ak_socket {
                                 </button>
                             </div>
                         </div>
+                                                <div class="ak_sw">
+                                <div class="ak_name">云参数</div>
+                                <div class="ak_socket">
+                                    <button class="ak_btn" id="toggle_cloud_params">
+                                        <span class="ak_state" id="cloud_params_status">-</span>
+                                        <span class="ak_onoff">ON</span>
+                                    </button>
+                                </div>
+                            </div>
                     </div>
                 </div>
                 <div class="cockpit_panel">
@@ -1858,7 +1855,7 @@ body.is-day .ak_socket {
                     <li>时间日期均为北京时间(UTC+8)。</li>
                     <li>农历日期系由星历算法解算而得，未必准确。</li>
                     <li>拖动屏幕改变视角。</li>
-                    <li>顶部的按钮按功能分成六块面板，每块面板用一道刻进板面的凹槽缝隙与邻格隔开：天文要素（赤道坐标/地平方位/黄道/天体名称/星芒）、图形与交互（投影算法/重力感应/姿态指示/平滑滤波/GPU渲染）、大气（大气散射/天空降帧/镜头光晕/雷达云图）、云（体积云/云半分辨率/云量/云类/云精度/云参数）、地形与导航（地景/地形/刷新地形/海洋参数）、时间（按日/按分钟快退、实时、暂停运行、快进）。</li>
+                    <li>顶部的按钮按功能分成六块面板，每块面板用一道刻进板面的凹槽缝隙与邻格隔开：天文要素（赤道坐标/地平方位/黄道/天体名称/星芒）、图形与交互（投影算法/重力感应/姿态指示/平滑滤波/GPU渲染）、大气（大气散射/天空降帧/镜头光晕/雷达云图）、云（体积云/云半分辨率/云量/云类/云精度）、地形与导航（地景/地形/刷新地形/海洋参数/云参数）、时间（按日/按分钟快退、实时、暂停运行、快进）。</li>
                     <li>「天体名称」默认为全部。页面初始化时会先算一次太阳高度：低于 −18°（天文晨昏蒙影已结束）就自动打开「赤道坐标」网格并显示地平方位角（只出方位文字，地平网格仍关闭）；天还亮着则这两项保持关闭。切到「飞行控制」选项卡时会自动打开「姿态指示」并改为「透视投影」。这些自动设置之后都能手动改回。</li>
                     <li>「飞行控制」选项卡模拟一架小型固定翼飞机（初教五、动力三角翼一类）的第一人称座舱视角：左侧竖向滑轨是油门（向上加大推力），右侧圆形摇杆的横向控制滚转、纵向控制俯仰（向下拉杆抬头、向上推杆低头），下方两个按钮控制左右方向舵。滚转产生坡度后会进入协调转弯（水平向心运动），方向舵会造成侧滑。PC 上也可用键盘：W/S 推拉杆、A/D 左右坡度、Q/E 左右偏航、R/F 增减油门；点「复位」以当前位置和航向重新开始一次飞行。飞行只在「飞行控制」页生效，切回「视角控制」即暂停模拟并保留飞机状态。速度不设上限：全油门平飞极速约 131 m/s（471 km/h，海平面；越高空气稀薄越低），俯冲时重力参与，垂直俯冲可达约 176 m/s（635 km/h），完全由寄生阻力与推力衰减决定。</li>
                     <li>主画布上方是经纬度/时间/农历/帧率那排参数框，下方是飞行参数数字框，再往下是四只指针式飞行仪表：空速表（内圈 m/s / 外圈 kt，0–200 m/s 即 0–389 kt）、高度表（内圈 m / 外圈 ft；短粗针读 0–12000 m 全量程、对应当前刻度数字，细长针每转一圈 1000 m 用于读出低空的精确高度）、转弯协调表（°/s，绿色刻度为标准转弯率 3°/s）、垂直速率表（内圈 m/s / 外圈 ft/min）。数字沿表盘切向排布，两种单位用颜色区分。指针随飞行状态实时转动；尚未开始飞行时指针归零，切回「视角控制」后停在最后一次读数。</li>
