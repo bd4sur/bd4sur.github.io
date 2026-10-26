@@ -718,7 +718,9 @@ body.is-day .np_plate {
 .cockpit_panel > .ck_title {
     position: absolute;
     top: 3px;
-    left: 9px;
+    left: 0;
+    right: 0;
+    text-align: center;               /* 标签在面板顶部居中 */
     font-size: 8.5px;
     letter-spacing: 1.4px;
     color: #7d98a6;
@@ -733,6 +735,13 @@ body.is-day .np_plate {
 }
 .ck_row_time {
     gap: 6px;
+}
+/* 时间面板：一排按钮在格子里垂直居中（标签是绝对定位，不占流，所以上下 padding 取等值） */
+.cockpit_panel.ck_panel_time {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 12px 9px;
 }
 /* 各格横跨的列数（12 列底）：两行都是 4 / 4 / 4 */
 .cockpit_panel:nth-child(1), .cockpit_panel:nth-child(2), .cockpit_panel:nth-child(3) { grid-column: span 4; }
@@ -1457,7 +1466,7 @@ body.is-day .ak_socket {
                             </div>
                     </div>
                 </div>
-                <div class="cockpit_panel">
+                <div class="cockpit_panel ck_panel_time">
                     <div class="ck_title">时间</div>
                     <div class="ck_row ck_row_time">
                         <button class="setting_button" id="toggle_timemachine_backward_day">▕◀◀</button>
