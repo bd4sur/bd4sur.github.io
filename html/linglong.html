@@ -1131,7 +1131,7 @@ body.is-day .ak_socket {
             </div>
         </div>
 
-        <!-- 体积云（解耦自模型5，全散射模型可用）专属调节：云量/云类/镜头光晕/雷达云图 -->
+        <!-- 体积云（解耦自模型5，全散射模型可用）专属调节：云量/云类/云精度/镜头光晕/雷达云图 -->
         <div class="setting_buttons_container" id="cloud_sky_controller" style="display: none;">
             <div class="ak_sw">
                 <div class="ak_name">云量</div>
@@ -1147,6 +1147,15 @@ body.is-day .ak_socket {
                 <div class="ak_socket">
                     <button class="ak_btn" id="toggle_cloud_layer">
                         <span class="ak_state" id="cloud_layer_status">-</span>
+                        <span class="ak_onoff">ON</span>
+                    </button>
+                </div>
+            </div>
+            <div class="ak_sw">
+                <div class="ak_name">云精度</div>
+                <div class="ak_socket">
+                    <button class="ak_btn" id="toggle_cloud_precision">
+                        <span class="ak_state" id="cloud_precision_status">-</span>
                         <span class="ak_onoff">ON</span>
                     </button>
                 </div>
@@ -1668,6 +1677,8 @@ let enable_opt_bilinear = false;
 let enable_sky_skip = true;
 const SKY_SKIP_FRAMES = 4;
 // 性能选项：体积云半分辨率渲染（C=2，云像素 1/4，输出双线性上采样；默认关闭保持云边缘锐度）
+// 云通道半分辨率开关：开启后 marching 的像素数降为 1/4（最省的一项），代价是云边略软。
+// 默认关闭——降采样密度交给「云精度」档位调节，需要再省一档时再开它。
 let enable_cloud_halfres = false;
 // 天空缓存（键 = 影响天空着色结果的输入摘要）
 const skyCache = { key: null, pixels: null, counter: 0 };
@@ -4903,6 +4914,19 @@ function scatter_model_4(ray_vec, sun_vec) {
 //     - 实测（同上口径）：Tier 0 的 12.5 → 9.3 µs/px（云量档 3，-25%）、20.4 → 13.5（档 5，
 //       -34%）；其中阴影低配+探针截断贡献 -8%，近场步长贡献 -18%。相对最初实现累计
 //       19.7 → 9.3（-53%）、34.2 → 13.5（-61%）。
+//   · 性能（参数档位，纯改采样参数，不动算法）：「云精度」按钮 5 档，只调四件事——
+//     近场步长（步数只与 log(1+距离·公比/步长) 有关，这是每像素采样数最直接的旋钮）、
+//     主 march 步数上限（只钳近水平的长射线，也就是"地平线那一圈最贵的像素"）、
+//     阴影步数（太阳探针；环境光探针固定 4 步）、视线 march 的不透明度提前退出阈值
+//     （只截掉云芯最里层"剩这点透光反正看不见"的那段）。档位表见
+//     CLOUD_SKY_PRECISION_LEVELS，实测 5 档分别 9.5 / 7.5 / 4.9 / 4.0 / 3.1 µs/px
+//     （256² 鱼眼、云量档 3、默认云类，JS 路径；密度求值 33.5 → 9.3 次/像素）。
+//     默认第 3 档「中」，等价于把 GPU 侧原本翻倍的 192/12 步与 0.15 km 近场步长
+//     一起放到 96/6 与 0.30 km。
+//     再叠加「云半分辨率」（marching 像素数 1/4）与「天空降帧」两个开关，云通路还能
+//     再降一个数量级。注意：天空降帧缓存的键含相机位置与视角，飞行/拖动时每帧都会
+//     失效——它只帮"静止观景"。
+//     - 「云厚」滑块上限收到 1.00 km（浓积云按 300 m 设计，再高就失去薄塔形态）。
 // ============================================
 
 // ---- 大气与云参数（ui_cloud.c cloud_default_scene 直译） ----
@@ -4934,10 +4958,41 @@ const CLOUD_SKY_MAX_TRACE_KM = 150.0;
 // 光线步长 ≈ 该像素的空间足迹。这样无论是从云底穿出（路径几十米）还是贴云顶掠射
 // （路径上百公里），采样尺度都相同——这正是两半球观感不一致的根因所在。
 // 与 GLSL kCloudNearStepKm / kCloudMinMarchSteps 保持一致。
-// 近场步长（km）。Tier 1 从 0.10 放宽到 0.15：步数只与 log(1 + 距离·rat/步长) 有关，
-// 放宽 1.5 倍直接让每像素采样数下降约 1/5；代价是近处云边从约 2 个噪声纹素放宽到 3 个。
-const CLOUD_SKY_NEAR_STEP_KM = 0.15;
 const CLOUD_SKY_MIN_MARCH_STEPS = 24;
+// ---- 「云精度」5 档（按钮循环切换，两条渲染路径同一份数值）----
+// 每个档位只调四个采样参数，不碰算法：
+//   nearKm  近场步长：步数只与 log(1 + 追踪距离·公比/步长) 有关，这是"每像素采样数"
+//           最直接的旋钮（0.10 → 0.70 采样数掉到约 1/5）。越小边缘越清晰、颗粒越少。
+//   march   主 march 步数上限：只钳住近水平的长射线（最贵的那圈像素），典型视线用不到。
+//   light   阴影光线步数（太阳探针）；环境光探针固定 4 步（它只有 0.9 km）。
+//   opac    视线 march 的不透明度提前退出阈值：累计透射率低于它就不再采样，
+//           只截掉云芯最里层"剩这点透光反正看不见"的那一段。
+// 实测（256² 鱼眼、云量档 3、默认云类，JS 路径）：9.5 / 7.5 / 4.9 / 4.0 / 3.1 µs/px，
+// 密度求值 33.5 / 26.2 / 16.1 / 12.1 / 9.3 次/像素。档 1 与调优前等价，档 3 为默认。
+const CLOUD_SKY_PRECISION_LEVELS = [
+    { nearKm: 0.10, march: 160, light: 12, opac: 0.005 },
+    { nearKm: 0.15, march: 128, light: 10, opac: 0.010 },
+    { nearKm: 0.30, march: 96, light: 6, opac: 0.030 },
+    { nearKm: 0.45, march: 72, light: 5, opac: 0.060 },
+    { nearKm: 0.70, march: 48, light: 4, opac: 0.100 },
+];
+const CLOUD_SKY_PRECISION_NAMES = ["最高", "高", "中", "低", "最低"];
+const CLOUD_SKY_PRECISION_DEFAULT = 2;   // 第 3 档「中」
+// 应用某个精度档（越界钳制；切档后采样参数立即生效，无需重建噪声/LUT）
+function cloud_sky_apply_precision(level) {
+    const n = CLOUD_SKY_PRECISION_LEVELS.length;
+    level = Math.max(0, Math.min(n - 1, level | 0));
+    const p = CLOUD_SKY_PRECISION_LEVELS[level];
+    cloudSkyState.precisionLevel = level;
+    cloudSkyState.nearStepKm = p.nearKm;
+    cloudSkyState.opacityBreak = p.opac;
+    cloudSkyState.marchSteps = p.march;
+    cloudSkyState.lightSteps = p.light;
+    cloudSkyScene.cloudMarchingStepNum = p.march;
+    cloudSkyScene.cloudLightStepNum = p.light;
+    // 采样密度变了 → 天空缓存必须失效（否则「天空降帧」会显示旧帧）
+    if (typeof skyCache !== 'undefined' && skyCache) skyCache.key = null;
+}
 const CLOUD_SKY_LIGHT_FOOTPRINT_KM = 0.25;
 // 环境光（天空下行漫射 + 地面回弹）探针长度（km）。
 // 直射光探针 15 km 判的是"太阳被云挡住多少"，厚云里它恒为 0（物理正确）；
@@ -5126,8 +5181,10 @@ const cloudSkyScene = {
     cloudPowderScale: 1.5,
     cloudPowderPow: 1.0,
     cloudLightBasicStep: 15.0,
-    cloudLightStepNum: 12,
-    cloudMarchingStepNum: 192,
+    // 步数上限：主 march 只作性能上限（实际步数由近场步长决定，典型视线远低于此），
+    // 阴影 6 步。这两项与 CPU 回退路径的 96 / 6 对齐，GPU 侧不再翻倍。
+    cloudLightStepNum: 6,
+    cloudMarchingStepNum: 96,
     cloudAmbientScale: 1.0,
     // ---- light（由天象仪太阳逐帧覆盖） ----
     sunDirection: [0.0, 1.0, 0.0], // 指向太阳（云世界系，y 轴向上）
@@ -5270,13 +5327,21 @@ const cloudSkyState = {
     sunV: 0.0,
     sunVis: 0.0,                // 太阳方向云透射率（太阳被云遮挡程度）
     viewCache: null,            // 视图基与投影比例缓存（镜头光晕反算用）
-    marchSteps: CLOUD_SKY_CPU_MARCH_STEPS,
-    lightSteps: CLOUD_SKY_CPU_LIGHT_STEPS,
+    marchSteps: CLOUD_SKY_CPU_MARCH_STEPS,     // 主 march 步数上限（由云精度档位覆盖）
+    lightSteps: CLOUD_SKY_CPU_LIGHT_STEPS,     // 阴影步数（由云精度档位覆盖）
+    precisionLevel: CLOUD_SKY_PRECISION_DEFAULT, // 云精度档位（0 基）
+    nearStepKm: 0.30,                          // 近场步长（km，由云精度档位覆盖）
+    opacityBreak: 0.03,                        // 不透明度提前退出阈值（同上）
     pixAng: 0.01,               // 每像素角尺寸（rad），cloud_sky_prepare_frame 逐帧更新
 };
 
 // cloudMap() 向调用方回传实际归一化高度（powder 项使用）
 let cloudSky_actualH01 = 0.0;
+
+// 采样参数按当前「云精度」档位落地（档位表定义在云壳常量区）：把 cloudSkyState 里
+// marchSteps/lightSteps/nearStepKm/opacityBreak 与场景里的 cloudMarchingStepNum/
+// cloudLightStepNum 一次写齐，JS 与 GLSL 两条路径共用同一份数值。
+cloud_sky_apply_precision(cloudSkyState.precisionLevel);
 
 // ---------------------------------------------------------------------------
 // 标量/向量工具（与 ui_cloud.c 对应）
@@ -7072,7 +7137,8 @@ function cloud_sky_cloudPixelCompute(wpx, wpy, wpz, wdx, wdy, wdz, appTime, jitt
     const pixAng = (angPerPix > 0.0) ? angPerPix : 0.0;
     const stepRatio = 1.0 + Math.max(pixAng, 1e-4);
     const maxSteps = Math.max(CLOUD_SKY_MIN_MARCH_STEPS, marchSteps);
-    const nWant = Math.log(1.0 + marchLen * (stepRatio - 1.0) / CLOUD_SKY_NEAR_STEP_KM) / Math.log(stepRatio);
+    const nearStepKm = (cloudSkyState.nearStepKm > 0.0) ? cloudSkyState.nearStepKm : 0.30;
+    const nWant = Math.log(1.0 + marchLen * (stepRatio - 1.0) / nearStepKm) / Math.log(stepRatio);
     const stepCount = Math.min(Math.max(CLOUD_SKY_MIN_MARCH_STEPS, Math.ceil(nWant)), maxSteps);
     const stepA = marchLen * (stepRatio - 1.0) / Math.max(Math.pow(stepRatio, stepCount) - 1.0, 1e-6);
 
@@ -7258,7 +7324,7 @@ function cloud_sky_cloudPixelCompute(wpx, wpy, wpz, wdx, wdy, wdz, appTime, jitt
             transmittance *= stepTransmittance;
         }
 
-        if (transmittance <= 0.001) break;
+        if (transmittance <= cloudSkyState.opacityBreak) break;
         sampleT += stepLen;
         stepLen *= stepRatio;
     }
@@ -8058,7 +8124,9 @@ const CloudSkyWebGL = {
             u_cu_cell_km: gl.getUniformLocation(this.program, 'u_cu_cell_km'),
             u_cu_density: gl.getUniformLocation(this.program, 'u_cu_density'),
             u_cu_band_n1: gl.getUniformLocation(this.program, 'u_cu_band_n1'),
-            u_cu_band_top_km: gl.getUniformLocation(this.program, 'u_cu_band_top_km')
+            u_cu_band_top_km: gl.getUniformLocation(this.program, 'u_cu_band_top_km'),
+            u_near_step_km: gl.getUniformLocation(this.program, 'u_near_step_km'),
+            u_opacity_break: gl.getUniformLocation(this.program, 'u_opacity_break')
         };
 
         console.log('WebGL2 cloud sky initialized');
@@ -8261,6 +8329,8 @@ const CloudSkyWebGL = {
         gl.uniform1f(this.uniforms.u_ambient_scale, cloudSkyScene.cloudAmbientScale);
         gl.uniform1i(this.uniforms.u_march_steps, cloudSkyScene.cloudMarchingStepNum);
         gl.uniform1i(this.uniforms.u_light_steps, cloudSkyScene.cloudLightStepNum);
+        gl.uniform1f(this.uniforms.u_near_step_km, cloudSkyState.nearStepKm);
+        gl.uniform1f(this.uniforms.u_opacity_break, cloudSkyState.opacityBreak);
         // 浓积云形状参数（滑块改动后立即生效，无需重建噪声/LUT）
         gl.uniform1f(this.uniforms.u_cu_base_km, CLOUD_SKY_CU_PARAMS.baseKm);
         gl.uniform1f(this.uniforms.u_cu_depth_km, CLOUD_SKY_CU_PARAMS.depthKm);
@@ -8462,7 +8532,7 @@ const CloudSkyWebGL = {
         // 「光线步长 ≈ 像素足迹」，两侧半球——不管光线是从云底穿出（几十米）
         // 还是贴着云层掠射（上百公里）——都在同一套采样尺度上积分。
         // 步数只由 追踪距离 与 近场步长 决定（对数关系），不再随路径长度爆炸。
-        const float kCloudNearStepKm = 0.15;   // 近场步长（km），约 3 个噪声纹素（Tier 1）
+        uniform float u_near_step_km;   // 近场步长（km）：由「云精度」档位给出
         const float kCloudMinMarchSteps = 24.0;
         const float kCloudLightFootprintKm = 0.25; // 阴影光线采样间隔较粗，轻度预滤波抑制颗粒
         // 单次散射的辐照度→辐亮度归一化（1/π）。原实现直接用太阳"辐照度"量级的
@@ -8515,6 +8585,7 @@ const CloudSkyWebGL = {
         const float kCuLevelMax = 0.395;
         // 环境光探针长度（km，与 JS CLOUD_SKY_AMBIENT_LEN_KM 一致）：直射光用 15 km，
         // 环境光（天空下行漫射）只有几百米到 1 km 的有效穿透深度，否则厚云底部死黑。
+        uniform float u_opacity_break;  // 视线 march 的不透明度提前退出阈值
         const float kCloudAmbientLenKm = 0.90;
         // 环境光探针步数（0.9 km 上二次分布会退化，12 步与 4 步的积分差在 1% 量级）
         const float kCloudAmbientSteps = 4.0;
@@ -9452,7 +9523,7 @@ const CloudSkyWebGL = {
             // 等比步进的公比 = 1 + 每像素角尺寸（步长与像素足迹同步增长）
             float stepRatio = 1.0 + angPerPix;
             float maxSteps = max(kCloudMinMarchSteps, float(u_march_steps));
-            float nWant = log(1.0 + marchLen * (stepRatio - 1.0) / kCloudNearStepKm) / log(stepRatio);
+            float nWant = log(1.0 + marchLen * (stepRatio - 1.0) / u_near_step_km) / log(stepRatio);
             float stepCount = clamp(ceil(nWant), kCloudMinMarchSteps, maxSteps);
             // 若步数被性能上限钳住，则等比放大近场步长，保证首末仍正好覆盖 [tMin, tMin+marchLen]
             float stepA = marchLen * (stepRatio - 1.0) / max(pow(stepRatio, stepCount) - 1.0, 1e-6);
@@ -9587,7 +9658,7 @@ const CloudSkyWebGL = {
                     transmittance *= stepTransmittance;
                 }
 
-                if (transmittance <= 0.001) break;
+                if (transmittance <= u_opacity_break) break;
                 sampleT += stepLen;
                 stepLen *= stepRatio;
             }
@@ -13052,7 +13123,7 @@ wo_init_sliders();
 // 既不需要重建噪声纹理，也不需要重算 LUT。
 const CLOUD_SKY_CU_SLIDERS = [
     ['baseKm',  '云底高度', 1.00,  2.00,  0.05,   (v) => v.toFixed(2) + ' km'],
-    ['depthKm', '云厚',     0.30,  2.40,  0.05,   (v) => v.toFixed(2) + ' km'],
+    ['depthKm', '云厚',     0.30,  1.00,  0.05,   (v) => v.toFixed(2) + ' km'],
     ['spread',  '塔顶参差', 0.00,  1.00,  0.02,   (v) => v.toFixed(2)],
     ['cauli',   '花椰菜',   0.00,  2.00,  0.05,   (v) => v.toFixed(2)],
     ['sharp',   '边界锐度', 8.0,   120.0, 2.0,    (v) => v.toFixed(0)],
@@ -14420,7 +14491,7 @@ function render_all(
             CLOUD_SKY_CAM_POS[0].toFixed(3), CLOUD_SKY_CAM_POS[1].toFixed(3), CLOUD_SKY_CAM_POS[2].toFixed(3),
             WO_CAM_Y.toFixed(1), WO_HAZE.toFixed(2),
             sun_alt.toFixed(2), sun_azi.toFixed(2),
-            cloudSkyState.coverageLevel, cloudSkyState.layerIdx,
+            cloudSkyState.coverageLevel, cloudSkyState.layerIdx, cloudSkyState.precisionLevel,
             cloudSkyScene.brightness.toFixed(2), enable_cloud_sun_lens ? 1 : 0,
             radarCloudState.enabled ? 1 : 0,
             // 浓积云形状参数（拖动「云参数」滑块时天空必须立即重绘）
@@ -17360,6 +17431,10 @@ function refresh_button_status() {
         status = `<span class="switch_active">${cloud_sky_layer_label(cloudSkyState.layerIdx)}</span>`;
         document.getElementById("cloud_layer_status").innerHTML = status;
 
+        // 云精度（1 最高 … 5 最低，按 CLOUD_SKY_PRECISION_LEVELS 循环）
+        status = `<span class="switch_active">${CLOUD_SKY_PRECISION_NAMES[cloudSkyState.precisionLevel]} ${cloudSkyState.precisionLevel + 1}/${CLOUD_SKY_PRECISION_LEVELS.length}</span>`;
+        document.getElementById("cloud_precision_status").innerHTML = status;
+
         // 镜头光晕开关（enable_cloud_sun_lens）
         status = (enable_cloud_sun_lens)
             ? `<span class="switch_on">开启</span>`
@@ -17619,6 +17694,11 @@ function init() {
     // 云类：按层掩码 0-7 排序的 8 种组合循环卷绕（ui_cloud.c 按键1 的 5 档扩展）
     document.getElementById("toggle_cloud_layer").addEventListener("click", function(e) {
         cloud_sky_apply_layer_kind(cloudSkyState.layerIdx + 1);
+        refresh_button_status();
+    });
+    // 云精度：5 档循环（采样密度，见 CLOUD_SKY_PRECISION_LEVELS）
+    document.getElementById("toggle_cloud_precision").addEventListener("click", function(e) {
+        cloud_sky_apply_precision((cloudSkyState.precisionLevel + 1) % CLOUD_SKY_PRECISION_LEVELS.length);
         refresh_button_status();
     });
     // 镜头光晕开关（仅影响体积云天空内建 HDR 光晕；太阳低于地平线时不受此开关控制、恒不显示）
