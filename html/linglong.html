@@ -35,19 +35,25 @@ a {
     border-radius: 5px;
 }
 
-/* ---- 拟物窗框：主画面、导航显示器、仪表区共用同一套注塑金属边框外观 ---- */
-/* 只有边框；玻璃反光、指示灯这类装饰由各块自己加（目前只有 ND 有） */
+/* ---- 拟物窗框：顶部功能面板与主舞台共用 ---- */
+/* 底色与面板面（.cockpit_panels / .stage 的 #171d22）一致，两者之间只靠面板自己的
+   2px 凹槽线分隔；边框宽度（padding 6px）与圆角（12px）不变。
+   玻璃反光、指示灯这类装饰由各块自己加（目前只有 ND 有）。 */
 .bezel {
     box-sizing: border-box;
     padding: 6px;
     border-radius: 12px;
-    background: linear-gradient(180deg, #4a525c 0%, #2d333a 38%, #1b1f24 72%, #101316 100%);
+    background: #171d22;
     box-shadow:
-        inset 0 1px 0 #838e9a,            /* 上沿高光 */
+        inset 0 1px 0 #ffffff1f,          /* 上沿一道细高光 */
         inset 0 -2px 4px #000000b8,       /* 下沿内凹 */
         inset 0 0 0 1px #0a0c0f,          /* 内框暗线 */
         0 3px 8px #000000cc,              /* 落到黑底的近影 */
         0 12px 24px #00000073;            /* 远影 */
+}
+/* 白天：与面板面的白天底色一致 */
+body.is-day .bezel {
+    background: #2b3742;
 }
 
 /* ---- 主画面窗框：左右 8px、上下 6px，内容框正好 4:3，画面按原生比例铺满不拉伸 ---- */
@@ -63,21 +69,61 @@ a {
     border-radius: 3px;
     box-shadow: 0 0 0 1px #00000099;
 }
+/* 白天：板面与凹槽跟随 .cockpit_panels 的白天配色 */
+body.is-day .stage {
+    background: #0b1014;                /* 缝色 */
+}
+body.is-day .stage > * {
+    background: #2b3742;
+    box-shadow:
+        inset 1px 0 0 #ffffff1f,
+        inset 0 1px 0 #ffffff1f;
+}
+
+/* 主舞台的注塑窗框：与顶部功能面板同宽（宽者为宽），padding 与 .bezel 一致（6px） */
+.stage_frame {
+    width: 100%;
+    max-width: 1172px;
+    margin: 10px auto 6px auto;
+}
+/* 舞台本身不再设宽度与外边距：铺满外框内容区，宽度由 .stage_frame 决定；
+   各元素的栅格排布（行/列/跨度）完全不变，canvas 仍靠 justify-self:center 居中 */
 
 /* ---- 主舞台：中列自上而下是参数框、主 canvas、飞行参数框；PC 上 canvas 左右两列
    分别是导航显示器与 2×2 仪表（与 canvas 同排、等高） ---- */
 /* 窄屏（手机/平板）：单列 —— 经纬度参数框、canvas、飞行参数框各占满一行，
    最后一行把导航显示器与 2×2 仪表左右均分，两边都取正方形 */
+/* 舞台 = 一块面板面上的 3×3 表格：与顶部面板同一套画法 —— 容器底色为缝色、
+   格子之间留 2px 间隙、格子自己铺面板面，外框四边与内部格线宽度完全一致。 */
 .stage {
     display: grid;
     grid-template-columns: 1fr 1fr;
-    align-items: start;
-    justify-content: center;
-    gap: 4px 6px;
+    align-items: stretch;
+    justify-content: center;   /* 轨道整体居中：PC 三列 300/400/300 对称，canvas 因此绝对居中 */
+    gap: 2px;                  /* 格子间隙 = 凹槽宽度 */
+    padding: 2px;              /* 外框那一圈的缝，与内部格线同宽 */
     width: 100%;
-    max-width: 400px;
-    margin: 10px auto 0 auto;
+    background: #000000;       /* 容器底色 = 缝色 */
+    border-radius: 6px;
+    overflow: hidden;
 }
+/* 每个格子（含占位空面板）自己铺面板面；缝由间隙里的容器底色露出 */
+.stage > * {
+    box-sizing: border-box;
+    min-width: 0;
+    background: #171d22;
+    /* 缝右下侧受光的那面槽壁 */
+    box-shadow:
+        inset 1px 0 0 #ffffff16,
+        inset 0 1px 0 #ffffff16;
+}
+/* 格子内缘留白：内容不贴缝 */
+.stage > .nd_panel,
+.stage > .instrument_frame { padding: 6px; }
+.stage > .info_box_row_tight,
+.stage > .flight_info_row { padding: 1px 6px; }
+/* 占位空面板：窄屏隐藏，PC 上撑出第一、三行两侧的格子 */
+.stage_ph { display: none; }
 .stage > .info_box_row_tight { grid-column: 1 / -1; grid-row: 1; }
 .stage > .canvas_frame { grid-column: 1 / -1; grid-row: 2; width: 100%; max-width: 400px; justify-self: center; }
 .stage > .flight_info_row { grid-column: 1 / -1; grid-row: 3; }
@@ -89,9 +135,13 @@ a {
 @media (min-width: 1100px) {
     .stage {
         grid-template-columns: 300px 400px 300px;
-        column-gap: 14px;
         max-width: none;
     }
+    /* 占位空面板把第一、三行两侧补满，凑成完整的 3×3 表格 */
+    .stage > .ph_tl { display: block; grid-column: 1; grid-row: 1; }
+    .stage > .ph_tr { display: block; grid-column: 3; grid-row: 1; }
+    .stage > .ph_bl { display: block; grid-column: 1; grid-row: 3; }
+    .stage > .ph_br { display: block; grid-column: 3; grid-row: 3; }
     .stage > .info_box_row_tight { grid-column: 2; grid-row: 1; }
     .stage > .canvas_frame { grid-column: 2; grid-row: 2; width: 400px; max-width: 400px; }
     .stage > .flight_info_row { grid-column: 2; grid-row: 3; }
@@ -561,11 +611,11 @@ a {
     border-color: #35b8b8;
     box-shadow: inset 0 0 6px #35b8b855, inset 0 1px 0 #ffffff1f, 0 0 7px #35b8b840;
 }
-/* ---- 顶部功能面板：单元格式拼接 + 刻进板面的凹槽缝 ----
-   六个分组不是各自独立的卡片，而是**拼在一起的一整块面板**：单元格之间零间距，
-   相邻两格共用同一条缝（每格只画右、下两条边），所以看起来像表格被框线隔开。
-   缝的画法沿用 Win95/98 分组框：2px 暗色缝底 + 缝右下侧 1px 浅色反光（光的另一面槽壁），
-   槽内外同为一块板面；整块面板四角 6px 小圆角。 */
+/* ---- 顶部功能面板：用"间隙"画凹槽 ----
+   六个分组拼成一整块面板：容器底色 = 缝色（黑），格子之间留 2px 间隙，
+   格子自己铺面板面 —— 于是**外框四边与内部格线是同一套画法、同一宽度**，
+   不存在"某几格有边、某几格没边"的不对称；格子内侧再补 1px 浅色反光，
+   读作凹槽右下侧受光的那面槽壁（Win95/98 分组框的画法）。 */
 /* 顶部功能面板的注塑窗框：宽度 = 面板块 1160 + 两侧 6px padding，
    边框厚度与 ND / 主画面的 .bezel 完全一致（同一个类，padding 6px） */
 .cockpit_frame {
@@ -576,30 +626,25 @@ a {
 }
 .cockpit_panels {
     display: grid;
-    /* 12 列做底：两行各自拼满整宽、格子零间距，缝由相邻格共用 */
+    /* 12 列做底：两行各自拼满整宽 */
     grid-template-columns: repeat(12, minmax(0, 1fr));
-    gap: 0;                             /* 零间距：靠共用边线分隔，不是 margin 隔开 */
+    gap: 2px;                           /* 格子间隙 = 凹槽宽度（2px） */
+    padding: 2px;                       /* 外框那一圈的缝，与内部格线同宽 */
     max-width: none;
     margin: 0;                          /* 外边距交给外面的 .cockpit_frame */
-    background: #171d22;                /* 面板面 */
-    /* 外框只画上、左两条：右、下两条由最外一列/一行的单元格边线充当，
-       这样无论几列都不会出现 2+2 的双线 */
-    border-top: 2px solid #000000;
-    border-left: 2px solid #000000;
+    background: #000000;                /* 容器底色 = 缝色：间隙里露出来的就是它 */
     border-radius: 6px;
-    overflow: hidden;                   /* 让外框圆角也裁到单元格的边线上 */
-    box-shadow: inset 0 1px 0 #ffffff12;   /* 投影由外层的 bezel 负责 */
+    overflow: hidden;
 }
 .cockpit_panel {
     position: relative;
     box-sizing: border-box;
     padding: 17px 9px 9px 9px;          /* 顶部留出标题行 */
-    background: transparent;            /* 与面板面同色：缝只是刻痕 */
-    border-right: 2px solid #000000;    /* 与右邻格共用的一条缝 */
-    border-bottom: 2px solid #000000;   /* 与下邻格共用的一条缝 */
+    background: #171d22;                /* 格子自己铺面板面，间隙露出容器的缝色 */
+    /* 缝右下侧受光的那面槽壁：贴着格子的上、左内缘各一道 1px 浅色反光 */
     box-shadow:
-        1px 0 0 #ffffff16,              /* 缝右侧的浅色反光 */
-        0 1px 0 #ffffff16;              /* 缝下侧的浅色反光 */
+        inset 1px 0 0 #ffffff16,
+        inset 0 1px 0 #ffffff16;
 }
 .cockpit_panel > .ck_title {
     position: absolute;
@@ -610,17 +655,12 @@ a {
     color: #7d98a6;
     pointer-events: none;
 }
-.cockpit_panel > .ck_row,
-.ck_row_inner {
+.cockpit_panel > .ck_row {
     display: flex;
     flex-wrap: wrap;
     justify-content: center;
     align-items: flex-start;
     gap: 11px 9px;
-}
-/* 内嵌一层（云量/云类/云精度/雷达云图，体积云开启时才显示） */
-.ck_row_inner {
-    display: none;
 }
 .ck_row_time {
     gap: 6px;
@@ -647,19 +687,13 @@ a {
 }
 /* 白天配色：板面转深蓝灰，缝底用冷黑 */
 body.is-day .cockpit_panels {
-    background: #2b3742;
-    border-top-color: #0b1014;
-    border-left-color: #0b1014;
-    box-shadow:
-        inset 0 1px 0 #ffffff1f,
-        0 2px 6px #00000080;
+    background: #0b1014;                /* 缝色（白天用冷黑） */
 }
 body.is-day .cockpit_panel {
-    border-right-color: #0b1014;
-    border-bottom-color: #0b1014;
+    background: #2b3742;
     box-shadow:
-        1px 0 0 #ffffff1f,
-        0 1px 0 #ffffff1f;
+        inset 1px 0 0 #ffffff1f,
+        inset 0 1px 0 #ffffff1f;
 }
 body.is-day .cockpit_panel > .ck_title {
     color: #9fb3bf;
@@ -1385,68 +1419,78 @@ body.is-day .ak_socket {
              飞行参数框；PC 上 canvas 左右两列分别是导航显示器与 2×2 仪表，两块与 canvas 同排等高；
              窄屏改成单列，ND 与仪表并排放在飞行参数框之下，各占一半屏宽、都取正方形。
              布局见 .stage 与其后的 @media -->
-        <div class="stage">
-            <!-- 导航显示器：航迹朝上的移动地图（飞机不动、地图动），底图为全国主要民用机场 -->
-            <div class="nd_panel bezel">
-                <canvas id="ndCanvas" width="640" height="640" role="img" aria-label="导航显示器"></canvas>
-                <div class="nd_range_row" id="nd_range_row"></div>
-            </div>
+        <!-- 主舞台外框：与顶部功能面板同一款注塑窗框、同宽（1172 = 内容 1160 + 两侧 6px） -->
+        <div class="stage_frame bezel">
+            <div class="stage">
+                <!-- 导航显示器：航迹朝上的移动地图（飞机不动、地图动），底图为全国主要民用机场 -->
+                <div class="nd_panel">
+                    <canvas id="ndCanvas" width="640" height="640" role="img" aria-label="导航显示器"></canvas>
+                    <div class="nd_range_row" id="nd_range_row"></div>
+                </div>
 
-            <!-- 主画面：外面套一圈与 ND 同款的注塑窗框（不做表面玻璃反光） -->
-            <div class="canvas_frame bezel">
-                <canvas class="mainCanvas" id="skyCanvas" width="400" height="300" style="width: 100%; max-width: 400px;"></canvas>
-            </div>
+                <!-- 主画面：与 ND / 仪表同在舞台面板上，用凹槽与邻格分开 -->
+                <div class="canvas_frame">
+                    <canvas class="mainCanvas" id="skyCanvas" width="400" height="300" style="width: 100%; max-width: 400px;"></canvas>
+                </div>
 
-            <div class="info_box_container info_box_row_tight">
-                <div class="info_box" id="set_coord">
-                    <div id="info_latitude">-</div>
-                    <div id="info_longitude">-</div>
-                </div>
-                <div class="info_box" id="set_time">
-                    <div id="info_date">-</div>
-                    <div id="info_time">-</div>
-                </div>
-                <div class="info_box">
-                    <div id="info_nongli_nian">-</div>
-                    <div id="info_nongli_yueri">-</div>
-                </div>
-                <div class="info_box" id="fps" style="cursor: pointer;">
-                    <div>帧率 <span id="info_fps">-</span> fps</div>
-                    <div style="transform: scale(0.8); color:#666666">点击全屏</div>
-                </div>
-            </div>
+                <div class="stage_ph ph_tl"></div>
 
-            <!-- 飞行参数数字框：与上方经纬度/时间那一排同样的盒子，四格与下方四只仪表逐一对应。
-                 每格上行是公制单位、下行是另一种单位，颜色与表盘内圈(青)/外圈(琥珀)一致；
-                 数值由 flight_update_info_row() 逐帧写入，口径与指针完全相同（指针被量程夹住时数字仍是真值） -->
-            <div class="info_box_container flight_info_row" id="flight_info_row">
-                <div class="info_box">
-                    <div class="fi_name">空速</div>
-                    <div class="fi_a" id="fi_airspeed_a">0 m/s</div>
-                    <div class="fi_b" id="fi_airspeed_b">0 kt</div>
+                <div class="info_box_container info_box_row_tight">
+                    <div class="info_box" id="set_coord">
+                        <div id="info_latitude">-</div>
+                        <div id="info_longitude">-</div>
+                    </div>
+                    <div class="info_box" id="set_time">
+                        <div id="info_date">-</div>
+                        <div id="info_time">-</div>
+                    </div>
+                    <div class="info_box">
+                        <div id="info_nongli_nian">-</div>
+                        <div id="info_nongli_yueri">-</div>
+                    </div>
+                    <div class="info_box" id="fps" style="cursor: pointer;">
+                        <div>帧率 <span id="info_fps">-</span> fps</div>
+                        <div style="transform: scale(0.8); color:#666666">点击全屏</div>
+                    </div>
                 </div>
-                <div class="info_box">
-                    <div class="fi_name">高度</div>
-                    <div class="fi_a" id="fi_altitude_a">0 m</div>
-                    <div class="fi_b" id="fi_altitude_b">0 ft</div>
-                </div>
-                <div class="info_box">
-                    <div class="fi_name">转弯速率</div>
-                    <div class="fi_a" id="fi_turn_a">+0.0 °/s</div>
-                    <div class="fi_b" id="fi_turn_b">+0.000 rad/s</div>
-                </div>
-                <div class="info_box">
-                    <div class="fi_name">垂直速率</div>
-                    <div class="fi_a" id="fi_vsi_a">+0.0 m/s</div>
-                    <div class="fi_b" id="fi_vsi_b">+0 ft/min</div>
-                </div>
-            </div>
 
-            <!-- 飞行仪表（六大仪表中的四个）：空速/高度/转弯协调/垂直速率，指针式圆盘，
-                 2×2 排成正方形后套一圈与 ND 同款的窗框（无玻璃反光）；
-                 刻度与双单位数字由 instrument_init() 生成 -->
-            <div class="instrument_frame bezel">
-                <div class="instrument_panel" id="instrument_panel"></div>
+                <div class="stage_ph ph_tr"></div>
+
+                <div class="stage_ph ph_bl"></div>
+
+                <!-- 飞行参数数字框：与上方经纬度/时间那一排同样的盒子，四格与下方四只仪表逐一对应。
+                     每格上行是公制单位、下行是另一种单位，颜色与表盘内圈(青)/外圈(琥珀)一致；
+                     数值由 flight_update_info_row() 逐帧写入，口径与指针完全相同（指针被量程夹住时数字仍是真值） -->
+                <div class="info_box_container flight_info_row" id="flight_info_row">
+                    <div class="info_box">
+                        <div class="fi_name">空速</div>
+                        <div class="fi_a" id="fi_airspeed_a">0 m/s</div>
+                        <div class="fi_b" id="fi_airspeed_b">0 kt</div>
+                    </div>
+                    <div class="info_box">
+                        <div class="fi_name">高度</div>
+                        <div class="fi_a" id="fi_altitude_a">0 m</div>
+                        <div class="fi_b" id="fi_altitude_b">0 ft</div>
+                    </div>
+                    <div class="info_box">
+                        <div class="fi_name">转弯速率</div>
+                        <div class="fi_a" id="fi_turn_a">+0.0 °/s</div>
+                        <div class="fi_b" id="fi_turn_b">+0.000 rad/s</div>
+                    </div>
+                    <div class="info_box">
+                        <div class="fi_name">垂直速率</div>
+                        <div class="fi_a" id="fi_vsi_a">+0.0 m/s</div>
+                        <div class="fi_b" id="fi_vsi_b">+0 ft/min</div>
+                    </div>
+                </div>
+
+                <div class="stage_ph ph_br"></div>
+
+                <!-- 飞行仪表（六大仪表中的四个）：空速/高度/转弯协调/垂直速率，指针式圆盘，
+                     2×2 排成正方形；刻度与双单位数字由 instrument_init() 生成 -->
+                <div class="instrument_frame">
+                    <div class="instrument_panel" id="instrument_panel"></div>
+                </div>
             </div>
         </div>
 
