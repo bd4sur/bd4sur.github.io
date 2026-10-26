@@ -1129,18 +1129,9 @@ body.is-day .ak_socket {
                     </button>
                 </div>
             </div>
-            <div class="ak_sw">
-                <div class="ak_name">海洋参数</div>
-                <div class="ak_socket">
-                    <button class="ak_btn" id="toggle_ocean_params">
-                        <span class="ak_state" id="ocean_params_status">-</span>
-                        <span class="ak_onoff">ON</span>
-                    </button>
-                </div>
-            </div>
         </div>
 
-        <!-- 体积云（解耦自模型5，全散射模型可用）专属调节：云量/云类/云亮度(自动读数)/镜头光晕/雷达云图 -->
+        <!-- 体积云（解耦自模型5，全散射模型可用）专属调节：云量/云类/镜头光晕/雷达云图 -->
         <div class="setting_buttons_container" id="cloud_sky_controller" style="display: none;">
             <div class="ak_sw">
                 <div class="ak_name">云量</div>
@@ -1156,15 +1147,6 @@ body.is-day .ak_socket {
                 <div class="ak_socket">
                     <button class="ak_btn" id="toggle_cloud_layer">
                         <span class="ak_state" id="cloud_layer_status">-</span>
-                        <span class="ak_onoff">ON</span>
-                    </button>
-                </div>
-            </div>
-            <div class="ak_sw">
-                <div class="ak_name">云亮度(自动)</div>
-                <div class="ak_socket">
-                    <button class="ak_btn" id="toggle_cloud_brightness">
-                        <span class="ak_state" id="cloud_brightness_status">-</span>
                         <span class="ak_onoff">ON</span>
                     </button>
                 </div>
@@ -1187,11 +1169,24 @@ body.is-day .ak_socket {
                     </button>
                 </div>
             </div>
+        </div>
+
+        <!-- 参数面板的折叠按钮单独一行：左边海洋、右边云，各自展开下方的滑块区 -->
+        <div class="setting_buttons_container" id="param_toggles_row">
             <div class="ak_sw">
                 <div class="ak_name">云参数</div>
                 <div class="ak_socket">
                     <button class="ak_btn" id="toggle_cloud_params">
                         <span class="ak_state" id="cloud_params_status">-</span>
+                        <span class="ak_onoff">ON</span>
+                    </button>
+                </div>
+            </div>
+            <div class="ak_sw">
+                <div class="ak_name">海洋参数</div>
+                <div class="ak_socket">
+                    <button class="ak_btn" id="toggle_ocean_params">
+                        <span class="ak_state" id="ocean_params_status">-</span>
                         <span class="ak_onoff">ON</span>
                     </button>
                 </div>
@@ -1592,7 +1587,7 @@ body.is-day .ak_socket {
                     <li>体积云渲染非常慢，请按需启用。</li>
                     <li>「体积云」按钮启用四层体积云层（浓积云/高积云/层积云/卷层云，算法解耦自「体积云天空」模型，支持 JS 与 GLSL 双实现，可在任意大气散射模型上叠加；模型 5 的天空也统一走这条解耦云通道，只渲染纯天空，云层在地景之后合成，因此从云上向下俯视时云能正确遮挡地面/海面）。GPU 路径需要 WebGL2，首次启用需生成噪声纹理（约 1 秒），无 WebGL2 时自动回退到较慢的 JS 渲染。</li>
                     <li>体积云的观察者在三维云场中移动：飞行控制页内观察点完全取飞机位置——爬升会真正进入云层（视野被云包围、逐步白化），穿云到云顶之上可向下俯视云海，水平飞行时云场固定在世界坐标中、云与飞机的相对位置一一对应，观察高度严格取飞机海拔（按球面半径反算，水平飞远不会凭空升高）；不在飞行页时观察高度由「观察高度」滑块决定（默认 50 米，1.5 米~10 公里），把滑块推过 3 公里就能站进云层里。云层高度为 3–11 km；模型 5 的天空按纯天空渲染，云层统一在地景之后合成。</li>
-                    <li>启用体积云后，可用其下的"云量/云类"按钮调节云的档位（6档）与显示种类（按层掩码 0-15 共 16 种组合，按钮文案按当前启用的云层拼出，如"浓积云+高积云"；bit0 浓积云 / bit1 高积云 / bit2 层积云 / bit3 卷层云）。云亮度不再是手动档位，而是太阳高度的经验函数 0.75·tanh(0.2·太阳高度−0.6)+1.25：太阳越高云越白亮（上限 2.0），日落后转暗，天文暮光之后压到 0.5；"云亮度(自动)"按钮上的数字只是当前值，点了不改变任何东西。「云参数」按钮展开一组浓积云形状滑块（云底高度/云厚/塔顶参差/花椰菜/边界锐度/云胞尺度/云密度），与「海洋参数」同一套控件：滑块直接改写 CLOUD_SKY_CU_PARAMS，JS 与 GLSL 两条渲染路径即时生效，无需重建噪声或 LUT。</li>
+                    <li>启用体积云后，可用其下的"云量/云类"按钮调节云的档位（6档）与显示种类（按层掩码 0-15 共 16 种组合，按钮文案按当前启用的云层拼出，如"浓积云+高积云"；bit0 浓积云 / bit1 高积云 / bit2 层积云 / bit3 卷层云）。云亮度不可手动调节，而是太阳高度的经验函数 0.75·tanh(0.2·太阳高度−0.6)+1.25：太阳越高云越白亮（上限 2.0），日落后转暗，天文暮光之后压到 0.5。「云参数」按钮展开一组浓积云形状滑块（云底高度/云厚/塔顶参差/花椰菜/边界锐度/云胞尺度/云密度），与「海洋参数」同一套控件：滑块直接改写 CLOUD_SKY_CU_PARAMS，JS 与 GLSL 两条渲染路径即时生效，无需重建噪声或 LUT。</li>
                     <li>"雷达云图"开启后（默认开启），体积云天空的初始云模式取自中央气象台组合反射率图（radar.png 减 radar_background.png 底图、形态学去地图元素、色标反演 dBZ），雷达 256km 范围与地平圈直接对齐；dBZ 经三通道调制云场：覆盖率决定有无疏密（封顶 35/45/55dBZ）、云顶高度决定类别（弱回波压扁为层云、强回波发展为全塔积雨云）、密度系数决定厚薄；中高度云另以双频噪声调制破碎边缘、消除周期感，并对回波轮廓做域扭曲（~2.5km 特征）与高频 dBZ 抖动，使大片云的平直硬边变成曲折破碎的自然边缘；处理全部在页面内完成，图片缺失或处理失败时自动回退程序化云图。</li>
                     <li>「实时海洋」的地形<b>默认就是真实高程</b>：只要页面旁边有 <code>terrain/china/</code> 分块数据，打开页面就按当前经纬度（默认南京）载入真实地形，看到的是长江与宁镇山脉，不再是随机群岛；没有数据（例如线上没带地形数据）才回退到程序化随机岛屿。想换地方：URL 加 <code>?lat=39.9&amp;lon=116.4</code>，或在「海洋参数 → 地形」里点按钮在「真实高程 / 程序化」之间来回切。<code>?terrain=名字</code> 是另一条路——载入单个烘焙窗口（<code>terrain/名字.bin</code>+<code>.json</code>，用 <code>tools/dem_bake.py</code> 生成），例如 <code>?terrain=qingdao</code>。地形数据版权：© DLR e.V. 2010-2014 and © Airbus Defence and Space GmbH 2014-2018 provided under COPERNICUS by the European Union and ESA，按 Copernicus DEM licence 使用。</li>
                     <li><b>全国分块流式地形</b>（默认模式）：<code>?lat=36.1&amp;lon=120.55</code> 指定起点（省略就用页面的默认经纬度，即南京）。地形被切成 0.25°×0.25° 的块（<code>l1</code> 900²≈30 m、<code>l0</code> 225²≈120 m），页面以相机为中心维护一个 51.2 km / 2048² 的世界窗口：先取十几 KB 的 l0 秒出，再后台换 l1；飞离窗口中心超过 28% 边长就重定中心，中心按 512 m（波场平铺周期）对齐，所以重定时波相位不跳。块是按需取的——只有窗口覆盖到、并且清单里确实有的块才会发请求，缺块（纯海面/未下载）按海处理。窗口组装约 0.1–0.6 秒（含到岸距离合成的海底），飞行时几分钟才触发一次。数据来源是 Copernicus DEM GLO-30，用 <code>tools/dem_fetch_china.py</code> 下载、<code>tools/dem_tiles.py</code> 切块，全国陆地的块约 1.6~2 万个、合计约 16 GB（gzip 后）。「海洋参数」里另有「能见度」滑块（默认 27 km，真实地形模式自动放宽到 90 km），大气透视的浓淡看它。</li>
@@ -5212,17 +5207,6 @@ function cloud_sky_brightness_from_sun_alt(sun_alt_deg) {
 // 占位初值：首帧 prepare_frame 与 init() 里按真实太阳高度的预置都会覆盖它
 cloud_sky_apply_brightness(cloud_sky_brightness_from_sun_alt(3.0));
 
-// 云亮度读数（按钮已不可调，只显示当前自动值）：文本不变就不写 DOM
-let cloudSkyBrightnessShown = null;
-function cloud_sky_refresh_brightness_readout() {
-    const el = document.getElementById('cloud_brightness_status');
-    if (!el) return;
-    const txt = cloudSkyScene.brightness.toFixed(2);
-    if (txt === cloudSkyBrightnessShown) return;
-    cloudSkyBrightnessShown = txt;
-    el.innerHTML = `<span class="switch_active">${txt}</span>`;
-}
-
 // 云量档位应用（ui_cloud.c cloud_apply_coverage_level 直译；档位循环回绕）
 // 档位按实测响应标定（云占比 ≈ 0/25/45/65/85/97%）：晴空→疏云→半云→多云→阴天→满云
 function cloud_sky_apply_coverage_level(level) {
@@ -7505,9 +7489,8 @@ function cloud_sky_prepare_frame(
     cloudSkyScene.sunIntensity = sunCol[3];
 
     // 云亮度 = 太阳高度的经验函数（0.75·tanh(0.2·h − 0.6) + 1.25）：太阳高时云白亮，
-    // 落日后转暗，天文暮光之后压到下限 0.5。每帧重算，按钮只显示当前值。
+    // 落日后转暗，天文暮光之后压到下限 0.5。每帧重算，不由用户调节。
     cloud_sky_apply_brightness(cloud_sky_brightness_from_sun_alt(sun_alt));
-    cloud_sky_refresh_brightness_readout();
 
     // 天空散射光源：暮光段（太阳≤0°）用近白光，0°..4°平滑过渡到圆盘曲线，
     // ≥4° 起与曲线一致（正午仍是白）。物理动机：天空散射的太阳光谱本应恒定，
@@ -17363,7 +17346,7 @@ function refresh_button_status() {
     document.getElementById("scattering_status").innerHTML = status;
 
 
-    // 体积云专属：云量/云类/云亮度读数/镜头光晕/雷达云图（云层启用时显示，全散射模型可用）
+    // 体积云专属：云量/云类/镜头光晕/雷达云图（云层启用时显示，全散射模型可用）
     const cloud_sky_ctl = document.getElementById("cloud_sky_controller");
     if (enable_volumetric_cloud) {
         cloud_sky_ctl.style.display = "flex";
@@ -17376,9 +17359,6 @@ function refresh_button_status() {
         // 云类（层掩码 0-15 共 16 种组合，按掩码排序）
         status = `<span class="switch_active">${cloud_sky_layer_label(cloudSkyState.layerIdx)}</span>`;
         document.getElementById("cloud_layer_status").innerHTML = status;
-
-        // 云亮度：随太阳高度自动变化，按钮只作读数显示（见 cloud_sky_brightness_from_sun_alt）
-        cloud_sky_refresh_brightness_readout();
 
         // 镜头光晕开关（enable_cloud_sun_lens）
         status = (enable_cloud_sun_lens)
@@ -17630,7 +17610,7 @@ function init() {
         refresh_button_status();
     });
 
-    // ---- 体积云天空（模型5）专属：云量/云类（云亮度自动，见 cloud_sky_brightness_from_sun_alt） ----
+    // ---- 体积云天空（模型5）专属：云量/云类（云亮度自动算，见 cloud_sky_brightness_from_sun_alt） ----
     // 云量：6 档循环（ui_cloud.c 按键4/6 的加档逻辑；档位表 cloud_apply_coverage_level）
     document.getElementById("toggle_cloud_coverage").addEventListener("click", function(e) {
         cloud_sky_apply_coverage_level(cloudSkyState.coverageLevel + 1);
@@ -17641,7 +17621,6 @@ function init() {
         cloud_sky_apply_layer_kind(cloudSkyState.layerIdx + 1);
         refresh_button_status();
     });
-    // 云亮度不设手动档：它随太阳高度自动变化，按钮只显示当前值（见 cloud_sky_brightness_from_sun_alt）
     // 镜头光晕开关（仅影响体积云天空内建 HDR 光晕；太阳低于地平线时不受此开关控制、恒不显示）
     document.getElementById("toggle_cloud_lens").addEventListener("click", function(e) {
         enable_cloud_sun_lens = !enable_cloud_sun_lens;
@@ -18693,7 +18672,7 @@ function init() {
     };
 
     // 首帧之前先按当时的太阳高度决定夜间图层（赤道坐标/地平方位角），
-    // 并用同一个太阳高度给「云亮度」定初值——它现在是太阳高度的经验函数，
+    // 并用同一个太阳高度给云亮度定初值——它是太阳高度的经验函数，
     // 之后由 prepare_frame 按每帧的太阳高度继续重算
     const init_sun_alt = auto_night_display();
     if (init_sun_alt !== null) {
