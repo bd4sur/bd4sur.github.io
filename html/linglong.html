@@ -5241,6 +5241,33 @@ function cloud_sky_sync_camera() {
     }
 }
 
+// 观察者海拔（km）——与 cloud_sky_sync_camera 同源，不依赖 prepare_frame 的调用时机
+function cloud_sky_camera_alt_km() {
+    const altM = flight.active ? flight.alt : WO_CAM_Y;
+    return Math.max(0.0, altM) / 1000.0;
+}
+
+// 当前启用云层里最低的云底（km）：观察者低于它时，视野里所有云都在头顶，
+// 于是"任何地景都比任何云近"，合成顺序必须是"云先、地景后"。
+function cloud_sky_lowest_cloud_base_km() {
+    const mask = cloudSkyState.layerMask | 0;
+    let baseKm = Infinity;
+    if (mask & CLOUD_SKY_LAYER_CU) {
+        baseKm = Math.min(baseKm, CLOUD_SKY_CU_PARAMS.baseKm - CLOUD_SKY_CU_BASE_AMP_KM);
+    }
+    if (mask & CLOUD_SKY_LAYER_AC) baseKm = Math.min(baseKm, CLOUD_SKY_BAND_AC[0]);
+    if (mask & CLOUD_SKY_LAYER_SC) baseKm = Math.min(baseKm, CLOUD_SKY_BAND_SC[0]);
+    if (mask & CLOUD_SKY_LAYER_CS) baseKm = Math.min(baseKm, CLOUD_SKY_BAND_CS[0]);
+    return baseKm;
+}
+
+// 观察者是否在全部云层之上（=云比地面近）。没有启用任何云层时返回 true（顺序无所谓）。
+function cloud_sky_camera_above_clouds() {
+    const baseKm = cloud_sky_lowest_cloud_base_km();
+    if (!isFinite(baseKm)) return true;
+    return cloud_sky_camera_alt_km() >= baseKm;
+}
+
 // 亮度（观感）→ 介质光学参数联动（ui_cloud.c cloud_apply_brightness 直译）
 function cloud_sky_apply_brightness(b) {
     b = Math.min(2.0, Math.max(0.5, b));
@@ -14938,6 +14965,30 @@ function render_all(
     }
 
 
+    // ---- 体积云与地景的遮挡顺序（几何遮挡）----
+    // 两者都是前景，谁压在谁上面取决于观察者与云层的相对高度：
+    //   · 观察者在云层**下方**（低空/海面视角，最常见）：视野里所有云都在头顶，
+    //     它们与地景在屏幕上重叠时（远处地平线的云 vs 近处山脊/岛屿），地景一定更近。
+    //     —— 因为同一方向上"山高/山距 = 云高/云距"，而地景高度低于云底时山高 < 云高，
+    //        故山距 < 云距。所以先把云合成到天空上、再把地景画上去，近山自然遮住远云。
+    //        （旧实现把云固定放在地景之后，于是远云盖住了近山——用户报的那个问题。）
+    //   · 观察者在云层**上方**（从云上俯视）：云比脚下的地面近，必须保持
+    //     "先画地景、再合成云"，否则云会被地面擦掉。
+    //   · 夹在云层中间时按"在上方"处理（此时云主要出现在俯视方向，与旧行为一致）。
+    // 仍存的局限：山体高过云底、且与更近的云在屏幕上重合时，这里按"地景在后"处理，
+    // 那一片会是山压云；要做到逐像素精确需要地景渲染器输出深度缓冲（另议）。
+    const cloudsNearerThanGround = cloud_sky_camera_above_clouds();
+    const draw_volumetric_clouds_pass = () => {
+        if (!enable_volumetric_cloud) return;
+        render_decoupled_volumetric_clouds(
+            frame_buffer, fb_width, fb_height,
+            sky_radius, center_x, center_y,
+            view_alt, view_azi, view_roll, f,
+            sun_alt, sun_azi
+        );
+    };
+    if (!cloudsNearerThanGround) draw_volumetric_clouds_pass();
+
     // 绘制地景（天空投影圆盘之外的部分）
     if (LANDSCAPES[landscape_index][2] === 2) {
         // 实时海洋地景（web-ocean 移植：射线步进海面 + 物理着色，JS 与 GLSL 双实现）
@@ -14973,16 +15024,9 @@ function render_all(
         (LANDSCAPES[landscape_index][2] === 0), atmo_r, atmo_g, atmo_b);
     }
 
-    // 解耦体积云在地景之后合成：从云上俯视时云层正确遮挡脚下的地面/海面；
-    // 在观察者位于云下时，云只出现在地平线以上，与地景不重叠，观感不变。
-    if (enable_volumetric_cloud) {
-        render_decoupled_volumetric_clouds(
-            frame_buffer, fb_width, fb_height,
-            sky_radius, center_x, center_y,
-            view_alt, view_azi, view_roll, f,
-            sun_alt, sun_azi
-        );
-    }
+    // 观察者在云层上方时，云在这里合成（遮住脚下的地面/海面）；
+    // 在云层下方时，云已在上面先合成过，这里什么都不做——地景最后画上去，遮住远云。
+    if (cloudsNearerThanGround) draw_volumetric_clouds_pass();
 
 
 
