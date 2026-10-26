@@ -561,6 +561,110 @@ a {
     border-color: #35b8b8;
     box-shadow: inset 0 0 6px #35b8b855, inset 0 1px 0 #ffffff1f, 0 0 7px #35b8b840;
 }
+/* ---- 顶部功能面板：单元格式拼接 + 刻进板面的凹槽缝 ----
+   六个分组不是各自独立的卡片，而是**拼在一起的一整块面板**：单元格之间零间距，
+   相邻两格共用同一条缝（每格只画右、下两条边），所以看起来像表格被框线隔开。
+   缝的画法沿用 Win95/98 分组框：2px 暗色缝底 + 缝右下侧 1px 浅色反光（光的另一面槽壁），
+   槽内外同为一块板面；整块面板四角 6px 小圆角。 */
+/* 顶部功能面板的注塑窗框：宽度 = 面板块 1160 + 两侧 6px padding，
+   边框厚度与 ND / 主画面的 .bezel 完全一致（同一个类，padding 6px） */
+.cockpit_frame {
+    display: block;
+    width: 100%;
+    max-width: 1172px;
+    margin: 10px auto 6px auto;
+}
+.cockpit_panels {
+    display: grid;
+    /* 12 列做底：两行各自拼满整宽、格子零间距，缝由相邻格共用 */
+    grid-template-columns: repeat(12, minmax(0, 1fr));
+    gap: 0;                             /* 零间距：靠共用边线分隔，不是 margin 隔开 */
+    max-width: none;
+    margin: 0;                          /* 外边距交给外面的 .cockpit_frame */
+    background: #171d22;                /* 面板面 */
+    /* 外框只画上、左两条：右、下两条由最外一列/一行的单元格边线充当，
+       这样无论几列都不会出现 2+2 的双线 */
+    border-top: 2px solid #000000;
+    border-left: 2px solid #000000;
+    border-radius: 6px;
+    overflow: hidden;                   /* 让外框圆角也裁到单元格的边线上 */
+    box-shadow: inset 0 1px 0 #ffffff12;   /* 投影由外层的 bezel 负责 */
+}
+.cockpit_panel {
+    position: relative;
+    box-sizing: border-box;
+    padding: 17px 9px 9px 9px;          /* 顶部留出标题行 */
+    background: transparent;            /* 与面板面同色：缝只是刻痕 */
+    border-right: 2px solid #000000;    /* 与右邻格共用的一条缝 */
+    border-bottom: 2px solid #000000;   /* 与下邻格共用的一条缝 */
+    box-shadow:
+        1px 0 0 #ffffff16,              /* 缝右侧的浅色反光 */
+        0 1px 0 #ffffff16;              /* 缝下侧的浅色反光 */
+}
+.cockpit_panel > .ck_title {
+    position: absolute;
+    top: 3px;
+    left: 9px;
+    font-size: 8.5px;
+    letter-spacing: 1.4px;
+    color: #7d98a6;
+    pointer-events: none;
+}
+.cockpit_panel > .ck_row,
+.ck_row_inner {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    align-items: flex-start;
+    gap: 11px 9px;
+}
+/* 内嵌一层（云量/云类/云精度/雷达云图，体积云开启时才显示） */
+.ck_row_inner {
+    display: none;
+}
+.ck_row_time {
+    gap: 6px;
+}
+/* 各格横跨的列数（12 列底）：第一行 天文要素 4 / 图形与交互 4 / 大气 4；
+   第二行 云 5 / 地形与导航 3 / 时间 4 */
+.cockpit_panel:nth-child(1), .cockpit_panel:nth-child(2), .cockpit_panel:nth-child(3) { grid-column: span 4; }
+.cockpit_panel:nth-child(4) { grid-column: span 5; }
+.cockpit_panel:nth-child(5) { grid-column: span 3; }
+.cockpit_panel:nth-child(6) { grid-column: span 4; }
+/* 时间面板的按钮略窄，六个才能排进一格一行 */
+.ck_row_time .setting_button {
+    min-width: 46px;
+    padding: 0 4px;
+    font-size: 10px;
+}
+/* 窄屏：改成 2 列 / 1 列，格子仍然拼在一起（共用边线不变） */
+@media (max-width: 1099px) {
+    .cockpit_panels { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .cockpit_panel:nth-child(n) { grid-column: auto; }
+}
+@media (max-width: 719px) {
+    .cockpit_panels { grid-template-columns: minmax(0, 1fr); }
+}
+/* 白天配色：板面转深蓝灰，缝底用冷黑 */
+body.is-day .cockpit_panels {
+    background: #2b3742;
+    border-top-color: #0b1014;
+    border-left-color: #0b1014;
+    box-shadow:
+        inset 0 1px 0 #ffffff1f,
+        0 2px 6px #00000080;
+}
+body.is-day .cockpit_panel {
+    border-right-color: #0b1014;
+    border-bottom-color: #0b1014;
+    box-shadow:
+        1px 0 0 #ffffff1f,
+        0 1px 0 #ffffff1f;
+}
+body.is-day .cockpit_panel > .ck_title {
+    color: #9fb3bf;
+}
+
 /* ---- 顶部功能按钮：拟物化空客式方形开关 ---- */
 /* 结构：.ak_sw（上方浅黄标签 + 固定安装座 .ak_socket）
    浅黄细边框长在安装座（面板）上，按钮本身不带边框，边框与文字都不发光；
@@ -635,6 +739,16 @@ a {
 .ak_state .switch_active {
     color: #57ff70;
     text-shadow: 0 0 5px #22ff47, 0 0 12px #12b83299;
+}
+/* 面板里需要显示少量文字/数字的状态字（地形/刷新地形）：字号与字距略收，保证不溢出 */
+.ak_state.ak_state_tight {
+    font-size: 7px;
+    letter-spacing: -0.2px;
+}
+/* 未启用的状态（例如「随机生成」相对「真实地形」）：暗绿、不发光 */
+.ak_state.off {
+    color: #46544b;
+    text-shadow: none;
 }
 .ak_state .switch_off {
     color: #46544b;
@@ -995,211 +1109,266 @@ body.is-day .ak_socket {
     </div>
     <div class="container" style="text-align: center; padding: 0 10px 0 10px;">
         <div style="font-size: 10px; margin: 10px auto; color: #ffffffaa;">V2610 &copy; 2011-2026 <a href="https://bd4sur.com" target="_blank">BD4SUR</a></div>
-        <div class="setting_buttons_container">
-            <div class="ak_sw">
-                <div class="ak_name">投影算法</div>
-                <div class="ak_socket">
-                    <button class="ak_btn" id="toggle_projection">
-                        <span class="ak_state" id="projection_status">-</span>
-                        <span class="ak_onoff">ON</span>
-                    </button>
+        <!-- 顶部功能面板：按功能分块，每块是一块凹槽面板（Airbus 驾驶舱式）。
+             分组：天文要素 / 图形与交互 / 大气 / 云 / 地形与导航 / 时间 -->
+        <!-- 外层套一圈与 ND / 主画面同款的注塑窗框（.bezel，同样的 6px 边框厚度） -->
+        <div class="cockpit_frame bezel">
+            <div class="cockpit_panels">
+                <div class="cockpit_panel">
+                    <div class="ck_title">天文要素</div>
+                    <div class="ck_row">
+                        <div class="ak_sw">
+                            <div class="ak_name">赤道坐标</div>
+                            <div class="ak_socket">
+                                <button class="ak_btn" id="toggle_equatorial_coord">
+                                    <span class="ak_state" id="equatorial_coord_status">-</span>
+                                    <span class="ak_onoff">ON</span>
+                                </button>
+                            </div>
+                        </div>
+                        <div class="ak_sw">
+                            <div class="ak_name">地平方位</div>
+                            <div class="ak_socket">
+                                <button class="ak_btn" id="toggle_horizontal_coord">
+                                    <span class="ak_state" id="horizontal_coord_status">-</span>
+                                    <span class="ak_onoff">ON</span>
+                                </button>
+                            </div>
+                        </div>
+                        <div class="ak_sw">
+                            <div class="ak_name">黄道</div>
+                            <div class="ak_socket">
+                                <button class="ak_btn" id="toggle_ecliptic_circle">
+                                    <span class="ak_state" id="ecliptic_circle_status">-</span>
+                                    <span class="ak_onoff">ON</span>
+                                </button>
+                            </div>
+                        </div>
+                        <div class="ak_sw">
+                            <div class="ak_name">天体名称</div>
+                            <div class="ak_socket">
+                                <button class="ak_btn" id="toggle_star_name">
+                                    <span class="ak_state" id="star_name_status">-</span>
+                                    <span class="ak_onoff">ON</span>
+                                </button>
+                            </div>
+                        </div>
+                        <div class="ak_sw">
+                            <div class="ak_name">星芒</div>
+                            <div class="ak_socket">
+                                <button class="ak_btn" id="toggle_star_burst">
+                                    <span class="ak_state" id="star_burst_status">-</span>
+                                    <span class="ak_onoff">ON</span>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
                 </div>
-            </div>
-            <div class="ak_sw">
-                <div class="ak_name">赤道坐标</div>
-                <div class="ak_socket">
-                    <button class="ak_btn" id="toggle_equatorial_coord">
-                        <span class="ak_state" id="equatorial_coord_status">-</span>
-                        <span class="ak_onoff">ON</span>
-                    </button>
+                <div class="cockpit_panel">
+                    <div class="ck_title">图形与交互</div>
+                    <div class="ck_row">
+                        <div class="ak_sw">
+                            <div class="ak_name">投影算法</div>
+                            <div class="ak_socket">
+                                <button class="ak_btn" id="toggle_projection">
+                                    <span class="ak_state" id="projection_status">-</span>
+                                    <span class="ak_onoff">ON</span>
+                                </button>
+                            </div>
+                        </div>
+                        <div class="ak_sw">
+                            <div class="ak_name">重力感应</div>
+                            <div class="ak_socket">
+                                <button class="ak_btn" id="toggle_gyro">
+                                    <span class="ak_state" id="gyro_status">-</span>
+                                    <span class="ak_onoff">ON</span>
+                                </button>
+                            </div>
+                        </div>
+                        <div class="ak_sw">
+                            <div class="ak_name">姿态指示</div>
+                            <div class="ak_socket">
+                                <button class="ak_btn" id="toggle_att_indicator">
+                                    <span class="ak_state" id="att_indicator_status">-</span>
+                                    <span class="ak_onoff">ON</span>
+                                </button>
+                            </div>
+                        </div>
+                        <div class="ak_sw">
+                            <div class="ak_name">平滑滤波</div>
+                            <div class="ak_socket">
+                                <button class="ak_btn" id="toggle_opt_bilinear">
+                                    <span class="ak_state" id="opt_bilinear_status">-</span>
+                                    <span class="ak_onoff">ON</span>
+                                </button>
+                            </div>
+                        </div>
+                        <div class="ak_sw">
+                            <div class="ak_name">GPU渲染</div>
+                            <div class="ak_socket">
+                                <button class="ak_btn" id="toggle_webgl">
+                                    <span class="ak_state" id="webgl_status">-</span>
+                                    <span class="ak_onoff">ON</span>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
                 </div>
-            </div>
-            <div class="ak_sw">
-                <div class="ak_name">地平方位</div>
-                <div class="ak_socket">
-                    <button class="ak_btn" id="toggle_horizontal_coord">
-                        <span class="ak_state" id="horizontal_coord_status">-</span>
-                        <span class="ak_onoff">ON</span>
-                    </button>
+                <div class="cockpit_panel">
+                    <div class="ck_title">大气</div>
+                    <div class="ck_row">
+                        <div class="ak_sw">
+                            <div class="ak_name">大气散射</div>
+                            <div class="ak_socket">
+                                <button class="ak_btn" id="toggle_atmospheric_scattering">
+                                    <span class="ak_state" id="scattering_status">-</span>
+                                    <span class="ak_onoff">ON</span>
+                                </button>
+                            </div>
+                        </div>
+                        <div class="ak_sw">
+                            <div class="ak_name">天空降帧</div>
+                            <div class="ak_socket">
+                                <button class="ak_btn" id="toggle_sky_skip">
+                                    <span class="ak_state" id="sky_skip_status">-</span>
+                                    <span class="ak_onoff">ON</span>
+                                </button>
+                            </div>
+                        </div>
+                        <div class="ak_sw">
+                            <div class="ak_name">镜头光晕</div>
+                            <div class="ak_socket">
+                                <button class="ak_btn" id="toggle_cloud_lens">
+                                    <span class="ak_state" id="cloud_lens_status">-</span>
+                                    <span class="ak_onoff">ON</span>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
                 </div>
-            </div>
-            <div class="ak_sw" style="display: none;">
-                <div class="ak_name">星芒</div>
-                <div class="ak_socket">
-                    <button class="ak_btn" id="toggle_star_burst">
-                        <span class="ak_state" id="star_burst_status">-</span>
-                        <span class="ak_onoff">ON</span>
-                    </button>
+                <div class="cockpit_panel">
+                    <div class="ck_title">云</div>
+                    <div class="ck_row">
+                        <div class="ak_sw">
+                            <div class="ak_name">体积云</div>
+                            <div class="ak_socket">
+                                <button class="ak_btn" id="toggle_cloud">
+                                    <span class="ak_state" id="cloud_status">-</span>
+                                    <span class="ak_onoff">ON</span>
+                                </button>
+                            </div>
+                        </div>
+                        <div class="ak_sw">
+                            <div class="ak_name">云半分辨率</div>
+                            <div class="ak_socket">
+                                <button class="ak_btn" id="toggle_cloud_halfres">
+                                    <span class="ak_state" id="cloud_halfres_status">-</span>
+                                    <span class="ak_onoff">ON</span>
+                                </button>
+                            </div>
+                        </div>
+                        <div class="ck_row ck_row_inner" id="cloud_sky_controller" style="display: none;">
+                            <div class="ak_sw">
+                                <div class="ak_name">云量</div>
+                                <div class="ak_socket">
+                                    <button class="ak_btn" id="toggle_cloud_coverage">
+                                        <span class="ak_state" id="cloud_coverage_status">-</span>
+                                        <span class="ak_onoff">ON</span>
+                                    </button>
+                                </div>
+                            </div>
+                            <div class="ak_sw">
+                                <div class="ak_name">云类</div>
+                                <div class="ak_socket">
+                                    <button class="ak_btn" id="toggle_cloud_layer">
+                                        <span class="ak_state" id="cloud_layer_status">-</span>
+                                        <span class="ak_onoff">ON</span>
+                                    </button>
+                                </div>
+                            </div>
+                            <div class="ak_sw">
+                                <div class="ak_name">云精度</div>
+                                <div class="ak_socket">
+                                    <button class="ak_btn" id="toggle_cloud_precision">
+                                        <span class="ak_state" id="cloud_precision_status">-</span>
+                                        <span class="ak_onoff">ON</span>
+                                    </button>
+                                </div>
+                            </div>
+                            <div class="ak_sw">
+                                <div class="ak_name">雷达云图</div>
+                                <div class="ak_socket">
+                                    <button class="ak_btn" id="toggle_radar_cloud">
+                                        <span class="ak_state" id="radar_cloud_status">-</span>
+                                        <span class="ak_onoff">ON</span>
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="ak_sw">
+                            <div class="ak_name">云参数</div>
+                            <div class="ak_socket">
+                                <button class="ak_btn" id="toggle_cloud_params">
+                                    <span class="ak_state" id="cloud_params_status">-</span>
+                                    <span class="ak_onoff">ON</span>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
                 </div>
-            </div>
-            <div class="ak_sw">
-                <div class="ak_name">黄道</div>
-                <div class="ak_socket">
-                    <button class="ak_btn" id="toggle_ecliptic_circle">
-                        <span class="ak_state" id="ecliptic_circle_status">-</span>
-                        <span class="ak_onoff">ON</span>
-                    </button>
+                <div class="cockpit_panel">
+                    <div class="ck_title">地形与导航</div>
+                    <div class="ck_row">
+                        <div class="ak_sw">
+                            <div class="ak_name">地景</div>
+                            <div class="ak_socket">
+                                <button class="ak_btn" id="toggle_landscape">
+                                    <span class="ak_state" id="landscape_status">-</span>
+                                    <span class="ak_onoff">ON</span>
+                                </button>
+                            </div>
+                        </div>
+                        <div class="ak_sw">
+                            <div class="ak_name">地形</div>
+                            <div class="ak_socket">
+                                <button class="ak_btn" id="toggle_terrain_mode"
+                                        title="在「真实地形」（全国 0.25 度分块高程）与「随机生成」（程序化岛屿）之间切换">
+                                    <span class="ak_state ak_state_tight" id="terrain_mode_status">-</span>
+                                    <span class="ak_onoff" id="terrain_mode_onoff">ON</span>
+                                </button>
+                            </div>
+                        </div>
+                        <div class="ak_sw">
+                            <div class="ak_name">刷新地形</div>
+                            <div class="ak_socket">
+                                <button class="ak_btn" id="toggle_terrain_refresh"
+                                        title="随机生成：换一批岛屿；真实地形：重取当前窗口">
+                                    <span class="ak_state ak_state_tight" id="terrain_refresh_status">-</span>
+                                    <span class="ak_onoff">刷新</span>
+                                </button>
+                            </div>
+                        </div>
+                        <div class="ak_sw">
+                            <div class="ak_name">海洋参数</div>
+                            <div class="ak_socket">
+                                <button class="ak_btn" id="toggle_ocean_params">
+                                    <span class="ak_state" id="ocean_params_status">-</span>
+                                    <span class="ak_onoff">ON</span>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
                 </div>
-            </div>
-            <div class="ak_sw">
-                <div class="ak_name">天体名称</div>
-                <div class="ak_socket">
-                    <button class="ak_btn" id="toggle_star_name">
-                        <span class="ak_state" id="star_name_status">-</span>
-                        <span class="ak_onoff">ON</span>
-                    </button>
-                </div>
-            </div>
-            <div class="ak_sw">
-                <div class="ak_name">体积云</div>
-                <div class="ak_socket">
-                    <button class="ak_btn" id="toggle_cloud">
-                        <span class="ak_state" id="cloud_status">-</span>
-                        <span class="ak_onoff">ON</span>
-                    </button>
-                </div>
-            </div>
-            <div class="ak_sw">
-                <div class="ak_name">重力感应</div>
-                <div class="ak_socket">
-                    <button class="ak_btn" id="toggle_gyro">
-                        <span class="ak_state" id="gyro_status">-</span>
-                        <span class="ak_onoff">ON</span>
-                    </button>
-                </div>
-            </div>
-            <div class="ak_sw">
-                <div class="ak_name">姿态指示</div>
-                <div class="ak_socket">
-                    <button class="ak_btn" id="toggle_att_indicator">
-                        <span class="ak_state" id="att_indicator_status">-</span>
-                        <span class="ak_onoff">ON</span>
-                    </button>
-                </div>
-            </div>
-            <div class="ak_sw">
-                <div class="ak_name">平滑滤波</div>
-                <div class="ak_socket">
-                    <button class="ak_btn" id="toggle_opt_bilinear">
-                        <span class="ak_state" id="opt_bilinear_status">-</span>
-                        <span class="ak_onoff">ON</span>
-                    </button>
-                </div>
-            </div>
-            <div class="ak_sw">
-                <div class="ak_name">天空降帧</div>
-                <div class="ak_socket">
-                    <button class="ak_btn" id="toggle_sky_skip">
-                        <span class="ak_state" id="sky_skip_status">-</span>
-                        <span class="ak_onoff">ON</span>
-                    </button>
-                </div>
-            </div>
-            <div class="ak_sw">
-                <div class="ak_name">云半分辨率</div>
-                <div class="ak_socket">
-                    <button class="ak_btn" id="toggle_cloud_halfres">
-                        <span class="ak_state" id="cloud_halfres_status">-</span>
-                        <span class="ak_onoff">ON</span>
-                    </button>
-                </div>
-            </div>
-            <div class="ak_sw">
-                <div class="ak_name">GPU渲染</div>
-                <div class="ak_socket">
-                    <button class="ak_btn" id="toggle_webgl">
-                        <span class="ak_state" id="webgl_status">-</span>
-                        <span class="ak_onoff">ON</span>
-                    </button>
-                </div>
-            </div>
-            <div class="ak_sw">
-                <div class="ak_name">大气散射</div>
-                <div class="ak_socket">
-                    <button class="ak_btn" id="toggle_atmospheric_scattering">
-                        <span class="ak_state" id="scattering_status">-</span>
-                        <span class="ak_onoff">ON</span>
-                    </button>
-                </div>
-            </div>
-            <div class="ak_sw">
-                <div class="ak_name">地景</div>
-                <div class="ak_socket">
-                    <button class="ak_btn" id="toggle_landscape">
-                        <span class="ak_state" id="landscape_status">-</span>
-                        <span class="ak_onoff">ON</span>
-                    </button>
-                </div>
-            </div>
-        </div>
-
-        <!-- 体积云（解耦自模型5，全散射模型可用）专属调节：云量/云类/云精度/镜头光晕/雷达云图 -->
-        <div class="setting_buttons_container" id="cloud_sky_controller" style="display: none;">
-            <div class="ak_sw">
-                <div class="ak_name">云量</div>
-                <div class="ak_socket">
-                    <button class="ak_btn" id="toggle_cloud_coverage">
-                        <span class="ak_state" id="cloud_coverage_status">-</span>
-                        <span class="ak_onoff">ON</span>
-                    </button>
-                </div>
-            </div>
-            <div class="ak_sw">
-                <div class="ak_name">云类</div>
-                <div class="ak_socket">
-                    <button class="ak_btn" id="toggle_cloud_layer">
-                        <span class="ak_state" id="cloud_layer_status">-</span>
-                        <span class="ak_onoff">ON</span>
-                    </button>
-                </div>
-            </div>
-            <div class="ak_sw">
-                <div class="ak_name">云精度</div>
-                <div class="ak_socket">
-                    <button class="ak_btn" id="toggle_cloud_precision">
-                        <span class="ak_state" id="cloud_precision_status">-</span>
-                        <span class="ak_onoff">ON</span>
-                    </button>
-                </div>
-            </div>
-            <div class="ak_sw">
-                <div class="ak_name">镜头光晕</div>
-                <div class="ak_socket">
-                    <button class="ak_btn" id="toggle_cloud_lens">
-                        <span class="ak_state" id="cloud_lens_status">-</span>
-                        <span class="ak_onoff">ON</span>
-                    </button>
-                </div>
-            </div>
-            <div class="ak_sw">
-                <div class="ak_name">雷达云图</div>
-                <div class="ak_socket">
-                    <button class="ak_btn" id="toggle_radar_cloud">
-                        <span class="ak_state" id="radar_cloud_status">-</span>
-                        <span class="ak_onoff">ON</span>
-                    </button>
-                </div>
-            </div>
-        </div>
-
-        <!-- 参数面板的折叠按钮单独一行：左边海洋、右边云，各自展开下方的滑块区 -->
-        <div class="setting_buttons_container" id="param_toggles_row">
-            <div class="ak_sw">
-                <div class="ak_name">云参数</div>
-                <div class="ak_socket">
-                    <button class="ak_btn" id="toggle_cloud_params">
-                        <span class="ak_state" id="cloud_params_status">-</span>
-                        <span class="ak_onoff">ON</span>
-                    </button>
-                </div>
-            </div>
-            <div class="ak_sw">
-                <div class="ak_name">海洋参数</div>
-                <div class="ak_socket">
-                    <button class="ak_btn" id="toggle_ocean_params">
-                        <span class="ak_state" id="ocean_params_status">-</span>
-                        <span class="ak_onoff">ON</span>
-                    </button>
+                <div class="cockpit_panel">
+                    <div class="ck_title">时间</div>
+                    <div class="ck_row ck_row_time">
+                        <button class="setting_button" id="toggle_timemachine_backward_day">▕◀◀</button>
+                        <button class="setting_button" id="toggle_timemachine_backward">▕◀</button>
+                        <button class="setting_button" id="toggle_timemachine_now">实时</button>
+                        <button class="setting_button" id="toggle_timemachine_pause">暂停/运行<br><span class="status_label" id="timemachine_status">-</span></button>
+                        <button class="setting_button" id="toggle_timemachine_forward">▶▏</button>
+                        <button class="setting_button" id="toggle_timemachine_forward_day">▶▶▏</button>
+                    </div>
                 </div>
             </div>
         </div>
@@ -1212,15 +1381,7 @@ body.is-day .ak_socket {
         <!-- 由 wo_init_sliders 动态填充；默认收起（display:none），点「海洋参数」按钮展开，见 ocean_params_refresh() -->
         <div class="setting_buttons_container ocean_sliders" id="ocean_controller"></div>
 
-        <!-- 时间控制：紧贴主画布上方 -->
-        <div class="setting_buttons_container" id="timemachine_controller">
-            <button class="setting_button" id="toggle_timemachine_backward_day">▕◀◀</button>
-            <button class="setting_button" id="toggle_timemachine_backward">▕◀</button>
-            <button class="setting_button" id="toggle_timemachine_now">实时</button>
-            <button class="setting_button" id="toggle_timemachine_pause">暂停/运行<br><span class="status_label" id="timemachine_status">-</span></button>
-            <button class="setting_button" id="toggle_timemachine_forward">▶▏</button>
-            <button class="setting_button" id="toggle_timemachine_forward_day">▶▶▏</button>
-        </div>
+
 
         <!-- 主舞台：中列自上而下是「经纬度/时间/农历/帧率」参数框、主 canvas（始终水平居中）、
              飞行参数框；PC 上 canvas 左右两列分别是导航显示器与 2×2 仪表，两块与 canvas 同排等高；
@@ -1579,6 +1740,7 @@ body.is-day .ak_socket {
                     <li>时间日期均为北京时间(UTC+8)。</li>
                     <li>农历日期系由星历算法解算而得，未必准确。</li>
                     <li>拖动屏幕改变视角。</li>
+                    <li>顶部的按钮按功能分成六块面板，每块面板用一道刻进板面的凹槽缝隙与邻格隔开：天文要素（赤道坐标/地平方位/黄道/天体名称/星芒）、图形与交互（投影算法/重力感应/姿态指示/平滑滤波/GPU渲染）、大气（大气散射/天空降帧/镜头光晕）、云（体积云/云半分辨率/云量/云类/云精度/雷达云图/云参数）、地形与导航（地景/地形/刷新地形/海洋参数）、时间（按日/按分钟快退、实时、暂停运行、快进）。</li>
                     <li>「天体名称」默认为全部。页面初始化时会先算一次太阳高度：低于 −18°（天文晨昏蒙影已结束）就自动打开「赤道坐标」网格并显示地平方位角（只出方位文字，地平网格仍关闭）；天还亮着则这两项保持关闭。切到「飞行控制」选项卡时会自动打开「姿态指示」并改为「透视投影」。这些自动设置之后都能手动改回。</li>
                     <li>「飞行控制」选项卡模拟一架小型固定翼飞机（初教五、动力三角翼一类）的第一人称座舱视角：左侧竖向滑轨是油门（向上加大推力），右侧圆形摇杆的横向控制滚转、纵向控制俯仰（向下拉杆抬头、向上推杆低头），下方两个按钮控制左右方向舵。滚转产生坡度后会进入协调转弯（水平向心运动），方向舵会造成侧滑。PC 上也可用键盘：W/S 推拉杆、A/D 左右坡度、Q/E 左右偏航、R/F 增减油门；点「复位」以当前位置和航向重新开始一次飞行。飞行只在「飞行控制」页生效，切回「视角控制」即暂停模拟并保留飞机状态。速度不设上限：全油门平飞极速约 131 m/s（471 km/h，海平面；越高空气稀薄越低），俯冲时重力参与，垂直俯冲可达约 176 m/s（635 km/h），完全由寄生阻力与推力衰减决定。</li>
                     <li>主画布上方是经纬度/时间/农历/帧率那排参数框，下方是飞行参数数字框，再往下是四只指针式飞行仪表：空速表（内圈 m/s / 外圈 kt，0–200 m/s 即 0–389 kt）、高度表（内圈 m / 外圈 ft；短粗针读 0–12000 m 全量程、对应当前刻度数字，细长针每转一圈 1000 m 用于读出低空的精确高度）、转弯协调表（°/s，绿色刻度为标准转弯率 3°/s）、垂直速率表（内圈 m/s / 外圈 ft/min）。数字沿表盘切向排布，两种单位用颜色区分。指针随飞行状态实时转动；尚未开始飞行时指针归零，切回「视角控制」后停在最后一次读数。</li>
@@ -1601,11 +1763,11 @@ body.is-day .ak_socket {
                     <li>体积云的观察者在三维云场中移动：飞行控制页内观察点完全取飞机位置——爬升会真正进入云层（视野被云包围、逐步白化），穿云到云顶之上可向下俯视云海，水平飞行时云场固定在世界坐标中、云与飞机的相对位置一一对应，观察高度严格取飞机海拔（按球面半径反算，水平飞远不会凭空升高）；不在飞行页时观察高度由「观察高度」滑块决定（默认 50 米，1.5 米~10 公里），把滑块推过 3 公里就能站进云层里。云层高度为 3–11 km；模型 5 的天空按纯天空渲染，云层统一在地景之后合成。</li>
                     <li>启用体积云后，可用其下的"云量/云类"按钮调节云的档位（6档）与显示种类（按层掩码 0-15 共 16 种组合，按钮文案按当前启用的云层拼出，如"浓积云+高积云"；bit0 浓积云 / bit1 高积云 / bit2 层积云 / bit3 卷层云）。云亮度不可手动调节，而是太阳高度的经验函数 0.75·tanh(0.2·太阳高度−0.6)+1.25：太阳越高云越白亮（上限 2.0），日落后转暗，天文暮光之后压到 0.5。「云参数」按钮展开一组浓积云形状滑块（云底高度/云厚/塔顶参差/花椰菜/边界锐度/云胞尺度/云密度），与「海洋参数」同一套控件：滑块直接改写 CLOUD_SKY_CU_PARAMS，JS 与 GLSL 两条渲染路径即时生效，无需重建噪声或 LUT。</li>
                     <li>"雷达云图"开启后（默认开启），体积云天空的初始云模式取自中央气象台组合反射率图（radar.png 减 radar_background.png 底图、形态学去地图元素、色标反演 dBZ），雷达 256km 范围与地平圈直接对齐；dBZ 经三通道调制云场：覆盖率决定有无疏密（封顶 35/45/55dBZ）、云顶高度决定类别（弱回波压扁为层云、强回波发展为全塔积雨云）、密度系数决定厚薄；中高度云另以双频噪声调制破碎边缘、消除周期感，并对回波轮廓做域扭曲（~2.5km 特征）与高频 dBZ 抖动，使大片云的平直硬边变成曲折破碎的自然边缘；处理全部在页面内完成，图片缺失或处理失败时自动回退程序化云图。</li>
-                    <li>「实时海洋」的地形<b>默认就是真实高程</b>：只要页面旁边有 <code>terrain/china/</code> 分块数据，打开页面就按当前经纬度（默认南京）载入真实地形，看到的是长江与宁镇山脉，不再是随机群岛；没有数据（例如线上没带地形数据）才回退到程序化随机岛屿。想换地方：URL 加 <code>?lat=39.9&amp;lon=116.4</code>，或在「海洋参数 → 地形」里点按钮在「真实高程 / 程序化」之间来回切。<code>?terrain=名字</code> 是另一条路——载入单个烘焙窗口（<code>terrain/名字.bin</code>+<code>.json</code>，用 <code>tools/dem_bake.py</code> 生成），例如 <code>?terrain=qingdao</code>。地形数据版权：© DLR e.V. 2010-2014 and © Airbus Defence and Space GmbH 2014-2018 provided under COPERNICUS by the European Union and ESA，按 Copernicus DEM licence 使用。</li>
+                    <li>「实时海洋」的地形<b>默认就是真实高程</b>：只要页面旁边有 <code>terrain/china/</code> 分块数据，打开页面就按当前经纬度（默认南京）载入真实地形，看到的是长江与宁镇山脉，不再是随机群岛；没有数据（例如线上没带地形数据）才回退到程序化随机岛屿。想换地方：URL 加 <code>?lat=39.9&amp;lon=116.4</code>，或在顶部「地形与导航」面板里点「地形」按钮在「真实地形 / 随机生成」之间来回切。<code>?terrain=名字</code> 是另一条路——载入单个烘焙窗口（<code>terrain/名字.bin</code>+<code>.json</code>，用 <code>tools/dem_bake.py</code> 生成），例如 <code>?terrain=qingdao</code>。地形数据版权：© DLR e.V. 2010-2014 and © Airbus Defence and Space GmbH 2014-2018 provided under COPERNICUS by the European Union and ESA，按 Copernicus DEM licence 使用。</li>
                     <li><b>全国分块流式地形</b>（默认模式）：<code>?lat=36.1&amp;lon=120.55</code> 指定起点（省略就用页面的默认经纬度，即南京）。地形被切成 0.25°×0.25° 的块（<code>l1</code> 900²≈30 m、<code>l0</code> 225²≈120 m），页面以相机为中心维护一个 51.2 km / 2048² 的世界窗口：先取十几 KB 的 l0 秒出，再后台换 l1；飞离窗口中心超过 28% 边长就重定中心，中心按 512 m（波场平铺周期）对齐，所以重定时波相位不跳。块是按需取的——只有窗口覆盖到、并且清单里确实有的块才会发请求，缺块（纯海面/未下载）按海处理。窗口组装约 0.1–0.6 秒（含到岸距离合成的海底），飞行时几分钟才触发一次。数据来源是 Copernicus DEM GLO-30，用 <code>tools/dem_fetch_china.py</code> 下载、<code>tools/dem_tiles.py</code> 切块，全国陆地的块约 1.6~2 万个、合计约 16 GB（gzip 后）。「海洋参数」里另有「能见度」滑块（默认 150 km），大气透视的浓淡看它。</li>
                     <li>「海洋天空」（模型 6）与「实时海洋」地景移植自开源项目 web-ocean（MIT）：Hillaire 式 LUT 大气（透射率/多重散射/天空视图三张 LUT，JS 与 GLSL 共享同一份数据）、JONSWAP 风浪谱+窄涌浪的解析波列级数（方差守恒，烘焙为可平铺波场纹理并按群速度平流）、各向异性高斯太阳耀光（Smith 掩蔽）、天空环境反射、水体上涌与波峰透射辉光、雅可比白帽、大气透视与 AgX 色调映射。观察者默认位于海平面以上 50 米（1.5 米~10 公里对数刻度可调）；无 WebGL2 时自动回退到较慢的 JS 逐像素渲染。</li>
                     <li>「实时海洋」上叠了一片可平铺的岛屿地形（岛屿随机生成，直径约 4~11 公里）：海线由低阶谐波加两级角度噪声给出，曲折且带小海湾与岬角；高程按 25 米纹素烘焙成一张 1024² 的世界高程场（陆地为正、海底为负，含陆架与浅滩），所以海岸线、沙滩、近岸浅水色与拍岸泡沫都出自同一份数据。求交用两级「格内最大高程」网格做 2D DDA 跳格、再逐纹素步进加二分细化；岛体只有当它比海面更近时才遮挡海面，因此“岛挡海”与“海挡岛”都自洽。地形着色与海面共用同一份透射率 LUT 与 AgX：高程梯度算法线、太阳直射 + 天空半球环境光，陡坡偏岩、海线以上一条沙滩带。世界坐标以 25.6 公里为周期回绕（与飞行模拟的相机回绕周期一致），所以朝任意方向一直飞都还能再遇到陆地；飞行时相机不会钻进山体。整套求交与着色只依赖高程图与粗网格，将来换成真实地理高程数据（DEM）时只需替换生成那一段。</li>
-                    <li>地景为「实时海洋」时，点按钮区的「海洋参数」可以展开/收起海面参数滑块区（观察高度/风速/风向/风区/涌浪波高/涌浪波长/涌浪方向/泡沫强度/水体浑浊度/霾），默认收起；地景不是实时海洋时该按钮只显示“需实时海洋”。面板最下面一行是「岛屿」：左边按钮切换岛屿显示（关掉可对比原始海面），中间「重新生成」换一批随机岛屿（海线、尺寸、布局都变，约 70 毫秒）。滑块本身：波浪与涌浪参数在停止拖动约 0.25 秒后重烘焙波场（约 0.1 秒）；「霾」与「观察高度」会重建大气 LUT（约 0.5 秒），「霾」默认 0（无霾，空气清透）；泡沫强度与水体浑浊度立即生效。风浪行进方向与涌浪方向以罗盘方位角表示（0=北，90=东）。「观察高度」同时是体积云与天空的观察点高度（飞行控制页内则改由飞机接管，滑块只作显示），因此调高它会一起抬升海面相机和云层视角。</li>
+                    <li>地景为「实时海洋」时，点按钮区的「海洋参数」可以展开/收起海面参数滑块区（观察高度/风速/风向/风区/涌浪波高/涌浪波长/涌浪方向/泡沫强度/水体浑浊度/霾），默认收起；地景不是实时海洋时该按钮只显示“需实时海洋”。切到随机生成时，顶部「地形与导航」面板里的「刷新地形」会换一批随机岛屿（海线、尺寸、布局都变，约 70 毫秒），按钮内显示「N座D.km」（岛屿数量与最大岛直径）。滑块本身：波浪与涌浪参数在停止拖动约 0.25 秒后重烘焙波场（约 0.1 秒）；「霾」与「观察高度」会重建大气 LUT（约 0.5 秒），「霾」默认 0（无霾，空气清透）；泡沫强度与水体浑浊度立即生效。风浪行进方向与涌浪方向以罗盘方位角表示（0=北，90=东）。「观察高度」同时是体积云与天空的观察点高度（飞行控制页内则改由飞机接管，滑块只作显示），因此调高它会一起抬升海面相机和云层视角。</li>
                     <li>性能选项：「天空降帧」开启时，若视线/太阳/云参数未变，天空每 4 帧才重绘一次、其余帧复用上次结果（海洋与天体/网格叠加仍逐帧更新）；「云半分辨率」开启时体积云以半分辨率光线步进再双线性放大（云边缘略软，开销降至 1/4）。二者可独立开关，全景拖动时自动失效以保证响应。</li>
                     <li>本系统由 Kimi K2.7、K3、本地部署的 DeepSeek-V4-Flash、GLM5.3-Flash 辅助编码。</li>
                 </ul>
@@ -13069,50 +13231,53 @@ function wo_init_sliders() {
         box.appendChild(row);
         WO_SLIDER_CONTROLS[key] = { inp: inp, val: val, entry: entry };
     }
+}
+wo_init_sliders();
 
-    // ---- 地形：真实高程 / 程序化岛屿 + 重新生成 ----
-    const rowI = document.createElement('div');
-    rowI.className = 'ocean_slider_row';
-    const lblI = document.createElement('span');
-    lblI.className = 'osl_name';
-    lblI.textContent = '地形';
-    const bToggle = document.createElement('button');
-    bToggle.className = 'osl_btn';
-    bToggle.textContent = '真实高程';
-    bToggle.title = '在「真实高程」（全国 0.25° 分块）与「程序化岛屿」之间切换';
-    const bRegen = document.createElement('button');
-    bRegen.className = 'osl_btn';
-    bRegen.textContent = '重新生成';
-    const valI = document.createElement('span');
-    valI.className = 'osl_val';
-    valI.style.width = '96px';
+// ---------------------------------------------------------------------------
+// 顶部「地形与导航」面板里的两只开关（原在海洋参数面板底部）
+//   · 地形：真实地形（全国 0.25 度分块）/ 随机生成（程序化岛屿），按钮内显示当前状态
+//   · 刷新地形：随机模式换一批岛屿，真实地形模式重取当前窗口；按钮内显示现状
+//     （随机模式显示「N座D.km」= 岛屿数量与最大岛直径）
+// ---------------------------------------------------------------------------
+function terrain_ui_init() {
+    const bMode = document.getElementById('toggle_terrain_mode');
+    const bRefresh = document.getElementById('toggle_terrain_refresh');
+    if (!bMode || !bRefresh) return;
+    const stMode = document.getElementById('terrain_mode_status');
+    const stOnOff = document.getElementById('terrain_mode_onoff');
+    const stInfo = document.getElementById('terrain_refresh_status');
+
     const syncIsl = () => {
-        bToggle.textContent = TSTR.on ? '真实高程' : '程序化';
-        bToggle.classList.toggle('off', !TSTR.on);
+        // 地形模式：真实地形 / 随机生成（真实地形时底部 ON 框点亮）
+        stMode.textContent = TSTR.on ? '真实地形' : '随机生成';
+        stMode.classList.toggle('off', !TSTR.on);
+        stOnOff.classList.toggle('on', TSTR.on);
+        // 刷新按钮内部只放得下一行短文字：随机模式显示「N座D.km」，
+        // 真实地形显示「全国地形 / 载入中」，完整状态进 tooltip。
         const st = ISL_state;
-        if (!st.ready) { valI.textContent = '-'; return; }
+        let short = '-';
         if (TSTR.on) {
-            valI.textContent = TSTR.msg || '全国地形';
-            return;
+            short = TSTR.loading ? '载入中' : '全国地形';
+        } else if (st.ready) {
+            if (ISL_real.name) {
+                short = 'DEM';
+            } else {
+                let maxD = 0.0;
+                for (let i = 0; i < st.islands.length; i++) {
+                    const d2 = st.islands[i].rLand * 2.0;
+                    if (d2 > maxD) maxD = d2;
+                }
+                short = st.islands.length + '座' + (maxD / 1000).toFixed(1) + 'km';
+            }
         }
-        // 没进全国模式时，把「为什么没进」显示出来（比如 file:// 打开、数据目录缺失）
-        if (TSTR.msg) {
-            valI.textContent = TSTR.msg;
-            return;
-        }
-        if (ISL_real.name) {
-            valI.textContent = 'DEM ' + ISL_real.name;
-            return;
-        }
-        let maxD = 0.0;
-        for (let i = 0; i < st.islands.length; i++) {
-            const d2 = st.islands[i].rLand * 2.0;
-            if (d2 > maxD) maxD = d2;
-        }
-        valI.textContent = st.islands.length + ' 座 ' + (maxD / 1000).toFixed(1) + ' km';
+        stInfo.textContent = short;
+        bRefresh.title = TSTR.msg
+            ? ('刷新地形：' + TSTR.msg)
+            : '随机生成：换一批岛屿；真实地形：重取当前窗口';
     };
-    // 「真实高程 / 程序化」一键切换：真实→按当前经纬度载入分块，程序化→随机群岛
-    bToggle.addEventListener('click', async () => {
+
+    bMode.addEventListener('click', async () => {
         if (TSTR.on) {
             TSTR.on = false;
             TSTR.win = null;
@@ -13127,9 +13292,8 @@ function wo_init_sliders() {
             syncIsl();
         }
     });
-    bRegen.addEventListener('click', () => {
+    bRefresh.addEventListener('click', () => {
         if (TSTR.on) {
-            // 真实高程：重取当前窗口（数据是边下边切的，重取能拿到新块）
             tstr_recenter(longitude, latitude, 'l1');
         } else {
             if (ISL_real.name) { ISL_real.name = null; ISL_real.meta = null; }
@@ -13138,15 +13302,11 @@ function wo_init_sliders() {
         }
         syncIsl();
     });
-    rowI.appendChild(lblI);
-    rowI.appendChild(bToggle);
-    rowI.appendChild(bRegen);
-    rowI.appendChild(valI);
-    box.appendChild(rowI);
+
     ISL_UI_SYNC = syncIsl;
     syncIsl();
 }
-wo_init_sliders();
+terrain_ui_init();
 
 // ---------------------------------------------------------------------------
 // 体积云「云参数」滑块（浓积云形状）：与海洋参数同一套控件样式
