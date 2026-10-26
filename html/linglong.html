@@ -124,6 +124,75 @@ body.is-day .stage > * {
 .stage > .flight_info_row { padding: 1px 6px; }
 /* 占位空面板：窄屏隐藏，PC 上撑出第一、三行两侧的格子 */
 .stage_ph { display: none; }
+/* 左上角（ND 上方）那块空面板里的一块名牌：
+   底色与面板面相同，靠边缘的一圈明暗棱表示"凸起"，两端各一颗固定螺丝，中间阴刻文字。 */
+.ph_tl {
+    align-items: center;
+    justify-content: center;  /* 名牌在格子里严格居中 */
+}
+.np_plate {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    box-sizing: border-box;
+    width: 88%;               /* 上级面板的 88% */
+    height: 88%;
+    padding: 0 9px;
+    border-radius: 3px;
+    background: #171d22;      /* 与面板底色同色 */
+    /* 凸起：上/左缘受光、下/右缘背光，再落一道贴住板面的短影 */
+    box-shadow:
+        inset 0 1px 0 #ffffff26,
+        inset 1px 0 0 #ffffff14,
+        inset 0 -1px 0 #000000b3,
+        inset -1px 0 0 #00000080,
+        0 1px 2px #000000a6;
+}
+/* 阴刻文字：灰白字面，字槽上缘暗、下缘受光 */
+.np_text {
+    flex: 1;
+    text-align: center;
+    font-family: monospace;
+    font-size: 20px;
+    letter-spacing: 2.5px;
+    color: #b9c1c7;
+    text-shadow: 0 -1px 0 #000000cc, 0 1px 0 #ffffff21;
+}
+/* 拟物固定螺丝：金属圆头 + 一字槽 */
+.np_screw {
+    position: relative;
+    flex: none;
+    width: 9px;
+    height: 9px;
+    border-radius: 50%;
+    background: radial-gradient(circle at 34% 30%,
+        #9aa2a9 0%, #6a7278 42%, #474d53 68%, #2a2f33 100%);
+    box-shadow:
+        inset 0 1px 0 #dfe6ec59,
+        0 1px 1px #000000b3,
+        0 0 0 1px #00000099;
+}
+.np_screw::before {
+    content: "";
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    width: 6px;
+    height: 1.3px;
+    transform: translate(-50%, -50%) rotate(-28deg);
+    background: #101418;
+    box-shadow: 0 1px 0 #ffffff33;
+}
+/* 白天：名牌与面板同色（#2b3742），螺丝保持不变 */
+body.is-day .np_plate {
+    background: #2b3742;
+    box-shadow:
+        inset 0 1px 0 #ffffff2e,
+        inset 1px 0 0 #ffffff1a,
+        inset 0 -1px 0 #00000099,
+        inset -1px 0 0 #00000066,
+        0 1px 2px #00000066;
+}
 .stage > .info_box_row_tight { grid-column: 1 / -1; grid-row: 1; }
 .stage > .canvas_frame { grid-column: 1 / -1; grid-row: 2; width: 100%; max-width: 400px; justify-self: center; }
 .stage > .flight_info_row { grid-column: 1 / -1; grid-row: 3; }
@@ -138,7 +207,7 @@ body.is-day .stage > * {
         max-width: none;
     }
     /* 占位空面板把第一、三行两侧补满，凑成完整的 3×3 表格 */
-    .stage > .ph_tl { display: block; grid-column: 1; grid-row: 1; }
+    .stage > .ph_tl { display: flex; grid-column: 1; grid-row: 1; }
     .stage > .ph_tr { display: block; grid-column: 3; grid-row: 1; }
     .stage > .ph_bl { display: block; grid-column: 1; grid-row: 3; }
     .stage > .ph_br { display: block; grid-column: 3; grid-row: 3; }
@@ -1433,7 +1502,14 @@ body.is-day .ak_socket {
                     <canvas class="mainCanvas" id="skyCanvas" width="400" height="300" style="width: 100%; max-width: 400px;"></canvas>
                 </div>
 
-                <div class="stage_ph ph_tl"></div>
+                <div class="stage_ph ph_tl">
+                    <!-- 名牌：与面板同色，边缘凸出一道棱，两端各一颗固定螺丝，中间阴刻文字 -->
+                    <div class="np_plate">
+                        <span class="np_screw"></span>
+                        <span class="np_text">BD4SUR</span>
+                        <span class="np_screw"></span>
+                    </div>
+                </div>
 
                 <div class="info_box_container info_box_row_tight">
                     <div class="info_box" id="set_coord">
