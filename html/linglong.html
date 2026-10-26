@@ -1244,6 +1244,15 @@ body.is-day .ak_socket {
                                 </button>
                             </div>
                         </div>
+                        <div class="ak_sw">
+                            <div class="ak_name">雷达云图</div>
+                            <div class="ak_socket">
+                                <button class="ak_btn" id="toggle_radar_cloud">
+                                    <span class="ak_state" id="radar_cloud_status">-</span>
+                                    <span class="ak_onoff">ON</span>
+                                </button>
+                            </div>
+                        </div>
                     </div>
                 </div>
                 <div class="cockpit_panel">
@@ -1267,42 +1276,31 @@ body.is-day .ak_socket {
                                 </button>
                             </div>
                         </div>
-                        <div class="ck_row ck_row_inner" id="cloud_sky_controller" style="display: none;">
-                            <div class="ak_sw">
-                                <div class="ak_name">云量</div>
-                                <div class="ak_socket">
-                                    <button class="ak_btn" id="toggle_cloud_coverage">
-                                        <span class="ak_state" id="cloud_coverage_status">-</span>
-                                        <span class="ak_onoff">ON</span>
-                                    </button>
-                                </div>
+                        <div class="ak_sw">
+                            <div class="ak_name">云量</div>
+                            <div class="ak_socket">
+                                <button class="ak_btn" id="toggle_cloud_coverage">
+                                    <span class="ak_state" id="cloud_coverage_status">-</span>
+                                    <span class="ak_onoff">ON</span>
+                                </button>
                             </div>
-                            <div class="ak_sw">
-                                <div class="ak_name">云类</div>
-                                <div class="ak_socket">
-                                    <button class="ak_btn" id="toggle_cloud_layer">
-                                        <span class="ak_state" id="cloud_layer_status">-</span>
-                                        <span class="ak_onoff">ON</span>
-                                    </button>
-                                </div>
+                        </div>
+                        <div class="ak_sw">
+                            <div class="ak_name">云类</div>
+                            <div class="ak_socket">
+                                <button class="ak_btn" id="toggle_cloud_layer">
+                                    <span class="ak_state" id="cloud_layer_status">-</span>
+                                    <span class="ak_onoff">ON</span>
+                                </button>
                             </div>
-                            <div class="ak_sw">
-                                <div class="ak_name">云精度</div>
-                                <div class="ak_socket">
-                                    <button class="ak_btn" id="toggle_cloud_precision">
-                                        <span class="ak_state" id="cloud_precision_status">-</span>
-                                        <span class="ak_onoff">ON</span>
-                                    </button>
-                                </div>
-                            </div>
-                            <div class="ak_sw">
-                                <div class="ak_name">雷达云图</div>
-                                <div class="ak_socket">
-                                    <button class="ak_btn" id="toggle_radar_cloud">
-                                        <span class="ak_state" id="radar_cloud_status">-</span>
-                                        <span class="ak_onoff">ON</span>
-                                    </button>
-                                </div>
+                        </div>
+                        <div class="ak_sw">
+                            <div class="ak_name">云精度</div>
+                            <div class="ak_socket">
+                                <button class="ak_btn" id="toggle_cloud_precision">
+                                    <span class="ak_state" id="cloud_precision_status">-</span>
+                                    <span class="ak_onoff">ON</span>
+                                </button>
                             </div>
                         </div>
                         <div class="ak_sw">
@@ -1740,7 +1738,7 @@ body.is-day .ak_socket {
                     <li>时间日期均为北京时间(UTC+8)。</li>
                     <li>农历日期系由星历算法解算而得，未必准确。</li>
                     <li>拖动屏幕改变视角。</li>
-                    <li>顶部的按钮按功能分成六块面板，每块面板用一道刻进板面的凹槽缝隙与邻格隔开：天文要素（赤道坐标/地平方位/黄道/天体名称/星芒）、图形与交互（投影算法/重力感应/姿态指示/平滑滤波/GPU渲染）、大气（大气散射/天空降帧/镜头光晕）、云（体积云/云半分辨率/云量/云类/云精度/雷达云图/云参数）、地形与导航（地景/地形/刷新地形/海洋参数）、时间（按日/按分钟快退、实时、暂停运行、快进）。</li>
+                    <li>顶部的按钮按功能分成六块面板，每块面板用一道刻进板面的凹槽缝隙与邻格隔开：天文要素（赤道坐标/地平方位/黄道/天体名称/星芒）、图形与交互（投影算法/重力感应/姿态指示/平滑滤波/GPU渲染）、大气（大气散射/天空降帧/镜头光晕/雷达云图）、云（体积云/云半分辨率/云量/云类/云精度/云参数）、地形与导航（地景/地形/刷新地形/海洋参数）、时间（按日/按分钟快退、实时、暂停运行、快进）。</li>
                     <li>「天体名称」默认为全部。页面初始化时会先算一次太阳高度：低于 −18°（天文晨昏蒙影已结束）就自动打开「赤道坐标」网格并显示地平方位角（只出方位文字，地平网格仍关闭）；天还亮着则这两项保持关闭。切到「飞行控制」选项卡时会自动打开「姿态指示」并改为「透视投影」。这些自动设置之后都能手动改回。</li>
                     <li>「飞行控制」选项卡模拟一架小型固定翼飞机（初教五、动力三角翼一类）的第一人称座舱视角：左侧竖向滑轨是油门（向上加大推力），右侧圆形摇杆的横向控制滚转、纵向控制俯仰（向下拉杆抬头、向上推杆低头），下方两个按钮控制左右方向舵。滚转产生坡度后会进入协调转弯（水平向心运动），方向舵会造成侧滑。PC 上也可用键盘：W/S 推拉杆、A/D 左右坡度、Q/E 左右偏航、R/F 增减油门；点「复位」以当前位置和航向重新开始一次飞行。飞行只在「飞行控制」页生效，切回「视角控制」即暂停模拟并保留飞机状态。速度不设上限：全油门平飞极速约 131 m/s（471 km/h，海平面；越高空气稀薄越低），俯冲时重力参与，垂直俯冲可达约 176 m/s（635 km/h），完全由寄生阻力与推力衰减决定。</li>
                     <li>主画布上方是经纬度/时间/农历/帧率那排参数框，下方是飞行参数数字框，再往下是四只指针式飞行仪表：空速表（内圈 m/s / 外圈 kt，0–200 m/s 即 0–389 kt）、高度表（内圈 m / 外圈 ft；短粗针读 0–12000 m 全量程、对应当前刻度数字，细长针每转一圈 1000 m 用于读出低空的精确高度）、转弯协调表（°/s，绿色刻度为标准转弯率 3°/s）、垂直速率表（内圈 m/s / 外圈 ft/min）。数字沿表盘切向排布，两种单位用颜色区分。指针随飞行状态实时转动；尚未开始飞行时指针归零，切回「视角控制」后停在最后一次读数。</li>
@@ -17653,10 +17651,9 @@ function refresh_button_status() {
 
 
     // 体积云专属：云量/云类/镜头光晕/雷达云图（云层启用时显示，全散射模型可用）
-    const cloud_sky_ctl = document.getElementById("cloud_sky_controller");
-    if (enable_volumetric_cloud) {
-        cloud_sky_ctl.style.display = "flex";
-
+    // 云量/云类/云精度/雷达云图 四个按钮始终显示（不再随「体积云」开关显隐），
+    // 状态照常刷新，便于在不开体积云时先把参数调好。
+    {
         // 云量（6 档，同 ui_cloud.c 档位表：晴空→疏云→半云→多云→阴天→满云）
         const coverage_names = ["晴空", "疏云", "半云", "多云", "阴天", "满云"];
         status = `<span class="switch_active">${coverage_names[cloudSkyState.coverageLevel]} ${cloudSkyState.coverageLevel + 1}/6</span>`;
@@ -17689,9 +17686,6 @@ function refresh_button_status() {
                 : `<span class="switch_off">程序化</span>`;
         }
         document.getElementById("radar_cloud_status").innerHTML = status;
-    }
-    else {
-        cloud_sky_ctl.style.display = "none";
     }
 
     // 「云参数」按钮的展开/收起状态与滑块区的显隐（默认收起）
