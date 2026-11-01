@@ -89,10 +89,10 @@ body.is-day .stage > * {
 /* 舞台本身不再设宽度与外边距：铺满外框内容区，宽度由 .stage_frame 决定；
    各元素的栅格排布（行/列/跨度）完全不变，canvas 仍靠 justify-self:center 居中 */
 
-/* ---- 主舞台：中列自上而下是参数框、主 canvas、飞行参数框；PC 上 canvas 左边是导航显示器，
-   右边那一格是空出来的备用面板，2×2 仪表挪到了右下角面板里（第三行右侧） ---- */
+/* ---- 主舞台：中列自上而下是参数框、主 canvas、飞行参数框；PC 上 canvas 左边是导航显示器、
+   右边是主飞行显示（PFD），2×2 指针仪表在右下角面板里（第三行右侧） ---- */
 /* 窄屏（手机/平板）：单列 —— 经纬度参数框、canvas、飞行参数框各占满一行，
-   最后一行把导航显示器与 2×2 仪表左右均分，两边都取正方形（仪表此时就挂在右下角那块面板里） */
+   最后一行把导航显示器与 PFD 左右均分，两边都取正方形（2×2 指针表只在 PC 上出现） */
 /* 舞台 = 一块面板面上的 3×3 表格：与顶部面板同一套画法 —— 容器底色为缝色、
    格子之间留 2px 间隙、格子自己铺面板面，外框四边与内部格线宽度完全一致。 */
 .stage {
@@ -198,22 +198,20 @@ body.is-day .np_plate {
 .stage > .canvas_frame { grid-column: 1 / -1; grid-row: 2; width: 100%; max-width: 400px; justify-self: center; }
 .stage > .flight_info_row { grid-column: 1 / -1; grid-row: 3; }
 .stage > .nd_panel { grid-column: 1; grid-row: 4; }
-/* 右下角面板在窄屏接替空出来的仪表框：ND 右侧那一格，仪表相对位置与原来相同 */
-.stage > .ph_br {
+/* 窄屏：ND 右侧那一格换成 PFD（.instrument_frame 自带 6px 内边距 + 正方形，
+   外框尺寸与原来那四只指针表所在的面板一模一样）；2×2 指针表只在 PC 的右下角出现 */
+.stage > .instrument_frame {
     display: flex;
-    align-items: center;
-    justify-content: center;
     grid-column: 2;
     grid-row: 4;
     width: 100%;
     aspect-ratio: 1 / 1;
 }
-/* 空出来的仪表框（备用）：窄屏没有它的位置，不占格子 */
-.stage > .instrument_frame { display: none; }
+.stage > .ph_br { display: none; }
 
-/* PC：三列固定为 300 / 400 / 300，ND 与 canvas 同排等高（400×300 → 高 300），
+/* PC：三列固定为 300 / 400 / 300，ND / canvas / PFD 同排等高（400×300 → 高 300），
    canvas 仍在页面绝对水平中央（两侧等宽，整体居中）；
-   右下角面板装 2×2 仪表，边长 300 与 ND 相同，它上面那一格（原 instrument_frame）空着备用 */
+   右下角面板装 2×2 指针仪表，边长 300 与 ND 相同 */
 @media (min-width: 1100px) {
     .stage {
         grid-template-columns: 300px 400px 300px;
@@ -225,14 +223,14 @@ body.is-day .np_plate {
     .stage > .ph_bl { display: block; grid-column: 1; grid-row: 3; }
     /* 右下角面板装 2×2 仪表：宽 300 + aspect-ratio 1/1 → 300 见方，内容框 288，四只仪表各 142；
        切到「飞行控制」页时这一行会比 300 高，居中放，四只表不会被拉成椭圆 */
-    .stage > .ph_br { grid-column: 3; grid-row: 3; width: 300px; align-self: center; }
+    .stage > .ph_br { display: flex; grid-column: 3; grid-row: 3; width: 300px; align-self: center; }
     .stage > .info_box_row_tight { grid-column: 2; grid-row: 1; }
     .stage > .canvas_frame { grid-column: 2; grid-row: 2; width: 400px; max-width: 400px; }
     /* 第三行被右下角的仪表撑到 300：飞行参数框与它下面的控制页整块在格子里垂直居中
        （居中由 .flight_info_row 自己的 align-content 做，这里让它照常撑满格子） */
     .stage > .flight_info_row { grid-column: 2; grid-row: 3; }
     .stage > .nd_panel { grid-column: 1; grid-row: 2; width: 300px; height: 300px; }
-    /* 空出来备用的仪表框：仍在 canvas 右侧那一格，300 见方，暂时空着 */
+    /* PFD 的仪表框：canvas 右侧那一格，300 见方（内边距 6px → 屏幕 288，与 ND 一样大） */
     .stage > .instrument_frame { display: flex; grid-column: 3; grid-row: 2; width: 300px; height: 300px; }
 }
 
@@ -573,9 +571,8 @@ body.is-day .np_plate {
 }
 
 /* ---- 飞行仪表：空速表 / 高度表 / 转弯协调表 / 垂直速率表 ---- */
-/* 2×2 排成一个正方形块，边长由所在面板的内容框决定：PC 上挂在右下角面板 .ph_br
-   （300 外框 → 288 内容），窄屏挂在同一块面板顶替 ND 右侧那一格。
-   .instrument_frame 现在空着备用，容器几何留着，将来往里放东西照样居中成正方形 */
+/* 2×2 排成一个正方形块，边长由右下角面板 .ph_br 的内容框决定（PC 上 300 外框 → 288 内容）。
+   窄屏不显示这块面板：ND 右侧那一格让给 .instrument_frame 里的 PFD */
 .instrument_frame {
     display: flex;
     align-items: center;
@@ -609,16 +606,20 @@ body.is-day .np_plate {
     pointer-events: none;
 }
 
-/* ---- 导航显示器（ND）：现代航电风格——金属边框（.bezel）+ 屏幕玻璃反光 + 电源灯 ---- */
-/* 尺寸由 .stage 的格子决定；border-box 让 300px 这个边长含左右各 6px 的边框 */
-.nd_panel {
+/* ---- 导航显示器（ND）/ 主飞行显示（PFD）：现代航电风格——金属边框（.bezel）+ 屏幕玻璃反光 + 电源灯 ---- */
+/* 尺寸由 .stage 的格子决定；border-box 让 300px 这个边长含左右各 6px 的边框。
+   PFD 装在被空出来的 .instrument_frame 里，外边距与内边距和 ND 一边大，
+   所以两块屏的玻璃尺寸完全一样（300 外框 → 288 屏幕） */
+.nd_panel,
+.pfd_panel {
     position: relative;
     width: 100%;
     max-width: none;
     margin: 0;
     aspect-ratio: 1 / 1;
 }
-#ndCanvas {
+#ndCanvas,
+#pfdCanvas {
     position: relative;
     z-index: 0;
     display: block;
@@ -631,7 +632,8 @@ body.is-day .np_plate {
     box-shadow: 0 0 0 1px #00000099, 0 0 16px #35b8b826;
 }
 /* 屏幕玻璃：斜向高光 + 顶部弧光，压在画面上但不吃鼠标事件 */
-.nd_panel::before {
+.nd_panel::before,
+.pfd_panel::before {
     content: "";
     position: absolute;
     inset: 6px;
@@ -642,7 +644,7 @@ body.is-day .np_plate {
         linear-gradient(124deg, #ffffff26 0%, #ffffff0d 20%, #ffffff00 42%),
         radial-gradient(115% 55% at 50% -8%, #ffffff14 0%, #ffffff00 68%);
 }
-/* 边框上的电源指示灯 */
+/* 边框上的电源指示灯：ND 那颗在右下角，PFD 这颗照镜像放在左下角 */
 .nd_panel::after {
     content: "";
     position: absolute;
@@ -651,6 +653,16 @@ body.is-day .np_plate {
     z-index: 3;
     pointer-events: none;
     background: radial-gradient(circle at calc(100% - 26px) calc(100% - 5px),
+        #35ffc9 0 1.1px, #35ffc94d 1.1px 2.6px, #35ffc900 3px);
+}
+.pfd_panel::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    z-index: 3;
+    pointer-events: none;
+    background: radial-gradient(circle at 26px calc(100% - 5px),
         #35ffc9 0 1.1px, #35ffc94d 1.1px 2.6px, #35ffc900 3px);
 }
 /* 自动驾驶指示灯（一键任务的按钮旁边） */
@@ -1527,9 +1539,8 @@ body.is-day .ak_socket {
 
         <!-- 主舞台：中列自上而下是「经纬度/时间/农历/帧率」参数框、主 canvas（始终水平居中）、
              飞行参数框（四格参数下面接着「视角控制 / 飞行控制」选项卡）；PC 上 canvas 左侧是导航显示器，
-             右侧那一格（.instrument_frame）空着备用，
-             2×2 仪表挪到了右下角面板里，第三行因此与 canvas 同高；
-             窄屏改成单列，ND 与仪表并排放在飞行参数框之下，各占一半屏宽、都取正方形。
+             右侧是主飞行显示（PFD），2×2 指针仪表挪到了右下角面板里，第三行因此与 canvas 同高；
+             窄屏改成单列，ND 与 PFD 并排放在飞行参数框之下，各占一半屏宽、都取正方形。
              布局见 .stage 与其后的 @media -->
         <!-- 主舞台外框：与顶部功能面板同一款注塑窗框、同宽（1172 = 内容 1160 + 两侧 6px） -->
         <div class="stage_frame bezel">
@@ -1667,14 +1678,19 @@ body.is-day .ak_socket {
                 </div>
 
                 <!-- 右下角面板：PC 上装 2×2 飞行仪表（空速/高度/转弯协调/垂直速率），指针式圆盘，
-                     刻度与双单位数字由 instrument_init() 生成；窄屏这块隐藏的占位面板会顶到
-                     ND 右侧那一格接住仪表，仪表的相对位置与原先挂在 instrument_frame 里时一致 -->
+                     刻度与双单位数字由 instrument_init() 生成；窄屏不显示这块面板（ND 右侧换成 PFD） -->
                 <div class="stage_ph ph_br">
                     <div class="instrument_panel" id="instrument_panel"></div>
                 </div>
 
-                <!-- 空出来的仪表框：留着备用（PC 上是 canvas 右侧那一格，窄屏不占格子） -->
-                <div class="instrument_frame"></div>
+                <!-- 主飞行显示（PFD）：空客风格 —— FMA + 速度带 + 姿态球 + 高度带 + 升降速度 + 航向带，
+                     与左边 ND 同一套边框、同一块 288 屏；画面由 pfd_draw() 逐帧重绘。
+                     PC 上在 canvas 右侧那一格，窄屏顶到 ND 右侧（原来放四只指针表的位置） -->
+                <div class="instrument_frame">
+                    <div class="pfd_panel">
+                        <canvas id="pfdCanvas" width="640" height="640" role="img" aria-label="主飞行显示"></canvas>
+                    </div>
+                </div>
             </div>
         </div>
 
@@ -1910,7 +1926,7 @@ body.is-day .ak_socket {
                     <li>主画布上方是经纬度/时间/农历/帧率那排参数框，下方是飞行参数数字框，再往下是四只指针式飞行仪表：空速表（内圈 m/s / 外圈 kt，0–200 m/s 即 0–389 kt）、高度表（内圈 m / 外圈 ft；短粗针读 0–12000 m 全量程、对应当前刻度数字，细长针每转一圈 1000 m 用于读出低空的精确高度）、转弯协调表（°/s，绿色刻度为标准转弯率 3°/s）、垂直速率表（内圈 m/s / 外圈 ft/min）。数字沿表盘切向排布，两种单位用颜色区分。指针随飞行状态实时转动；尚未开始飞行时指针归零，切回「视角控制」后停在最后一次读数。</li>
                     <li>经纬度/时间那一排参数框的下面另有一排同样的四个数字框，对应上面四只仪表：空速（m/s / kt）、高度（m / ft）、转弯速率（°/s / rad/s）、垂直速率（m/s / ft/min），公制单位在上、另一种单位在下，配色与表盘内圈(青)/外圈(琥珀)一致。数字取的是原始值，不受指针量程限制——比如空速超过 200 m/s 或转弯率超过 30°/s 时指针顶在刻度尽头，数字照报真值；未开始飞行时与指针一样归零。</li>
                     <li>飞行页的主画面上，中央的黄色短线是机头基准（航迹指示），绿色圆圈带左右短翼的符号是飞行航迹矢量（FPV）：它指向飞机速度的实际方向——平飞时压在机头基准上，拉杆爬升时落在基准下方（两者的夹角就是迎角），侧滑时左右偏开（偏角即侧滑角）。速度低于 2 m/s 停住时或该方向转出画面时不显示；切回「视角控制」后消失。</li>
-                    <li>导航显示器（ND）在主画布旁：PC 上位于画布左侧、与画布等高，手机/窄屏上位于飞行参数框下方左侧（右半边是 2×2 的四只仪表），两者一边宽、都是正方形，各占一半屏宽。黑底方形屏，飞机符号固定在水平中央、竖直 3/4 处，地图随飞机对地移动而平移并旋转，始终保持「航迹朝上」。显示范围可由显示屏底边的按钮在 10 / 50 / 100 / 200 / 500 / 1000 km 之间切换（指机位到上边缘的距离，默认 200 km），底图是全国主要民用机场（大型机场，标 IATA 三字码，取自 OurAirports 开放数据集）；距离环按量程四等分自动缩放，内侧两环在左侧水平辐射线的交点上用青色标出该环对应的距离（km），另有每 30° 一条方位辐射线。飞过的航迹用品红折线记录，每移动 0.35 km 采一点；复位时清空。顶部弧形罗盘刻度随航迹滚动，正上方恒为当前航迹方位（品红三角所指），刻度数字即罗盘方位角；左上角小罗盘指示北向。左下角为显示范围，右下角为航迹与地速。</li>
+                    <li>导航显示器（ND）在主画布旁：PC 上位于画布左侧、与画布等高，手机/窄屏上位于飞行参数框下方左侧（右半边是主飞行显示 PFD），两者一边宽、都是正方形，各占一半屏宽。黑底方形屏，飞机符号固定在水平中央、竖直 3/4 处，地图随飞机对地移动而平移并旋转，始终保持「航迹朝上」。显示范围可由显示屏底边的按钮在 10 / 50 / 100 / 200 / 500 / 1000 km 之间切换（指机位到上边缘的距离，默认 200 km），底图是全国主要民用机场（大型机场，标 IATA 三字码，取自 OurAirports 开放数据集）；距离环按量程四等分自动缩放，内侧两环在左侧水平辐射线的交点上用青色标出该环对应的距离（km），另有每 30° 一条方位辐射线。飞过的航迹用品红折线记录，每移动 0.35 km 采一点；复位时清空。顶部弧形罗盘刻度随航迹滚动，正上方恒为当前航迹方位（品红三角所指），刻度数字即罗盘方位角；左上角小罗盘指示北向。左下角为显示范围，右下角为航迹与地速。</li>
                     <li>「五边起落」按钮是另一套自动驾驶场景：起飞航向直接取当前时刻的太阳方位（五边模式的滑跑状态会显示"朝太阳 xxx°"），离地后按标准左航线飞完整五边——离场边爬升到 600 m、侧风边左转 90°、下风边与跑道平行反向、底边再左转 90° 下降到进场高度、最后进近对正跑道落地；航线速度保持约 58 m/s，转弯半径约 500 m，整圈几何按起飞点闭合。</li>
                     <li>「失速尾旋与改出演示」按钮会接管全部操纵（期间摇杆、油门键都不响应），从地面起飞爬升穿云到 7500 m，减速到失速边界后故意拉出失速、蹬满舵进入尾旋——进入约 20 秒后再顺舵加副翼，转速会从 30°/s 一路压到 140°/s，一直转到 1600 m 才改出（反舵打停自转、推杆让机翼附着、低空大过载拉起），随后进近、拉平、刹停；结束后指示灯自动熄灭。再点一次按钮或按「复位」可随时中止。</li>
                     <li>触地后按起落架接地处理：姿态立即放平为地面姿态（机翼水平、机头放平、无侧滑），随后进入滑跑。滑跑时油门对抗气动阻力、滚动阻力与刹车阻力——收油门（或按 F）会带刹车在约十秒内逐渐滑停，速度可降到 0；加到约 22 m/s 抬轮速度后再拉杆即可重新离地，低于该速度拉杆无效（机头被前轮/尾轮撑住）。</li>
@@ -16802,6 +16818,574 @@ function flight_update_info_row() {
 }
 
 
+
+// ============================================================
+// 主飞行显示（PFD）：空客风格的姿态仪
+//   · 顶部 FMA：三段绿色方式字（推力/横向/垂直），AP 接通时按自动驾驶阶段点亮；
+//   · 左侧速度带（kt）：每 10 kt 一刻度、每 20 kt 一标注，中央黑底读数框，
+//     品红速度趋势箭头（按 10 s 外推），失速带与 Vmo 带用红黑斜纹标出；
+//   · 中间姿态球：蓝天地面 + 白色地平线 + 俯仰梯（每 5°，10° 带标注）+ 坡度刻度，
+//     固定飞机基准符号（黑底白边）压在中心，绿色 FPV 小飞机表示实际航迹方向；
+//   · 右侧高度带（ft）：每 100 ft 一刻度/标注，中央黑底读数框；再右边是升降速度尺；
+//   · 底部航向带：每 5° 一刻度、每 30° 一标注，白三角为机头基准，
+//     白色菱形是航迹、蓝色三角是五边跑道航向。
+// 数据与四只指针表、飞行参数框同源（flight 状态），未开始飞行时按零位画一帧。
+// ============================================================
+const PFD_SIZE = 320;                 // 逻辑边长（CSS px），与 ND 一致
+const PFD_DPR = 2;                    // 背板放大倍数：文字更清晰
+
+// 各区块的矩形（逻辑像素，原点在屏幕左上角）
+const PFD_LAYOUT = {
+    fma: { x: 68, y: 6, w: 184, h: 22 },
+    spd: { x: 8, y: 32, w: 56, h: 218 },
+    att: { x: 68, y: 32, w: 184, h: 224 },
+    alt: { x: 256, y: 32, w: 38, h: 218 },
+    vsi: { x: 296, y: 32, w: 22, h: 218 },
+    hdg: { x: 68, y: 262, w: 184, h: 34 }
+};
+
+const PFD_C = {
+    skyTop: '#084a73',
+    sky: '#0a70ad',
+    gnd: '#7c4a1f',
+    gndBot: '#4d2c11',
+    white: '#eaf4ff',
+    grey: '#78899a',
+    green: '#35ff8a',
+    magenta: '#ff33cc',
+    amber: '#ffb454',
+    blue: '#4da3ff',
+    red: '#ff3b30'
+};
+
+let pfdTrendKt = 0.0;      // 速度趋势（10 s 后的增量，kt）
+let pfdTrendT = 0.0;       // 上一次采样的时间
+let pfdTrendV = 0.0;       // 上一次采样的速度（kt）
+
+// 速度趋势：每 0.5 s 采一次，一阶低通，按 10 s 外推——与空客速度带上的品红箭头同义
+function pfd_update_trend(vKt, nowMs) {
+    if (!pfdTrendT) {
+        pfdTrendT = nowMs;
+        pfdTrendV = vKt;
+        return;
+    }
+    const dt = (nowMs - pfdTrendT) / 1000;
+    if (dt < 0.5) return;
+    const k = (vKt - pfdTrendV) / dt * 10.0;
+    pfdTrendKt = pfdTrendKt * 0.55 + k * 0.45;
+    pfdTrendT = nowMs;
+    pfdTrendV = vKt;
+}
+
+// FMA 方式字：由自动驾驶当前阶段推空客式的短标注；AP 未接通时返回空串（不给假状态）
+function pfd_fma_modes() {
+    if (typeof AUTOPILOT === 'undefined' || !AUTOPILOT.active) {
+        return { thr: '', lat: '', vert: '', ap: false };
+    }
+    const ph = AUTOPILOT.phase;
+    const pat = (AUTOPILOT.mode === 'pattern');
+    let thr = 'THR';
+    if (ph === 'roll' || ph === 'rotate' || ph === 'climb' || ph === 'p_upwind') thr = 'THR CLB';
+    if (ph === 'slowdown' || ph === 'stall' || ph === 'spin' || ph === 'recover' ||
+        ph === 'descend' || ph === 'approach') thr = 'THR IDLE';
+    let vert = 'ALT';
+    if (ph === 'roll' || ph === 'rotate' || ph === 'climb' || ph === 'p_upwind' || ph === 'p_cross') vert = 'OP CLB';
+    else if (ph === 'descend' || ph === 'approach' || ph === 'p_down' || ph === 'p_base') vert = 'OP DES';
+    else if (ph === 'p_final') vert = 'G/S';
+    else if (ph === 'flare') vert = 'FLARE';
+    else if (ph === 'stall' || ph === 'spin' || ph === 'recover' || ph === 'slowdown') vert = '---';
+    return { thr: thr, lat: (pat ? 'NAV' : 'HDG'), vert: vert, ap: true };
+}
+
+// 红黑/琥珀黑斜纹（失速带、超速带、地面带）：先在矩形里铺底色，再斜着盖章
+function pfd_barber(g, x, y0, y1, w, c1, c2) {
+    if (y1 - y0 < 1) return;
+    g.save();
+    g.beginPath();
+    g.rect(x, y0, w, y1 - y0);
+    g.clip();
+    g.fillStyle = c1;
+    g.fillRect(x, y0, w, y1 - y0);
+    g.fillStyle = c2;
+    const step = 7;
+    for (let y = y0 - w - step; y < y1 + step; y += step) {
+        g.beginPath();
+        g.moveTo(x, y + w);
+        g.lineTo(x + w, y);
+        g.lineTo(x + w, y + step * 0.6);
+        g.lineTo(x, y + w + step * 0.6);
+        g.closePath();
+        g.fill();
+    }
+    g.restore();
+}
+
+// 黑底白字读数框（速度/高度/航向共用）
+function pfd_box(g, x, y, w, h) {
+    g.fillStyle = '#000000';
+    g.fillRect(x, y, w, h);
+}
+
+function pfd_draw() {
+    const cv = document.getElementById('pfdCanvas');
+    if (!cv) return;
+    const g = cv.getContext('2d');
+    if (!g) return;
+
+    const ready = (flight.ready === true);
+    const kt = ready ? flight.V * KNOT_PER_MS : 0.0;
+    const ft = ready ? flight.alt * FT_PER_M : 0.0;
+    const fpm = ready ? flight.V * Math.sin(flight.gamma) * FPM_PER_MS : 0.0;
+    const pitch = ready ? flight.theta * FLIGHT.RAD : 0.0;      // 抬头为正（°）
+    const roll = ready ? flight.phi * FLIGHT.RAD : 0.0;         // 右滚为正（°）
+    const hdg = ready ? flight_wrap_2pi(flight.psi) * FLIGHT.RAD : 0.0;
+    const trk = ready ? flight_wrap_2pi(flight.chi) * FLIGHT.RAD : 0.0;
+
+    pfd_update_trend(kt, (typeof performance !== 'undefined') ? performance.now() : Date.now());
+
+    g.setTransform(PFD_DPR, 0, 0, PFD_DPR, 0, 0);
+    g.fillStyle = '#050708';
+    g.fillRect(0, 0, PFD_SIZE, PFD_SIZE);
+
+    // ---------------- FMA ----------------
+    {
+        const F = PFD_LAYOUT.fma;
+        const m = pfd_fma_modes();
+        const cells = [m.thr, m.lat, m.vert];
+        const gap = 6;
+        const bw = (F.w - gap * 2 - 26) / 3;
+        g.font = '7px monospace';
+        g.textAlign = 'center';
+        g.textBaseline = 'middle';
+        for (let i = 0; i < 3; i++) {
+            const bx = F.x + i * (bw + gap);
+            g.fillStyle = '#101922';
+            g.fillRect(bx, F.y + 2, bw, 15);
+            g.fillStyle = m.ap ? PFD_C.green : '#2b3a46';
+            g.fillText(m.ap ? cells[i] : '---', bx + bw / 2, F.y + 10);
+        }
+        // 右侧 AP/FD 栏
+        const ax = F.x + 3 * (bw + gap) + 4;
+        g.fillStyle = '#101922';
+        g.fillRect(ax, F.y + 2, F.w - (ax - F.x), 15);
+        g.fillStyle = m.ap ? PFD_C.green : '#2b3a46';
+        g.fillText(m.ap ? 'AP1' : 'FD', ax + (F.w - (ax - F.x)) / 2, F.y + 10);
+        // AP 上的琥珀色侧标（和舱内那盏指示灯同色系）
+        g.fillStyle = m.ap ? PFD_C.amber : '#1a2731';
+        g.fillRect(F.x, F.y + 2, 2, 15);
+    }
+
+    // ---------------- 速度带 ----------------
+    {
+        const S = PFD_LAYOUT.spd;
+        const PPK = 3.0;                       // 每节多少像素
+        const midY = S.y + S.h / 2;
+        const xr = S.x + S.w;                  // 带子右缘（贴姿态球那侧）
+        const yOf = (v) => midY - (v - kt) * PPK;      // 速度 v → 屏幕 y（快的在上）
+
+        g.save();
+        g.beginPath();
+        g.rect(S.x, S.y, S.w, S.h);
+        g.clip();
+
+        // 失速带（带下沿）与超速带（带上沿）：红黑斜纹；待机（未起飞）时不画，保持画面干净
+        if (ready) {
+            const vStall = ap_stall_speed() * KNOT_PER_MS;
+            const vMax = 340.0;                // Vmo：全油门平飞约 255 kt，俯冲能到 340 上下
+            pfd_barber(g, S.x, yOf(vStall) + PPK * 2, S.y + S.h, S.w, '#000000', PFD_C.red);
+            pfd_barber(g, S.x, S.y, yOf(vMax) - PPK * 2, S.w, '#000000', PFD_C.red);
+        }
+
+        // 刻度与标注
+        g.font = '8px monospace';
+        g.textAlign = 'right';
+        g.textBaseline = 'middle';
+        const v0 = Math.floor((kt - 40) / 5) * 5;
+        for (let v = v0; v <= kt + 40; v += 5) {
+            if (v < 0 || v > 999) continue;
+            const y = yOf(v);
+            if (y < S.y - 4 || y > S.y + S.h + 4) continue;
+            const major = (v % 20 === 0);
+            const minor = (v % 10 === 0);
+            const len = major ? 8 : (minor ? 6 : 3);
+            g.strokeStyle = major ? PFD_C.white : PFD_C.grey;
+            g.lineWidth = 1;
+            g.beginPath();
+            g.moveTo(xr, y);
+            g.lineTo(xr - len, y);
+            g.stroke();
+            if (major && Math.abs(y - midY) > 11) {
+                g.fillStyle = PFD_C.white;
+                g.fillText(String(v), xr - 11, y);
+            }
+        }
+
+        // 中央读数框
+        const yc = midY - 9;
+        pfd_box(g, xr - 36, yc, 36, 18);
+        g.font = '11px monospace';
+        g.textAlign = 'right';
+        g.fillStyle = PFD_C.white;
+        g.fillText(String(Math.round(kt)), xr - 4, midY);
+
+        // 速度趋势（品红箭头）：箭头指向 10 s 后的速度
+        if (ready && Math.abs(pfdTrendKt) > 1.5) {
+            const yTip = midY - pfdTrendKt * PPK;
+            g.strokeStyle = PFD_C.magenta;
+            g.lineWidth = 1.4;
+            g.beginPath();
+            g.moveTo(xr - 3, midY);
+            g.lineTo(xr - 3, yTip);
+            g.stroke();
+            const d = (pfdTrendKt > 0) ? -1 : 1;
+            g.fillStyle = PFD_C.magenta;
+            g.beginPath();
+            g.moveTo(xr - 3, yTip + d * 4);
+            g.lineTo(xr - 7, yTip);
+            g.lineTo(xr + 1, yTip);
+            g.closePath();
+            g.fill();
+        }
+        g.restore();
+    }
+
+    // ---------------- 姿态球 ----------------
+    {
+        const A = PFD_LAYOUT.att;
+        const acx = A.x + A.w / 2;
+        const acy = A.y + A.h / 2;
+        const PPD = A.h / 56;                  // 上下各 28° 打满窗口
+        const BIG = 340;
+        const py = pitch * PPD;                // 地平线偏移：抬头为正 → 地平线在中心下方
+
+        g.save();
+        g.beginPath();
+        g.rect(A.x, A.y, A.w, A.h);
+        g.clip();
+        g.translate(acx, acy);
+        g.rotate(-roll * FLIGHT.DEG);          // 右滚时地平线右端抬起
+
+        // 天空与地面
+        const sky = g.createLinearGradient(0, py - BIG, 0, py);
+        sky.addColorStop(0, PFD_C.skyTop);
+        sky.addColorStop(1, PFD_C.sky);
+        g.fillStyle = sky;
+        g.fillRect(-BIG, py - BIG, BIG * 2, BIG);
+        const grd = g.createLinearGradient(0, py, 0, py + BIG);
+        grd.addColorStop(0, PFD_C.gnd);
+        grd.addColorStop(1, PFD_C.gndBot);
+        g.fillStyle = grd;
+        g.fillRect(-BIG, py, BIG * 2, BIG);
+
+        // 地平线
+        g.strokeStyle = PFD_C.white;
+        g.lineWidth = 1.4;
+        g.beginPath();
+        g.moveTo(-BIG, py);
+        g.lineTo(BIG, py);
+        g.stroke();
+
+        // 俯仰梯：每 5° 一条，10° 带两位标注（负角度带小横杠）
+        g.lineWidth = 1.1;
+        g.font = '8px monospace';
+        g.textAlign = 'center';
+        g.textBaseline = 'middle';
+        for (let p = -30; p <= 30; p += 5) {
+            if (p === 0) continue;
+            const y = (pitch - p) * PPD;
+            if (Math.abs(y) > A.h * 0.72) continue;
+            const major = (p % 10 === 0);
+            const half = major ? 26 : 14;
+            g.strokeStyle = major ? PFD_C.white : 'rgba(234,244,255,0.75)';
+            g.setLineDash(p < 0 ? [4, 3] : []);      // 地平线以下用虚线，一眼分出天与地
+            g.beginPath();
+            g.moveTo(-half, y);
+            g.lineTo(half, y);
+            g.stroke();
+            g.setLineDash([]);
+            if (major) {
+                g.fillStyle = PFD_C.white;
+                g.fillText(String(Math.abs(p)), -half - 9, y);
+                g.fillText(String(Math.abs(p)), half + 9, y);
+            }
+        }
+
+        // 坡度刻度：以圆心为轴、半径 96 的弧上，随地平线一起转，指向圆心
+        g.strokeStyle = PFD_C.white;
+        g.lineWidth = 1.1;
+        for (const b of [-60, -45, -30, -20, -10, 10, 20, 30, 45, 60]) {
+            const a = -Math.PI / 2 + b * FLIGHT.DEG;
+            const len = (Math.abs(b) >= 30) ? 9 : 5;
+            g.beginPath();
+            g.moveTo(Math.cos(a) * 84, Math.sin(a) * 84);
+            g.lineTo(Math.cos(a) * (84 + len), Math.sin(a) * (84 + len));
+            g.stroke();
+        }
+
+        // FPV（航迹矢量）：把航迹方向投到机体坐标系，再按小角度换算屏幕偏移
+        if (ready) {
+            const sh = Math.sin(flight.psi), ch = Math.cos(flight.psi);
+            const st = Math.sin(flight.theta), ct = Math.cos(flight.theta);
+            const sp = Math.sin(flight.phi), cp = Math.cos(flight.phi);
+            const fx = ct * sh, fy = ct * ch, fz = st;              // 机头
+            const u1x = -sh * st, u1y = -ch * st, u1z = ct;         // 零坡度时的机背
+            const rx = fy * u1z - fz * u1y, ry = fz * u1x - fx * u1z, rz = fx * u1y - fy * u1x;
+            const ux = u1x * cp + rx * sp, uy = u1y * cp + ry * sp, uz = u1z * cp + rz * sp;
+            const cg = Math.cos(flight.gamma), sg = Math.sin(flight.gamma);
+            const tx = cg * Math.sin(flight.chi), ty = cg * Math.cos(flight.chi), tz = sg;
+            const fwd = tx * fx + ty * fy + tz * fz;
+            if (fwd > 0.2) {
+                const right = tx * rx + ty * ry + tz * rz;
+                const up = tx * ux + ty * uy + tz * uz;
+                const S = PPD * FLIGHT.RAD;
+                const fpx = (right / fwd) * S;
+                const fpy = -(up / fwd) * S;
+                if (Math.abs(fpx) < A.w * 0.44 && Math.abs(fpy) < A.h * 0.44) {
+                    g.strokeStyle = PFD_C.green;
+                    g.lineWidth = 1.3;
+                    g.beginPath();
+                    g.arc(fpx, fpy, 3.2, 0, Math.PI * 2);
+                    g.stroke();
+                    g.beginPath();
+                    g.moveTo(fpx - 13, fpy); g.lineTo(fpx - 3.2, fpy);
+                    g.moveTo(fpx + 3.2, fpy); g.lineTo(fpx + 13, fpy);
+                    g.moveTo(fpx, fpy - 3.2); g.lineTo(fpx, fpy - 8);
+                    g.stroke();
+                }
+            }
+        }
+        g.restore();
+
+        // 固定基准：飞机符号（空客式黑底白边：左翼 / 右翼 / 中心方块）
+        g.strokeStyle = PFD_C.white;
+        g.fillStyle = '#000000';
+        g.lineWidth = 1.2;
+        const wing = (x0, x1) => {
+            g.beginPath();
+            g.moveTo(x0, acy - 6);
+            g.lineTo(x1, acy - 6);
+            g.lineTo(x1, acy + 2);
+            g.lineTo(x0, acy + 2);
+            g.closePath();
+            g.fill();
+            g.stroke();
+        };
+        wing(acx - 48, acx - 8);
+        wing(acx + 8, acx + 48);
+        g.beginPath();
+        g.moveTo(acx - 6, acy - 6);
+        g.lineTo(acx + 6, acy - 6);
+        g.lineTo(acx + 6, acy + 4);
+        g.lineTo(acx - 6, acy + 4);
+        g.closePath();
+        g.fill();
+        g.stroke();
+
+        // 固定的坡度基准三角（指向圆心）
+        g.fillStyle = PFD_C.white;
+        g.beginPath();
+        g.moveTo(acx, A.y + 12);
+        g.lineTo(acx - 5, A.y + 2);
+        g.lineTo(acx + 5, A.y + 2);
+        g.closePath();
+        g.fill();
+    }
+
+    // ---------------- 高度带 ----------------
+    {
+        const A = PFD_LAYOUT.alt;
+        const PPF = 0.30;                      // 每英尺多少像素（100 ft ≈ 30 px）
+        const midY = A.y + A.h / 2;
+        const xl = A.x;                        // 带子左缘（贴姿态球那侧）
+        const yOf = (v) => midY - (v - ft) * PPF;
+
+        g.save();
+        g.beginPath();
+        g.rect(A.x, A.y, A.w, A.h);
+        g.clip();
+
+        // 地面以下：琥珀黑斜纹（贴地/负高度时才看得见）
+        if (ready) pfd_barber(g, A.x, yOf(0), A.y + A.h, A.w, '#000000', PFD_C.amber);
+
+        g.font = '8px monospace';
+        g.textAlign = 'left';
+        g.textBaseline = 'middle';
+        const f0 = Math.floor((ft - 1200) / 100) * 100;
+        for (let v = f0; v <= ft + 1200; v += 100) {
+            const y = yOf(v);
+            if (y < A.y - 6 || y > A.y + A.h + 6) continue;
+            const major = (v % 200 === 0);
+            g.strokeStyle = major ? PFD_C.white : PFD_C.grey;
+            g.lineWidth = 1;
+            g.beginPath();
+            g.moveTo(xl, y);
+            g.lineTo(xl + (major ? 8 : 4), y);
+            g.stroke();
+            if (major && Math.abs(y - midY) > 11) {
+                g.fillStyle = PFD_C.white;
+                g.fillText(String(Math.round(v)), xl + 11, y);
+            }
+        }
+
+        // 中央读数框
+        pfd_box(g, A.x, midY - 9, A.w, 18);
+        g.font = '11px monospace';
+        g.textAlign = 'left';
+        g.fillStyle = PFD_C.white;
+        g.fillText(String(Math.round(ft)), A.x + 3, midY);
+        g.restore();
+
+        // 气压基准（写在带子下沿，和真机一样常年显示）
+        g.font = '7px monospace';
+        g.textAlign = 'right';
+        g.textBaseline = 'middle';
+        g.fillStyle = PFD_C.grey;
+        g.fillText('QNH 1013', A.x + A.w + 12, A.y + A.h + 10);
+    }
+
+    // ---------------- 升降速度尺 ----------------
+    {
+        const V = PFD_LAYOUT.vsi;
+        const midY = V.y + V.h / 2;
+        const half = V.h / 2 - 6;
+
+        // 刻度：±500 / 1000 / 2000 / 6000（非线性，越往外越挤，与真机同感）
+        const marks = [500, 1000, 2000, 6000];
+        const yFor = (v) => {
+            const a = Math.min(Math.abs(v), 6000);
+            const t = Math.log(1 + a / 500) / Math.log(1 + 6000 / 500);
+            return midY - Math.sign(v) * t * half;
+        };
+        g.strokeStyle = PFD_C.grey;
+        g.lineWidth = 1;
+        for (const s of [1, -1]) {
+            for (const m of marks) {
+                const y = yFor(s * m);
+                g.beginPath();
+                g.moveTo(V.x + V.w, y);
+                g.lineTo(V.x + V.w - (m === 1000 || m === 6000 ? 7 : 4), y);
+                g.stroke();
+            }
+        }
+        // 零位刻度
+        g.beginPath();
+        g.moveTo(V.x + V.w, midY);
+        g.lineTo(V.x + V.w - 7, midY);
+        g.stroke();
+
+        // 指针：白色小方块 + 引线
+        const vy = yFor(flight_clamp(fpm, -6000, 6000));
+        g.save();
+        g.beginPath();
+        g.rect(V.x, V.y, V.w + 2, V.h);
+        g.clip();
+        g.fillStyle = PFD_C.white;
+        g.fillRect(V.x + V.w - 11, vy - 1.5, 10, 3);
+        g.restore();
+
+        // 数字：超过 400 ft/min 才报（与空客一致），写成百位数
+        if (ready && Math.abs(fpm) >= 400) {
+            g.font = '8px monospace';
+            g.textAlign = 'center';
+            g.textBaseline = 'middle';
+            g.fillStyle = PFD_C.white;
+            const txt = (fpm > 0 ? '+' : '-') + String(Math.round(Math.abs(fpm) / 100));
+            g.fillText(txt, V.x + V.w - 12, midY);
+        }
+    }
+
+    // ---------------- 航向带 ----------------
+    {
+        const H = PFD_LAYOUT.hdg;
+        const cx = H.x + H.w / 2;
+        const PPD = H.w / 84;                  // 左右各露 42°
+
+        g.save();
+        g.beginPath();
+        g.rect(H.x, H.y, H.w, H.h);
+        g.clip();
+
+        g.font = '8px monospace';
+        g.textAlign = 'center';
+        g.textBaseline = 'middle';
+        const base = Math.floor((hdg - 45) / 5) * 5;
+        for (let d = base; d <= hdg + 45; d += 5) {
+            const dd = ((d % 360) + 360) % 360;
+            const off = (d - hdg);
+            const x = cx + off * PPD;
+            if (x < H.x - 10 || x > H.x + H.w + 10) continue;
+            const major = (dd % 30 === 0);
+            const mid = (dd % 10 === 0);
+            g.strokeStyle = major ? PFD_C.white : PFD_C.grey;
+            g.lineWidth = 1;
+            g.beginPath();
+            g.moveTo(x, H.y + 2);
+            g.lineTo(x, H.y + 2 + (major ? 8 : (mid ? 5 : 3)));
+            g.stroke();
+            if (major) {
+                g.fillStyle = PFD_C.white;
+                g.fillText(dd === 0 ? '360' : String(dd).padStart(3, '0'), x, H.y + 18);
+            }
+        }
+
+        // 航向读数（中央黑底框）
+        const bw = 40, bh = 16;
+        pfd_box(g, cx - bw / 2, H.y + 6, bw, bh);
+        g.font = '11px monospace';
+        g.textAlign = 'center';
+        g.fillStyle = PFD_C.white;
+        g.fillText(String(Math.round(hdg) % 360 === 0 ? '360' : String(Math.round(hdg)).padStart(3, '0')),
+            cx, H.y + 14);
+
+        // 机头基准（白三角，压在上沿）
+        g.fillStyle = PFD_C.white;
+        g.beginPath();
+        g.moveTo(cx, H.y + 2);
+        g.lineTo(cx - 4, H.y - 4);
+        g.lineTo(cx + 4, H.y - 4);
+        g.closePath();
+        g.fill();
+
+        // 航迹菱形（白）与五边跑道航向（蓝三角）
+        const wrapD = (a) => { let t = a % 360; if (t > 180) t -= 360; if (t < -180) t += 360; return t; };
+        if (ready) {
+            const xt = cx + wrapD(trk - hdg) * PPD;
+            g.save();
+            g.translate(xt, H.y + H.h - 4);
+            g.rotate(Math.PI / 4);
+            g.strokeStyle = PFD_C.white;
+            g.lineWidth = 1.1;
+            g.strokeRect(-2.6, -2.6, 5.2, 5.2);
+            g.restore();
+        }
+        if (typeof AUTOPILOT !== 'undefined' && AUTOPILOT.active && AUTOPILOT.mode === 'pattern') {
+            const xb = cx + wrapD(AUTOPILOT.runwayHdg - hdg) * PPD;
+            if (xb > H.x - 6 && xb < H.x + H.w + 6) {
+                g.fillStyle = PFD_C.blue;
+                g.beginPath();
+                g.moveTo(xb, H.y + H.h - 7);
+                g.lineTo(xb - 4, H.y + H.h);
+                g.lineTo(xb + 4, H.y + H.h);
+                g.closePath();
+                g.fill();
+            }
+        }
+        g.restore();
+    }
+
+    // ---------------- 底部状态 ----------------
+    {
+        g.font = '7px monospace';
+        g.textAlign = 'left';
+        g.textBaseline = 'middle';
+        g.fillStyle = flight.wow && ready ? PFD_C.amber : '#2b3a46';
+        g.fillText(flight.wow && ready ? 'GND' : '', 10, 306);
+        g.textAlign = 'center';
+        g.fillStyle = '#1f2d38';
+        g.fillText('PFD', PFD_SIZE / 2, 306);
+    }
+}
+
 // ============================================================
 // 导航显示器（ND）：航迹朝上的移动地图（ARINC 风格 MFD）
 //   · 黑底方形显示屏，置于飞行控制控件下方；
@@ -17913,6 +18497,7 @@ function refresh_button_status() {
 load_landscape_texture(landscape_index);
 radar_cloud_start_loading();
 instrument_init();
+pfd_draw();
 nd_init_range_buttons();
 nd_draw();
 
@@ -18975,8 +19560,11 @@ function init() {
         // 飞行仪表指针（未开始飞行时归零，暂停时保持最后读数）
         flight_update_instruments();
 
-        // 导航显示器：飞行中逐帧重绘（暂停时保留最后一帧）
-        if (flight.active) nd_draw();
+        // 导航显示器 / 主飞行显示：飞行中逐帧重绘（暂停时保留最后一帧）
+        if (flight.active) {
+            nd_draw();
+            pfd_draw();
+        }
 
         // 每帧重绘
         frame_buffer32.fill(FRAME_CLEAR32);
