@@ -1942,6 +1942,7 @@ body.is-day .ak_socket {
                     <li>「五边起落」按钮是另一套自动驾驶场景：起飞航向直接取当前时刻的太阳方位（五边模式的滑跑状态会显示"朝太阳 xxx°"），离地后按标准左航线飞完整五边——离场边爬升到 600 m、侧风边左转 90°、下风边与跑道平行反向、底边再左转 90° 下降到进场高度、最后进近对正跑道落地；航线速度保持约 58 m/s，转弯半径约 500 m，整圈几何按起飞点闭合。</li>
                     <li>「失速尾旋与改出演示」按钮会接管全部操纵（期间摇杆、油门键都不响应），从地面起飞爬升穿云到 7500 m，减速到失速边界后故意拉出失速、蹬满舵进入尾旋——进入约 20 秒后再顺舵加副翼，转速会从 30°/s 一路压到 140°/s，一直转到 1600 m 才改出（反舵打停自转、推杆让机翼附着、低空大过载拉起），随后进近、拉平、刹停；结束后指示灯自动熄灭。再点一次按钮或按「复位」可随时中止。</li>
                     <li>触地后按起落架接地处理：姿态立即放平为地面姿态（机翼水平、机头放平、无侧滑），随后进入滑跑。滑跑时油门对抗气动阻力、滚动阻力与刹车阻力——收油门（或按 F）会带刹车在约十秒内逐渐滑停，速度可降到 0；加到约 22 m/s 抬轮速度后再拉杆即可重新离地，低于该速度拉杆无效（机头被前轮/尾轮撑住）。</li>
+                    <li>地面高度取自地形数据，不是常数：飞机脚下取实时海洋正在画的那一份高程场（真实地形或随机岛屿都算）在该处的高程，触地、撞山、滑跑全都按它算。所以从南京起飞压低空往东飞，飞到山脚就会撞在紫金山的山坡上，而不是从山体里穿过去；在山脊上接地后会贴着山坡滑跑，滑出陡坎时会短暂离地再落下去。海上仍以海面为接地基准（1 米）；地景不是「实时海洋」、或高程场还没载入时，退回这 1 米。仪表上的"高度"是海拔（MSL），落在山上时读的就是山顶的海拔。</li>
                     <li>飞行动力学是六自由度刚体：副翼/升降舵/方向舵给的是气动力矩，升力与阻力按左右机翼各自的当地迎角算（含失速后的升力塌陷与阻力上升），姿态用四元数积分，所以筋斗、横滚、过顶、倒飞都可以做，也不会出现欧拉角锁死；HUD 里的"高度/升降"始终是世界竖直方向。</li>
                     <li>失速与尾旋是真的算出来的：失速速度约 25 m/s（相当于 90 km/h），超过约 15° 迎角升力就开始塌陷、机头自然下坠；慢车 + 满拉杆 + 满舵可以进入尾旋——两翼当地迎角不等造成的自转力矩让机头绕垂轴持续旋转、近垂直下降，α 稳定在 20°–30°。改出用反舵（抵消自转）+ 推杆（减小迎角让机翼重新附着），松杆通常也能自己改出。抬轮速度 30 m/s，且要升力真能托住重量才离得地。</li>
                     <li>飞行时飞机的姿态决定相机视角；地面投影点的经纬度只用于驱动天象（太阳/月亮/行星/恒星方位），海拔高度只用于驱动「实时海洋」的观察高度。地景为「实时海洋」时，相机会随飞机在海面上平移——波场、泡沫与太阳耀光固定在世界坐标中，因此能看出真实的相对运动；其他地景不随飞行移动，只改变相机视角。</li>
@@ -1958,7 +1959,7 @@ body.is-day .ak_socket {
                     <li>「实时海洋」的地形<b>默认就是真实高程</b>：只要页面旁边有 <code>terrain/china/</code> 分块数据，打开页面就按当前经纬度（默认南京）载入真实地形，看到的是长江与宁镇山脉，不再是随机群岛；没有数据（例如线上没带地形数据）才回退到程序化随机岛屿。想换地方：URL 加 <code>?lat=39.9&amp;lon=116.4</code>，或在顶部「地形与导航」面板里点「地形」按钮在「真实地形 / 随机生成」之间来回切。<code>?terrain=名字</code> 是另一条路——载入单个烘焙窗口（<code>terrain/名字.bin</code>+<code>.json</code>，用 <code>tools/dem_bake.py</code> 生成），例如 <code>?terrain=qingdao</code>。地形数据版权：© DLR e.V. 2010-2014 and © Airbus Defence and Space GmbH 2014-2018 provided under COPERNICUS by the European Union and ESA，按 Copernicus DEM licence 使用。</li>
                     <li><b>全国分块流式地形</b>（默认模式）：<code>?lat=36.1&amp;lon=120.55</code> 指定起点（省略就用页面的默认经纬度，即南京）。地形被切成 0.25°×0.25° 的块（<code>l1</code> 900²≈30 m、<code>l0</code> 225²≈120 m），页面以相机为中心维护一个 51.2 km / 2048² 的世界窗口：先取十几 KB 的 l0 秒出，再后台换 l1；飞离窗口中心超过 28% 边长就重定中心，中心按 512 m（波场平铺周期）对齐，所以重定时波相位不跳。块是按需取的——只有窗口覆盖到、并且清单里确实有的块才会发请求，缺块（纯海面/未下载）按海处理。窗口组装约 0.1–0.6 秒（含到岸距离合成的海底），飞行时几分钟才触发一次。数据来源是 Copernicus DEM GLO-30，用 <code>tools/dem_fetch_china.py</code> 下载、<code>tools/dem_tiles.py</code> 切块，全国陆地的块约 1.6~2 万个、合计约 16 GB（gzip 后）。「海洋参数」里另有「能见度」滑块（默认 150 km），大气透视的浓淡看它。</li>
                     <li>「海洋天空」（模型 6）与「实时海洋」地景移植自开源项目 web-ocean（MIT）：Hillaire 式 LUT 大气（透射率/多重散射/天空视图三张 LUT，JS 与 GLSL 共享同一份数据）、JONSWAP 风浪谱+窄涌浪的解析波列级数（方差守恒，烘焙为可平铺波场纹理并按群速度平流）、各向异性高斯太阳耀光（Smith 掩蔽）、天空环境反射、水体上涌与波峰透射辉光、雅可比白帽、大气透视与 AgX 色调映射。观察者默认位于海平面以上 50 米（1.5 米~10 公里对数刻度可调）；无 WebGL2 时自动回退到较慢的 JS 逐像素渲染。</li>
-                    <li>「实时海洋」上叠了一片可平铺的岛屿地形（岛屿随机生成，直径约 4~11 公里）：海线由低阶谐波加两级角度噪声给出，曲折且带小海湾与岬角；高程按 25 米纹素烘焙成一张 1024² 的世界高程场（陆地为正、海底为负，含陆架与浅滩），所以海岸线、沙滩、近岸浅水色与拍岸泡沫都出自同一份数据。求交用两级「格内最大高程」网格做 2D DDA 跳格、再逐纹素步进加二分细化；岛体只有当它比海面更近时才遮挡海面，因此“岛挡海”与“海挡岛”都自洽。地形着色与海面共用同一份透射率 LUT 与 AgX：高程梯度算法线、太阳直射 + 天空半球环境光，陡坡偏岩、海线以上一条沙滩带。世界坐标以 25.6 公里为周期回绕（与飞行模拟的相机回绕周期一致），所以朝任意方向一直飞都还能再遇到陆地；飞行时相机不会钻进山体。整套求交与着色只依赖高程图与粗网格，将来换成真实地理高程数据（DEM）时只需替换生成那一段。</li>
+                    <li>「实时海洋」上叠了一片可平铺的岛屿地形（岛屿随机生成，直径约 4~11 公里）：海线由低阶谐波加两级角度噪声给出，曲折且带小海湾与岬角；高程按 25 米纹素烘焙成一张 1024² 的世界高程场（陆地为正、海底为负，含陆架与浅滩），所以海岸线、沙滩、近岸浅水色与拍岸泡沫都出自同一份数据。求交用两级「格内最大高程」网格做 2D DDA 跳格、再逐纹素步进加二分细化；岛体只有当它比海面更近时才遮挡海面，因此“岛挡海”与“海挡岛”都自洽。地形着色与海面共用同一份透射率 LUT 与 AgX：高程梯度算法线、太阳直射 + 天空半球环境光，陡坡偏岩、海线以上一条沙滩带。世界坐标以 25.6 公里为周期回绕（与飞行模拟的相机回绕周期一致），所以朝任意方向一直飞都还能再遇到陆地；飞行时相机不会钻进山体，飞机本身也按同一份高程撞山接地（见飞行控制页说明）。整套求交与着色只依赖高程图与粗网格，将来换成真实地理高程数据（DEM）时只需替换生成那一段。</li>
                     <li>地景为「实时海洋」时，点按钮区的「海洋参数」可以展开/收起海面参数滑块区（观察高度/风速/风向/风区/涌浪波高/涌浪波长/涌浪方向/泡沫强度/水体浑浊度/霾），默认收起；地景不是实时海洋时该按钮只显示“需实时海洋”。切到随机生成时，顶部「地形与导航」面板里的「刷新地形」会换一批随机岛屿（海线、尺寸、布局都变，约 70 毫秒），按钮内显示「N座D.km」（岛屿数量与最大岛直径）。滑块本身：波浪与涌浪参数在停止拖动约 0.25 秒后重烘焙波场（约 0.1 秒）；「霾」与「观察高度」会重建大气 LUT（约 0.5 秒），「霾」默认 0（无霾，空气清透）；泡沫强度与水体浑浊度立即生效。风浪行进方向与涌浪方向以罗盘方位角表示（0=北，90=东）。「观察高度」同时是体积云与天空的观察点高度（飞行控制页内则改由飞机接管，滑块只作显示），因此调高它会一起抬升海面相机和云层视角。</li>
                     <li>性能选项：「天空降帧」开启时，若视线/太阳/云参数未变，天空每 4 帧才重绘一次、其余帧复用上次结果（海洋与天体/网格叠加仍逐帧更新）；「云半分辨率」开启时体积云以半分辨率光线步进再双线性放大（云边缘略软，开销降至 1/4）。二者可独立开关，全景拖动时自动失效以保证响应。</li>
                     <li>本系统由 Kimi K2.7、K3、本地部署的 DeepSeek-V4-Flash、GLM5.3-Flash 辅助编码。</li>
@@ -11113,6 +11114,7 @@ const ISL_state = {
     far: null,            // Float32Array(ISL_FAR²)：远层格内最大高程
     maxH: 0.0,            // 全图最高点 m
     islands: [],          // 岛屿描述符（中心/海线表/峰值…）
+    src: null,            // 高程场来源：'proc' 程序化岛屿 / 'dem' 烘焙窗口 / 'tstr' 全国分块
     ready: false,
     glDirty: true,        // GL 侧需重新上传纹理
     genMs: 0.0,           // 生成耗时（诊断）
@@ -11335,6 +11337,7 @@ function isl_generate(seed) {
     ISL_state.far = far;
     ISL_state.maxH = maxH;
     ISL_state.islands = islands;
+    ISL_state.src = 'proc';
     ISL_state.ready = true;
     ISL_state.glDirty = true;
     ISL_state.genMs = ((typeof performance !== 'undefined') ? performance.now() : Date.now()) - t0;
@@ -11422,6 +11425,7 @@ async function isl_load_terrain(name) {
         ISL_state.far = grids.far;
         ISL_state.maxH = grids.maxH;
         ISL_state.islands = [];
+        ISL_state.src = 'dem';
         ISL_state.ready = true;
         ISL_state.glDirty = true;
         ISL_real.name = name;
@@ -11650,6 +11654,7 @@ function tstr_apply(built) {
     ISL_state.far = grids.far;
     ISL_state.maxH = grids.maxH;
     ISL_state.islands = [];
+    ISL_state.src = 'tstr';
     ISL_state.ready = true;
     ISL_state.glDirty = true;
     TSTR.win = { lonC: built.lonC, latC: built.latC, S: TSTR_WIN_S, N: TSTR_WIN_N };
@@ -15546,7 +15551,9 @@ let last_point_azi = 0;
 //             拉满杆可把 α 撑在 25° 左右挂着下沉。
 //   尾旋    → 慢车 + 满拉杆 + 满舵可进入：α 稳定在 20°-30°、机头绕垂轴自转、近垂直
 //             下降；反舵 + 推杆（减小 α）即可改出，松杆通常也能自行改出。
-//   地面    → 独立的滑跑模型：抬轮速度 30 m/s，还要升力真能托住重量才离地。
+//   地面    → 独立的滑跑模型：抬轮速度 30 m/s，还要升力真能托住重量才离地；
+//             地面高度取实时海洋那份高程场（真实地形 / 随机岛屿）在飞机正下方的值，
+//             撞山、贴地滑跑、滑出陡坎离地都按它算，见 flight_ground_update()。
 // ============================================================
 const FLIGHT = {
     G: 9.80665,
@@ -15581,7 +15588,8 @@ const FLIGHT = {
     THROTTLE_KEY_RATE: 0.5, // 键盘 R/F 的油门变化速率 1/s
 
     // ---- 地面滑跑 / 起落架 ----
-    GROUND_ALT: 1.0,        // 轮胎接地高度基准 m
+    GROUND_ALT: 1.0,        // 轮胎接地偏移 m：地面海拔 = max(地形高程, 0) + 这个偏移
+                            // （没有地形数据时，地面就是原来的常数 1.0 m）
     ROTATE_V: 30.0,         // 抬轮速度 m/s（失速速度约 25 m/s，抬轮离地还要看升力是否够）
     LIFTOFF_PITCH: 0.06,    // 离地所需最小抬头角 rad（≈3.4°）
     GROUND_PITCH_MAX: 0.21, // 地面滑跑允许的最大抬头角 rad（≈12°，防擦尾）
@@ -15596,6 +15604,7 @@ const flight = {
     ready: false,
     // 位置与高度
     x: 0.0, z: 0.0, alt: FLIGHT.START_ALT,
+    ground: FLIGHT.GROUND_ALT,   // 当前位置的地面海拔 m（地形数据驱动，flight_ground_update 刷新）
     lat0: 0.0, lon0: 0.0,
     // 六自由度状态（机体轴：x 前 / y 右 / z 下）
     u: FLIGHT.START_V, v: 0.0, w: 0.0,      // 机体速度 m/s
@@ -15634,6 +15643,65 @@ function flight_wrap_pi(a) {
 }
 function flight_clamp(v, lo, hi) {
     return (v < lo) ? lo : ((v > hi) ? hi : v);
+}
+
+// ============================================================
+// 地面高度：取飞机正下方的地形高程（原来是常数 FLIGHT.GROUND_ALT = 1 m，
+// 飞机从紫金山里穿过去也不会撞山）
+//   ground = max(地形高程, 0) + FLIGHT.GROUND_ALT
+// 地形就是实时海洋正在画的那一份高程场：真实地形（全国 0.25° 分块 / 烘焙 DEM）、
+// 随机生成的程序化岛屿，两者共用同一条取高路径；没有地形数据（地景不是实时海洋、
+// 高程场还没就绪）时退回原来的常数。取 max(…, 0) 是为了海上仍以海面为接地基准
+// （高程场里海底是负值），+ FLIGHT.GROUND_ALT 是轮胎接地偏移，所以没有地形时
+// 结果正好等于原来的 1.0 m。坐标换算与 flight_apply_world 喂给渲染的完全一致，
+// 屏幕上看得见的山就是撞得到的山。
+// ============================================================
+
+// 飞行平面坐标 → 经纬度。flight_apply_world 用它更新天象，地面采样也走这一条，
+// 保证"按哪个经纬度取高程"与"按哪个经纬度画地形"是同一件事。
+function flight_latlon(x, z) {
+    const lat0 = flight.lat0;
+    let lat = lat0 + (z / FLIGHT.R_EARTH) * FLIGHT.RAD;
+    if (lat > 90.0) lat = 90.0;
+    if (lat < -90.0) lat = -90.0;
+    let lon = flight.lon0 + (x / (FLIGHT.R_EARTH * Math.max(Math.cos(lat0 * FLIGHT.DEG), 1e-4))) * FLIGHT.RAD;
+    lon = ((lon + 180.0) % 360.0 + 360.0) % 360.0 - 180.0;
+    return [lat, lon];
+}
+
+// 飞机位置 → 高程场里的世界坐标（TSTR 模式相对当前窗口中心，程序化模式回绕进世界贴图）
+function flight_terrain_xz(x, z, lat, lon) {
+    if (TSTR.on) {
+        const w = TSTR.win;
+        const kLat = TSTR_KLAT, kLon = kLat * Math.cos(w.latC * Math.PI / 180.0);
+        return [(lon - w.lonC) * kLon, (lat - w.latC) * kLat];
+    }
+    const w = FLIGHT.CAM_WRAP;
+    return [x - w * Math.floor(x / w), z - w * Math.floor(z / w)];
+}
+
+// 飞机正下方的地形高程 m；返回 null 表示没有可用的地形数据（按海平面算地面）
+function flight_terrain_under(x, z) {
+    // 只有实时海洋地景才画地形；别的贴图地景没有山可撞，一律按平地
+    const ls = LANDSCAPES[landscape_index];
+    if (!ls || ls[2] !== 2) return null;
+    if (!enable_islands || !ISL_state.ready || ISL_state.h === null) return null;
+    // 高程场必须是当前模式下正在画的那一份：切换「真实地形 / 随机生成」时会有一小段时间
+    // 两份数据的坐标框对不上，宁可当作没有地形，也不要拿错位的高程当地面。
+    if (TSTR.on !== (ISL_state.src === 'tstr')) return null;
+    if (TSTR.on && !TSTR.win) return null;
+    const ll = flight_latlon(x, z);
+    const p = flight_terrain_xz(x, z, ll[0], ll[1]);
+    const h = isl_height(p[0], p[1]);
+    return Number.isFinite(h) ? h : null;
+}
+
+// 刷新 flight.ground（当前地面海拔）。一次双线性采样，每帧调一两次，代价可忽略。
+function flight_ground_update() {
+    const h = flight_terrain_under(flight.x, flight.z);
+    // 海拔 = 地形高程（海底当作 0）+ 轮胎接地偏移；没有地形数据时正好是 1.0 m
+    flight.ground = ((h === null || h < 0.0) ? 0.0 : h) + FLIGHT.GROUND_ALT;
+    return flight.ground;
 }
 
 // 姿态 → 相机视角。
@@ -15709,14 +15777,9 @@ function draw_flight_path_vector(frame_buffer, fb_width, fb_height, R, center_x,
 
 // 飞行状态 → 世界：地面投影点经纬度（仅驱动天象）与观察高度（仅驱动实时海洋）
 function flight_apply_world(nowMs) {
-    const lat0 = flight.lat0;
-    latitude = lat0 + (flight.z / FLIGHT.R_EARTH) * FLIGHT.RAD;
-    if (latitude > 90.0) latitude = 90.0;
-    if (latitude < -90.0) latitude = -90.0;
-
-    let lon = flight.lon0 + (flight.x / (FLIGHT.R_EARTH * Math.max(Math.cos(lat0 * FLIGHT.DEG), 1e-4))) * FLIGHT.RAD;
-    lon = ((lon + 180.0) % 360.0 + 360.0) % 360.0 - 180.0;
-    longitude = lon;
+    const ll = flight_latlon(flight.x, flight.z);   // 与地面高程采样同一套换算
+    latitude = ll[0];
+    longitude = ll[1];
 
     // 体积云：观察点在云场中的位置由 cloud_sky_sync_camera() 每帧统一决定
     // （飞行控制页由这台飞行器接管，其余时间由「观察高度」滑块接管），此处不再直接写。
@@ -15727,9 +15790,9 @@ function flight_apply_world(nowMs) {
             // 全国分块地形：相机世界坐标 = 相对当前窗口中心的米数，必要时重定中心
             tstr_tick(longitude, latitude);
         } else {
-            const w = FLIGHT.CAM_WRAP;
-            WO_CAM_XZ[0] = flight.x - w * Math.floor(flight.x / w);
-            WO_CAM_XZ[1] = flight.z - w * Math.floor(flight.z / w);
+            const p = flight_terrain_xz(flight.x, flight.z, latitude, longitude);
+            WO_CAM_XZ[0] = p[0];
+            WO_CAM_XZ[1] = p[1];
         }
 
         // 观察高度 = 飞机海拔；贴着浪飞时抬高到浪面之上（web-ocean 的相机浮空处理）
@@ -15764,7 +15827,7 @@ function flight_apply_world(nowMs) {
 function flight_touchdown() {
     flight.wow = true;
     flight.groundHold = FLIGHT.TOUCHDOWN_HOLD;
-    flight.alt = FLIGHT.GROUND_ALT;
+    flight.alt = flight_ground_update();     // 接在飞机脚下的地形上（山上就是山顶的海拔）
     flight.gamma = 0.0;
     flight.alpha = 0.0;
     flight.theta = 0.0;
@@ -15826,6 +15889,17 @@ function flight_integrate_ground(dt, eff) {
     flight.x += flight.V * Math.sin(flight.chi) * dt;
     flight.z += flight.V * Math.cos(flight.chi) * dt;
 
+    // 地面高度跟着地形走：滑上坡就抬、滑下坡就降（不再是常数 1 m）。
+    // 一步之内地形掉下去一大截（滑出陡坎、崖边）时不再贴着地面往下瞬移，
+    // 而是转成空中状态自己掉下去，落到下面的坡上再接地。
+    flight_ground_update();
+    if (flight.alt - flight.ground > Math.max(0.75, flight.V * dt * 0.35)) {
+        flight.alpha = flight.theta;
+        flight_set_body_state(flight.V, flight.alpha, flight.psi, flight.theta, 0.0);
+        flight.wow = false;
+        return;
+    }
+
     // 抬轮离地：速度足够、机头已拉起，且升力真的能托住重量
     if (flight.V >= FLIGHT.ROTATE_V && flight.theta > FLIGHT.LIFTOFF_PITCH && flight_lift() >= AERO.mass * 9.80665) {
         flight.wow = false;
@@ -15836,8 +15910,8 @@ function flight_integrate_ground(dt, eff) {
     // 地面（γ=0）上迎角与俯仰姿态等价；离地瞬间按 θ=γ+α 对齐，保证视角连续
     flight.alpha = flight.theta - flight.gamma;
 
-    flight.alt += flight.V * Math.sin(flight.gamma) * dt;
-    if (flight.alt < FLIGHT.GROUND_ALT) flight.alt = FLIGHT.GROUND_ALT;
+    // 轮胎贴着地面：高度直接取脚下地形（离地那一帧也仍贴在地面上）
+    flight.alt = flight.ground;
 }
 
 // 单步运动学积分（dt 秒）。测试时可脱离渲染循环直接调用。
@@ -15996,7 +16070,7 @@ function autopilot_engage(mode) {
     // 进入飞行页并从地面静止开始
     if (!flight.active) flight_select_tab('flight');
     flight_reset();
-    flight.alt = FLIGHT.GROUND_ALT;
+    flight.alt = flight_ground_update();   // 停在当前位置的地面上（地形高程决定跑道海拔）
     flight.wow = true;
     flight.V = 0.4;
     flight.throttle = 0.0;
@@ -16048,7 +16122,10 @@ function autopilot_engage(mode) {
 
 // 每子步调用：返回 {throttle, pitch, roll, yaw}，并推进状态机
 function autopilot_step(dt) {
+    // agl = 离地高度。地面高度现在由地形数据给出（山顶起飞、飞越山地都算数），
+    // 所以"离地多少米"才是要守的量，海拔 alt 只用来报数和算空气密度。
     const alt = flight.alt, V = flight.V;
+    const agl = alt - flight.ground;
     const alphaDeg = flight.alpha * FLIGHT.RAD;
     AUTOPILOT.phaseT += dt;
 
@@ -16075,7 +16152,7 @@ function autopilot_step(dt) {
             to('rotate', '抬轮');
             cmd.throttle = 1.0;
             cmd.pitch = ap_pitch_cmd(9.0);
-            if ((!flight.wow && alt > FLIGHT.GROUND_ALT + 10.0) || AUTOPILOT.phaseT > 10.0) {
+            if ((!flight.wow && agl > 10.0) || AUTOPILOT.phaseT > 10.0) {
                 ap_goto((AUTOPILOT.mode === 'pattern') ? 'p_upwind' : 'climb');
             }
             break;
@@ -16103,35 +16180,35 @@ function autopilot_step(dt) {
             const along = ap_along_track(pt0, legHdg);
 
             if (AUTOPILOT.phase === 'p_upwind') {
-                to('p_upwind', '离场边 · ' + Math.round(alt) + ' m');
-                cmd.throttle = (alt < 120.0) ? 1.0 : ap_throttle_for_speed(AP_PATTERN_V);
-                if (alt >= 120.0) cmd.pitch = ap_vs_pitch(0.0, dt);
-                cmd.pitch = ap_vs_pitch(alt < AP_PATTERN_ALT - 20.0 ? Math.min(12.0, (AP_PATTERN_ALT - alt) * 0.12) : 0.0, dt);
+                to('p_upwind', '离场边 · ' + Math.round(agl) + ' m');
+                cmd.throttle = (agl < 120.0) ? 1.0 : ap_throttle_for_speed(AP_PATTERN_V);
+                if (agl >= 120.0) cmd.pitch = ap_vs_pitch(0.0, dt);
+                cmd.pitch = ap_vs_pitch(agl < AP_PATTERN_ALT - 20.0 ? Math.min(12.0, (AP_PATTERN_ALT - agl) * 0.12) : 0.0, dt);
                 if (along >= legLen || AUTOPILOT.phaseT > 90.0) ap_goto('p_cross');
             }
             else if (AUTOPILOT.phase === 'p_cross') {
-                to('p_cross', '侧风边 · ' + Math.round(alt) + ' m');
+                to('p_cross', '侧风边 · ' + Math.round(agl) + ' m');
                 cmd.throttle = ap_throttle_for_speed(AP_PATTERN_V);
-                cmd.pitch = ap_vs_pitch(alt < AP_PATTERN_ALT - 20.0 ? 8.0 : 0.0, dt);
+                cmd.pitch = ap_vs_pitch(agl < AP_PATTERN_ALT - 20.0 ? 8.0 : 0.0, dt);
                 if (along >= legLen || AUTOPILOT.phaseT > 70.0) ap_goto('p_down');
             }
             else if (AUTOPILOT.phase === 'p_down') {
-                to('p_down', '下风边 · ' + Math.round(alt) + ' m');
+                to('p_down', '下风边 · ' + Math.round(agl) + ' m');
                 cmd.throttle = ap_throttle_for_speed(AP_PATTERN_V);
-                cmd.pitch = ap_vs_pitch(alt > AP_PATTERN_ALT * 0.65 ? -2.0 : 0.0, dt);
+                cmd.pitch = ap_vs_pitch(agl > AP_PATTERN_ALT * 0.65 ? -2.0 : 0.0, dt);
                 if (along >= legLen || AUTOPILOT.phaseT > 90.0) ap_goto('p_base');
             }
             else if (AUTOPILOT.phase === 'p_base') {
-                to('p_base', '底边 · ' + Math.round(alt) + ' m');
+                to('p_base', '底边 · ' + Math.round(agl) + ' m');
                 cmd.throttle = ap_throttle_for_speed(AP_PATTERN_V);
                 cmd.pitch = ap_vs_pitch(-3.5, dt);
                 if (along >= legLen - 420.0 || AUTOPILOT.phaseT > 70.0) ap_goto('p_final');   // 提前 420 m 起转
             }
             else {
-                to('p_final', '最后进近 · ' + Math.round(alt) + ' m');
+                to('p_final', '最后进近 · ' + Math.round(agl) + ' m');
                 cmd.throttle = ap_throttle_for_speed(AP_PATTERN_V - 12.0);
-                cmd.pitch = ap_vs_pitch(-flight_clamp(alt * 0.05, 1.5, 8.0), dt);
-                if (alt < 25.0 || AUTOPILOT.phaseT > 140.0) ap_goto('flare');
+                cmd.pitch = ap_vs_pitch(-flight_clamp(agl * 0.05, 1.5, 8.0), dt);
+                if (agl < 25.0 || AUTOPILOT.phaseT > 140.0) ap_goto('flare');
             }
             break;
         }
@@ -16175,18 +16252,18 @@ function autopilot_step(dt) {
 
         case 'spin':
             // 一直转到接近底线再改出；后半程顺舵再加副翼，转速越压越狠
-            to('spin', '尾旋中 · ' + (Math.round(alt / 100.0) * 100) + ' m');
+            to('spin', '尾旋中 · ' + (Math.round(agl / 100.0) * 100) + ' m');
             cmd.throttle = 0.0;
             cmd.pitch = 1.0;
             cmd.yaw = 1.0;                       // 满右舵
             cmd.roll = (AUTOPILOT.phaseT > AP_SPIN_AILERON_AT) ? 0.55 : 0.0;   // 顺舵副翼
-            if (alt < AP_SPIN_FLOOR || AUTOPILOT.phaseT > AP_SPIN_MAX_T) {
+            if (agl < AP_SPIN_FLOOR || AUTOPILOT.phaseT > AP_SPIN_MAX_T) {
                 ap_goto('recover');
             }
             break;
 
         case 'recover':
-            to('recover', '改出尾旋 · ' + (Math.round(alt / 100.0) * 100) + ' m');
+            to('recover', '改出尾旋 · ' + (Math.round(agl / 100.0) * 100) + ' m');
             cmd.throttle = 0.0;
             cmd.yaw = -1.0;                      // 反舵打停自转
             // 先推杆卸掉迎角让机翼重新附着，再尽快拉起来——低空大过载改出
@@ -16213,7 +16290,7 @@ function autopilot_step(dt) {
             cmd.throttle = 0.0;
             cmd.roll = ap_roll_cmd(0.0);
             cmd.pitch = ap_vs_pitch(AP_DESC_VS, dt);
-            if (alt < 450.0) { AUTOPILOT.phase = 'approach'; AUTOPILOT.phaseT = 0.0; }
+            if (agl < 450.0) { AUTOPILOT.phase = 'approach'; AUTOPILOT.phaseT = 0.0; }
             break;
 
         case 'approach':
@@ -16222,7 +16299,7 @@ function autopilot_step(dt) {
             cmd.throttle = (V < 38.0) ? 0.45 : 0.0;      // 进近速度保持在 1.5 倍失速以上
             cmd.roll = ap_roll_cmd(0.0);
             cmd.pitch = ap_vs_pitch(-8.0, dt);
-            if (alt < 25.0) { AUTOPILOT.phase = 'flare'; AUTOPILOT.phaseT = 0.0; }
+            if (agl < 25.0) { AUTOPILOT.phase = 'flare'; AUTOPILOT.phaseT = 0.0; }
             break;
 
         case 'flare':
@@ -16230,7 +16307,7 @@ function autopilot_step(dt) {
             cmd.throttle = 0.0;
             cmd.roll = ap_roll_cmd(0.0);
             cmd.pitch = ap_vs_pitch(AP_FLARE_VS, dt);
-            if (flight.wow || alt <= FLIGHT.GROUND_ALT + 0.6) { AUTOPILOT.phase = 'rollout'; AUTOPILOT.phaseT = 0.0; }
+            if (flight.wow || agl <= 0.6) { AUTOPILOT.phase = 'rollout'; AUTOPILOT.phaseT = 0.0; }
             break;
 
         case 'rollout':
@@ -16504,8 +16581,9 @@ function flight_integrate(dt) {
         flight_set_body_state(flight.V, 0.0, flight.psi, 0.0, 0.0);
     }
 
-    // ---- 触地：轮胎接地，姿态置为地面姿态，转入滑跑 ----
-    if (flight.alt <= FLIGHT.GROUND_ALT) {
+    // ---- 触地：高度落到脚下地形（含山体）以下就接地，姿态置为地面姿态，转入滑跑 ----
+    flight_ground_update();
+    if (flight.alt <= flight.ground) {
         flight_touchdown();
     }
 }
@@ -18122,9 +18200,12 @@ function flight_reset() {
     flight.ready = true;
     flight.x = 0.0;
     flight.z = 0.0;
-    flight.alt = isOcean ? Math.max(WO_CAM_Y, 5.0) : FLIGHT.START_ALT;
     flight.lat0 = latitude;
     flight.lon0 = longitude;
+    // 起点脚下的地面高度：飞机从当前位置上空起飞，不能一开局就埋在山里
+    const groundAlt = flight_ground_update();
+    flight.alt = isOcean ? Math.max(WO_CAM_Y, 5.0) : FLIGHT.START_ALT;
+    if (flight.alt < groundAlt + 1.0) flight.alt = groundAlt + 1.0;
 
     flight.V = FLIGHT.START_V;
     flight.gamma = 0.0;
@@ -18136,7 +18217,7 @@ function flight_reset() {
     nd_reset_track();          // 导航显示器的航迹重新开始
 
     // 以配平迎角起步：地面高度就按滑跑姿态，空中按该空速下平飞所需迎角
-    flight.wow = (flight.alt <= FLIGHT.GROUND_ALT);
+    flight.wow = (flight.alt <= flight.ground);
     {
         const trimAlpha = Math.max(0.0, (flight_trim_cl() - AERO.Cl0) / AERO.ClAlpha);
         const a0 = flight.wow ? 0.0 : trimAlpha;
@@ -18155,7 +18236,7 @@ function flight_reset() {
     flight.inPitch = 0.0;
     flight.inYaw = 0.0;
     flight.keys = Object.create(null);
-    flight.wow = (flight.alt <= FLIGHT.GROUND_ALT);
+    flight.wow = (flight.alt <= flight.ground);
     flight.groundHold = 0.0;
     flight.lastNow = 0.0;
     flight.lutAlt = -1.0;
