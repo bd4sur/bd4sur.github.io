@@ -110,18 +110,17 @@ def block_geom(lat0, lon0, dx, dy):
 # ---------------------------------------------------------------- 第一遍：WBM
 
 def process_wbm_tile(args):
-    lat0, lon0, out_dir, cache, levels, force = args
+    lat0, lon0, want, out_dir, cache, levels, force = args
     key = tile_key(lat0, lon0)
     p = os.path.join(cache, key + "_WBM.tif")
     if not os.path.exists(p):
         return ("no_wbm", 0)
+    # 只处理清单里真有高程块的子块，否则会给纯海的格子写出没人用的孤儿掩膜
     todo_any = False
-    for dy in range(4):
-        for dx in range(4):
-            bx, by, _, _ = block_geom(lat0, lon0, dx, dy)
-            for lv in levels:
-                if force or not os.path.exists(mask_path(out_dir, bx, by, lv)):
-                    todo_any = True
+    for (bx, by) in want:
+        for lv in levels:
+            if force or not os.path.exists(mask_path(out_dir, bx, by, lv)):
+                todo_any = True
     if not todo_any:
         return ("skip", 0)
     try:
@@ -133,17 +132,19 @@ def process_wbm_tile(args):
     size = wbm.shape[0]
     step = size // 4
     written = 0
-    for dy in range(4):
-        for dx in range(4):
-            bx, by, _, _ = block_geom(lat0, lon0, dx, dy)
-            todo = [(lv, mask_path(out_dir, bx, by, lv)) for lv in levels
-                    if force or not os.path.exists(mask_path(out_dir, bx, by, lv))]
-            if not todo:
-                continue
-            win = wbm[dy * step:(dy + 1) * step, dx * step:(dx + 1) * step] > 0
-            for lv, dst in todo:
-                write_mask(dst, pool_any(win, LEVELS[lv]))
-                written += 1
+    for (bx, by) in want:
+        dx = bx - int(round(lon0 * 4))
+        dy = int(round((lat0 + 0.75 - by * BLOCK_DEG) / BLOCK_DEG))
+        if not (0 <= dx < 4 and 0 <= dy < 4):
+            continue
+        todo = [(lv, mask_path(out_dir, bx, by, lv)) for lv in levels
+                if force or not os.path.exists(mask_path(out_dir, bx, by, lv))]
+        if not todo:
+            continue
+        win = wbm[dy * step:(dy + 1) * step, dx * step:(dx + 1) * step] > 0
+        for lv, dst in todo:
+            write_mask(dst, pool_any(win, LEVELS[lv]))
+            written += 1
     return ("ok", written)
 
 
@@ -285,11 +286,15 @@ def main():
         print("范围内没有块")
         return
     tiles = sorted({(by // 4, bx // 4) for (bx, by) in blocks})
+    per_tile = {}
+    for (bx, by) in blocks:
+        per_tile.setdefault((by // 4, bx // 4), []).append((bx, by))
     print("待处理 1° 瓦片 %d 块（覆盖 0.25° 块 %d 个），层级 %s"
           % (len(tiles), len(blocks), levels), flush=True)
 
     # ---- 第一遍：WBM（每块 0.5 MB，快）----
-    jobs = [(lat0, lon0, args.out, args.cache, levels, args.force) for (lat0, lon0) in tiles]
+    jobs = [(lat0, lon0, per_tile[(lat0, lon0)], args.out, args.cache, levels, args.force)
+            for (lat0, lon0) in tiles]
     t0 = time.time()
     stats, done = {}, 0
     with ProcessPoolExecutor(max_workers=max(1, args.workers)) as ex:
