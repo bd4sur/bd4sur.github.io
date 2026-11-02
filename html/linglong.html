@@ -1996,7 +1996,7 @@ body.is-day .ak_socket {
                     <li>启用体积云后，可用其下的"云量/云类"按钮调节云的档位（6档）与显示种类（按层掩码 0-15 共 16 种组合，按钮文案按当前启用的云层拼出，如"浓积云+高积云"；bit0 浓积云 / bit1 高积云 / bit2 层积云 / bit3 卷层云）。云亮度不可手动调节，而是太阳高度的经验函数 0.75·tanh(0.2·太阳高度−0.6)+1.25：太阳越高云越白亮（上限 2.0），日落后转暗，天文暮光之后压到 0.5。「云参数」按钮展开一组浓积云形状滑块（云底高度/云厚/塔顶参差/花椰菜/边界锐度/云胞尺度/云密度），与「海洋参数」同一套控件：滑块直接改写 CLOUD_SKY_CU_PARAMS，JS 与 GLSL 两条渲染路径即时生效，无需重建噪声或 LUT。</li>
                     <li>"雷达云图"开启后（默认开启），体积云天空的初始云模式取自中央气象台组合反射率图（radar.png 减 radar_background.png 底图、形态学去地图元素、色标反演 dBZ），雷达 256km 范围与地平圈直接对齐；dBZ 经三通道调制云场：覆盖率决定有无疏密（封顶 35/45/55dBZ）、云顶高度决定类别（弱回波压扁为层云、强回波发展为全塔积雨云）、密度系数决定厚薄；中高度云另以双频噪声调制破碎边缘、消除周期感，并对回波轮廓做域扭曲（~2.5km 特征）与高频 dBZ 抖动，使大片云的平直硬边变成曲折破碎的自然边缘；处理全部在页面内完成，图片缺失或处理失败时自动回退程序化云图。</li>
                     <li>「实时海洋」的地形<b>默认就是真实高程</b>：只要页面旁边有 <code>terrain/china/</code> 分块数据，打开页面就按当前经纬度（默认南京）载入真实地形，看到的是长江与宁镇山脉，不再是随机群岛；没有数据（例如线上没带地形数据）才回退到程序化随机岛屿。想换地方：URL 加 <code>?lat=39.9&amp;lon=116.4</code>，或在顶部「地形与导航」面板里点「地形」按钮在「真实地形 / 随机生成」之间来回切。<code>?terrain=名字</code> 是另一条路——载入单个烘焙窗口（<code>terrain/名字.bin</code>+<code>.json</code>，用 <code>tools/dem_bake.py</code> 生成），例如 <code>?terrain=qingdao</code>。地形数据版权：© DLR e.V. 2010-2014 and © Airbus Defence and Space GmbH 2014-2018 provided under COPERNICUS by the European Union and ESA，按 Copernicus DEM licence 使用。</li>
-                    <li><b>全国分块流式地形</b>（默认模式）：<code>?lat=36.1&amp;lon=120.55</code> 指定起点（省略就用页面的默认经纬度，即南京）。地形被切成 0.25°×0.25° 的块（<code>l1</code> 900²≈30 m、<code>l0</code> 225²≈120 m），页面以相机为中心维护一个 51.2 km / 2048² 的世界窗口：先取十几 KB 的 l0 秒出，再后台换 l1；飞离窗口中心超过 28% 边长就重定中心，中心按 512 m（波场平铺周期）对齐，所以重定时波相位不跳。块是按需取的——只有窗口覆盖到、并且清单里确实有的块才会发请求，缺块（纯海面/未下载）按海处理。窗口组装约 0.1–0.6 秒（含到岸距离合成的海底），飞行时几分钟才触发一次。数据来源是 Copernicus DEM GLO-30，用 <code>tools/dem_fetch_china.py</code> 下载、<code>tools/dem_tiles.py</code> 切块，全国陆地的块约 1.6~2 万个、合计约 16 GB（gzip 后）。「海洋参数」里另有「能见度」滑块（默认 150 km），大气透视的浓淡看它。</li>
+                    <li><b>全国分块流式地形</b>（默认模式）：<code>?lat=36.1&amp;lon=120.55</code> 指定起点（省略就用页面的默认经纬度，即南京）。地形被切成 0.25°×0.25° 的块（<code>l1</code> 900²≈30 m、<code>l0</code> 225²≈120 m），页面以相机为中心维护一个 51.2 km / 2048² 的世界窗口：先取十几 KB 的 l0 秒出，再后台换 l1；飞离窗口中心超过 28% 边长就重定中心，中心按 512 m（波场平铺周期）对齐，所以重定时波相位不跳。块是按需取的——只有窗口覆盖到、并且清单里确实有的块才会发请求，缺块（纯海面/未下载）按海处理。窗口组装约 0.1–0.6 秒（含到岸距离合成的海底），飞行时几分钟才触发一次。数据来源是 Copernicus DEM GLO-30，用 <code>tools/dem_fetch_china.py</code> 下载、<code>tools/dem_tiles.py</code> 切块，全国陆地的块约 1.6~2 万个、合计约 16 GB（gzip 后）。水面判据另有一份<b>水域掩膜</b>（<code>tools/dem_water_tiles.py</code>，取自同一批瓦片里的 <code>AUXFILES/*_WBM.tif</code>，可选再并进 ESA WorldCover 10 m 的永久水体）：Copernicus 把水面抹平到的是当地水位而不是 0（太湖 0、巢湖 6、洪泽湖 8、鄱阳湖 11、长江南京段 1–2、长江重庆段 168 m），只按"高程等于 0"判的话全国江河湖都会被当成陆地。掩膜每块约 10 KB，跟着高程块一起取；没掩膜的老块自动退回旧判据。「海洋参数」里另有「能见度」滑块（默认 150 km），大气透视的浓淡看它。</li>
                     <li>「海洋天空」（模型 6）与「实时海洋」地景移植自开源项目 web-ocean（MIT）：Hillaire 式 LUT 大气（透射率/多重散射/天空视图三张 LUT，JS 与 GLSL 共享同一份数据）、JONSWAP 风浪谱+窄涌浪的解析波列级数（方差守恒，烘焙为可平铺波场纹理并按群速度平流）、各向异性高斯太阳耀光（Smith 掩蔽）、天空环境反射、水体上涌与波峰透射辉光、雅可比白帽、大气透视与 AgX 色调映射。观察者默认位于海平面以上 50 米（1.5 米~10 公里对数刻度可调）；无 WebGL2 时自动回退到较慢的 JS 逐像素渲染。</li>
                     <li>「实时海洋」上叠了一片可平铺的岛屿地形（岛屿随机生成，直径约 4~11 公里）：海线由低阶谐波加两级角度噪声给出，曲折且带小海湾与岬角；高程按 25 米纹素烘焙成一张 1024² 的世界高程场（陆地为正、海底为负，含陆架与浅滩），所以海岸线、沙滩、近岸浅水色与拍岸泡沫都出自同一份数据。求交用两级「格内最大高程」网格做 2D DDA 跳格、再逐纹素步进加二分细化；岛体只有当它比海面更近时才遮挡海面，因此“岛挡海”与“海挡岛”都自洽。地形着色与海面共用同一份透射率 LUT 与 AgX：高程梯度算法线、太阳直射 + 天空半球环境光，陡坡偏岩、海线以上一条沙滩带。世界坐标以 25.6 公里为周期回绕（与飞行模拟的相机回绕周期一致），所以朝任意方向一直飞都还能再遇到陆地；飞行时相机不会钻进山体，飞机本身也按同一份高程撞山接地（见飞行控制页说明）。整套求交与着色只依赖高程图与粗网格，将来换成真实地理高程数据（DEM）时只需替换生成那一段。</li>
                     <li>地景为「实时海洋」时，点按钮区的「海洋参数」可以展开/收起海面参数滑块区（观察高度/风速/风向/风区/涌浪波高/涌浪波长/涌浪方向/泡沫强度/水体浑浊度/霾），默认收起；地景不是实时海洋时该按钮只显示“需实时海洋”。切到随机生成时，顶部「地形与导航」面板里的「刷新地形」会换一批随机岛屿（海线、尺寸、布局都变，约 70 毫秒），按钮内显示「N座D.km」（岛屿数量与最大岛直径）。滑块本身：波浪与涌浪参数在停止拖动约 0.25 秒后重烘焙波场（约 0.1 秒）；「霾」与「观察高度」会重建大气 LUT（约 0.5 秒），「霾」默认 0（无霾，空气清透）；泡沫强度与水体浑浊度立即生效。风浪行进方向与涌浪方向以罗盘方位角表示（0=北，90=东）。「观察高度」同时是体积云与天空的观察点高度（飞行控制页内则改由飞机接管，滑块只作显示），因此调高它会一起抬升海面相机和云层视角。</li>
@@ -11492,8 +11492,13 @@ async function isl_load_terrain(name) {
 //    重定后波相位不跳；
 //  · 窗口按「经纬度局部平面」组装：x = (lon-lonC)·kLat·cos(latC)、z = (lat-latC)·kLat；
 //  · 先上 l0（十几 KB/块，秒出）再后台换 l1（约 350 KB/块），两级渐进；
-//  · 水面由数据本身判定（Copernicus 把水面抹平为 0、海上没有瓦片），
-//    再用「到岸距离」合成一条陆架水深，近岸才有青绿色与拍岸带。
+//  · 水面由「水域掩膜」判定：清单里 water.present 标了的块，会另取一份
+//    <bx>_<by>.<level>.w.gz（位打包，1 = 水面），来源是 Copernicus DEM 自带的
+//    AUXFILES WBM（跑过 tools/dem_water_tiles.py --worldcover 的块另并进 ESA
+//    WorldCover 的永久水体）。没掩膜的老块退回「高程 == 0」——Copernicus 只把
+//    海平面附近的水平抹成 0，内陆水面抹平到的是当地水位（太湖 0、巢湖 6、
+//    洪泽湖 8、鄱阳湖 11、长江南京段 1–2、长江重庆段 168 m），靠高程认不出来；
+//  · 再从「到岸距离」合成一条陆架水深，近岸才有青绿色与拍岸带。
 // ============================================================
 
 const TSTR = {
@@ -11501,13 +11506,15 @@ const TSTR = {
     base: '../terrain/china/',
     manifest: null,
     bits: { l0: null, l1: null },
+    wbits: { l0: null, l1: null },   // 水域掩膜的 present 位图（null = 这批数据没有掩膜）
     cache: new Map(),          // "l1:bx_by" -> Int16Array（null 表示确认没有）
+    wcache: new Map(),         // "wl1:bx_by" -> Uint8Array（位打包的水域掩膜）
     win: null,                 // { lonC, latC, S, N }
     level: 'l1',
     loading: false,
     queued: null,              // 待处理的重定中心 { lon, lat }
     lastMs: 0,
-    stats: { windows: 0, blocks: 0, ms: 0, bad: 0 },
+    stats: { windows: 0, blocks: 0, wblocks: 0, ms: 0, bad: 0, wbad: 0 },
     msg: '',
 };
 
@@ -11536,6 +11543,60 @@ function tstr_has_block(bx, by, level) {
     if (i < 0 || j < 0 || i >= g.w || j >= g.h) return false;
     const idx = j * g.w + i;
     return ((bits[idx >> 3] >> (idx & 7)) & 1) === 1;
+}
+
+// 这一块做过水域掩膜没有（清单里 water.present 的对应位）
+function tstr_has_water(bx, by, level) {
+    const bits = TSTR.wbits[level];
+    if (!bits) return false;
+    const g = TSTR.manifest.grid;
+    const i = bx - g.bx0, j = by - g.by0;
+    if (i < 0 || j < 0 || i >= g.w || j >= g.h) return false;
+    const idx = j * g.w + i;
+    return ((bits[idx >> 3] >> (idx & 7)) & 1) === 1;
+}
+
+// 取一块的水域掩膜：位打包（低位在前、行 0 在北）、长度 ceil(n²/8)。
+// 拿不到就当没有，窗口组装那边会退回"高程 == 0"的旧判据，所以掩膜可以分批补。
+async function tstr_fetch_wmask(bx, by, level) {
+    const key = 'w' + level + ':' + bx + '_' + by;
+    if (TSTR.wcache.has(key)) return TSTR.wcache.get(key);
+    let out = null;
+    const n = TSTR.manifest.levels[level].size;
+    const wantBytes = Math.ceil(n * n / 8);
+    try {
+        const url = TSTR.base + Math.floor(bx / 16) + '/' + bx + '_' + by + '.' + level + '.w.gz';
+        const res = await fetch(url, { cache: 'force-cache' });
+        if (res.ok) {
+            let buf = await res.arrayBuffer();
+            const head = new Uint8Array(buf, 0, Math.min(2, buf.byteLength));
+            if (head.length === 2 && head[0] === 0x1f && head[1] === 0x8b) {
+                if (typeof DecompressionStream === 'undefined') {
+                    throw new Error('浏览器不支持 DecompressionStream（需要 HTTPS 或 localhost）');
+                }
+                const ds = new DecompressionStream('gzip');
+                const stream = new Blob([buf]).stream().pipeThrough(ds);
+                buf = await new Response(stream).arrayBuffer();
+            }
+            if (buf.byteLength !== wantBytes) {
+                throw new Error('拿到 ' + buf.byteLength + ' 字节，应为 ' + wantBytes);
+            }
+            out = new Uint8Array(buf);
+            TSTR.stats.wblocks++;
+        }
+    } catch (e) {
+        out = null;
+        TSTR.stats.wbad++;
+        if (TSTR.stats.wbad <= 3) {
+            console.warn('[terrain] 水域掩膜 ' + key + ' 取不到或解析失败：' + (e && e.message));
+        }
+    }
+    TSTR.wcache.set(key, out);
+    if (TSTR.wcache.size > 96) {
+        const it = TSTR.wcache.keys();
+        for (let k = 0; k < 32; k++) { const v = it.next(); if (v.done) break; TSTR.wcache.delete(v.value); }
+    }
+    return out;
 }
 
 async function tstr_fetch_block(bx, by, level) {
@@ -11602,11 +11663,13 @@ async function tstr_build_window(level, lonC, latC) {
     const bx0 = Math.floor(lonL * 4), bx1 = Math.floor(lonR * 4);
     const by0 = Math.floor(latB * 4), by1 = Math.floor(latT * 4);
 
-    // 先把需要的块并发取回来（l0 很快，l1 视网络）
+    // 先把需要的块并发取回来（l0 很快，l1 视网络）；有水域掩膜的块连掩膜一起取
     const jobs = [];
     for (let by = by0; by <= by1; by++) {
         for (let bx = bx0; bx <= bx1; bx++) {
-            if (tstr_has_block(bx, by, level)) jobs.push(tstr_fetch_block(bx, by, level));
+            if (!tstr_has_block(bx, by, level)) continue;
+            jobs.push(tstr_fetch_block(bx, by, level));
+            if (tstr_has_water(bx, by, level)) jobs.push(tstr_fetch_wmask(bx, by, level));
         }
     }
     if (jobs.length) await Promise.all(jobs);
@@ -11618,6 +11681,9 @@ async function tstr_build_window(level, lonC, latC) {
             const blk = TSTR.cache.get(level + ':' + bx + '_' + by);
             if (!blk) continue;
             loaded++;
+            // 这一块的水域掩膜（可能没有：老数据、或这块没做过）
+            const wmsk = tstr_has_water(bx, by, level)
+                ? TSTR.wcache.get('w' + level + ':' + bx + '_' + by) : null;
             const blon = bx * 0.25, blat = by * 0.25;
             // 该块覆盖的输出列/行范围
             let i0 = Math.ceil(((blon - lonL) * kLon) / texel - 0.5);
@@ -11653,7 +11719,15 @@ async function tstr_build_window(level, lonC, latC) {
                     const v = a + (b - a) * fr;
                     const idx = base + i;
                     h[idx] = v;
-                    wet[idx] = (v === 0) ? 1 : 0;
+                    if (wmsk !== null) {
+                        // 掩膜按最近邻取（双线性会把 1 像元的窄河糊成"半个水"），
+                        // 位打包、低位在前、行 0 在北
+                        const bit = (fr < 0.5 ? r0 : r1) * n + (fc < 0.5 ? c0 : c1);
+                        wet[idx] = ((wmsk[bit >> 3] >> (bit & 7)) & 1) ? 1 : 0;
+                    } else {
+                        // 老数据没有掩膜：退回「高程恰好为 0 才算水」
+                        wet[idx] = (v === 0) ? 1 : 0;
+                    }
                 }
             }
         }
@@ -11804,6 +11878,11 @@ async function tstr_start(lon, lat) {
         TSTR.manifest = await res.json();
         TSTR.bits.l0 = tstr_b64_to_bytes(TSTR.manifest.present.l0);
         TSTR.bits.l1 = tstr_b64_to_bytes(TSTR.manifest.present.l1);
+        // 水域掩膜的 present（老清单没有 water 一段，这时两层都留 null，
+        // 组装窗口时退回「高程 == 0」的判据）
+        const wtr = TSTR.manifest.water && TSTR.manifest.water.present;
+        TSTR.wbits.l0 = (wtr && wtr.l0) ? tstr_b64_to_bytes(wtr.l0) : null;
+        TSTR.wbits.l1 = (wtr && wtr.l1) ? tstr_b64_to_bytes(wtr.l1) : null;
     } catch (e) {
         console.warn('[terrain] 清单载入失败：' + (e && e.message));
         TSTR.on = false;
