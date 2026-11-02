@@ -13,6 +13,12 @@
   python3 tools/dem_fetch_china.py --workers 8          # 并发连接数
   python3 tools/dem_fetch_china.py --bbox 100,25,125,45 # 只下某个范围（W,S,E,N）
   python3 tools/dem_fetch_china.py --list               # 只列出清单，不下载
+  python3 tools/dem_fetch_china.py --wbm                # 顺带下每块的水域掩膜（WBM）
+
+关于 --wbm：每个瓦片目录下另有 AUXFILES/<key>_WBM.tif，是 Copernicus 出这份 DEM
+时用的水域掩膜（1 角秒、与 DEM 逐像素对齐，取值 0 陆地 / 1 海 / 2 内陆水体 / 3 河道，
+具体图例见产品 spec）。它比 DEM 小两个数量级（0.5 MB 对 48 MB），用来在渲染时
+把江河湖判成水面——DEM 自己只把水抹平成当地水位，靠高程值认不出来。
 """
 import argparse
 import os
@@ -28,6 +34,14 @@ TILE_LIST_URL = BUCKET + "/tileList.txt"
 TILE_MIN_BYTES = 4_096            # 小于这个值基本是错误页
 # 注：近岸瓦片大半是海，压缩后只有一百多 KB，不能用体积判断有效性；
 # 用 TIFF 文件头（II*\0 / MM\0*）校验更稳。
+
+# 可选的 HTTP(S) 代理（也可以直接用 http_proxy / https_proxy 环境变量）
+OPENER = None
+
+
+def wbm_url(key):
+    """瓦片目录里 AUXFILES 下的水域掩膜地址"""
+    return "%s/%s/AUXFILES/%s_WBM.tif" % (BUCKET, key, key[:-len("_DEM")])
 
 
 def tile_key(lat, lon):
@@ -57,12 +71,13 @@ def is_valid_tif(path):
 def fetch_tile(url, path, retries=4):
     if is_valid_tif(path):
         return "skip"
-    os.makedirs(os.path.dirname(path), exist_ok=True)
+    os.makedirs(os.path.dirname(path) or ".", exist_ok=True)
     tmp = path + ".part"
+    opener = OPENER if OPENER is not None else urllib.request
     for k in range(retries):
         try:
             req = urllib.request.Request(url, headers={"User-Agent": "linglong-dem-fetch/1"})
-            with urllib.request.urlopen(req, timeout=300) as r, open(tmp, "wb") as f:
+            with opener.open(req, timeout=300) as r, open(tmp, "wb") as f:
                 while True:
                     chunk = r.read(1 << 18)
                     if not chunk:
@@ -90,7 +105,15 @@ def main():
     ap.add_argument("--workers", type=int, default=8)
     ap.add_argument("--list", action="store_true")
     ap.add_argument("--retry-failed", type=int, default=1)
+    ap.add_argument("--wbm", action="store_true",
+                    help="顺带下载每块的 AUXFILES/<key>_WBM.tif 水域掩膜（约 0.5 MB/块）")
+    ap.add_argument("--proxy", default=None, help="HTTP(S) 代理，如 http://192.168.10.90:1080")
     args = ap.parse_args()
+
+    global OPENER
+    if args.proxy:
+        OPENER = urllib.request.build_opener(
+            urllib.request.ProxyHandler({"http": args.proxy, "https": args.proxy}))
 
     w, s, e, n = [float(x) for x in args.bbox.split(",")]
     with urllib.request.urlopen(TILE_LIST_URL, timeout=120) as r:
@@ -120,11 +143,15 @@ def main():
 
     have = sum(1 for _, _, k in keys if os.path.exists(os.path.join(args.cache, k + ".tif")))
     print("已有 %d 块，待下 %d 块，缓存目录 %s" % (have, len(keys) - have, args.cache), flush=True)
+    if args.wbm:
+        have_w = sum(1 for _, _, k in keys if os.path.exists(os.path.join(args.cache, k + "_WBM.tif")))
+        print("水域掩膜已有 %d 块，待下 %d 块" % (have_w, len(keys) - have_w), flush=True)
 
     q = queue.Queue()
     for item in keys:
         q.put(item)
-    stats = {"ok": 0, "skip": 0, "404": 0, "fail": 0}
+    stats = {"ok": 0, "skip": 0, "404": 0, "fail": 0,
+             "w_ok": 0, "w_skip": 0, "w_404": 0, "w_fail": 0}
     lock = threading.Lock()
     t0 = time.time()
     done = [0]
@@ -137,16 +164,26 @@ def main():
                 return
             url = "%s/%s/%s.tif" % (BUCKET, k, k)
             res = fetch_tile(url, os.path.join(args.cache, k + ".tif"))
+            res_w = None
+            if args.wbm:
+                # 掩膜只在 DEM 存在时才有意义；整块是海/没瓦片的地方没有 WBM
+                res_w = fetch_tile(wbm_url(k), os.path.join(args.cache, k + "_WBM.tif"))
             with lock:
                 stats[res] = stats.get(res, 0) + 1
+                if res_w is not None:
+                    stats["w_" + res_w] = stats.get("w_" + res_w, 0) + 1
                 done[0] += 1
                 if done[0] % 20 == 0 or q.empty():
                     el = time.time() - t0
                     rate = done[0] / max(el, 1e-6)
                     eta = (len(keys) - done[0]) / max(rate, 1e-6) / 60.0
-                    print("进度 %d/%d  ok=%d skip=%d 404=%d fail=%d  %.1f 块/分  ETA %.0f 分"
-                          % (done[0], len(keys), stats["ok"], stats["skip"], stats["404"],
-                             stats["fail"], rate * 60.0, eta), flush=True)
+                    msg = ("进度 %d/%d  ok=%d skip=%d 404=%d fail=%d"
+                           % (done[0], len(keys), stats["ok"], stats["skip"],
+                              stats["404"], stats["fail"]))
+                    if args.wbm:
+                        msg += ("  | WBM ok=%d skip=%d 404=%d fail=%d"
+                                % (stats["w_ok"], stats["w_skip"], stats["w_404"], stats["w_fail"]))
+                    print(msg + "  %.1f 块/分  ETA %.0f 分" % (rate * 60.0, eta), flush=True)
             q.task_done()
 
     threads = [threading.Thread(target=worker, daemon=True) for _ in range(max(1, args.workers))]
