@@ -11493,7 +11493,7 @@ const TSTR = {
     loading: false,
     queued: null,              // 待处理的重定中心 { lon, lat }
     lastMs: 0,
-    stats: { windows: 0, blocks: 0, ms: 0 },
+    stats: { windows: 0, blocks: 0, ms: 0, bad: 0 },
     msg: '',
 };
 
@@ -11528,21 +11528,42 @@ async function tstr_fetch_block(bx, by, level) {
     const key = level + ':' + bx + '_' + by;
     if (TSTR.cache.has(key)) return TSTR.cache.get(key);
     let out = null;
+    const n = TSTR.manifest.levels[level].size;      // 225（l0）或 900（l1）
+    const wantBytes = n * n * 2;                     // 裸 Int16 的字节数
     try {
         const url = TSTR.base + Math.floor(bx / 16) + '/' + bx + '_' + by + '.' + level + '.bin.gz';
         const res = await fetch(url, { cache: 'force-cache' });
         if (res.ok) {
             let buf = await res.arrayBuffer();
-            if (typeof DecompressionStream !== 'undefined') {
+            // 按魔数判，而不是盲猜：静态服务器若给 .gz 加了 Content-Encoding: gzip，
+            // 浏览器已经替我们解过压，拿到的就是裸 Int16，这里再 gunzip 一次反而会炸。
+            const head = new Uint8Array(buf, 0, Math.min(2, buf.byteLength));
+            if (head.length === 2 && head[0] === 0x1f && head[1] === 0x8b) {
+                if (typeof DecompressionStream === 'undefined') {
+                    throw new Error('浏览器不支持 DecompressionStream（需要 HTTPS 或 localhost）');
+                }
                 const ds = new DecompressionStream('gzip');
                 const stream = new Blob([buf]).stream().pipeThrough(ds);
                 buf = await new Response(stream).arrayBuffer();
+            }
+            // 长度必须正好是一块：对不上就说明字节被谁动过（最常见的是静态服务器
+            // 把二进制当文本读了一遍再按 UTF-8 写回，>=0x80 的字节全变成 U+FFFD，
+            // gzip 头 1f 8b 会变成 1f ef bf bd，文件长度反而涨了）
+            if (buf.byteLength !== wantBytes) {
+                throw new Error('拿到 ' + buf.byteLength + ' 字节，应为 ' + wantBytes +
+                    '（服务器把 .gz 当文本发过一次？）');
             }
             out = new Int16Array(buf);
             TSTR.stats.blocks++;
         }
     } catch (e) {
         out = null;
+        TSTR.stats.bad++;
+        // 只报前几条：一屏几十块都坏时，刷屏反而看不到重点
+        if (TSTR.stats.bad <= 3) {
+            console.warn('[terrain] 块 ' + key + ' 解析失败：' + (e && e.message) +
+                '（静态服务器要用二进制方式发 .bin.gz，别走 UTF-8 文本）');
+        }
     }
     TSTR.cache.set(key, out);
     // 容量上限：一块 l1 是 900²×2 B ≈ 1.6 MB，缓存太多会把标签页撑爆
@@ -11666,7 +11687,7 @@ async function tstr_build_window(level, lonC, latC) {
     }
     const ms = ((typeof performance !== 'undefined') ? performance.now() : Date.now()) - t0;
     TSTR.stats.ms = ms;
-    return { h: h, lonC: lonC, latC: latC, blocks: loaded };
+    return { h: h, lonC: lonC, latC: latC, blocks: loaded, attempted: jobs.length };
 }
 
 // 把组装好的窗口交给渲染器
@@ -11715,9 +11736,13 @@ async function tstr_recenter(lon, lat, level) {
         const built = await tstr_build_window(lv, lonC, latC);
         tstr_apply(built);
         tstr_update_cam(lon, lat);
+        // 一块都没成时要分清两种原因：这儿本来就没数据（海外/没下载），
+        // 还是块下载到了但字节被服务器改坏（那时屏上同样是平的，看消息才分得出来）
+        const tail = (built.blocks > 0) ? ''
+            : ((built.attempted > 0) ? '（块下载到了但解析失败，详见控制台）' : '（该处暂无数据）');
         tstr_set_msg('地形 ' + lonC.toFixed(2) + '°E ' + latC.toFixed(2) + '°N · ' +
             (lv === 'l1' ? '30 m' : '120 m') + ' · ' + built.blocks + ' 块 · ' +
-            Math.round(TSTR.stats.ms) + ' ms' + (built.blocks === 0 ? '（该处暂无数据）' : ''));
+            Math.round(TSTR.stats.ms) + ' ms' + tail);
     } finally {
         TSTR.loading = false;
         const q = TSTR.queued;
