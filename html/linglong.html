@@ -234,6 +234,164 @@ body.is-day .np_plate {
     .stage > .instrument_frame { display: flex; grid-column: 3; grid-row: 2; width: 300px; height: 300px; }
 }
 
+
+/* ============================================================
+   MCDU：空客多功能控制显示单元（左下角那块占位面板）
+   面板面 = 深灰注塑壳；上面依次是显示屏（两侧各 6 只行选键 LSK）、
+   两行功能键、字母/数字键盘。屏幕画在 canvas 上（480×280 逻辑像素 →
+   CSS 240×140，两倍密度），配色照空客 MCDU：白=标签、绿=系统计算、
+   青=可输入字段、琥珀=提示与错误。
+   ============================================================ */
+.mcdu {
+    box-sizing: border-box;
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+    width: 100%;
+    height: 100%;
+    padding: 4px;
+    border-radius: 2px;
+    /* 注塑面：上亮下暗，边缘一圈倒角 */
+    background: linear-gradient(180deg, #272d33 0%, #1b2025 42%, #121619 100%);
+    box-shadow:
+        inset 0 1px 0 #ffffff21,
+        inset 1px 0 0 #ffffff14,
+        inset 0 -1px 0 #000000b3,
+        inset -1px 0 0 #00000073;
+}
+/* 显示屏所在的一行：左行选键 + 屏幕 + 右行选键 */
+.mcdu_disp {
+    display: flex;
+    flex: 0 0 auto;
+    justify-content: center;
+    gap: 3px;
+    height: 140px;
+}
+/* 屏幕：深绿黑底，一圈内凹的边框 */
+.mcdu_screen {
+    flex: 0 0 auto;
+    box-sizing: border-box;
+    width: 240px;
+    height: 140px;
+    border-radius: 2px;
+    background: #040b07;
+    overflow: hidden;
+    box-shadow:
+        0 0 0 1px #05080a,
+        0 0 0 2px #333b42,
+        0 0 0 3px #0a0d10,
+        inset 0 0 16px #000000e6;
+}
+.mcdu_screen > canvas {
+    display: block;
+    width: 240px;
+    height: 140px;
+}
+/* 行选键列：6 只等高的键，位置对着屏幕上的 6 个字段行（1 行标题 + 12 行字段 + 1 行草稿栏）。
+   键帽是空白的，靠面上一条横向白线跟屏幕里那一行对位——真机也是这么认键的。 */
+.mcdu_lsk {
+    display: grid;
+    flex: 0 0 23px;
+    grid-template-rows: 1fr repeat(6, 2fr) 1fr;
+    gap: 1px;
+}
+/* 行选键的横向白线：贴在键面中线上，下缘压一道暗影，看起来像刻上去的 */
+.mcdu_lsk > .mcdu_key {
+    position: relative;
+}
+.mcdu_lsk > .mcdu_key::after {
+    content: "";
+    position: absolute;
+    left: 4px;
+    right: 4px;
+    top: calc(50% - 0.5px);
+    height: 1px;
+    background: #e9eff3;
+    opacity: 0.78;
+    box-shadow: 0 1px 0 #000000a6;
+    pointer-events: none;
+}
+.mcdu_lsk > .mcdu_key:active::after,
+.mcdu_lsk > .mcdu_key.pressed::after {
+    opacity: 0.55;
+}
+/* 一只键：黑色键帽，上缘一道窄高光、下缘压暗，按下时下沉 */
+.mcdu_key {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-sizing: border-box;
+    min-width: 0;
+    margin: 0;
+    padding: 0 1px;
+    border: 1px solid #04070a;
+    border-radius: 2px;
+    background: linear-gradient(180deg, #2a3037 0%, #161b20 52%, #0e1215 100%);
+    box-shadow:
+        inset 0 1px 0 #5a666f59,
+        inset 1px 0 0 #ffffff0f,
+        inset 0 -1px 0 #000000cc,
+        0 1px 0 #00000099;
+    color: #e6ebef;
+    font-family: monospace;
+    font-size: 8px;
+    line-height: 1;
+    letter-spacing: 0.2px;
+    white-space: nowrap;
+    overflow: hidden;
+    cursor: pointer;
+    -webkit-tap-highlight-color: transparent;
+    user-select: none;
+    transition: background 0.04s, box-shadow 0.04s, transform 0.04s;
+}
+.mcdu_key:active,
+.mcdu_key.pressed {
+    transform: translateY(1px);
+    background: linear-gradient(180deg, #0b0e11 0%, #1a2026 100%);
+    box-shadow:
+        inset 0 1px 0 #39434b,
+        inset 0 2px 5px #000000e6;
+}
+/* 功能键行：6 只 / 4 只各占一行 */
+.mcdu_fn {
+    display: flex;
+    flex: 0 0 auto;
+    gap: 2px;
+    height: 19px;
+}
+.mcdu_fn > .mcdu_key { flex: 1 1 0; font-size: 7.5px; }
+/* 字母 / 数字键盘：9 列（左 6 列字母，右 3 列数字），行高均分剩下的高度 */
+.mcdu_pad {
+    display: grid;
+    flex: 1 1 auto;
+    grid-template-columns: repeat(9, 1fr);
+    grid-template-rows: repeat(5, 1fr);
+    gap: 2px;
+    min-height: 0;
+}
+.mcdu_pad > .mcdu_key { font-size: 9px; }
+/* 数字键盘第一行右侧那块空白的丝印 */
+.mcdu_engrave {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    grid-column: 7 / 10;
+    grid-row: 1;
+    font-family: monospace;
+    font-size: 7px;
+    letter-spacing: 1px;
+    color: #6b757d;
+    text-shadow: 0 -1px 0 #000000cc;
+    user-select: none;
+}
+/* 窄屏：MCDU 排在 ND / PFD 的下一行，占满整行。
+   这一行的高度只由它自己撑，.mcdu 的 height:100% 在这里没有确定值可用，
+   所以直接给一个定高，免得键盘区被压扁、整块面板溢出格子。 */
+@media (max-width: 1099px) {
+    .stage > .ph_bl { display: block; grid-column: 1 / -1; grid-row: 5; }
+    .stage > .ph_bl > .mcdu { height: 300px; }
+}
+
 .info_box_container {
     display: flex;
     align-items: stretch;
@@ -1633,7 +1791,26 @@ body.is-day .ak_socket {
 
                 <div class="stage_ph ph_tr"></div>
 
-                <div class="stage_ph ph_bl"></div>
+                <!-- MCDU（空客多功能控制显示单元）：14 行 × 24 列的显示屏 + 两侧各 6 只行选键
+                     + 两行功能键 + 字母/数字键盘。屏幕上的一切（标题、字段、草稿栏）由
+                     mcdu_render() 画在 canvas 上；键帽由 mcdu_init_dom() 生成，点击走 mcdu_press()。
+                     功能见文件后半段「MCDU」一节：航路规划 + 按航路自动飞行。 -->
+                <div class="stage_ph ph_bl">
+                    <div class="mcdu" id="mcdu"
+                         title="空客 MCDU：INIT 页输入 FROM/TO（机场三字码，如 PEK/CAN；也可用 N35E115 这样的坐标点）→ F-PLN 页把中间点按 LSK 插进去 → F-PLN 页 6R「ACTIVATE」按航路自动飞行">
+                        <div class="mcdu_disp">
+                            <div class="mcdu_lsk" id="mcdu_lsk_l"></div>
+                            <div class="mcdu_screen">
+                                <canvas id="mcduCanvas" width="480" height="280"
+                                        role="img" aria-label="多功能控制显示单元"></canvas>
+                            </div>
+                            <div class="mcdu_lsk" id="mcdu_lsk_r"></div>
+                        </div>
+                        <div class="mcdu_fn" id="mcdu_fn_a"></div>
+                        <div class="mcdu_fn" id="mcdu_fn_b"></div>
+                        <div class="mcdu_pad" id="mcdu_pad"></div>
+                    </div>
+                </div>
 
                 <!-- 飞行参数数字框：与上方经纬度/时间那一排同样的盒子，四格与下方四只仪表逐一对应。
                      每格上行是公制单位、下行是另一种单位，颜色与表盘内圈(青)/外圈(琥珀)一致；
@@ -16429,6 +16606,17 @@ function flight_apply_world(nowMs) {
 
 // 轮胎接地：姿态归到地面姿态（机翼水平、机头放平、无侧滑），并进入滑跑状态
 function flight_touchdown() {
+    // 按航路飞行时撞上地形：断开自动飞行，交回手动。
+    // 起飞滑跑阶段（roll/rotate）不算——贴着山坡滑跑时地形涨得比飞机爬得快，
+    // 抬轮那一下常常又"触地"回来，那时断开就等于把起飞掐死了。
+    if (AUTOPILOT.active && AUTOPILOT.mode === 'route' &&
+        AUTOPILOT.phase !== 'roll' && AUTOPILOT.phase !== 'rotate') {
+        AUTOPILOT.active = false;
+        AUTOPILOT.phase = 'idle';
+        AUTOPILOT.msg = '触地 · AP 断开';
+        ap_refresh_ui();
+        if (typeof mcdu_render === 'function') mcdu_render();
+    }
     flight.wow = true;
     flight.groundHold = FLIGHT.TOUCHDOWN_HOLD;
     flight.alt = flight_ground_update();     // 接在飞机脚下的地形上（山上就是山顶的海拔）
@@ -16747,7 +16935,7 @@ function autopilot_step(dt) {
         case 'roll':
             to('roll', (AUTOPILOT.mode === 'pattern')
                 ? ('起飞滑跑 · 朝太阳 ' + String(Math.round(AUTOPILOT.runwayHdg) % 360).padStart(3, '0') + '°')
-                : '起飞滑跑');
+                : ((AUTOPILOT.mode === 'route') ? '航路起飞 · 滑跑' : '起飞滑跑'));
             cmd.throttle = 1.0;
             if (V >= FLIGHT.ROTATE_V + 2.0) { AUTOPILOT.phase = 'rotate'; AUTOPILOT.phaseT = 0.0; }
             break;
@@ -16757,7 +16945,8 @@ function autopilot_step(dt) {
             cmd.throttle = 1.0;
             cmd.pitch = ap_pitch_cmd(9.0);
             if ((!flight.wow && agl > 10.0) || AUTOPILOT.phaseT > 10.0) {
-                ap_goto((AUTOPILOT.mode === 'pattern') ? 'p_upwind' : 'climb');
+                ap_goto((AUTOPILOT.mode === 'pattern') ? 'p_upwind'
+                    : ((AUTOPILOT.mode === 'route') ? 'rclimb' : 'climb'));
             }
             break;
 
@@ -16926,6 +17115,13 @@ function autopilot_step(dt) {
                 AUTOPILOT.msg = '任务完成';
             }
             break;
+
+        // 按 MCDU 里的航路飞：爬升 / 巡航 / 下降 / 终点保持，全部交给 ap_route_step
+        case 'rclimb':
+        case 'rcruise':
+        case 'rdes':
+        case 'rend':
+            return ap_route_step(dt);
 
         default:
             break;
@@ -17578,6 +17774,7 @@ function pfd_fma_modes() {
     }
     const ph = AUTOPILOT.phase;
     const pat = (AUTOPILOT.mode === 'pattern');
+    const rte = (AUTOPILOT.mode === 'route');
     let thr = 'THR';
     if (ph === 'roll' || ph === 'rotate' || ph === 'climb' || ph === 'p_upwind') thr = 'THR CLB';
     if (ph === 'slowdown' || ph === 'stall' || ph === 'spin' || ph === 'recover' ||
@@ -17588,7 +17785,11 @@ function pfd_fma_modes() {
     else if (ph === 'p_final') vert = 'G/S';
     else if (ph === 'flare') vert = 'FLARE';
     else if (ph === 'stall' || ph === 'spin' || ph === 'recover' || ph === 'slowdown') vert = '---';
-    return { thr: thr, lat: (pat ? 'NAV' : 'HDG'), vert: vert, ap: true };
+    if (ph === 'rclimb') vert = 'OP CLB';
+    else if (ph === 'rdes') vert = 'OP DES';
+    else if (ph === 'rend') vert = 'ALT CRZ';
+    if (ph === 'rclimb' || ph === 'rcruise') thr = 'THR CLB';
+    return { thr: thr, lat: ((pat || rte) ? 'NAV' : 'HDG'), vert: vert, ap: true };
 }
 
 // 红黑/琥珀黑斜纹（失速带、超速带、地面带）：先在矩形里铺底色，再斜着盖章
@@ -19091,6 +19292,42 @@ function nd_draw() {
         g.fillText(ap[0], pt[0] + 4, pt[1] - 4.5);
     }
 
+    // MCDU 里规划的航路：绿色折线（从本机接第一点）+ 航路点三角。
+    // 坐标点（NxxWxxx）自己标 ident，机场不重复标——底图上本来就有三字码。
+    if (MCDU.route.length > 0) {
+        const rpts = MCDU.route.map(function(w) { return project(w.lat, w.lon); });
+        g.strokeStyle = '#2bff8a';
+        g.lineWidth = 1.6;
+        g.lineJoin = 'round';
+        g.beginPath();
+        if (flight.ready) {
+            g.moveTo(ACX, ACY);
+        } else {
+            g.moveTo(rpts[0][0], rpts[0][1]);
+        }
+        for (let i = 0; i < rpts.length; i++) g.lineTo(rpts[i][0], rpts[i][1]);
+        g.stroke();
+        g.lineWidth = 1.2;
+        g.font = '9px monospace';
+        g.textAlign = 'left';
+        g.textBaseline = 'middle';
+        for (let i = 0; i < rpts.length; i++) {
+            const p0 = rpts[i];
+            if (p0[0] < -12 || p0[0] > ND_SIZE + 12 || p0[1] < -12 || p0[1] > ND_SIZE + 12) continue;
+            g.strokeStyle = '#2bff8a';
+            g.beginPath();
+            g.moveTo(p0[0], p0[1] - 4.2);
+            g.lineTo(p0[0] + 3.8, p0[1] + 2.4);
+            g.lineTo(p0[0] - 3.8, p0[1] + 2.4);
+            g.closePath();
+            g.stroke();
+            if (!MCDU.route[i].apt) {
+                g.fillStyle = '#9fffce';
+                g.fillText(MCDU.route[i].ident, p0[0] + 6, p0[1] - 6);
+            }
+        }
+    }
+
     // 已飞航迹（品红）
     if (ndTrack.length > 1) {
         g.strokeStyle = '#ff33cc';
@@ -19240,6 +19477,769 @@ function nd_draw() {
     // 地形读数与告警条：同样压在最上层（红块常常正好在机场三字码底下）
     nd_taws_draw_label(g);
     nd_taws_draw_banner(g);
+}
+
+
+// ============================================================
+// MCDU：空客多功能控制显示单元
+// ------------------------------------------------------------
+// 面板在舞台左下角（.stage_ph.ph_bl）。显示屏是 14 行 × 24 列的字符网格，画在
+// 480×280 的 canvas 上（CSS 240×140，两倍密度）；两侧各 6 只行选键（LSK）对齐屏幕上
+// 的 6 个字段行，下面是两行功能键与字母/数字键盘。配色照空客 MCDU：
+//   白 = 标签与提示，绿 = 页面标题与系统计算值，青 = 可输入的空字段，琥珀 = 草稿栏与错误。
+//
+// 功能上只做两件事（其余页面按真机的样子摆着，内容标 NOT AVAILABLE）：
+//   1) 航路规划：INIT 页输 FROM/TO（三字码，与 ND 底图上标的一致，如 PEK/CAN）；
+//      F-PLN 页把任意一个三字码或 NxxWxxx 坐标插到某一点之前，CLR + LSK 删除；
+//      ND 上同步画出这条航路（绿色折线 + 航路点三角）。
+//   2) 按航路自动飞行：F-PLN 页 6R「ACTIVATE」。地面就滑跑起飞，空中直接爬升；
+//      然后按巡航高度平飞、逐点过点转弯，最后一段按 3° 剖面下降到终点高度并保持。
+//      接管期间杆/舵/油门完全由 AP 控制（复用 flight_integrate 那套执行机构），
+//      再按一次 6R 或点「复位」即可断开。
+// ============================================================
+const MCDU_W = 480, MCDU_H = 280;          // 显示屏逻辑像素（CSS 240 × 140）
+const MCDU_CW = 20, MCDU_CH = 20;          // 字符格 20 × 20 → 24 列 × 14 行
+const MCDU_COLS = 24, MCDU_ROWS = 14;
+const MCDU_FONT = '"DejaVu Sans Mono", "Consolas", "Courier New", monospace';
+const MCDU_C = {
+    w:     '#e8e8e2',                      // 白：标签
+    g:     '#39ff74',                      // 绿：页面标题 / 系统计算
+    a:     '#ffb42e',                      // 琥珀：草稿栏 / 错误提示
+    c:     '#48d2ff',                      // 青：可输入字段
+    m:     '#ff5ecb',                      // 品红：约束（暂未用）
+    dim:   '#4e7a5c',                      // 暗：分隔线
+    ghost: '#22362a'                       // 更暗：占位
+};
+
+// 航路点：三字码取 ND 底图那一份机场表（IATA，与屏上标注一致），
+// 另外支持 N39W116 / S12E045 这种整数度的经纬度点。
+const MCDU_APT = Object.create(null);
+for (let _i = 0; _i < ND_AIRPORTS.length; _i++) {
+    const _a = ND_AIRPORTS[_i];
+    MCDU_APT[_a[0]] = { lat: _a[1], lon: _a[2] };
+}
+
+const MCDU = {
+    page: 'INIT',                          // 当前页：INIT / FPLN / PROG / MENU / RADNAV / DATA / NA
+    scratch: '',                           // 草稿栏里正在键入的内容
+    msg: '',                               // 草稿栏里的提示（琥珀，几秒后自动消失）
+    msgAt: 0,
+    init: { from: null, to: null, crzFl: 200 },   // CRZ FL 默认 FL200
+    route: [],                             // [{ident, lat, lon, apt}]，最多 MCDU_MAX_WPT 个
+    renderAt: 0
+};
+const MCDU_MAX_WPT = 5;                    // 一屏 6 行：5 个航路点 + 1 行 END OF F-PLN
+
+// ---------------- 建键帽 ----------------
+function mcdu_mk_key(label, code, cls) {
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.className = 'mcdu_key' + (cls ? (' ' + cls) : '');
+    b.textContent = label || '';
+    b.setAttribute('data-key', code);
+    if (!label) b.setAttribute('aria-label', code.replace(/^L/, '左行选键 ').replace(/^R/, '右行选键 '));
+    b.addEventListener('click', function(e) {
+        e.preventDefault();
+        mcdu_press(code);
+    });
+    return b;
+}
+
+function mcdu_init_dom() {
+    const lskL = document.getElementById('mcdu_lsk_l');
+    const lskR = document.getElementById('mcdu_lsk_r');
+    const fnA = document.getElementById('mcdu_fn_a');
+    const fnB = document.getElementById('mcdu_fn_b');
+    const pad = document.getElementById('mcdu_pad');
+    if (!lskL || !lskR || !fnA || !fnB || !pad) return;
+
+    // 两侧各 6 只行选键（真机的 LSK 是空白键，靠位置对着屏幕上的行）。
+    // 栅格是「1 空行 + 6 只键 + 1 空行」共 8 行，键必须显式落在第 2–7 行：
+    // 交给自动填充的话第一只会挤进顶部那条 1fr 空行，变成半高。
+    for (let i = 1; i <= 6; i++) {
+        const bl = mcdu_mk_key('', 'L' + i, 'mcdu_lskkey');
+        const br = mcdu_mk_key('', 'R' + i, 'mcdu_lskkey');
+        bl.style.gridRow = String(i + 1);
+        br.style.gridRow = String(i + 1);
+        lskL.appendChild(bl);
+        lskR.appendChild(br);
+    }
+
+    // 功能键：两行（6 + 4），顺序照 A320 的面板
+    const rowA = [['MCDU MENU', 'FN:MENU'], ['F-PLN', 'FN:FPLN'], ['RAD NAV', 'FN:RADNAV'],
+                  ['INIT', 'FN:INIT'], ['DATA', 'FN:DATA'], ['PROG', 'FN:PROG']];
+    const rowB = [['SEC F-PLN', 'FN:SECFPLN'], ['ATC COMM', 'FN:ATCCOMM'],
+                  ['AIRPORT', 'FN:AIRPORT'], ['DIR', 'FN:DIR']];
+    for (const k of rowA) fnA.appendChild(mcdu_mk_key(k[0], k[1]));
+    for (const k of rowB) fnB.appendChild(mcdu_mk_key(k[0], k[1]));
+
+    // 字母键盘：6 列 × 5 行（A–Z 加 SP / CLR OVFY，正好 30 只）
+    const letters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+    for (let i = 0; i < 30; i++) {
+        let label, code;
+        if (i < 26) { label = letters[i]; code = letters[i]; }
+        else if (i === 26) { label = 'SP'; code = 'SP'; }
+        else if (i === 27) { label = '/'; code = 'SLASH'; }
+        else if (i === 28) { label = 'CLR'; code = 'CLR'; }
+        else { label = 'OVFY'; code = 'OVFY'; }
+        const b = mcdu_mk_key(label, code);
+        b.style.gridColumn = String((i % 6) + 1);
+        b.style.gridRow = String(Math.floor(i / 6) + 1);
+        if (code === 'OVFY') b.style.fontSize = '7px';
+        pad.appendChild(b);
+    }
+    // 数字键盘：右 3 列 × 4 行，贴在第 2–5 行
+    const nums = ['1', '2', '3', '4', '5', '6', '7', '8', '9', '.', '0', '±'];
+    for (let i = 0; i < 12; i++) {
+        const code = (nums[i] === '.') ? 'DOT' : ((nums[i] === '±') ? 'MINUS' : nums[i]);
+        const b = mcdu_mk_key(nums[i], code);
+        b.style.gridColumn = String((i % 3) + 7);
+        b.style.gridRow = String(Math.floor(i / 3) + 2);
+        pad.appendChild(b);
+    }
+    // 数字键盘上方空出来的那三格：丝印型号
+    const eng = document.createElement('div');
+    eng.className = 'mcdu_engrave';
+    eng.textContent = 'MCDU';
+    pad.appendChild(eng);
+}
+
+// ---------------- 屏幕绘制 ----------------
+// 一行 14 行，row 允许取半（1.5、3.5…）：行选键中心正对着的就是这些半行。
+function mcdu_put(g, row, col, s, color) {
+    if (!s) return;
+    g.font = '22px ' + MCDU_FONT;
+    g.textAlign = 'center';
+    g.textBaseline = 'alphabetic';
+    g.fillStyle = color || MCDU_C.w;
+    const y = (row + 0.5) * MCDU_CH + 8;
+    for (let i = 0; i < s.length; i++) {
+        const ch = s.charAt(i);
+        if (ch === ' ') continue;
+        g.fillText(ch, (col + i + 0.5) * MCDU_CW, y);
+    }
+}
+// 小号字（页脚提示那类）
+function mcdu_put_small(g, row, col, s, color) {
+    if (!s) return;
+    g.font = '16px ' + MCDU_FONT;
+    g.textAlign = 'center';
+    g.textBaseline = 'alphabetic';
+    g.fillStyle = color || MCDU_C.w;
+    const y = (row + 0.5) * MCDU_CH + 6;
+    for (let i = 0; i < s.length; i++) {
+        const ch = s.charAt(i);
+        if (ch === ' ') continue;
+        g.fillText(ch, (col + i + 0.5) * MCDU_CW, y);
+    }
+}
+// 右对齐：末字符落在 colEnd 格
+function mcdu_put_right(g, row, colEnd, s, color, small) {
+    if (!s) return;
+    const col = colEnd + 1 - s.length;
+    if (small) mcdu_put_small(g, row, col, s, color);
+    else mcdu_put(g, row, col, s, color);
+}
+// 一个字段行：左边标签，右边值（空值画成一方括号，草稿栏有内容时括号转琥珀）
+function mcdu_field(g, row, label, value, color) {
+    mcdu_put(g, row, 0, label, MCDU_C.w);
+    if (value) mcdu_put(g, row, 12, value, color);
+    else mcdu_put(g, row, 12, '[' + '          ' + ']', MCDU.scratch ? MCDU_C.a : MCDU_C.c);
+}
+
+function mcdu_draw_bg(g) {
+    g.setTransform(1, 0, 0, 1, 0, 0);
+    g.fillStyle = '#040d08';
+    g.fillRect(0, 0, MCDU_W, MCDU_H);
+    g.fillStyle = 'rgba(0, 0, 0, 0.22)';
+    for (let y = 0; y < MCDU_H; y += 3) g.fillRect(0, y, MCDU_W, 1);   // 扫描线
+}
+
+// ---- 各页 ----
+function mcdu_page_init(g) {
+    mcdu_put(g, 0, 10, 'INIT', MCDU_C.g);
+    mcdu_put_right(g, 0, 23, '1/1', MCDU_C.g);
+
+    const I = MCDU.init;
+    const fromTo = (I.from ? I.from.ident : '') + (I.to ? ('/' + I.to.ident) : '');
+    mcdu_field(g, 1.5, 'FROM/TO', fromTo, MCDU_C.w);
+    mcdu_field(g, 3.5, 'ALTN', '', MCDU_C.c);
+    mcdu_field(g, 5.5, 'CO RTE', '', MCDU_C.c);
+    mcdu_field(g, 7.5, 'COST INDEX', '30', MCDU_C.w);
+    mcdu_field(g, 9.5, 'CRZ FL/TEMP', 'FL' + String(I.crzFl).padStart(3, '0'), MCDU_C.w);
+    mcdu_field(g, 11.5, 'TROPO', '36090', MCDU_C.w);
+    mcdu_put_right(g, 12.4, 23, '<GPS PRIMARY>', MCDU_C.g, true);
+}
+
+function mcdu_page_fpln(g) {
+    mcdu_put(g, 0, 10, 'F-PLN', MCDU_C.g);
+    mcdu_put_right(g, 0, 23, '1/1', MCDU_C.g);
+    if (MCDU.route.length) mcdu_put_small(g, 0, 0, 'ACT RTE 1', MCDU_C.dim);
+
+    const R = MCDU.route;
+    if (!R.length) {
+        mcdu_put_small(g, 5.5, 4, 'NO ACTIVE ROUTE', MCDU_C.w);
+        mcdu_put_small(g, 7.5, 2, 'ENTER FROM/TO IN INIT', MCDU_C.w);
+    }
+    for (let i = 0; i < MCDU_MAX_WPT; i++) {
+        const row = 1.5 + i * 2;
+        const w = R[i];
+        if (!w) continue;
+        mcdu_put(g, row, 0, String(i + 1), MCDU_C.g);
+        mcdu_put(g, row, 2, w.ident, w.apt ? MCDU_C.g : MCDU_C.w);
+        // 右边一列是本段的方位/距离（第一个点从飞机当前位置算）
+        const prev = (i > 0) ? R[i - 1] : { lat: latitude, lon: longitude };
+        const leg = mcdu_leg(prev, w);
+        const txt = String(Math.round(leg.brg) % 360).padStart(3, '0') + '°/' +
+            String(Math.min(9999, Math.round(leg.nm))).padStart(4, '0') + 'NM';
+        mcdu_put_right(g, row, 23, txt, MCDU_C.dim);
+    }
+    mcdu_put(g, 11.5, 0, '-END OF F-PLN-', MCDU_C.w);
+    const active = (AUTOPILOT.active && AUTOPILOT.mode === 'route');
+    mcdu_put_right(g, 11.5, 23, active ? 'ACTIVE' : 'ACTIVATE', active ? MCDU_C.g : MCDU_C.c);
+}
+
+function mcdu_page_prog(g) {
+    mcdu_put(g, 0, 10, 'PROG', MCDU_C.g);
+    mcdu_put_right(g, 0, 23, '1/1', MCDU_C.g);
+
+    // TO 取"正在飞的那一点"：AP_ROUTE.wp 与 MCDU.route 一一对应（ap_route_load 建的），
+    // 但前者是平面坐标，算方位/距离要用带经纬度的那一份。
+    const R = MCDU.route;
+    let w = null;
+    if (R.length) {
+        w = (AUTOPILOT.active && AUTOPILOT.mode === 'route')
+            ? (R[AP_ROUTE.idx] || R[R.length - 1])
+            : R[R.length - 1];
+    }
+    mcdu_field(g, 1.5, 'CRZ', 'FL' + String(MCDU.init.crzFl).padStart(3, '0'), MCDU_C.g);
+    mcdu_field(g, 3.5, 'TO', w ? w.ident : '', MCDU_C.g);
+
+    // 到下一个航路点的方位/距离
+    let brgTxt = '---°/---NM', xteTxt = '---NM';
+    if (w) {
+        const d = flight.ready ? mcdu_leg({ lat: latitude, lon: longitude }, w) : null;
+        if (d) brgTxt = String(Math.round(d.brg) % 360).padStart(3, '0') + '°/' +
+            String(Math.min(9999, Math.round(d.nm))).padStart(4, '0') + 'NM';
+    }
+    if (AUTOPILOT.active && AUTOPILOT.mode === 'route' && AP_ROUTE.legPt) {
+        const u = ap_dir(AP_ROUTE.legHdg);
+        const vx = flight.x - AP_ROUTE.legPt[0], vz = flight.z - AP_ROUTE.legPt[1];
+        const xtk = Math.abs(vx * u[1] - vz * u[0]) / 1852.0;
+        xteTxt = xtk.toFixed(1) + 'NM';
+    }
+    mcdu_field(g, 5.5, 'BRG/DIST', brgTxt, MCDU_C.g);
+    mcdu_field(g, 7.5, 'XTK', xteTxt, MCDU_C.g);
+
+    // ETA：用剩余航程与地速外推
+    let etaTxt = '----z';
+    if (w && flight.ready && flight.V > 5.0) {
+        const rem = mcdu_leg({ lat: latitude, lon: longitude }, w).nm * 1852.0;
+        let mins = hour * 60 + minute + (rem / Math.max(flight.V, 20.0)) / 60.0;
+        mins = ((mins % 1440) + 1440) % 1440;
+        etaTxt = String(Math.floor(mins / 60)).padStart(2, '0') +
+            String(Math.floor(mins % 60)).padStart(2, '0') + 'z';
+    }
+    mcdu_field(g, 9.5, 'ETA', etaTxt, MCDU_C.g);
+    const altTxt = flight.ready
+        ? (Math.round(flight.alt * FT_PER_M / 10) * 10 + 'FT')
+        : '---FT';
+    mcdu_field(g, 11.5, 'ALT', altTxt, MCDU_C.g);
+    mcdu_put_right(g, 11.5, 23,
+        flight.ready ? (Math.round(flight.V * KNOT_PER_MS) + 'KT') : '---KT', MCDU_C.dim, true);
+}
+
+function mcdu_page_menu(g) {
+    mcdu_put(g, 0, 7, 'MCDU MENU', MCDU_C.g);
+    mcdu_put_right(g, 0, 23, '1/1', MCDU_C.g);
+    const items = ['<F-PLN', '<INIT', '<PROG', '<RAD NAV', '<SEC F-PLN', '<ATC COMM'];
+    for (let i = 0; i < items.length; i++) mcdu_put(g, 1.5 + i * 2, 1, items[i], MCDU_C.w);
+}
+
+function mcdu_page_radnav(g) {
+    mcdu_put(g, 0, 9, 'RAD NAV', MCDU_C.g);
+    mcdu_put_right(g, 0, 23, '1/1', MCDU_C.g);
+    mcdu_field(g, 1.5, 'ILS FREQ', '---.-', MCDU_C.dim);
+    mcdu_field(g, 3.5, 'VOR1/FREQ', '---.-', MCDU_C.dim);
+    mcdu_field(g, 5.5, 'ADF1/FREQ', '---.-', MCDU_C.dim);
+    mcdu_put_small(g, 9.5, 1, 'RADIO NAV NOT SIMULATED', MCDU_C.dim);
+    mcdu_put_right(g, 11.5, 23, '<GPS PRIMARY>', MCDU_C.g, true);
+}
+
+function mcdu_page_data(g) {
+    mcdu_put(g, 0, 10, 'DATA', MCDU_C.g);
+    mcdu_put_right(g, 0, 23, '1/1', MCDU_C.g);
+    mcdu_field(g, 3.5, 'ACTIVE DATA', 'OURAIRPORTS', MCDU_C.g);
+    mcdu_field(g, 5.5, 'APT COUNT', String(ND_AIRPORTS.length), MCDU_C.g);
+    mcdu_field(g, 7.5, 'SECOND DATA', '---', MCDU_C.dim);
+    mcdu_put_right(g, 11.5, 23, '<STANDBY>', MCDU_C.g, true);
+}
+
+function mcdu_page_na(g) {
+    mcdu_put(g, 0, 6, 'NOT AVAILABLE', MCDU_C.g);
+    mcdu_put_right(g, 0, 23, '1/1', MCDU_C.g);
+    mcdu_put_small(g, 5.5, 4, 'NOT IMPLEMENTED', MCDU_C.dim);
+}
+
+// 草稿栏：最下面一行；有错误提示时先显示提示（琥珀），几秒后自动消失
+function mcdu_draw_scratch(g) {
+    const now = Date.now();
+    if (MCDU.msg && (now - MCDU.msgAt) > 3000) MCDU.msg = '';
+    if (MCDU.msg) {
+        mcdu_put(g, 13, 0, MCDU.msg, MCDU_C.a);
+        return;
+    }
+    if (MCDU.scratch) {
+        mcdu_put(g, 13, 0, MCDU.scratch, MCDU_C.w);
+        // 光标：草稿栏有内容时末尾一个闪烁的小方块
+        if ((now % 1000) < 550) {
+            const gx = (MCDU.scratch.length + 0.5) * MCDU_CW;
+            g.fillStyle = MCDU_C.a;
+            g.fillRect(gx - 6, 13 * MCDU_CH + 4, 12, 12);
+        }
+    }
+}
+
+function mcdu_render() {
+    const cv = document.getElementById('mcduCanvas');
+    if (!cv) return;
+    const g = cv.getContext('2d');
+    if (!g) return;
+    mcdu_draw_bg(g);
+    g.shadowColor = 'rgba(80, 255, 130, 0.55)';
+    g.shadowBlur = 5;
+    switch (MCDU.page) {
+        case 'FPLN':   mcdu_page_fpln(g);   break;
+        case 'PROG':   mcdu_page_prog(g);   break;
+        case 'MENU':   mcdu_page_menu(g);   break;
+        case 'RADNAV': mcdu_page_radnav(g); break;
+        case 'DATA':   mcdu_page_data(g);   break;
+        case 'NA':     mcdu_page_na(g);     break;
+        default:       mcdu_page_init(g);   break;
+    }
+    mcdu_draw_scratch(g);
+    g.shadowBlur = 0;
+}
+
+// 定时刷新：草稿栏光标要闪、PROG 页的数字要跟着飞（0.5 s 一次足够）
+function mcdu_tick(nowMs) {
+    if (nowMs - MCDU.renderAt < 500) return;
+    MCDU.renderAt = nowMs;
+    mcdu_render();
+}
+
+function mcdu_flash(text) {
+    MCDU.msg = text;
+    MCDU.msgAt = Date.now();
+    MCDU.scratch = '';
+    mcdu_render();
+}
+
+// ---------------- 航路数据 ----------------
+// 两点的方位 / 距离（km 与海里）。这个尺度的航段用平面近似足够：
+// 与 ND 底图同一套换算（ND_KM_PER_DEG），画在屏上和算进 F-PLN 的数才一致。
+function mcdu_leg(a, b) {
+    const latM = (a.lat + b.lat) * 0.5;
+    const dn = (b.lat - a.lat) * ND_KM_PER_DEG;
+    const de = (b.lon - a.lon) * ND_KM_PER_DEG * Math.cos(latM * Math.PI / 180.0);
+    const km = Math.hypot(dn, de);
+    return {
+        km: km,
+        nm: km / 1.852,
+        brg: (Math.atan2(de, dn) * 180.0 / Math.PI + 360.0) % 360.0
+    };
+}
+
+// 草稿栏里的文本 → 航路点：三字码，或 N39W116 这种整数度的经纬度点
+// （ident 列只有 8 格，坐标点就按整数度写，不再带小数）
+function mcdu_lookup(txt) {
+    const s = String(txt || '').trim().toUpperCase();
+    if (!s) return null;
+    if (MCDU_APT[s]) return { ident: s, lat: MCDU_APT[s].lat, lon: MCDU_APT[s].lon, apt: true };
+    const m = s.match(/^([NS])(\d{1,2})([EW])(\d{1,3})$/);
+    if (m) {
+        let lat = parseFloat(m[2]);
+        let lon = parseFloat(m[4]);
+        if (!(lat <= 90.0) || !(lon <= 180.0)) return null;
+        if (m[1] === 'S') lat = -lat;
+        if (m[3] === 'W') lon = -lon;
+        return { ident: s, lat: lat, lon: lon, apt: false };
+    }
+    return null;
+}
+
+function mcdu_sync_endpoints() {
+    const R = MCDU.route;
+    MCDU.init.from = R.length ? R[0] : null;
+    MCDU.init.to = R.length ? R[R.length - 1] : null;
+}
+
+// 在 at 处插入一个航路点；at = route.length 表示追加到末尾
+function mcdu_route_insert(at, txt) {
+    const wp = mcdu_lookup(txt);
+    if (!wp) { mcdu_flash('NOT IN DATABASE'); return; }
+    if (MCDU.route.length >= MCDU_MAX_WPT) { mcdu_flash('F-PLN FULL'); return; }
+    MCDU.route.splice(Math.max(0, Math.min(at, MCDU.route.length)), 0, wp);
+    MCDU.scratch = '';
+    mcdu_sync_endpoints();
+    if (AUTOPILOT.active && AUTOPILOT.mode === 'route') ap_route_replan();
+    mcdu_render();
+    nd_draw();
+}
+
+function mcdu_route_delete(at) {
+    if (at < 0 || at >= MCDU.route.length) { mcdu_flash('INVALID DELETE'); return; }
+    MCDU.route.splice(at, 1);
+    MCDU.scratch = '';
+    mcdu_sync_endpoints();
+    if (AUTOPILOT.active && AUTOPILOT.mode === 'route') ap_route_replan();
+    mcdu_render();
+    nd_draw();
+}
+
+// CRZ FL → 米
+function mcdu_crz_alt() {
+    return Math.max(0, MCDU.init.crzFl) * 100.0 * 0.3048;
+}
+
+// ---------------- 按键 ----------------
+function mcdu_press(code) {
+    // 功能键：翻页
+    if (code.indexOf('FN:') === 0) {
+        const k = code.substring(3);
+        MCDU.scratch = '';
+        MCDU.msg = '';
+        if (k === 'MENU') MCDU.page = 'MENU';
+        else if (k === 'FPLN') MCDU.page = 'FPLN';
+        else if (k === 'INIT') MCDU.page = 'INIT';
+        else if (k === 'PROG') MCDU.page = 'PROG';
+        else if (k === 'RADNAV') MCDU.page = 'RADNAV';
+        else if (k === 'DATA') MCDU.page = 'DATA';
+        else MCDU.page = 'NA';                     // SEC F-PLN / ATC COMM / AIRPORT / DIR
+        mcdu_render();
+        return;
+    }
+    // 行选键
+    if (code.charAt(0) === 'L' || code.charAt(0) === 'R') {
+        mcdu_lsk(code.charAt(0), Number(code.charAt(1)));
+        return;
+    }
+    // 草稿栏编辑
+    MCDU.msg = '';
+    if (code === 'CLR') {
+        if (MCDU.scratch.length) MCDU.scratch = MCDU.scratch.substring(0, MCDU.scratch.length - 1);
+        else MCDU.scratch = 'CLR';                 // 空草稿栏按 CLR：进入删除状态
+    }
+    else if (code === 'SP') MCDU.scratch += ' ';
+    else if (code === 'SLASH') MCDU.scratch += '/';
+    else if (code === 'DOT') MCDU.scratch += '.';
+    else if (code === 'MINUS') MCDU.scratch += '-';
+    else if (code === 'OVFY') { /* 覆盖：本模拟里没有只读字段冲突，按下即插入 */ return; }
+    else if (code.length === 1) MCDU.scratch += code;
+    if (MCDU.scratch.length > 20) MCDU.scratch = MCDU.scratch.substring(0, 20);
+    mcdu_render();
+}
+
+function mcdu_lsk(side, n) {
+    const s = MCDU.scratch;
+
+    if (MCDU.page === 'MENU') {
+        const pages = ['FPLN', 'INIT', 'PROG', 'RADNAV', 'NA', 'NA'];
+        if (side === 'L') {
+            MCDU.page = pages[n - 1];
+            MCDU.scratch = '';
+            mcdu_render();
+        }
+        return;
+    }
+
+    if (MCDU.page === 'INIT') {
+        if (side !== 'L') return;
+        if (n === 1) {
+            if (s === 'CLR') {
+                MCDU.route = [];
+                MCDU.init.from = null;
+                MCDU.init.to = null;
+                MCDU.scratch = '';
+                mcdu_render();
+                nd_draw();
+                return;
+            }
+            if (!s) return;
+            const parts = s.split('/');
+            const a = parts[0] ? mcdu_lookup(parts[0]) : null;
+            const b = parts[1] ? mcdu_lookup(parts[1]) : null;
+            if (!a) { mcdu_flash('NOT IN DATABASE'); return; }
+            if (parts[1] && !b) { mcdu_flash('NOT IN DATABASE'); return; }
+            MCDU.init.from = a;
+            MCDU.init.to = b;
+            MCDU.route = b ? [a, b] : [a];
+            MCDU.scratch = '';
+            if (AUTOPILOT.active && AUTOPILOT.mode === 'route') ap_route_replan();
+            mcdu_render();
+            nd_draw();
+            return;
+        }
+        if (n === 5) {                              // CRZ FL/TEMP
+            if (!s) return;
+            const fl = parseInt(String(s).toUpperCase().replace(/^FL/, ''), 10);
+            if (!(fl >= 50 && fl <= 410)) { mcdu_flash('INVALID ENTRY'); return; }
+            MCDU.init.crzFl = fl;
+            MCDU.scratch = '';
+            mcdu_render();
+            return;
+        }
+        // 2L/3L/4L/6L：本模拟里不参与计算，按一下把草稿栏清掉即可
+        if (s) MCDU.scratch = '';
+        mcdu_render();
+        return;
+    }
+
+    if (MCDU.page === 'FPLN') {
+        // 6R：激活 / 断开按航路自动飞行
+        if (side === 'R' && n === 6) { mcdu_toggle_route_ap(); return; }
+        // 6L：追加到航路末尾
+        if (side === 'L' && n === 6) {
+            if (s === 'CLR') { mcdu_flash('INVALID DELETE'); return; }
+            if (s) mcdu_route_insert(MCDU.route.length, s);
+            return;
+        }
+        // 1L–5L / 1R–5R：对应的航路点行
+        const at = n - 1;
+        if (s === 'CLR') { mcdu_route_delete(at); return; }
+        if (!s) return;
+        mcdu_route_insert(at, s);
+        return;
+    }
+}
+
+
+// ============================================================
+// 按航路自动飞行（AUTOPILOT.mode = 'route'）
+// ------------------------------------------------------------
+// 与「失速尾旋演示」「五边起落」共用同一套执行机构与控制律（ap_heading_roll /
+// ap_vs_pitch / ap_throttle_for_speed），只是把"往哪儿飞"换成 MCDU 里的航路：
+//   · 横向：锁定每段的航向，用 ap_line_heading 往这条边线的正前方追一个提前量，
+//     横向偏差就被一点点压回去；偏得太远（>25 km）或还没进入该段时直接对着航路点飞；
+//   · 过点：到点前 max(1.8 km, 22 s 航程) 就算过点，切下一段；
+//   · 纵向：先爬到 CRZ FL 平飞；最后一段按 3° 剖面（下降率 = 剩余高度 / 剩余时间）
+//     下降到终点高度（取终点地形 + 700 m），到了就改平保持。
+// 相位：rclimb 爬升 / rcruise 巡航 / rdes 下降 / rend 航路终点保持。
+// ============================================================
+const AP_ROUTE = {
+    wp: [],              // [{ident, x, z, apt}]（平面坐标，米；相对 flight.lat0/lon0）
+    idx: 0,              // 正在飞的航路点
+    legPt: null,         // 当前段的起点（[x,z]）
+    legHdg: 0,           // 当前段锁定的航向（度）
+    legLen: 0,           // 当前段长度（米）
+    crzAlt: 6096.0,      // 巡航高度（米）
+    floorAlt: 700.0,     // 航路终点的保持高度（米）
+    cruiseV: 100.0,      // 巡航目标空速（m/s，约 195 kt）
+    climbVs: 9.0,        // 爬升率上限（m/s）
+    desSlope: 19.0,      // 3° 剖面对应的"每米高度需要多少米航程"（1/tan3°）
+    descent: false,      // 已经进入下降剖面
+    msg: ''
+};
+
+// 经纬度 → 飞行平面坐标（与 flight_latlon 严格互逆）
+function ap_route_latlon_to_xz(lat, lon) {
+    const lat0 = flight.lat0, lon0 = flight.lon0;
+    const z = (lat - lat0) * FLIGHT.R_EARTH * FLIGHT.DEG;
+    const x = (lon - lon0) * FLIGHT.R_EARTH * FLIGHT.DEG * Math.cos(lat0 * FLIGHT.DEG);
+    return [x, z];
+}
+
+function ap_route_load() {
+    AP_ROUTE.wp = MCDU.route.map(function(w) {
+        const p = ap_route_latlon_to_xz(w.lat, w.lon);
+        return { ident: w.ident, x: p[0], z: p[1], apt: w.apt };
+    });
+    AP_ROUTE.idx = 0;
+    AP_ROUTE.legPt = null;
+    AP_ROUTE.legHdg = 0;
+    AP_ROUTE.legLen = 0;
+    AP_ROUTE.descent = false;
+    AP_ROUTE.crzAlt = Math.max(600.0, mcdu_crz_alt());
+    // 终点保持高度：终点地面的海拔（没有地形数据就按海平面）+ 700 m
+    const last = AP_ROUTE.wp[AP_ROUTE.wp.length - 1];
+    let gnd = 0.0;
+    if (last) {
+        const h = flight_terrain_under(last.x, last.z);
+        if (Number.isFinite(h) && h > 0.0) gnd = h;
+    }
+    AP_ROUTE.floorAlt = Math.max(600.0, gnd + 700.0);
+    ap_route_sequence();
+}
+
+// 换段：把当前段的起点/航向/长度按 idx 重新算一遍
+function ap_route_leg_begin() {
+    const R = AP_ROUTE;
+    const w = R.wp[R.idx];
+    const prev = (R.idx > 0) ? R.wp[R.idx - 1] : null;
+    if (!w || !prev) {
+        R.legPt = null;
+        R.legHdg = 0;
+        R.legLen = 0;
+        return;
+    }
+    R.legPt = [prev.x, prev.z];
+    R.legLen = Math.hypot(w.x - prev.x, w.z - prev.z);
+    R.legHdg = (Math.atan2(w.x - prev.x, w.z - prev.z) * FLIGHT.RAD + 360.0) % 360.0;
+}
+
+// 过点判断：够近，或者已经跑到航路点后面去了
+function ap_route_sequence() {
+    const R = AP_ROUTE;
+    let guard = 0;
+    while (R.idx < R.wp.length && guard++ < 32) {
+        const w = R.wp[R.idx];
+        const d = Math.hypot(w.x - flight.x, w.z - flight.z);
+        const cap = Math.max(1800.0, flight.V * 22.0);
+        if (d < cap) {
+            R.idx++;
+            ap_route_leg_begin();
+        } else {
+            break;
+        }
+    }
+}
+
+// 横向指令：航段线跟踪（偏差大或没进入该段时直接对着航路点飞）
+function ap_route_lateral(cmd) {
+    const R = AP_ROUTE;
+    const w = R.wp[R.idx];
+    if (!w) {
+        cmd.roll = ap_roll_cmd(0.0);
+        return;
+    }
+    let hdg = 0.0;
+    let onLine = false;
+    if (R.legPt && R.legLen > 4000.0) {
+        const u = ap_dir(R.legHdg);
+        const vx = flight.x - R.legPt[0], vz = flight.z - R.legPt[1];
+        const along = vx * u[0] + vz * u[1];
+        const xtk = Math.abs(vx * u[1] - vz * u[0]);
+        if (along > -500.0 && xtk < 25000.0) {
+            hdg = ap_line_heading(R.legPt, R.legHdg, Math.max(900.0, flight.V * 9.0));
+            onLine = true;
+        }
+    }
+    if (!onLine) hdg = (Math.atan2(w.x - flight.x, w.z - flight.z) * FLIGHT.RAD + 360.0) % 360.0;
+    cmd.roll = ap_heading_roll(hdg);
+}
+
+// 纵向剖面 + 消息
+function ap_route_vertical(cmd, dt) {
+    const R = AP_ROUTE;
+    const alt = flight.alt;
+    const w = R.wp[R.idx];
+    const lastLeg = (R.idx === R.wp.length - 1);
+    const distW = w ? Math.hypot(w.x - flight.x, w.z - flight.z) : 0.0;
+    const need = Math.max(0.0, alt - R.floorAlt);
+
+    if (!R.descent && lastLeg && distW < need * R.desSlope) R.descent = true;
+
+    if (R.descent) {
+        if (alt > R.floorAlt + 25.0) {
+            // 3° 剖面：下降率 = 剩余高度 / 剩余时间（按当前地速），限幅 2–12 m/s
+            const t = Math.max(distW / Math.max(flight.V, 40.0), 1.0);
+            const vsT = -flight_clamp((alt - R.floorAlt) / t, 2.0, 12.0);
+            cmd.throttle = ap_throttle_for_speed(R.cruiseV);
+            cmd.pitch = ap_vs_pitch(vsT, dt);
+            AUTOPILOT.msg = '航路下降 · ' + (Math.round(distW / 1000.0)) + ' km';
+            if (AUTOPILOT.phase !== 'rdes') ap_goto('rdes');
+        } else {
+            cmd.throttle = ap_throttle_for_speed(R.cruiseV);
+            cmd.pitch = ap_vs_pitch(0.0, dt);
+            AUTOPILOT.msg = '航路终点 · 保持高度';
+            if (AUTOPILOT.phase !== 'rcruise') ap_goto('rcruise');
+        }
+        return;
+    }
+    if (alt < R.crzAlt - 60.0) {
+        cmd.throttle = 1.0;
+        const vsT = Math.min(R.climbVs, Math.max(2.0, (R.crzAlt - alt) * 0.09));
+        cmd.pitch = ap_vs_pitch(vsT, dt);
+        AUTOPILOT.msg = '航路爬升 → FL' + String(MCDU.init.crzFl).padStart(3, '0');
+        if (AUTOPILOT.phase !== 'rclimb') ap_goto('rclimb');
+        return;
+    }
+    cmd.throttle = ap_throttle_for_speed(R.cruiseV);
+    cmd.pitch = ap_vs_pitch(0.0, dt);
+    AUTOPILOT.msg = '航路巡航 · ' + (R.wp[R.idx] ? ('TO ' + R.wp[R.idx].ident) : '');
+    if (AUTOPILOT.phase !== 'rcruise') ap_goto('rcruise');
+}
+
+// 每个积分子步跑一次（4 ms 一次，与帧率无关）
+function ap_route_step(dt) {
+    const cmd = { throttle: 0.0, pitch: 0.0, roll: 0.0, yaw: 0.0 };
+    ap_route_sequence();
+    if (AP_ROUTE.idx >= AP_ROUTE.wp.length) {
+        cmd.roll = ap_roll_cmd(0.0);
+        cmd.pitch = ap_vs_pitch(0.0, dt);       // 终点保持：改平后守住高度
+        cmd.throttle = ap_throttle_for_speed(AP_ROUTE.cruiseV);
+        AUTOPILOT.msg = '航路终点 · END OF ROUTE';
+        if (AUTOPILOT.phase !== 'rend') ap_goto('rend');
+        return cmd;
+    }
+    ap_route_lateral(cmd);
+    ap_route_vertical(cmd, dt);
+    return cmd;
+}
+
+// 航路在飞行中被改过（插入/删除航路点）：按新的航路重新排一次点
+function ap_route_replan() {
+    if (!AUTOPILOT.active || AUTOPILOT.mode !== 'route') return;
+    const act = AP_ROUTE.wp[AP_ROUTE.idx] || null;
+    ap_route_load();
+    if (act) {
+        // 尽量停在原来那个目标点上（按 ident 找）
+        for (let i = 0; i < AP_ROUTE.wp.length; i++) {
+            if (AP_ROUTE.wp[i].ident === act.ident) {
+                AP_ROUTE.idx = i;
+                ap_route_leg_begin();
+                break;
+            }
+        }
+    }
+}
+
+// F-PLN 页 6R：激活 / 断开
+function mcdu_toggle_route_ap() {
+    if (AUTOPILOT.active && AUTOPILOT.mode === 'route') {
+        AUTOPILOT.active = false;
+        AUTOPILOT.phase = 'idle';
+        AUTOPILOT.msg = '已断开';
+        ap_refresh_ui();
+        mcdu_render();
+        return false;
+    }
+    if (!MCDU.route.length) { mcdu_flash('NO ROUTE'); return false; }
+    ap_route_engage();
+    return true;
+}
+
+// 接管：地面就滑跑起飞，空中直接爬升
+function ap_route_engage() {
+    if (!flight.active) flight_select_tab('flight');
+    if (!flight.ready) flight_reset();
+    ap_route_load();
+    if (!AP_ROUTE.wp.length) { mcdu_flash('NO ROUTE'); return; }
+
+    AUTOPILOT.mode = 'route';
+    AUTOPILOT.active = true;
+    AUTOPILOT.vsInt = 0.0;
+    AUTOPILOT.phaseT = 0.0;
+    if (flight.wow) {
+        AUTOPILOT.phase = 'roll';
+        AUTOPILOT.msg = '航路起飞 · 滑跑';
+    } else {
+        AUTOPILOT.phase = 'rclimb';
+        AUTOPILOT.msg = '航路爬升 → FL' + String(MCDU.init.crzFl).padStart(3, '0');
+    }
+    ap_refresh_ui();
+    mcdu_render();
+    nd_draw();
 }
 
 
@@ -20072,6 +21072,8 @@ instrument_init();
 pfd_draw();
 nd_init_range_buttons();
 nd_draw();
+mcdu_init_dom();     // MCDU 的键帽（行选键 / 功能键 / 字母数字键盘）建一次
+mcdu_render();
 
 
 function clamp_view_angle() {
@@ -21152,6 +22154,9 @@ function init() {
             nd_draw();
             pfd_draw();
         }
+
+        // MCDU 显示屏：0.5 s 一次（草稿栏光标闪烁、PROG 页读数跟着飞）
+        mcdu_tick(performance.now());
 
         // 每帧重绘
         frame_buffer32.fill(FRAME_CLEAR32);
