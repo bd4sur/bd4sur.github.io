@@ -1935,7 +1935,8 @@ body.is-day .ak_socket {
                     <li>「飞行控制」选项卡模拟一架小型固定翼飞机（初教五、动力三角翼一类）的第一人称座舱视角：左侧竖向滑轨是油门（向上加大推力），右侧圆形摇杆的横向控制滚转、纵向控制俯仰（向下拉杆抬头、向上推杆低头），下方两个按钮控制左右方向舵。滚转产生坡度后会进入协调转弯（水平向心运动），方向舵会造成侧滑。PC 上也可用键盘：W/S 推拉杆、A/D 左右坡度、Q/E 左右偏航、R/F 增减油门；点「复位」以当前位置和航向重新开始一次飞行。飞行只在「飞行控制」页生效，切回「视角控制」即暂停模拟并保留飞机状态。速度不设上限：全油门平飞极速约 131 m/s（471 km/h，海平面；越高空气稀薄越低），俯冲时重力参与，垂直俯冲可达约 176 m/s（635 km/h），完全由寄生阻力与推力衰减决定。</li>
                     <li>主画布上方是经纬度/时间/农历/帧率那排参数框，下方是飞行参数数字框，再往下是四只指针式飞行仪表：空速表（内圈 m/s / 外圈 kt，0–200 m/s 即 0–389 kt）、高度表（内圈 m / 外圈 ft；短粗针读 0–12000 m 全量程、对应当前刻度数字，细长针每转一圈 1000 m 用于读出低空的精确高度）、转弯协调表（°/s，绿色刻度为标准转弯率 3°/s）、垂直速率表（内圈 m/s / 外圈 ft/min）。数字沿表盘切向排布，两种单位用颜色区分。指针随飞行状态实时转动；尚未开始飞行时指针归零，切回「视角控制」后停在最后一次读数。</li>
                     <li>经纬度/时间那一排参数框的下面另有一排同样的四个数字框，对应上面四只仪表：空速（m/s / kt）、高度（m / ft）、转弯速率（°/s / rad/s）、垂直速率（m/s / ft/min），公制单位在上、另一种单位在下，配色与表盘内圈(青)/外圈(琥珀)一致。数字取的是原始值，不受指针量程限制——比如空速超过 200 m/s 或转弯率超过 30°/s 时指针顶在刻度尽头，数字照报真值；未开始飞行时与指针一样归零。</li>
-                    <li>飞行页的主画面上，中央的黄色短线是机头基准（航迹指示），绿色圆圈带左右短翼的符号是飞行航迹矢量（FPV）：它指向飞机速度的实际方向——平飞时压在机头基准上，拉杆爬升时落在基准下方（两者的夹角就是迎角），侧滑时左右偏开（偏角即侧滑角）。速度低于 2 m/s 停住时或该方向转出画面时不显示；切回「视角控制」后消失。</li>
+                    <li>飞行页的主画面上叠了一整套平视显示器（HUD），总开关是「姿态指示」按钮——关掉整套符号一起消失，打开则一起出现。中央的黄色短线是机头基准；绿色圆圈带左右短翼的符号是飞行航迹矢量（FPV）：它指向飞机速度的实际方向——平飞时压在机头基准上，拉杆爬升时落在基准下方（两者的夹角就是迎角），侧滑时左右偏开（偏角即侧滑角）。速度低于 2 m/s 停住时或该方向转出画面时不显示。</li>
+                    <li>HUD 的其余符号：机头基准上方那一圈弧是坡度刻度，三角指针随坡度左右摆动（±60° 到顶），摆向与地平线的倾斜方向一致；俯仰梯度线每 5° 一条（±30° 以外每 10°），地平线更粗更长、正中间给机头基准让开一段，地平线以下用虚线，整 10° 的线两端标着度数（标到 60°，负仰角带负号）；左侧竖带是空速（m/s，上下各看 32 m/s，每 5 m/s 一格、每 20 m/s 一个数字，失速速度以下与 Vmo 以上各有一段红色），右侧竖带是气压高度（m，上下各看 320 m，每 50 m 一格、每 100 m 一个数字），两条带中间各有一个黑底读数框；速度带内侧那道竖尺是迎角括尺（0°–30°，红线为失速迎角 14.9°，红线以上标红，三角指针指当前迎角，上方标 AOA、下方是数值）；顶部横带是航向带（0=北，N/E/S/W 与十位数字交替标注，每 5° 一格、每 30° 一个数字，中央三角即机头航向）。迎角超过失速边界的 88% 时画面中下方开始闪 STALL（琥珀色；真失速后变红、闪得更快）。俯仰梯度线不是屏幕空间里的一条直线，而是"某一仰角上那圈方位弧"逐点投影出来的折线，所以一压坡度它跟地平线一起转，切到鱼眼投影还会跟地平线一起弯，始终和画面里那根真实地平线对齐。切回「视角控制」页后 HUD 整体消失，只剩机头基准与底部读数。</li>
                     <li>导航显示器（ND）在主画布旁：PC 上位于画布左侧、与画布等高，手机/窄屏上位于飞行参数框下方左侧（右半边是主飞行显示 PFD），两者一边宽、都是正方形，各占一半屏宽。黑底方形屏，飞机符号固定在水平中央、竖直 3/4 处，地图随飞机对地移动而平移并旋转，始终保持「航迹朝上」。显示范围可由显示屏底边的按钮在 10 / 50 / 100 / 200 / 500 / 1000 km 之间切换（指机位到上边缘的距离，默认 200 km），底图是全国主要民用机场（大型机场，标 IATA 三字码，取自 OurAirports 开放数据集）；距离环按量程四等分自动缩放，内侧两环在左侧水平辐射线的交点上用青色标出该环对应的距离（km），另有每 30° 一条方位辐射线。飞过的航迹用品红折线记录，每移动 0.35 km 采一点；复位时清空。顶部弧形罗盘刻度随航迹滚动，正上方恒为当前航迹方位（品红三角所指），刻度数字即罗盘方位角；左上角小罗盘指示北向。左下角为显示范围，右下角为航迹与地速。</li>
                     <li>ND 上叠了一层天气雷达回波（面板「天气雷达」，默认开）：回波不是另找一份雷达数据画的图，而是把体积云渲染器**正在用的那份密度场**在同一世界坐标（东/北，km）、同一风场时刻上按列竖直扫一遍——每列只在当前启用的层带里取高度样本（浓积云 5 个、高积云 3 个、层积云 3 个、卷层云 2 个，停用的层带一个样本都不取），每个样本走与光线步进相同的入口 cloud_sky_cloudMap()，柱含水量 Σ密度·dz 按层加权（对流层 1.0 / 高积云 0.55 / 层积云 0.45 / 卷层云 0.35）后取对数折算等效反射率 dBZ，浓积云塔顶越高再加分。于是"平铺的层积云"是一片绿、"发展旺盛的积云"才有黄橙核，云在哪儿回波就在哪儿——风把云吹走，回波跟着走（栅格锚定在世界坐标上，默认风 50 m/s）。色标是气象雷达那套：青蓝→绿→黄→橙→红→品红→白核；显示门槛取 15 dBZ（机载雷达「最小可测回波」的量级），弱于它的按无明显回波处理、靠近门槛的一圈渐隐到底图，所以有云的间隙是真的黑的。纹素比云胞粗时（远量程）先按纹素足迹做一次面积平均再折算 dBZ，等效雷达波束宽度平均，免得 3 km 的云胞被点采样成一地散点。128×128 栅格分帧扫（每帧有 3.5 ms 预算），扫完才整块换图，所以不掉帧也不会看到半张；量程、云参数、层类、云量、雷达云图开关、机位移动超过 1/4 窗口都会触发重扫，平时只在云被风平流走一个纹素（约 5 px）之后重扫，最久 30 s 也扫一次。小罗盘下方一行小字是雷达读数，显示当前画面里的最强回波（dBZ）。关掉「体积云」天上的云就没了，回波同时消失（显示 WXR NO CLD）。</li>
                     <li>「天气雷达」与「雷达云图」是两件事：前者是 ND 上的回波显示，由体积云密度场反算；后者决定体积云自身长什么样——把中央气象台组合反射率图反演成 dBZ 网格，用回波强弱控制云量的有无疏密、云顶高度与厚薄。关掉「雷达云图」，体积云退回程序化天气图，ND 上的回波也跟着换成那份云场（因为它读的永远是当前真实的密度场）。</li>
@@ -15455,7 +15456,18 @@ function render_all(
 
 
     // 绘制姿态仪相关符号
+    //   「姿态指示」是这一整套符号的总开关：飞行页给完整的 HUD（俯仰梯/坡度/
+    //   速度高度带/航向带/迎角括尺/失速警告）加飞行航迹矢量，视角页只留机头基准
+    //   与底部读数——那些读数都来自飞机状态，切回视角页再画就是假数据。
     if (enable_att_indicator === true) {
+        if (flight.active) {
+            draw_hud(frame_buffer, fb_width, fb_height,
+                sky_radius, center_x, center_y, view_alt, view_azi, view_roll, f);
+            draw_flight_path_vector(frame_buffer, fb_width, fb_height,
+                sky_radius, center_x, center_y, view_alt, view_azi, view_roll, f);
+        }
+
+        // 机头基准（黄）：HUD 与视角页共用
         draw_rectangle(frame_buffer, fb_width, fb_height, (center_x - 60), center_y - 2, 50, 4, 255, 255, 0, 1);
         draw_rectangle(frame_buffer, fb_width, fb_height, (center_x - 14), center_y - 2, 4, 10, 255, 255, 0, 1);
         draw_rectangle(frame_buffer, fb_width, fb_height, (center_x + 10), center_y - 2, 50, 4, 255, 255, 0, 1);
@@ -15465,13 +15477,6 @@ function render_all(
         fb_draw_textline_centered(frame_buffer, fb_width, fb_height,
             `Pitch:${String(Math.round((view_alt <= 90 && view_alt >= -90) ? view_alt : (180-view_alt)))}   Yaw:${String(Math.round(view_azi))}   Roll:${String(Math.round(view_roll))}   Range:${String(view_range.toFixed(1))}`,
             fb_width/2, fb_height-8, 255, 255, 255, 1);
-    }
-
-
-    // 飞行航迹矢量（FPV）：只在飞行控制页画（此时相机由飞机姿态接管）
-    if (flight.active) {
-        draw_flight_path_vector(frame_buffer, fb_width, fb_height,
-            sky_radius, center_x, center_y, view_alt, view_azi, view_roll, f);
     }
 
 
@@ -15772,6 +15777,463 @@ function draw_flight_path_vector(frame_buffer, fb_width, fb_height, R, center_x,
     draw_line(frame_buffer, fb_width, fb_height, x - 13, y, x - 13, y - 4, 1.4, cr, cg, cb);
     draw_line(frame_buffer, fb_width, fb_height, x + 13, y, x + 13, y - 4, 1.4, cr, cg, cb);
     draw_line(frame_buffer, fb_width, fb_height, x, y - 4, x, y - 8, 1.4, cr, cg, cb);
+}
+
+
+// ============================================================
+// 平视显示器（HUD）
+//
+// 除机头基准与飞行航迹矢量（FPV）之外的一整套符：俯仰梯度线、坡度刻度、
+// 速度带、高度带、航向带、迎角括尺、失速警告闪字。全部由「姿态指示」按钮统管，
+// 要么全开要么全关；并且只在「飞行控制」页显示——读数全来自飞机状态，切回
+// 「视角控制」页后相机交还给观察滑块，照原样画出来就是假数据。
+//
+// 俯仰梯度线走 fisheye_project：每一条都是"某一仰角上那圈方位弧"逐点投影出来的
+// 折线，不是屏幕空间里的一条直线。坡度一来它会跟着地平线一起转，鱼眼投影下也会
+// 跟着地平线一起弯，所以总能和画面里那根真实地平线对齐。
+//
+// 像素尺寸以 400×300 基准画布为准（s = 1）。全屏时画布按设备像素比放大，s 跟着
+// 放大，符号在屏幕上看起来一样大；像素字由 hud_text_run 按整数倍重采样。
+// ============================================================
+
+const HUD_C_MAIN  = [110, 255, 170];   // 主符号：俯仰梯、坡度、带、刻度
+const HUD_C_DIM   = [70, 205, 130];    // 次要刻度
+const HUD_C_TEXT  = [225, 245, 255];   // 读数
+const HUD_C_WARN  = [255, 80, 60];     // 失速、超速
+const HUD_C_AMBER = [255, 190, 70];    // 接近失速
+const HUD_C_BLACK = [0, 0, 0];         // 文字投影阴影
+
+function hud_line(frame_buffer, fb_width, fb_height, x1, y1, x2, y2, lw, col) {
+    draw_line(frame_buffer, fb_width, fb_height, x1, y1, x2, y2, lw, col[0], col[1], col[2]);
+}
+
+// 实心矩形：告警色必须"盖"上去而不是"加"上去——红加到蓝天上会变成粉白，
+// 失速带就看不出是红的了。坐标取整后交给 draw_rectangle（mode 1 = set_pixel）。
+function hud_solid_rect(frame_buffer, fb_width, fb_height, x, y, w, h, col) {
+    const x0 = Math.round(x), y0 = Math.round(y);
+    const ww = Math.max(1, Math.round(w)), hh = Math.max(1, Math.round(h));
+    draw_rectangle(frame_buffer, fb_width, fb_height, x0, y0, ww, hh, col[0], col[1], col[2], 1);
+}
+
+// 字模查表缓存：get_glyph 内部要做二分查找，每帧上百次调用值得缓存
+const HUD_GLYPH_CACHE = Object.create(null);
+function hud_glyph(ch) {
+    let g = HUD_GLYPH_CACHE[ch];
+    if (g === undefined) {
+        g = get_glyph(ch.codePointAt(0));
+        HUD_GLYPH_CACHE[ch] = g;          // 查不到也存 null，免得每帧重查
+    }
+    return g;
+}
+
+// 一行像素字的宽度（k 为放大倍数）
+function hud_text_w(text, k) {
+    let sum = 0;
+    for (let i = 0; i < text.length; i++) {
+        const g = hud_glyph(text[i]);
+        sum += (g ? g[1] : 6);
+    }
+    return sum * k;
+}
+
+// 像素字模直写：每个点填成 k×k 的方块，k > 1 就是粗体放大字
+function hud_text_run(frame_buffer, fb_width, fb_height, text, x, y, k, col) {
+    let px = Math.round(x);
+    const py = Math.round(y);
+    for (let i = 0; i < text.length; i++) {
+        const info = hud_glyph(text[i]);
+        if (!info) { px += 6 * k; continue; }
+        const glyph = info[0], fw = info[1], fh = info[2];
+        const row_bytes = Math.ceil(fh / 8);
+        for (let j = 0; j < row_bytes; j++) {
+            const bits = (j === row_bytes - 1) ? (8 - ((8 * row_bytes) % fh)) : 8;
+            for (let c = 0; c < fw; c++) {
+                const byte = glyph[j * fw + c];
+                if (!byte) continue;
+                for (let bit = 0; bit < bits; bit++) {
+                    if (((byte >> bit) & 1) === 0) continue;
+                    const yy0 = py + (j * 8 + bit) * k;
+                    const xx0 = px + c * k;
+                    for (let dy = 0; dy < k; dy++) {
+                        const yy = yy0 + dy;
+                        if (yy < 0 || yy >= fb_height) continue;
+                        for (let dx = 0; dx < k; dx++) {
+                            const xx = xx0 + dx;
+                            if (xx < 0 || xx >= fb_width) continue;
+                            const idx = (yy * fb_width + xx) * 4;
+                            frame_buffer[idx] = col[0];
+                            frame_buffer[idx + 1] = col[1];
+                            frame_buffer[idx + 2] = col[2];
+                            frame_buffer[idx + 3] = 255;
+                        }
+                    }
+                }
+            }
+        }
+        px += fw * k;
+    }
+}
+
+// 带右下投影阴影的文字：云是白的、太阳也是白的，没有这层黑边读数就看不见。
+// align：0 左对齐（x 为左缘）、1 居中、2 右对齐（x 为右缘）；y 一律是文字竖直中心。
+function hud_text(frame_buffer, fb_width, fb_height, text, x, y, k, col, align) {
+    const kk = Math.max(1, Math.round(k));
+    const tw = hud_text_w(text, kk);
+    let x0 = x;
+    if (align === 1) x0 = x - tw / 2;
+    else if (align === 2) x0 = x - tw;
+    x0 = Math.round(x0);
+    const y0 = Math.round(y - 6 * kk);
+    hud_text_run(frame_buffer, fb_width, fb_height, text, x0 + kk, y0 + kk, kk, HUD_C_BLACK);
+    hud_text_run(frame_buffer, fb_width, fb_height, text, x0, y0, kk, col);
+}
+
+// 黑底细边框的读数框（不透光：飞行中风挡外面可能是白云，半透明的框压不住）
+function hud_readout_box(frame_buffer, fb_width, fb_height, x, y, w, h, s, col) {
+    const x0 = Math.max(0, Math.round(x));
+    const y0 = Math.max(0, Math.round(y));
+    const x1 = Math.max(x0, Math.min(fb_width - 1, Math.round(x + w)));
+    const y1 = Math.max(y0, Math.min(fb_height - 1, Math.round(y + h)));
+    for (let yy = y0; yy <= y1; yy++) {
+        const row = yy * fb_width;
+        for (let xx = x0; xx <= x1; xx++) {
+            const idx = (row + xx) * 4;
+            frame_buffer[idx] = 0;
+            frame_buffer[idx + 1] = 0;
+            frame_buffer[idx + 2] = 0;
+            frame_buffer[idx + 3] = 255;
+        }
+    }
+    const lw = 1.0 * s;
+    hud_line(frame_buffer, fb_width, fb_height, x0, y0, x1, y0, lw, col);
+    hud_line(frame_buffer, fb_width, fb_height, x1, y0, x1, y1, lw, col);
+    hud_line(frame_buffer, fb_width, fb_height, x1, y1, x0, y1, lw, col);
+    hud_line(frame_buffer, fb_width, fb_height, x0, y1, x0, y0, lw, col);
+}
+
+// 实心三角形（坡度指针、迎角指针、航向带机头三角都用它）
+function hud_fill_tri(frame_buffer, fb_width, fb_height, ax, ay, bx, by, cx, cy, col) {
+    const minx = Math.max(0, Math.floor(Math.min(ax, bx, cx)));
+    const maxx = Math.min(fb_width - 1, Math.ceil(Math.max(ax, bx, cx)));
+    const miny = Math.max(0, Math.floor(Math.min(ay, by, cy)));
+    const maxy = Math.min(fb_height - 1, Math.ceil(Math.max(ay, by, cy)));
+    const d = (by - cy) * (ax - cx) + (cx - bx) * (ay - cy);
+    if (Math.abs(d) < 1e-6) return;
+    for (let y = miny; y <= maxy; y++) {
+        for (let x = minx; x <= maxx; x++) {
+            const u = ((by - cy) * (x - cx) + (cx - bx) * (y - cy)) / d;
+            const v = ((cy - ay) * (x - cx) + (ax - cx) * (y - cy)) / d;
+            if (u < 0 || v < 0 || u + v > 1) continue;
+            const idx = (y * fb_width + x) * 4;
+            frame_buffer[idx] = col[0];
+            frame_buffer[idx + 1] = col[1];
+            frame_buffer[idx + 2] = col[2];
+            frame_buffer[idx + 3] = 255;
+        }
+    }
+}
+
+// 俯仰梯度线：每 5° 一条（±30° 以外每 10°），地平线以下用虚线，天地一眼分得开。
+// 每条线的方位半跨度按当前投影的像素尺度反算，两种投影下宽度接近，读数不挤。
+function hud_pitch_ladder(frame_buffer, fb_width, fb_height, R, center_x, center_y, s,
+                          view_alt, view_azi, view_roll, f) {
+    const half_px = 56.0 * s;      // 每条刻度线期望的半宽
+    const N = 12;                  // 每条线切 12 段（负仰角正好隔段画成虚线）
+
+    for (let p = -90; p <= 90; p += 5) {
+        const ap = Math.abs(p);
+        if (ap > 30 && (ap % 10) !== 0) continue;
+        if (Math.abs(p - view_alt) > 66.0) continue;
+
+        // 该仰角处"一个方位角弧度 → 多少屏幕像素"：透视投影随视场角放大，
+        // 鱼眼是等角度的；高仰角时方位变化走在半径 cos(p) 的小圆上，还要再除以它。
+        let dr_dtheta;
+        if (enable_fisheye_projection) {
+            dr_dtheta = f * 2.0 * R / Math.PI;
+        } else {
+            const th = Math.min(Math.abs(p - view_alt) * FLIGHT.DEG, 1.25);
+            const sec = 1.0 / Math.cos(th);
+            dr_dtheta = f * R * sec * sec;
+        }
+        let d_az = half_px / Math.max(dr_dtheta, 1e-3) / Math.max(Math.cos(p * FLIGHT.DEG), 0.30);
+        d_az = flight_clamp(d_az, 4.0 * FLIGHT.DEG, 42.0 * FLIGHT.DEG);
+        // 地平线画得比别的刻度长：它得从机头基准那两条黄杠后面露出来
+        if (p === 0) d_az *= 1.85;
+
+        const pts = [];
+        for (let i = 0; i <= N; i++) {
+            const az_deg = view_azi + (-d_az + 2.0 * d_az * i / N) * FLIGHT.RAD;
+            const xy = fisheye_project(az_deg, p, R, center_x, center_y, view_alt, view_azi, view_roll, f);
+            // 透视投影下相机后方的点会返回 center+1e6，这里一并按"出画面"处理
+            const ok = Number.isFinite(xy[0]) && Number.isFinite(xy[1]) &&
+                       xy[0] > -40.0 * s && xy[0] < fb_width + 40.0 * s &&
+                       xy[1] > -40.0 * s && xy[1] < fb_height + 40.0 * s;
+            pts.push(ok ? [xy[0], xy[1]] : null);
+        }
+
+        const major = (ap % 10) === 0;
+        const lw = (p === 0 ? 2.0 : (major ? 1.5 : 1.1)) * s;
+        const col = major ? HUD_C_MAIN : HUD_C_DIM;
+
+        for (let i = 0; i < N; i++) {
+            const a = pts[i], b = pts[i + 1];
+            if (!a || !b) continue;
+            if (p < 0 && (i & 1)) continue;          // 地平线以下：虚线
+            if (p === 0) {
+                // 地平线在机头基准处断开一段，别把十字压在线上
+                const mx = (a[0] + b[0]) * 0.5 - center_x;
+                const my = (a[1] + b[1]) * 0.5 - center_y;
+                if (mx * mx + my * my < (17.0 * s) * (17.0 * s)) continue;
+            }
+            hud_line(frame_buffer, fb_width, fb_height, a[0], a[1], b[0], b[1], lw, col);
+        }
+
+        // 整 10° 的线：两端加小竖线，并在端头标数字。
+        // 顶点/天底附近的仰角圈会缩成一个小圈，这时候端头和数字只会挤成一团，跳过。
+        if (!major || ap === 0) continue;
+        if (!pts[0] || !pts[N]) continue;
+        if (Math.hypot(pts[0][0] - pts[N][0], pts[0][1] - pts[N][1]) < 26.0 * s) continue;
+        for (let e = 0; e <= 1; e++) {
+            const pt = pts[e === 0 ? 0 : N];
+            const nb = pts[e === 0 ? 1 : N - 1];
+            if (!pt || !nb) continue;
+            let vx = pt[0] - nb[0], vy = pt[1] - nb[1];
+            const vl = Math.hypot(vx, vy);
+            if (vl < 1e-3) continue;
+            vx /= vl; vy /= vl;
+            hud_line(frame_buffer, fb_width, fb_height,
+                pt[0] - vy * 3.5 * s, pt[1] + vx * 3.5 * s,
+                pt[0] + vy * 3.5 * s, pt[1] - vx * 3.5 * s, 1.3 * s, col);
+            if (ap < 10 || ap > 60) continue;
+            const lx = pt[0] + vx * 11.0 * s;
+            const ly = pt[1] + vy * 11.0 * s;
+            // 避开两侧的带与顶上的航向带
+            if (lx < 72.0 * s || lx > fb_width - 72.0 * s) continue;
+            if (ly < 34.0 * s || ly > fb_height - 20.0 * s) continue;
+            hud_text(frame_buffer, fb_width, fb_height,
+                (p < 0 ? "-" : "") + String(ap), lx, ly, s, col, 1);
+        }
+    }
+}
+
+// 坡度刻度：正上方一段 ±60° 的弧 + 每 10° 一格，指针随坡度左右摆动。
+// bank_deg 与 view_roll 反号（右滚为正），指针因此和地平线的倾斜方向一致。
+function hud_bank_scale(frame_buffer, fb_width, fb_height, center_x, center_y, s, bank_deg) {
+    const r_in = 44.0 * s;
+    const r_out = 53.0 * s;
+
+    let prev = null;
+    for (let a = -60; a <= 60; a += 6) {
+        const t = (a - 90.0) * FLIGHT.DEG;
+        const pt = [center_x + Math.cos(t) * r_out, center_y + Math.sin(t) * r_out];
+        if (prev) hud_line(frame_buffer, fb_width, fb_height, prev[0], prev[1], pt[0], pt[1], 1.0 * s, HUD_C_DIM);
+        prev = pt;
+    }
+    for (let a = -60; a <= 60; a += 10) {
+        const t = (a - 90.0) * FLIGHT.DEG;
+        const ct = Math.cos(t), st = Math.sin(t);
+        const big = (a === 0 || Math.abs(a) === 30 || Math.abs(a) === 60);
+        const len = (big ? 9.0 : 5.0) * s;
+        hud_line(frame_buffer, fb_width, fb_height,
+            center_x + ct * r_in, center_y + st * r_in,
+            center_x + ct * (r_in + len), center_y + st * (r_in + len),
+            (big ? 1.5 : 1.1) * s, big ? HUD_C_MAIN : HUD_C_DIM);
+    }
+
+    // 指针：尖端指向屏幕中心。超过 ±60° 时压在刻度端头（与真实 HUD 一致）
+    const t = (flight_clamp(bank_deg, -60.0, 60.0) - 90.0) * FLIGHT.DEG;
+    const ct = Math.cos(t), st = Math.sin(t);
+    hud_fill_tri(frame_buffer, fb_width, fb_height,
+        center_x + ct * (r_in - 2.0 * s), center_y + st * (r_in - 2.0 * s),
+        center_x + ct * r_out - st * 4.5 * s, center_y + st * r_out + ct * 4.5 * s,
+        center_x + ct * r_out + st * 4.5 * s, center_y + st * r_out - ct * 4.5 * s,
+        HUD_C_MAIN);
+}
+
+// 迎角括尺：0°（下）到 30°（上），红色横线是失速迎角，红线以上整段标红。
+function hud_aoa_bracket(frame_buffer, fb_width, fb_height, center_x, center_y, s, aoa_deg, stall_deg) {
+    const x = center_x - 108.0 * s;
+    const y_top = center_y - 46.0 * s;
+    const y_bot = center_y + 46.0 * s;
+    const a_max = 30.0;
+    const yOf = (a) => y_bot - flight_clamp(a, 0.0, a_max) / a_max * (y_bot - y_top);
+
+    hud_line(frame_buffer, fb_width, fb_height, x, y_top, x, y_bot, 1.3 * s, HUD_C_MAIN);
+    for (let a = 0; a <= 30; a += 5) {
+        const y = yOf(a);
+        const big = (a % 10) === 0;
+        hud_line(frame_buffer, fb_width, fb_height, x, y, x - (big ? 5.0 : 3.0) * s, y,
+                1.0 * s, big ? HUD_C_MAIN : HUD_C_DIM);
+    }
+
+    const y_stall = yOf(stall_deg);
+    hud_solid_rect(frame_buffer, fb_width, fb_height, x - 6.0 * s, y_stall - 1.0 * s, 9.0 * s, 2.0 * s, HUD_C_WARN);
+    hud_solid_rect(frame_buffer, fb_width, fb_height, x + 1.0 * s, y_top, 2.2 * s, y_stall - y_top, HUD_C_WARN);
+
+    const y = yOf(aoa_deg);
+    hud_fill_tri(frame_buffer, fb_width, fb_height,
+        x - 0.5 * s, y, x - 7.5 * s, y - 4.0 * s, x - 7.5 * s, y + 4.0 * s,
+        aoa_deg > stall_deg ? HUD_C_WARN : HUD_C_MAIN);
+
+    hud_text(frame_buffer, fb_width, fb_height, "AOA", x, y_top - 10.0 * s, s, HUD_C_MAIN, 1);
+    hud_text(frame_buffer, fb_width, fb_height, aoa_deg.toFixed(1), x, y_bot + 10.0 * s, s,
+             aoa_deg > stall_deg ? HUD_C_WARN : HUD_C_TEXT, 1);
+}
+
+// 速度带（左侧，m/s）：带下沿红段是失速速度以下，带上沿红段是 Vmo 以上。
+function hud_speed_tape(frame_buffer, fb_width, fb_height, center_x, center_y, s, v, v_stall, v_max) {
+    const spine = center_x - 140.0 * s;
+    const y0 = center_y - 96.0 * s;
+    const y1 = center_y + 96.0 * s;
+    const pp = 3.0 * s;                     // 每 m/s 多少像素
+    const win = 32.0;                       // 上下各看多少 m/s
+    const yOf = (val) => center_y - (val - v) * pp;
+
+    // 失速带 / 超速带（画在竖脊内侧）
+    const y_stall = flight_clamp(yOf(v_stall), y0, y1);
+    const y_zero = flight_clamp(yOf(0.0), y0, y1);
+    if (y_zero - y_stall > 0.5) {
+        hud_solid_rect(frame_buffer, fb_width, fb_height,
+                       spine + 0.5 * s, y_stall, 2.6 * s, y_zero - y_stall, HUD_C_WARN);
+    }
+    if (v + win > v_max) {
+        const y_vmo = flight_clamp(yOf(v_max), y0, y1);
+        if (y_vmo > y0 + 0.5) {
+            hud_solid_rect(frame_buffer, fb_width, fb_height,
+                           spine + 0.5 * s, y0, 2.6 * s, y_vmo - y0, HUD_C_WARN);
+        }
+    }
+
+    hud_line(frame_buffer, fb_width, fb_height, spine, y0, spine, y1, 1.3 * s, HUD_C_DIM);
+    for (let val = Math.max(0.0, Math.ceil((v - win) / 5.0) * 5.0); val <= v + win; val += 5.0) {
+        const y = yOf(val);
+        if (y < y0 - 1.5 * s || y > y1 + 1.5 * s) continue;
+        const major = (val % 20.0) === 0;
+        const mid = (val % 10.0) === 0;
+        const len = (major ? 8.0 : (mid ? 5.0 : 3.0)) * s;
+        hud_line(frame_buffer, fb_width, fb_height, spine, y, spine - len, y,
+                 (major ? 1.5 : 1.0) * s, major ? HUD_C_MAIN : HUD_C_DIM);
+        if (major && Math.abs(y - center_y) > 11.0 * s) {
+            hud_text(frame_buffer, fb_width, fb_height, String(Math.round(val)),
+                     spine - 10.0 * s, y, s, HUD_C_MAIN, 2);
+        }
+    }
+
+    hud_text(frame_buffer, fb_width, fb_height, "M/S", spine - 2.0 * s, y0 - 10.0 * s, s, HUD_C_DIM, 2);
+    const bw = 40.0 * s, bh = 15.0 * s;
+    const bx = spine - bw + 2.0 * s;
+    hud_readout_box(frame_buffer, fb_width, fb_height, bx, center_y - bh * 0.5, bw, bh, s, HUD_C_MAIN);
+    hud_text(frame_buffer, fb_width, fb_height, String(Math.round(v)),
+             bx + bw - 4.0 * s, center_y, s, HUD_C_TEXT, 2);
+}
+
+// 高度带（右侧，m）：每 50 m 一格、每 100 m 一个数字
+function hud_alt_tape(frame_buffer, fb_width, fb_height, center_x, center_y, s, alt) {
+    const spine = center_x + 140.0 * s;
+    const y0 = center_y - 96.0 * s;
+    const y1 = center_y + 96.0 * s;
+    const pp = 0.30 * s;                    // 每 m 多少像素
+    const win = 320.0;                      // 上下各看多少 m
+    const yOf = (a) => center_y - (a - alt) * pp;
+
+    hud_line(frame_buffer, fb_width, fb_height, spine, y0, spine, y1, 1.3 * s, HUD_C_DIM);
+    for (let val = Math.max(0.0, Math.ceil((alt - win) / 50.0) * 50.0); val <= alt + win; val += 50.0) {
+        const y = yOf(val);
+        if (y < y0 - 1.5 * s || y > y1 + 1.5 * s) continue;
+        const major = (val % 100.0) === 0;
+        const len = (major ? 8.0 : 4.0) * s;
+        hud_line(frame_buffer, fb_width, fb_height, spine, y, spine + len, y,
+                 (major ? 1.5 : 1.0) * s, major ? HUD_C_MAIN : HUD_C_DIM);
+        if (major && Math.abs(y - center_y) > 11.0 * s) {
+            hud_text(frame_buffer, fb_width, fb_height, String(Math.round(val)),
+                     spine + 10.0 * s, y, s, HUD_C_MAIN, 0);
+        }
+    }
+
+    hud_text(frame_buffer, fb_width, fb_height, "M", spine + 2.0 * s, y0 - 10.0 * s, s, HUD_C_DIM, 0);
+    const bw = 40.0 * s, bh = 15.0 * s;
+    const bx = spine - 2.0 * s;
+    hud_readout_box(frame_buffer, fb_width, fb_height, bx, center_y - bh * 0.5, bw, bh, s, HUD_C_MAIN);
+    hud_text(frame_buffer, fb_width, fb_height, String(Math.round(alt)),
+             bx + bw - 4.0 * s, center_y, s, HUD_C_TEXT, 2);
+}
+
+// 航向带（顶部，罗盘方位 0=北）：数字在刻度上方，中央三角是机头基准
+function hud_heading_label(dd) {
+    const d10 = ((Math.round(dd / 10.0) * 10) % 360 + 360) % 360;
+    if (d10 === 0) return "N";
+    if (d10 === 90) return "E";
+    if (d10 === 180) return "S";
+    if (d10 === 270) return "W";
+    return String(Math.floor(d10 / 10)).padStart(2, "0");
+}
+
+function hud_heading_tape(frame_buffer, fb_width, fb_height, center_x, s, hdg_deg) {
+    const y_lab = 10.0 * s;                 // 数字竖直中心
+    const y_tick = 18.0 * s;                // 刻度起点（向下画）
+    const pp = 2.6 * s;                     // 每度多少像素
+    const half_px = 150.0 * s;
+
+    for (let d = Math.floor((hdg_deg - 58.0) / 5.0) * 5.0; d <= hdg_deg + 58.0; d += 5.0) {
+        const x = center_x + flight_wrap_pi((d - hdg_deg) * FLIGHT.DEG) * FLIGHT.RAD * pp;
+        if (x < center_x - half_px || x > center_x + half_px) continue;
+        const dd = ((d % 360.0) + 360.0) % 360.0;
+        const major = Math.abs(dd % 10.0) < 1e-6;
+        const len = (major ? 6.0 : 3.5) * s;
+        hud_line(frame_buffer, fb_width, fb_height, x, y_tick, x, y_tick + len,
+                 (major ? 1.5 : 1.0) * s, major ? HUD_C_MAIN : HUD_C_DIM);
+        if (Math.abs(dd % 30.0) < 1e-6) {
+            hud_text(frame_buffer, fb_width, fb_height, hud_heading_label(dd),
+                     x, y_lab, s, HUD_C_MAIN, 1);
+        }
+    }
+
+    hud_fill_tri(frame_buffer, fb_width, fb_height,
+        center_x, y_tick - 1.0 * s,
+        center_x - 5.0 * s, y_tick + 8.0 * s,
+        center_x + 5.0 * s, y_tick + 8.0 * s, HUD_C_MAIN);
+}
+
+// 失速警告：迎角过了失速边界的 88% 就开始闪，真失速了闪得更快、颜色更红。
+function hud_stall_warning(frame_buffer, fb_width, fb_height, center_x, center_y, s, aoa_deg, stall_deg) {
+    if (!(aoa_deg > stall_deg * 0.88)) return;
+    const stalled = aoa_deg > stall_deg;
+    const now = (typeof performance !== 'undefined') ? performance.now() : Date.now();
+    if (Math.floor(now / (stalled ? 190 : 300)) % 2) return;
+
+    const k = Math.max(1, Math.round(2.0 * s));
+    const text = "STALL";
+    const tw = hud_text_w(text, k);
+    const x0 = Math.round(center_x - tw * 0.5);
+    const y0 = Math.round(center_y + 56.0 * s - 6.0 * k);
+    // 先描一圈黑边，再压上字，白云前面也咬得住
+    for (const off of [[k, 0], [-k, 0], [0, k], [0, -k], [k, k], [-k, -k], [k, -k], [-k, k]]) {
+        hud_text_run(frame_buffer, fb_width, fb_height, text, x0 + off[0], y0 + off[1], k, HUD_C_BLACK);
+    }
+    hud_text_run(frame_buffer, fb_width, fb_height, text, x0, y0, k, stalled ? HUD_C_WARN : HUD_C_AMBER);
+}
+
+// HUD 总入口：只在飞行控制页、且「姿态指示」打开时由 render_all 调用
+function draw_hud(frame_buffer, fb_width, fb_height, R, center_x, center_y,
+                  view_alt, view_azi, view_roll, f) {
+    if (!flight.active || !flight.ready) return;
+
+    const s = Math.max(1.0, fb_width / 400.0);
+    const hdg_deg = flight_wrap_2pi(flight.psi) * FLIGHT.RAD;
+    const bank_deg = -view_roll;                  // 右滚为正
+    const aoa_deg = flight.alpha * FLIGHT.RAD;
+    const stall_deg = AERO.alphaStall * FLIGHT.RAD;
+    const v_stall = ap_stall_speed();
+    const v_max = 340.0 / KNOT_PER_MS;            // 与 PFD 上的 Vmo 同一口径
+
+    hud_pitch_ladder(frame_buffer, fb_width, fb_height, R, center_x, center_y, s,
+                     view_alt, view_azi, view_roll, f);
+    hud_bank_scale(frame_buffer, fb_width, fb_height, center_x, center_y, s, bank_deg);
+    hud_aoa_bracket(frame_buffer, fb_width, fb_height, center_x, center_y, s, aoa_deg, stall_deg);
+    hud_speed_tape(frame_buffer, fb_width, fb_height, center_x, center_y, s, flight.V, v_stall, v_max);
+    hud_alt_tape(frame_buffer, fb_width, fb_height, center_x, center_y, s, flight.alt);
+    hud_heading_tape(frame_buffer, fb_width, fb_height, center_x, s, hdg_deg);
+    hud_stall_warning(frame_buffer, fb_width, fb_height, center_x, center_y, s, aoa_deg, stall_deg);
 }
 
 
