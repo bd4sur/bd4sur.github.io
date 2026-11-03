@@ -577,22 +577,106 @@ body.is-day .np_plate {
     display: block;
 }
 
-/* ---- 飞行控制：左侧油门、右侧摇杆 ---- */
+/* ---- 飞行控制：左侧油门（含反推/刹车）、中间摇杆、摇杆右侧襟翼杆 ---- */
 .flight_panel {
     display: flex;
     align-items: center;
     justify-content: center;
-    gap: 28px;
+    gap: 18px;
     padding: 8px 0 2px 0;
     user-select: none;
     -webkit-user-select: none;
     -webkit-touch-callout: none;
 }
-.throttle_area, .stick_area {
+.throttle_area, .stick_area, .flap_area {
     display: flex;
     flex-direction: column;
     align-items: center;
     gap: 5px;
+}
+/* 油门杆左侧那两块附加操纵（反推 / 刹车）：竖着摞成一列，与 120 px 高的滑轨等高 */
+.throttle_row {
+    display: flex;
+    align-items: stretch;
+    gap: 6px;
+}
+.throttle_aux {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    width: 40px;
+}
+.aux_btn {
+    box-sizing: border-box;
+    flex: 1 1 0;
+    min-height: 26px;
+    padding: 0;
+    border-radius: 6px;
+    font-size: 10px;
+    line-height: 1;
+    letter-spacing: .5px;
+    color: #a8b0b8;
+    background: linear-gradient(180deg, #303439 0%, #1b1d20 100%);
+    cursor: pointer;
+    touch-action: none;
+    user-select: none;
+    -webkit-user-select: none;
+    /* 与「设置」按钮同一套凸起质感 */
+    box-shadow: inset 1px 1px 1px #515151ba, inset -1px -1px 1px #0000003b,
+                1.33px 1.33px 1.88px -1.5px #00000040, 2.5px 2.5px 3px -2.5px #00000026;
+}
+/* 按下即点亮：反推琥珀、刹车红；背景与内阴影跟着凹下去 */
+.aux_btn.pressed {
+    color: #ffd9a0;
+    background: linear-gradient(180deg, #3a2a17 0%, #221810 100%);
+    box-shadow: inset 1px 1px 3px rgba(0, 0, 0, .6), inset 0 0 7px #ff9d3366;
+    transform: translateY(1px);
+}
+.aux_btn.aux_brake.pressed {
+    color: #ffb0b0;
+    background: linear-gradient(180deg, #3a1a1a 0%, #221010 100%);
+    box-shadow: inset 1px 1px 3px rgba(0, 0, 0, .6), inset 0 0 7px #ff4a4a66;
+}
+/* 襟翼杆：与油门同高的一条窄滑轨，四个卡槽 */
+.flap_track {
+    position: relative;
+    width: 28px;
+    height: 120px;
+    border-radius: 14px;
+    background: #141517;
+    box-shadow: inset 0 0 5px #000, 0 0 0 1px #2e3138;
+    cursor: pointer;
+    touch-action: none;
+}
+.flap_fill {
+    position: absolute;
+    left: 8px;
+    right: 8px;
+    bottom: 5px;
+    height: 0%;
+    border-radius: 6px;
+    background: linear-gradient(to top, #4a3f18, #c8a03a);
+    pointer-events: none;
+}
+.flap_notch {
+    position: absolute;
+    left: 3px;
+    right: 3px;
+    height: 1px;
+    background: #3d434b;
+    pointer-events: none;
+}
+.flap_knob {
+    position: absolute;
+    left: 50%;
+    width: 18px;
+    height: 18px;
+    margin-left: -9px;
+    border-radius: 4px;
+    background: linear-gradient(180deg, #e8ecf1, #a9b1ba 60%, #767e87);
+    box-shadow: 0 1px 3px #000c;
+    pointer-events: none;
+    transition: bottom 80ms ease-out;   /* 换档时手柄卡到位的一下：跟手，但不像瞬移 */
 }
 .throttle_track {
     position: relative;
@@ -625,15 +709,18 @@ body.is-day .np_plate {
     box-shadow: 0 1px 3px #000c;
     pointer-events: none;
 }
-.throttle_label, .stick_label {
+.throttle_label, .stick_label, .flap_label {
     font-size: 10px;
     color: #ffffffaa;
     white-space: nowrap;
 }
-.throttle_label b {
+.throttle_label b, .flap_label b {
     color: #00ffff;
     font-weight: normal;
     font-family: monospace;
+}
+.flap_label b {
+    color: #ffc84a;
 }
 .stick_ring {
     position: relative;
@@ -680,27 +767,49 @@ body.is-day .np_plate {
     max-width: 292px;
     margin: 4px auto 2px auto;
 }
+/* 方向舵踏板：不放文字，做成两块一模一样的橡胶踏板面。
+   表面是三样东西叠出来的：最上一层整体受光（上亮下暗），中间一层横条纹（每条顶面一道
+   高光、侧面转暗、底下落进深槽），最外面一圈用 inset 阴影描出踏板边框——条纹被边框
+   压住不往外跑，看上去就是一块嵌在面板里的防滑踏板；左右两块只靠位置区分。 */
 .rudder_btn {
     flex: 1 1 0;
     min-height: 36px;
-    font-size: 12px;
-    color: #ffffff;
-    background: #252629;
     border-radius: 6px;
     cursor: pointer;
     touch-action: none;
     user-select: none;
     -webkit-user-select: none;
-    /* 与「设置」「视角」按钮同一套凸起质感 */
-    box-shadow: inset 1px 1px 1px #515151ba, inset -1px -1px 1px #0000003b, .222px .222px .314px -.5px #0003, .605px .605px .856px -1px #0000002e, 1.329px 1.329px 1.88px -1.5px #00000040, 2.95px 2.95px 4.172px -2px #0000001a, 2.5px 2.5px 3px -2.5px #00000026, -.5px -.5px #0000001a;
+    padding: 3px;                /* 与全局 button 的 3px 一致：外框尺寸不变 */
+    background-color: #1a1c1f;
+    background-image:
+        linear-gradient(180deg, #ffffff1c 0%, #ffffff08 38%, #0000000f 62%, #0000004d 100%),
+        repeating-linear-gradient(180deg,
+            #5b6069 0px, #4a4f57 0.7px, #33373d 1.4px,        /* 棱顶高光 → 棱面转暗 */
+            #23262b 2.4px, #16181b 3.2px, #101113 4px,         /* 落进棱底 */
+            #1b1e21 4.7px, #2b2e33 5.2px, #3c4046 5.8px);      /* 下一道棱的起坡 */
+    box-shadow:
+        inset 0 0 0 2px #0b0d0f,          /* 踏板外框：把条纹压在里面 */
+        inset 0 0 0 3px #3a3f47,          /* 框内一道受光边 */
+        inset 1px 1px 1px #7c818a26,      /* 上沿高光 */
+        inset -1px -1px 1px #000000a6,    /* 下沿暗边 */
+        0 0 0 1px #00000059,              /* 踏板投影到面板上的暗线 */
+        0 2px 4px -1px #0000008c;
 }
-/* 按住生效：按下去是凹下的样子，与其余按钮一致 */
+/* 按住生效：条纹压暗、整体下沉 1 px，像踩下去 */
 .rudder_btn.pressed,
 .rudder_btn:active {
-    background: #232323;
-    padding: 1px 0 0 1px;
-    color: #ffffffaa;
-    box-shadow: inset 1px 1px 3px 0px rgba(0, 0, 0, 0.5);
+    background-image:
+        linear-gradient(180deg, #ffffff08 0%, #00000012 45%, #00000066 100%),
+        repeating-linear-gradient(180deg,
+            #3a3e45 0px, #31353b 0.7px, #24272b 1.4px,
+            #181a1d 2.4px, #100f12 3.2px, #0b0b0d 4px,
+            #141518 4.7px, #1e2024 5.2px, #282b30 5.8px);
+    box-shadow:
+        inset 0 0 0 2px #08090b,
+        inset 0 0 0 3px #2a2e34,
+        inset 1px 3px 6px 0px rgba(0, 0, 0, 0.8),
+        0 0 0 1px #00000073;
+    transform: translateY(1px);
 }
 .flight_status_row {
     display: flex;
@@ -1876,10 +1985,19 @@ body.is-day .ak_socket {
                             </div>
                             <div class="flight_panel">
                                 <div class="throttle_area">
-                                    <div class="throttle_track" id="flight_throttle_track" role="slider"
-                                         aria-label="油门" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">
-                                        <div class="throttle_fill" id="flight_throttle_fill"></div>
-                                        <div class="throttle_knob" id="flight_throttle_knob"></div>
+                                    <div class="throttle_row">
+                                        <!-- 油门杆左侧：反推与刹车，按住生效、松开回中 -->
+                                        <div class="throttle_aux">
+                                            <button class="aux_btn" id="flight_reverse" aria-label="反推"
+                                                    title="反推：按住产生反向推力，可把飞机倒推出去">反推</button>
+                                            <button class="aux_btn aux_brake" id="flight_brake" aria-label="刹车"
+                                                    title="刹车：按住给轮子加刹，滑跑中减速">刹车</button>
+                                        </div>
+                                        <div class="throttle_track" id="flight_throttle_track" role="slider"
+                                             aria-label="油门" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">
+                                            <div class="throttle_fill" id="flight_throttle_fill"></div>
+                                            <div class="throttle_knob" id="flight_throttle_knob"></div>
+                                        </div>
                                     </div>
                                     <div class="throttle_label">油门 <b id="flight_throttle_val">0%</b></div>
                                 </div>
@@ -1891,12 +2009,27 @@ body.is-day .ak_socket {
                                     </div>
                                     <div class="stick_label">滚转 / 俯仰</div>
                                 </div>
+                                <!-- 摇杆右侧：襟翼杆。0°/10°/20°/30° 四档，拖动或点击卡在最近的卡槽 -->
+                                <div class="flap_area">
+                                    <div class="flap_track" id="flight_flap_track" role="slider"
+                                         aria-label="襟翼" aria-valuemin="0" aria-valuemax="3" aria-valuenow="0">
+                                        <div class="flap_fill" id="flight_flap_fill"></div>
+                                        <div class="flap_notch"></div>
+                                        <div class="flap_notch"></div>
+                                        <div class="flap_notch"></div>
+                                        <div class="flap_notch"></div>
+                                        <div class="flap_knob" id="flight_flap_knob"></div>
+                                    </div>
+                                    <div class="flap_label">襟翼 <b id="flight_flap_val">0°</b></div>
+                                </div>
                             </div>
                             <div class="rudder_row">
-                                <button class="rudder_btn" id="flight_rudder_left">◀ 左舵</button>
-                                <button class="rudder_btn" id="flight_rudder_right">右舵 ▶</button>
+                                <!-- 左右方向舵踏板：不放文字，靠位置区分；aria-label 给读屏 -->
+                                <button class="rudder_btn" id="flight_rudder_left" aria-label="左舵" title="左舵"></button>
+                                <button class="rudder_btn" id="flight_rudder_right" aria-label="右舵" title="右舵"></button>
                             </div>
-                            <div class="flight_hint">键盘：W/S 推拉杆 · A/D 滚转 · Q/E 偏航 · R/F 油门</div>
+                            <div class="flight_hint">键盘：W/S 推拉杆 · A/D 滚转 · Q/E 偏航 · R/F 油门<br>
+                                Z/X 收放襟翼 · B 刹车 · V 反推（按住生效）</div>
                         </div>
                     </div>
                 </div>
@@ -2146,7 +2279,7 @@ body.is-day .ak_socket {
                     <li>拖动屏幕改变视角。</li>
                     <li>顶部的按钮按功能分成六块面板，每块面板用一道刻进板面的凹槽缝隙与邻格隔开：天文要素（赤道坐标/地平方位/黄道/天体名称/星芒）、图形与交互（投影算法/重力感应/姿态指示/平滑滤波/GPU渲染）、大气（大气散射/天空降帧/镜头光晕/雷达云图/天气雷达）、云（体积云/云半分辨率/云量/云类/云精度）、地形与导航（地景/地形/刷新地形/海洋参数/云参数）、时间（按日/按分钟快退、实时、暂停运行、快进）。</li>
                     <li>「天体名称」默认为全部。页面初始化时会先算一次太阳高度：低于 −18°（天文晨昏蒙影已结束）就自动打开「赤道坐标」网格并显示地平方位角（只出方位文字，地平网格仍关闭）；天还亮着则这两项保持关闭。切到「飞行控制」选项卡时会自动打开「姿态指示」并改为「透视投影」。这些自动设置之后都能手动改回。</li>
-                    <li>「飞行控制」选项卡模拟一架小型固定翼飞机（初教五、动力三角翼一类）的第一人称座舱视角：左侧竖向滑轨是油门（向上加大推力），右侧圆形摇杆的横向控制滚转、纵向控制俯仰（向下拉杆抬头、向上推杆低头），下方两个按钮控制左右方向舵。滚转产生坡度后会进入协调转弯（水平向心运动），方向舵会造成侧滑。PC 上也可用键盘：W/S 推拉杆、A/D 左右坡度、Q/E 左右偏航、R/F 增减油门；点「复位」以当前位置和航向重新开始一次飞行。飞行只在「飞行控制」页生效，切回「视角控制」即暂停模拟并保留飞机状态。速度不设上限：全油门平飞极速约 131 m/s（471 km/h，海平面；越高空气稀薄越低），俯冲时重力参与，垂直俯冲可达约 176 m/s（635 km/h），完全由寄生阻力与推力衰减决定。</li>
+                    <li>「飞行控制」选项卡模拟一架小型固定翼飞机（初教五、动力三角翼一类）的第一人称座舱视角：左侧竖向滑轨是油门（向上加大推力），滑轨左边竖着两块按钮——上面是<b>反推</b>（按住产生反向推力，落地后可以用它把飞机更快拉住，静止时还能一路把飞机倒推出去）、下面是<b>刹车</b>（按住给轮子加刹）；中间圆形摇杆的横向控制滚转、纵向控制俯仰（向下拉杆抬头、向上推杆低头），摇杆<b>右边是襟翼杆</b>，0°/10°/20°/30° 四档，拖动或点按都卡在最近的一个卡槽上；下方两块踏板样的按钮控制左右方向舵。滚转产生坡度后会进入协调转弯（水平向心运动），方向舵会造成侧滑。放襟翼会抬升整条升力线并加阻力：满襟翼（30°）升力系数多 0.9、失速速度从 25 m/s 降到 20 m/s，但阻力一起上来，还带一点低头力矩，所以放襟翼要跟一点杆；襟翼按 8°/s 的速度慢慢放下，不是瞬间切换。PC 上也可用键盘：W/S 推拉杆、A/D 左右坡度、Q/E 左右偏航、R/F 增减油门、Z/X 收放襟翼、B 刹车、V 反推（B/V 按住生效）。自动驾驶接管期间，油门、襟翼、反推与刹车全部交给它管，手动输入一律不生效。点「复位」以当前位置和航向重新开始一次飞行。飞行只在「飞行控制」页生效，切回「视角控制」即暂停模拟并保留飞机状态。速度不设上限：全油门平飞极速约 131 m/s（471 km/h，海平面；越高空气越稀薄越低），俯冲时重力参与，垂直俯冲可达约 176 m/s（635 km/h），完全由寄生阻力与推力衰减决定。</li>
                     <li>主画布上方是经纬度/时间/农历/帧率那排参数框，下方是飞行参数数字框，再往下是四只指针式飞行仪表：空速表（内圈 m/s / 外圈 kt，0–200 m/s 即 0–389 kt）、高度表（内圈 m / 外圈 ft；短粗针读 0–12000 m 全量程、对应当前刻度数字，细长针每转一圈 1000 m 用于读出低空的精确高度）、转弯协调表（°/s，绿色刻度为标准转弯率 3°/s）、垂直速率表（内圈 m/s / 外圈 ft/min）。数字沿表盘切向排布，两种单位用颜色区分。指针随飞行状态实时转动；尚未开始飞行时指针归零，切回「视角控制」后停在最后一次读数。</li>
                     <li>经纬度/时间那一排参数框的下面另有一排同样的四个数字框，对应上面四只仪表：空速（m/s / kt）、高度（m / ft）、转弯速率（°/s / rad/s）、垂直速率（m/s / ft/min），公制单位在上、另一种单位在下，配色与表盘内圈(青)/外圈(琥珀)一致。数字取的是原始值，不受指针量程限制——比如空速超过 200 m/s 或转弯率超过 30°/s 时指针顶在刻度尽头，数字照报真值；未开始飞行时与指针一样归零。</li>
                     <li>飞行页的主画面上叠了一整套平视显示器（HUD），总开关是「姿态指示」按钮——关掉整套符号一起消失，打开则一起出现。中央的黄色短线是机头基准；绿色圆圈带左右短翼的符号是飞行航迹矢量（FPV）：它指向飞机速度的实际方向——平飞时压在机头基准上，拉杆爬升时落在基准下方（两者的夹角就是迎角），侧滑时左右偏开（偏角即侧滑角）。速度低于 2 m/s 停住时或该方向转出画面时不显示。</li>
@@ -2155,9 +2288,9 @@ body.is-day .ak_socket {
                     <li>ND 上可以叠一层天气雷达回波（显示屏底边的软键「天气雷达」，默认关）：回波不是另找一份雷达数据画的图，而是把体积云渲染器**正在用的那份密度场**在同一世界坐标（东/北，km）、同一风场时刻上按列竖直扫一遍——每列只在当前启用的层带里取高度样本（浓积云 5 个、高积云 3 个、层积云 3 个、卷层云 2 个，停用的层带一个样本都不取），每个样本走与光线步进相同的入口 cloud_sky_cloudMap()，柱含水量 Σ密度·dz 按层加权（对流层 1.0 / 高积云 0.55 / 层积云 0.45 / 卷层云 0.35）后取对数折算等效反射率 dBZ，浓积云塔顶越高再加分。于是"平铺的层积云"是一片绿、"发展旺盛的积云"才有黄橙核，云在哪儿回波就在哪儿——风把云吹走，回波跟着走（栅格锚定在世界坐标上，默认风 50 m/s）。色标是气象雷达那套：青蓝→绿→黄→橙→红→品红→白核；显示门槛取 15 dBZ（机载雷达「最小可测回波」的量级），弱于它的按无明显回波处理、靠近门槛的一圈渐隐到底图，所以有云的间隙是真的黑的。纹素比云胞粗时（远量程）先按纹素足迹做一次面积平均再折算 dBZ，等效雷达波束宽度平均，免得 3 km 的云胞被点采样成一地散点。128×128 栅格分帧扫（每帧有 3.5 ms 预算），扫完才整块换图，所以不掉帧也不会看到半张；量程、云参数、层类、云量、雷达云图开关、机位移动超过 1/4 窗口都会触发重扫，平时只在云被风平流走一个纹素（约 5 px）之后重扫，最久 30 s 也扫一次。小罗盘下方一行小字是雷达读数，显示当前画面里的最强回波（dBZ）。关掉「体积云」天上的云就没了，回波同时消失（显示 WXR NO CLD）。</li>
                     <li>「天气雷达」与「雷达云图」是两件事：前者是 ND 上的回波显示，由体积云密度场反算；后者决定体积云自身长什么样——把中央气象台组合反射率图反演成 dBZ 网格，用回波强弱控制云量的有无疏密、云顶高度与厚薄。关掉「雷达云图」，体积云退回程序化天气图，ND 上的回波也跟着换成那份云场（因为它读的永远是当前真实的密度场）。</li>
                      <li>ND 底下还可以铺一层<b>地形感知（TAWS）</b>（显示屏底边的软键「地形感知」，默认开）：数值直接取实时海洋正在画的那一份高程场（Copernicus GLO-30 分块 / 烘焙 DEM / 程序化岛屿），取高走的是撞山、滑跑同一条路径，所以屏上画出来的坡就是会撞上的坡。着色按 DEM 海拔分档（平原深绿 → 丘陵橄榄 → 低山土黄 → 高山岩灰 → 雪线以上发白），再叠一道西北 45° 光线的山体阴影：坡度由相邻纹素的高差算，垂直夸张按整张图的平均坡度自动定标（0.55 / 平均坡度，夹在 0.5–60 之间），因此 10 km 与 200 km 量程的立体感差不多，平原也不会被夸张成一片噪点。告警一律相对本机高度：高于本机 500 m 的地形整片染红并勾亮边，本机高度 −300 m 到 +500 m 之间只上一层薄琥珀色（不勾边，地貌一皱边界线就成了乱麻）；染红用的是半透明洗色而不是盖死，底下的地势起伏仍读得出。顶部弧度里弹出 TERRAIN 告警条（1.4 Hz 软脉冲，带最近的一块告警地形距本机多远），琥珀一级只显示 TERR CAUTION；小罗盘／WXR 读数下面一行是画面里最高的地形（TERR xxxx m），颜色随威胁等级变。栅格锚定在世界坐标上（与天气回波同一套变换），160×160，换量程、机位离开栅格中心 1/4 半边长、高程窗口重定中心时才重扫（约 2 ms），海拔每变 10 m 重涂一次（约 0.5 ms），所以爬升不掉帧。注意覆盖范围只有海洋渲染那份 51.2 km 的世界窗口（±25.6 km）——窗口外没有数据，一律透明，所以 200 km 量程时机位周围只显出约 64 px 的一块地形，50 km 以内才铺满整屏；地景不是「实时海洋」或数据没载入时显示 TERR NO DATA。</li>
-                    <li>「五边起落」按钮是另一套自动驾驶场景：起飞航向直接取当前时刻的太阳方位（五边模式的滑跑状态会显示"朝太阳 xxx°"），离地后按标准左航线飞完整五边——离场边爬升到 600 m、侧风边左转 90°、下风边与跑道平行反向、底边再左转 90° 下降到进场高度、最后进近对正跑道落地；航线速度保持约 58 m/s，转弯半径约 500 m，整圈几何按起飞点闭合。</li>
-                    <li>「失速尾旋与改出演示」按钮会接管全部操纵（期间摇杆、油门键都不响应），从地面起飞爬升穿云到 7500 m，减速到失速边界后故意拉出失速、蹬满舵进入尾旋——进入约 20 秒后再顺舵加副翼，转速会从 30°/s 一路压到 140°/s，一直转到 1600 m 才改出（反舵打停自转、推杆让机翼附着、低空大过载拉起），随后进近、拉平、刹停；结束后指示灯自动熄灭。再点一次按钮或按「复位」可随时中止。</li>
-                    <li>触地后按起落架接地处理：姿态立即放平为地面姿态（机翼水平、机头放平、无侧滑），随后进入滑跑。滑跑时油门对抗气动阻力、滚动阻力与刹车阻力——收油门（或按 F）会带刹车在约十秒内逐渐滑停，速度可降到 0；加到约 22 m/s 抬轮速度后再拉杆即可重新离地，低于该速度拉杆无效（机头被前轮/尾轮撑住）。</li>
+                    <li>「五边起落」按钮是另一套自动驾驶场景：起飞航向直接取当前时刻的太阳方位（五边模式的滑跑状态会显示"朝太阳 xxx°"），离地后按标准左航线飞完整五边——离场边爬升到 600 m、侧风边左转 90°、下风边与跑道平行反向、底边再左转 90° 下降到进场高度、最后进近对正跑道落地；航线速度保持约 58 m/s，转弯半径约 500 m，整圈几何按起飞点闭合。襟翼按起飞/巡航/进近三段自己管：滑跑与抬轮放 10°，爬过 80 m 收光，最后进近放到 20°（进近速度跟着从 46 降到 36 m/s），接地后轮刹全踩、速度掉到 6 m/s 以下才松开。</li>
+                    <li>「失速尾旋与改出演示」按钮会接管全部操纵——摇杆、油门键、襟翼杆、反推与刹车都不再响应用户（与油门同一条规则：操纵权在 AP 手里），从地面起飞爬升穿云到 7500 m，减速到失速边界后故意拉出失速、蹬满舵进入尾旋——进入约 20 秒后再顺舵加副翼，转速会从 30°/s 一路压到 140°/s，一直转到 1600 m 才改出（反舵打停自转、推杆让机翼附着、低空大过载拉起），随后进近、拉平、刹停；结束后指示灯自动熄灭。其中襟翼与刹车/反推也由它操作：滑跑与抬轮放 10°、爬过 80 m 收光，进近放满 30°（失速速度降到 20 m/s，进近速度与下滑率随之收到 30 m/s、−5 m/s），接地后轮刹全踩、并同时点反推，约 2.5 s 就从 25 m/s 刹停。再点一次按钮或按「复位」可随时中止。</li>
+                    <li>触地后按起落架接地处理：姿态立即放平为地面姿态（机翼水平、机头放平、无侧滑），随后进入滑跑。滑跑时油门对抗气动阻力、滚动阻力与刹车阻力——收油门（或按 F）会带一份自动刹车在十秒上下逐渐滑停，速度可降到 0；按住刹车（或键盘 B）再加一份更硬的轮刹，40 m/s 大约 6 秒能停住；按住反推（或 V）则推力整个翻过来，滑跑中减速比轮刹还快，静止或低速时还会把飞机往后推——倒车限速 4.5 m/s，松手后靠摩擦力自己停下，不按反推则永远不会倒车。加到约 30 m/s 抬轮速度后再拉杆即可重新离地，低于该速度拉杆无效（机头被前轮/尾轮撑住）。</li>
                     <li>地面高度取自地形数据，不是常数：飞机脚下取实时海洋正在画的那一份高程场（真实地形或随机岛屿都算）在该处的高程，触地、撞山、滑跑全都按它算。所以从南京起飞压低空往东飞，飞到山脚就会撞在紫金山的山坡上，而不是从山体里穿过去；在山脊上接地后会贴着山坡滑跑，滑出陡坎时会短暂离地再落下去。海上仍以海面为接地基准（1 米）；地景不是「实时海洋」、或高程场还没载入时，退回这 1 米。仪表上的"高度"是海拔（MSL），落在山上时读的就是山顶的海拔。</li>
                     <li>飞行动力学是六自由度刚体：副翼/升降舵/方向舵给的是气动力矩，升力与阻力按左右机翼各自的当地迎角算（含失速后的升力塌陷与阻力上升），姿态用四元数积分，所以筋斗、横滚、过顶、倒飞都可以做，也不会出现欧拉角锁死；HUD 里的"高度/升降"始终是世界竖直方向。</li>
                     <li>失速与尾旋是真的算出来的：失速速度约 25 m/s（相当于 90 km/h），超过约 15° 迎角升力就开始塌陷、机头自然下坠；慢车 + 满拉杆 + 满舵可以进入尾旋——两翼当地迎角不等造成的自转力矩让机头绕垂轴持续旋转、近垂直下降，α 稳定在 20°–30°。改出用反舵（抵消自转）+ 推杆（减小迎角让机翼重新附着），松杆通常也能自己改出。抬轮速度 30 m/s，且要升力真能托住重量才离得地。</li>
@@ -15920,7 +16053,14 @@ const FLIGHT = {
     TAXI_V: 5.0,            // 前轮转向达到满效的地速 m/s
     MU_ROLL: 0.03,          // 滚动阻力系数
     MU_BRAKE: 0.25,         // 收油门时的刹车阻力系数（随油门线性减小；满油门为纯滚动）
-    TOUCHDOWN_HOLD: 0.8     // 触地后姿态锁定时间 s（避免一触地就被拉起来）
+    TOUCHDOWN_HOLD: 0.8,    // 触地后姿态锁定时间 s（避免一触地就被拉起来）
+
+    // ---- 反推 / 轮刹 / 襟翼 ----
+    REVERSE_THRUST: 5.0,    // 反推力加速度 m/s²（约为满油门前推力的 42%）
+    REVERSE_TAXI_V: 4.5,    // 地面反推倒车滑行的速度上限 m/s（步行速度，防止一路倒车出去）
+    MU_BRAKE_HARD: 0.34,    // 按住刹车时叠加的轮刹阻力系数（≈ 0.34 g，短跑道能把飞机拉住）
+    FLAP_RATE: 8.0,         // 襟翼收放速率 度/秒（电动襟翼，30° 约 4 秒放满）
+    FLAP_DETENTS: [0, 10, 20, 30]   // 襟翼杆的四个卡槽：放下角度（度）
 };
 
 const flight = {
@@ -15943,6 +16083,13 @@ const flight = {
     headingRate: 0.0,    // 机头方位角速度 rad/s（转弯协调表用）
     // 操纵
     throttle: 0.0,
+    reverser: false, brake: false,   // 反推 / 轮刹的按钮状态（按住生效，由 UI 与键盘写）
+    rev: 0.0, brk: 0.0,              // 上面两个按钮的一阶平滑量 0..1（气动与地面模型读它）
+    revTgt: 0.0, brkTgt: 0.0,        // 平滑的目标值：手动时来自按钮，AP 接管时由 ap_apply_command 写
+    flapIdx: 0,                      // 襟翼档位索引（对应 FLIGHT.FLAP_DETENTS）
+    flap: 0.0,                       // 实际放下的襟翼角度（度），按 FLIGHT.FLAP_RATE 追档位
+    flapKey: 0,                      // 襟翼键盘档位锁存（Z/X 按住只走一档）
+    gs: 0.0,                         // 地面有向地速 m/s：正 = 前滑，负 = 反推倒车
     stickX: 0.0, stickY: 0.0,
     rudderLeft: false, rudderRight: false,
     rudder: 0.0,
@@ -16618,6 +16765,7 @@ function flight_touchdown() {
         if (typeof mcdu_render === 'function') mcdu_render();
     }
     flight.wow = true;
+    flight.gs = flight.V;                    // 地面有向地速从接地瞬间的来速接上
     flight.groundHold = FLIGHT.TOUCHDOWN_HOLD;
     flight.alt = flight_ground_update();     // 接在飞机脚下的地形上（山上就是山顶的海拔）
     flight.gamma = 0.0;
@@ -16661,25 +16809,31 @@ function flight_integrate_ground(dt, eff) {
     }
     flight.theta = flight_clamp(flight.theta, 0.0, FLIGHT.GROUND_PITCH_MAX);
 
-    // 方向舵在地面相当于前轮转向，低速时转向能力衰减
-    const taxi = flight_clamp(flight.V / FLIGHT.TAXI_V, 0.0, 1.0);
+    // 方向舵在地面相当于前轮转向，低速时转向能力衰减（倒车滑行时同样能转向）
+    const taxi = flight_clamp(Math.abs(flight.gs) / FLIGHT.TAXI_V, 0.0, 1.0);
     flight.headingRate = FLIGHT.YAW_RATE * eff * flight.inYaw * taxi;
     flight.psi = flight_wrap_2pi(flight.psi + flight.headingRate * dt);
     flight.chi = flight.psi;
 
-    // 推力 / 气动阻力 / 地面摩擦（滚动阻力恒定，收油门时叠加刹车）
+    // 推力 / 气动阻力 / 地面摩擦（滚动阻力恒定，收油门时叠加自动刹车，按住刹车再加一份硬的）
+    // 这里积的是"有向地速" gs：正 = 前滑，负 = 反推把飞机倒推出去（限速 -REVERSE_TAXI_V）。
+    // 阻力与摩擦永远反向于运动，所以按 gs 的符号取方向；对外仍然只报正的 flight.V
+    // （仪表、HUD、自动油门全都按速度大小用，反推倒车时不会出现负空速）。
     const thrustLapse = Math.max(FLIGHT.THRUST_LAPSE_MIN, 1.0 - flight.alt / FLIGHT.THRUST_LAPSE_ALT);
-    const thrust = flight.throttle * FLIGHT.THRUST_MAX * thrustLapse;
-    const drag = FLIGHT.DRAG_K * flight.V * flight.V;
-    const mu = FLIGHT.MU_ROLL + FLIGHT.MU_BRAKE * (1.0 - flight.throttle);
-    const friction = FLIGHT.G * mu;
-    let V = flight.V + (thrust - drag - friction) * dt;
-    if (V < 0.0) V = 0.0;   // 地面不会倒车：摩擦大于推力时就停住
-    flight.V = Math.max(0.0, V);   // 地面不会倒车，但不再设高速上限
+    const thrust = (flight.throttle * FLIGHT.THRUST_MAX - flight.rev * FLIGHT.REVERSE_THRUST) * thrustLapse;
+    const mu = FLIGHT.MU_ROLL + FLIGHT.MU_BRAKE * (1.0 - flight.throttle) + FLIGHT.MU_BRAKE_HARD * flight.brk;
+    const resist = FLIGHT.DRAG_K * flight.gs * flight.gs + FLIGHT.G * mu;   // 阻碍运动的大小（恒为正）
+    const sgn = (flight.gs > 1e-3) ? 1.0 : ((flight.gs < -1e-3) ? -1.0 : 0.0);
+    let gs = flight.gs + (thrust - sgn * resist) * dt;
+    if (sgn === 0.0 && Math.abs(thrust) <= resist) gs = 0.0;       // 静摩擦：推不动就原地停住
+    if (sgn > 0.0 && gs < 0.0 && flight.rev < 0.5) gs = 0.0;       // 不按反推就不会倒车
+    if (gs < -FLIGHT.REVERSE_TAXI_V) gs = -FLIGHT.REVERSE_TAXI_V;  // 倒车限速：地面不会一路倒出去
+    flight.gs = gs;
+    flight.V = Math.abs(gs);   // 速度大小照旧不设上限
 
-    // 滑跑位移
-    flight.x += flight.V * Math.sin(flight.chi) * dt;
-    flight.z += flight.V * Math.cos(flight.chi) * dt;
+    // 滑跑位移（倒车时 gs 为负，机头朝前、整架飞机往回退）
+    flight.x += gs * Math.sin(flight.chi) * dt;
+    flight.z += gs * Math.cos(flight.chi) * dt;
 
     // 地面高度跟着地形走：滑上坡就抬、滑下坡就降（不再是常数 1 m）。
     // 一步之内地形掉下去一大截（滑出陡坎、崖边）时不再贴着地面往下瞬移，
@@ -16880,7 +17034,19 @@ function autopilot_engage(mode) {
     flight.alt = flight_ground_update();   // 停在当前位置的地面上（地形高程决定跑道海拔）
     flight.wow = true;
     flight.V = 0.4;
+    flight.gs = 0.4;                       // 地面有向地速：从静止开始往前滑
     flight.throttle = 0.0;
+    // 自动驾驶接管全部操纵：反推/刹车松开、襟翼收到 0（下面这些演示是按光襟翼调的参数）
+    flight.reverser = false;
+    flight.brake = false;
+    flight.rev = 0.0;
+    flight.brk = 0.0;
+    flight.revTgt = 0.0;
+    flight.brkTgt = 0.0;
+    flight.flapIdx = 0;
+    flight.flapKey = 0;
+    flight_update_throttle_ui();
+    flight_update_flap_ui();
     flight.alpha = 0.0;
     flight.theta = 0.0;
     flight.phi = 0.0;
@@ -16936,7 +17102,7 @@ function autopilot_step(dt) {
     const alphaDeg = flight.alpha * FLIGHT.RAD;
     AUTOPILOT.phaseT += dt;
 
-    const cmd = { throttle: 0.0, pitch: 0.0, roll: 0.0, yaw: 0.0 };
+    const cmd = { throttle: 0.0, pitch: 0.0, roll: 0.0, yaw: 0.0, brake: 0.0, rev: 0.0 };
     const to = (phase, msg) => {
         if (AUTOPILOT.phase !== phase) {
             AUTOPILOT.phase = phase;
@@ -16952,12 +17118,14 @@ function autopilot_step(dt) {
                 ? ('起飞滑跑 · 朝太阳 ' + String(Math.round(AUTOPILOT.runwayHdg) % 360).padStart(3, '0') + '°')
                 : ((AUTOPILOT.mode === 'route') ? '航路起飞 · 滑跑' : '起飞滑跑'));
             cmd.throttle = 1.0;
+            cmd.flap = 1;               // 起飞襟翼 10°：抬轮更早，滑跑更短
             if (V >= FLIGHT.ROTATE_V + 2.0) { AUTOPILOT.phase = 'rotate'; AUTOPILOT.phaseT = 0.0; }
             break;
 
         case 'rotate':
             to('rotate', '抬轮');
             cmd.throttle = 1.0;
+            cmd.flap = 1;
             cmd.pitch = ap_pitch_cmd(9.0);
             if ((!flight.wow && agl > 10.0) || AUTOPILOT.phaseT > 10.0) {
                 ap_goto((AUTOPILOT.mode === 'pattern') ? 'p_upwind'
@@ -16975,6 +17143,7 @@ function autopilot_step(dt) {
             const R = AUTOPILOT.runwayHdg;
             const wp = AUTOPILOT.wps;
             const p0 = AUTOPILOT.runwayPt;
+            cmd.flap = 0;                    // 巡航/航线各边光襟翼（离场边的例外在下面单独给）
             let pt0, legHdg, legLen, look;
             if (AUTOPILOT.phase === 'p_upwind') { pt0 = p0; legHdg = R; legLen = AP_PATTERN_LEN; look = 1000.0; }
             else if (AUTOPILOT.phase === 'p_cross') { pt0 = wp[0]; legHdg = R - 90.0; legLen = AP_PATTERN_WIDE; look = 800.0; }
@@ -16990,6 +17159,7 @@ function autopilot_step(dt) {
             if (AUTOPILOT.phase === 'p_upwind') {
                 to('p_upwind', '离场边 · ' + Math.round(agl) + ' m');
                 cmd.throttle = (agl < 120.0) ? 1.0 : ap_throttle_for_speed(AP_PATTERN_V);
+                cmd.flap = (agl > 80.0) ? 0 : 1;   // 爬过 80 m 收襟翼
                 // 只调一次 ap_vs_pitch：它会按 dt 累加 vsInt，同一步里调两次等于把
                 // 积分速率翻倍（这一段就会比别的段更"急"）
                 cmd.pitch = ap_vs_pitch(agl < AP_PATTERN_ALT - 20.0 ? Math.min(12.0, (AP_PATTERN_ALT - agl) * 0.12) : 0.0, dt);
@@ -17015,9 +17185,11 @@ function autopilot_step(dt) {
             }
             else {
                 to('p_final', '最后进近 · ' + Math.round(agl) + ' m');
-                cmd.throttle = ap_throttle_for_speed(AP_PATTERN_V - 12.0);
+                // 进近放襟翼 20°：失速速度降到 21 m/s 左右，进近速度也压到 36 m/s
+                cmd.flap = 2;
+                cmd.throttle = ap_throttle_for_speed(AP_PATTERN_V - 22.0);
                 cmd.pitch = ap_vs_pitch(-flight_clamp(agl * 0.05, 1.5, 8.0), dt);
-                if (agl < 25.0 || AUTOPILOT.phaseT > 140.0) ap_goto('flare');
+                if (agl < 30.0 || AUTOPILOT.phaseT > 140.0) ap_goto('flare');
             }
             break;
         }
@@ -17025,6 +17197,7 @@ function autopilot_step(dt) {
         case 'climb':
             to('climb', '爬升穿云 → ' + Math.round(AP_CLOUD_ALT) + ' m');
             cmd.throttle = 1.0;
+            cmd.flap = (agl > 80.0) ? 0 : 1;   // 爬过 80 m 收襟翼
             cmd.roll = ap_roll_cmd(0.0);
             {
                 const vsT = Math.min(AP_CLIMB_VS, Math.max(5.0, (AP_CLOUD_ALT - alt) * 0.12));
@@ -17103,12 +17276,14 @@ function autopilot_step(dt) {
             break;
 
         case 'approach':
-            // 低空先减到进近速度，免得高速接地把起落架拍坏（模型里没有起落架，但要合理）
-            to('approach', '进近');
-            cmd.throttle = (V < 38.0) ? 0.45 : 0.0;      // 进近速度保持在 1.5 倍失速以上
+            // 放满襟翼进近：失速速度从 25 m/s 降到 20 m/s，所以进近速度取 32 m/s（约 1.6 倍），
+            // 下滑率跟着从 −8 收到 −6 m/s——襟翼阻力大，同样的下滑角用不着那么陡
+            to('approach', '进近 · 襟翼 30°');
+            cmd.flap = 3;
+            cmd.throttle = ap_throttle_for_speed(30.0);
             cmd.roll = ap_roll_cmd(0.0);
-            cmd.pitch = ap_vs_pitch(-8.0, dt);
-            if (agl < 25.0) { AUTOPILOT.phase = 'flare'; AUTOPILOT.phaseT = 0.0; }
+            cmd.pitch = ap_vs_pitch(-5.0, dt);
+            if (agl < 30.0) { AUTOPILOT.phase = 'flare'; AUTOPILOT.phaseT = 0.0; }
             break;
 
         case 'flare':
@@ -17125,6 +17300,8 @@ function autopilot_step(dt) {
             cmd.pitch = 0.0;
             cmd.roll = 0.0;
             cmd.yaw = 0.0;
+            cmd.brake = 1.0;                       // 轮刹全踩
+            cmd.rev = (V > 6.0) ? 1.0 : 0.0;       // 反推一起上，低速就收（免得把飞机往后推）
             if (V < 1.5) {
                 ap_goto('done');
                 AUTOPILOT.active = false;        // 任务完成自动断开
@@ -17146,12 +17323,21 @@ function autopilot_step(dt) {
 }
 
 // 把自动驾驶指令写到操纵量上（一阶平滑，与手动输入同一套执行机构）
+// cmd 里现在还有襟翼档位、轮刹、反推：襟翼给了档位就写到襟翼杆上（按 FLAP_RATE 慢慢放），
+// 刹车/反推写的是 0..1 的目标量，平滑照旧在 flight_integrate 里做。
 function ap_apply_command(cmd, dt) {
     const a = 1.0 - Math.exp(-dt / Math.max(FLIGHT.AXIS_TAU, 1e-3));
     flight.inRoll  += (flight_clamp(cmd.roll,  -1.0, 1.0) - flight.inRoll)  * a;
     flight.inPitch += (flight_clamp(cmd.pitch, -1.0, 1.0) - flight.inPitch) * a;
     flight.inYaw   += (flight_clamp(cmd.yaw,   -1.0, 1.0) - flight.inYaw)   * a;
     flight.throttle = flight_clamp(cmd.throttle, 0.0, 1.0);
+    // 襟翼：cmd.flap 未定义 = 这一阶段不动襟翼（保持上一步的档位）
+    if (cmd.flap !== undefined) {
+        const n = FLIGHT.FLAP_DETENTS.length;
+        flight.flapIdx = Math.round(flight_clamp(cmd.flap, 0, n - 1));
+    }
+    flight.revTgt = flight_clamp(cmd.rev || 0.0, 0.0, 1.0);
+    flight.brkTgt = flight_clamp(cmd.brake || 0.0, 0.0, 1.0);
     ap_refresh_ui();
 }
 
@@ -17187,6 +17373,10 @@ const AERO = {
     CnBeta: 0.09,           // 风标稳定性（侧滑 → 机头回到来流）
     CnR: -0.25, CnP: -0.04,
     CnDa: -0.012, CnDr: 0.015,   // 副翼不利偏航 / 方向舵
+    // 襟翼：抬整条升力线（Cl0 与 Clmax 同步上抬，失速迎角不变）+ 加零升阻力 + 一点低头力矩
+    ClFlapPerDeg: 0.030,    // 每度襟翼的升力系数增量（30° 放满 ≈ +0.90，失速速度 25→20 m/s）
+    CdFlapPerDeg2: 0.00012, // 每平方度的阻力系数增量（30° ≈ +0.108）
+    CmFlapPerDeg: -0.0012,  // 每度襟翼的俯仰力矩增量（负 = 低头，放襟翼得跟一点杆）
     rho0: 1.225, rhoScale: 8500.0,   // 指数大气
     subStep: 1.0 / 240.0,   // 固定子步长：与帧率解耦，0.2 s 的帧也切成 48 个子步
 };
@@ -17199,10 +17389,14 @@ function aero_smoothstep(e0, e1, x) {
     return t * t * (3.0 - 2.0 * t);
 }
 // 升力系数：线性段 → 失速后陡降（斜率约 −2/rad，这是自转力矩的来源）→ 45° 之后接平板
+// 襟翼按当前放下角度把整条升力线（Cl0 与 Clmax）一起抬起来，失速迎角保持不变——所以放
+// 襟翼等于降失速速度、同样迎角下多出一截升力。flight.flap 是实际放下的角度（度），
+// 由襟翼杆的档位按 FLIGHT.FLAP_RATE 慢慢跟上，不是瞬间切换。
 function aero_cl(alpha) {
+    const fl = flight.flap * AERO.ClFlapPerDeg;      // 襟翼增量
     const a = Math.abs(alpha), sg = (alpha < 0.0) ? -1.0 : 1.0;
-    const clMax = AERO.Cl0 + AERO.ClAlpha * AERO.alphaStall;
-    if (a <= AERO.alphaStall) return AERO.Cl0 + AERO.ClAlpha * alpha;
+    const clMax = AERO.Cl0 + AERO.ClAlpha * AERO.alphaStall + fl;
+    if (a <= AERO.alphaStall) return AERO.Cl0 + fl + AERO.ClAlpha * alpha;
     const a45 = Math.PI * 0.25;
     if (a < a45) {
         const t = (a - AERO.alphaStall) / (a45 - AERO.alphaStall);
@@ -17213,7 +17407,9 @@ function aero_cl(alpha) {
 function aero_cd(alpha) {
     const s = aero_smoothstep(AERO.alphaStall, AERO.alphaStall + 0.18, Math.abs(alpha));
     const cl = aero_cl(alpha);
-    return AERO.Cd0 + AERO.kInduced * cl * cl + AERO.CdStall * s * Math.sin(alpha) * Math.sin(alpha);
+    const fl = flight.flap;
+    // Cd0 里含襟翼那部分：诱导阻力已经由上面的 cl（含襟翼增量）自带，不重复加
+    return AERO.Cd0 + AERO.CdFlapPerDeg2 * fl * fl + AERO.kInduced * cl * cl + AERO.CdStall * s * Math.sin(alpha) * Math.sin(alpha);
 }
 // 欧拉角 → 四元数（ZYX：先偏航 ψ，再俯仰 θ，最后滚转 φ）
 function aero_quat_from_euler(psi, theta, phi) {
@@ -17285,6 +17481,40 @@ function flight_integrate(dt) {
     if (k['KeyF']) flight.throttle = Math.max(0.0, flight.throttle - FLIGHT.THROTTLE_KEY_RATE * dt);
     const kRudder = (flight.rudderRight ? 1.0 : 0.0) - (flight.rudderLeft ? 1.0 : 0.0);
 
+    // ---- 反推 / 刹车 / 襟翼 ----
+    // 反推与刹车是"按住生效"的开关量（屏幕上的两块按钮，或键盘 V/B）。手动时用户输入只写
+    // 目标量，再由这里按 AXIS_TAU 平滑成 0..1 的操纵量，松手不会让受力瞬间跳变；
+    // 自动驾驶接管时目标量完全由 ap_apply_command 每步改写，用户输入一律不采信
+    // —— 操纵权在 AP 手里，与油门一样（油门是 AP 每步直接覆盖 flight.throttle）。
+    if (!AUTOPILOT.active) {
+        flight.revTgt = (flight.reverser || k['KeyV']) ? 1.0 : 0.0;
+        flight.brkTgt = (flight.brake || k['KeyB']) ? 1.0 : 0.0;
+    }
+    const ab = 1.0 - Math.exp(-dt / FLIGHT.AXIS_TAU);
+    flight.rev += (flight.revTgt - flight.rev) * ab;
+    flight.brk += (flight.brkTgt - flight.brk) * ab;
+    // 襟翼杆：Z 收一档、X 放一档（按住只走一档，松开再按才走下一档）。AP 接管期间不响应，
+    // 档位由 ap_apply_command 写，免得手一碰就把自动驾驶刚放下的襟翼收回去。
+    const nFlap = FLIGHT.FLAP_DETENTS.length;
+    if (!AUTOPILOT.active) {
+        const fk = k['KeyZ'] ? -1 : (k['KeyX'] ? 1 : 0);
+        if (fk !== 0) {
+            if (flight.flapKey !== fk) {
+                flight.flapKey = fk;
+                flight.flapIdx = Math.round(flight_clamp(flight.flapIdx + fk, 0, nFlap - 1));
+            }
+        } else {
+            flight.flapKey = 0;
+        }
+    }
+    // 实际放下的角度按 FLAP_RATE 追档位：电动襟翼要几秒才放满，不是瞬间切换
+    const flapTgt = FLIGHT.FLAP_DETENTS[Math.round(flight_clamp(flight.flapIdx, 0, nFlap - 1))];
+    const flapStep = FLIGHT.FLAP_RATE * dt;
+    flight.flap += flight_clamp(flapTgt - flight.flap, -flapStep, flapStep);
+    // 手柄（跟档位）与高亮条（跟实际角度）是两套读数，只在襟翼真的在动的时候刷一次 UI：
+    // 落到档位后 flight.flap 正好等于 flapTgt，下面这个判断自己就停了，空闲帧不碰 DOM。
+    if (flapTgt !== flight.flap) flight_update_flap_ui();
+
     const tgtRoll  = flight_clamp(flight.stickX + kRoll, -1.0, 1.0);
     const tgtPitch = flight_clamp(flight.stickY + kPitch, -1.0, 1.0);
     const tgtYaw   = flight_clamp(kYaw + kRudder, -1.0, 1.0);
@@ -17352,13 +17582,17 @@ function flight_integrate(dt) {
         const phat = p * AERO.b / (2.0 * Vc), qhat = qq * AERO.cbar / (2.0 * Vc), rhat = rr * AERO.b / (2.0 * Vc);
         const Lm = qbar * AERO.S * AERO.b * (AERO.ClBeta * beta + AERO.ClP * phat + AERO.ClR * rhat + AERO.ClDa * da + AERO.ClDr * dr)
                  - yB * (LR - LL);
-        const Mm = qbar * AERO.S * AERO.cbar * (AERO.Cm0 + AERO.CmAlpha * alpha + AERO.CmQ * qhat + AERO.CmDe * de);
+        const Mm = qbar * AERO.S * AERO.cbar * (AERO.Cm0 + AERO.CmAlpha * alpha + AERO.CmQ * qhat + AERO.CmDe * de
+                                                + AERO.CmFlapPerDeg * flight.flap);
         const Nm = qbar * AERO.S * AERO.b * (AERO.CnBeta * beta + AERO.CnR * rhat + AERO.CnP * phat + AERO.CnDa * da + AERO.CnDr * dr)
                  + yB * (DR - DL);
 
-        // 推力（带高度衰减）与重力在机体轴的分量
+        // 推力（带高度衰减）与重力在机体轴的分量。
+        // 反推在空中也当真，相当于减速板；但只在机体前进分量 u 还大于 5 m/s 时才扣推力，
+        // 免得一路减到倒飞、迎角翻到 180° 之后把升力曲线搞乱（真机的反推也锁在地面）。
         const lapse = Math.max(FLIGHT.THRUST_LAPSE_MIN, 1.0 - flight.alt / FLIGHT.THRUST_LAPSE_ALT);
-        const thrust = flight.throttle * FLIGHT.THRUST_MAX * lapse * AERO.mass;
+        const revNow = (flight.rev > 0.0 && u > 5.0) ? flight.rev * FLIGHT.REVERSE_THRUST : 0.0;
+        const thrust = (flight.throttle * FLIGHT.THRUST_MAX - revNow) * lapse * AERO.mass;
         const gx = -AERO.mass * 9.80665 * Math.sin(theta);
         const gy = AERO.mass * 9.80665 * Math.cos(theta) * Math.sin(phi);
         const gz = AERO.mass * 9.80665 * Math.cos(theta) * Math.cos(phi);
@@ -17435,6 +17669,7 @@ function flight_step(nowMs) {
         flight.readoutAt = nowMs;
         flight_update_readout();
         flight_update_throttle_ui();
+        flight_update_flap_ui();
     }
 }
 
@@ -17457,6 +17692,43 @@ function flight_update_throttle_ui() {
     }
     if (val) val.textContent = Math.round(v * 100) + '%';
     if (track) track.setAttribute('aria-valuenow', String(Math.round(v * 100)));
+    // 反推与刹车按钮的点亮状态跟着平滑后的操纵量走：按住、键盘、自动驾驶接管、
+    // 指针捕获丢失这几种情况都能自己对齐，不会出现灯亮着但没生效的情况。
+    const revBtn = document.getElementById('flight_reverse');
+    const brkBtn = document.getElementById('flight_brake');
+    if (revBtn) revBtn.classList.toggle('pressed', flight.rev > 0.5);
+    if (brkBtn) brkBtn.classList.toggle('pressed', flight.brk > 0.5);
+}
+
+// 襟翼杆：档把在四个卡槽之间滑动，标签报的是实际放下的角度（按 FLAP_RATE 追档位）
+function flight_update_flap_ui() {
+    const track = document.getElementById('flight_flap_track');
+    if (!track) return;
+    const knob = document.getElementById('flight_flap_knob');
+    const fill = document.getElementById('flight_flap_fill');
+    const val = document.getElementById('flight_flap_val');
+    const n = FLIGHT.FLAP_DETENTS.length;
+    const H = track.clientHeight || 120;
+    const KH = (knob && knob.offsetHeight) || 18;
+    const END = 5.0;
+    const travel = Math.max(1.0, H - 2.0 * END - KH);
+    // 卡槽位置：按档位等分行程
+    const posAt = function(i) { return END + (travel * i) / (n - 1); };
+    const notches = track.querySelectorAll('.flap_notch');
+    for (let i = 0; i < notches.length && i < n; i++) {
+        notches[i].style.bottom = (posAt(i) + KH * 0.5).toFixed(1) + 'px';
+    }
+    // 手柄跟档位走（点/拖/按键立刻跳到那一档），高亮条跟实际襟翼角度走（8°/s 慢慢追），
+    // 两者停下来时重合。高亮条的顶端按油门那套口径取在"该角度处手柄圆心"上：
+    // 档把底边 posAt + 半径 KH/2，所以条高 = 该角度对应的行程 + KH/2（条的 bottom 是 END）。
+    const idx = Math.round(flight_clamp(flight.flapIdx, 0, n - 1));
+    const top = FLIGHT.FLAP_DETENTS[n - 1] || 1.0;         // 卡槽等距，档位与角度都是线性的
+    const fCmd = (n > 1) ? idx / (n - 1) : 0.0;
+    const fAct = flight_clamp(flight.flap / top, 0.0, 1.0);
+    if (knob) knob.style.bottom = (END + travel * fCmd).toFixed(1) + 'px';
+    if (fill) fill.style.height = Math.max(0.0, travel * fAct + KH * 0.5).toFixed(1) + 'px';
+    if (val) val.textContent = Math.round(flight.flap) + '°';
+    track.setAttribute('aria-valuenow', String(idx));
 }
 
 function flight_update_stick_ui() {
@@ -20183,6 +20455,8 @@ function ap_route_lateral(cmd) {
 function ap_route_vertical(cmd, dt) {
     const R = AP_ROUTE;
     const alt = flight.alt;
+    // 航路飞行不落地：全程不踩轮刹、不点反推；襟翼只在刚起飞爬过 80 m 之后才收光
+    cmd.flap = ((alt - flight.ground) > 80.0) ? 0 : 1;
     const w = R.wp[R.idx];
     const lastLeg = (R.idx === R.wp.length - 1);
     const distW = w ? Math.hypot(w.x - flight.x, w.z - flight.z) : 0.0;
@@ -20223,7 +20497,8 @@ function ap_route_vertical(cmd, dt) {
 
 // 每个积分子步跑一次（4 ms 一次，与帧率无关）
 function ap_route_step(dt) {
-    const cmd = { throttle: 0.0, pitch: 0.0, roll: 0.0, yaw: 0.0 };
+    // 航路模式不用轮刹与反推（不落地）；襟翼由 ap_route_vertical 每步给档位
+    const cmd = { throttle: 0.0, pitch: 0.0, roll: 0.0, yaw: 0.0, brake: 0.0, rev: 0.0 };
     ap_route_sequence();
     if (AP_ROUTE.idx >= AP_ROUTE.wp.length) {
         cmd.roll = ap_roll_cmd(0.0);
@@ -20315,6 +20590,10 @@ function flight_reset() {
     flight.phi = 0.0;
     flight.headingRate = 0.0;
     nd_reset_track();          // 导航显示器的航迹重新开始
+    // 襟翼先收回 0：下面按配平迎角起步，`aero_cl` 里含襟翼增量，带着襟翼算会算错迎角
+    flight.flapIdx = 0;
+    flight.flap = 0.0;
+    flight.flapKey = 0;
 
     // 以配平迎角起步：地面高度就按滑跑姿态，空中按该空速下平飞所需迎角
     flight.wow = (flight.alt <= flight.ground);
@@ -20327,6 +20606,13 @@ function flight_reset() {
     }
 
     flight.throttle = 0.0;
+    flight.reverser = false;
+    flight.brake = false;
+    flight.rev = 0.0;
+    flight.brk = 0.0;
+    flight.revTgt = 0.0;
+    flight.brkTgt = 0.0;
+    flight.gs = flight.V;
     flight.stickX = 0.0;
     flight.stickY = 0.0;
     flight.rudderLeft = false;
@@ -20345,6 +20631,7 @@ function flight_reset() {
     flight_apply_world((typeof performance !== 'undefined') ? performance.now() : Date.now());
     flight_update_throttle_ui();
     flight_update_stick_ui();
+    flight_update_flap_ui();
     flight_update_readout();
     refresh_view_angle();
 }
@@ -20374,8 +20661,11 @@ function flight_select_tab(name) {
     flight.inRoll = 0.0;
     flight.inPitch = 0.0;
     flight.inYaw = 0.0;
+    flight.reverser = false;
+    flight.brake = false;
     flight_update_stick_ui();
     document.querySelectorAll('.rudder_btn').forEach(function(b) { b.classList.remove('pressed'); });
+    document.querySelectorAll('.aux_btn').forEach(function(b) { b.classList.remove('pressed'); });
 
     if (isFlight) {
         flight.active = true;
@@ -20514,6 +20804,77 @@ function flight_init_controls() {
         ring.addEventListener('lostpointercapture', endDrag);
     }
 
+    // ---- 反推 / 刹车：按住生效，松开回中 ----
+    // 与方向舵同一套：按下抓住指针，松开/取消/丢捕获都算放手。两块按钮各记各的
+    // pointerId，所以一根手指压反推、另一根压刹车互不干扰。
+    const bindHold = function(btn, set) {
+        if (!btn) return;
+        let id = null;
+        const press = function(e) {
+            e.preventDefault();
+            // 自动驾驶接管期间这两块按钮不响应用户（与油门同一条规则：操纵权在 AP 手里）
+            if (AUTOPILOT.active) return;
+            id = e.pointerId;
+            try { btn.setPointerCapture(e.pointerId); } catch (err) {}
+            set(true);
+            btn.classList.add('pressed');
+        };
+        const release = function(e) {
+            if (id !== null && e && e.pointerId !== undefined && e.pointerId !== id) return;
+            id = null;
+            set(false);
+            btn.classList.remove('pressed');
+            if (e) { try { btn.releasePointerCapture(e.pointerId); } catch (err) {} }
+        };
+        btn.addEventListener('pointerdown', press);
+        btn.addEventListener('pointerup', release);
+        btn.addEventListener('pointercancel', release);
+        btn.addEventListener('lostpointercapture', release);
+    };
+    bindHold(document.getElementById('flight_reverse'), function(on) { flight.reverser = on; });
+    bindHold(document.getElementById('flight_brake'), function(on) { flight.brake = on; });
+
+    // ---- 襟翼杆：上下拖动或直接点，档把卡在最近的一个卡槽上 ----
+    const fTrack = document.getElementById('flight_flap_track');
+    if (fTrack) {
+        let dragId = null;
+        const n = FLIGHT.FLAP_DETENTS.length;
+        const setFromEvent = function(e) {
+            const rect = fTrack.getBoundingClientRect();
+            const knob = document.getElementById('flight_flap_knob');
+            const KH = (knob && knob.offsetHeight) || 18;
+            const END = 5.0;
+            const travel = Math.max(1.0, rect.height - 2.0 * END - KH);
+            const f = ((rect.bottom - e.clientY) - END - KH * 0.5) / travel;
+            const idx = Math.round(flight_clamp(f, 0.0, 1.0) * (n - 1));
+            if (idx !== flight.flapIdx) {
+                flight.flapIdx = idx;
+                flight_update_flap_ui();
+            }
+        };
+        fTrack.addEventListener('pointerdown', function(e) {
+            if (dragId !== null) return;    // 已有手指在操作襟翼杆
+            if (AUTOPILOT.active) return;   // 自动驾驶接管期间襟翼由它自己管
+            e.preventDefault();
+            dragId = e.pointerId;
+            try { fTrack.setPointerCapture(e.pointerId); } catch (err) {}
+            setFromEvent(e);
+        });
+        fTrack.addEventListener('pointermove', function(e) {
+            if (dragId !== e.pointerId) return;
+            e.preventDefault();
+            setFromEvent(e);
+        });
+        const endDrag = function(e) {
+            if (dragId !== e.pointerId) return;
+            dragId = null;
+            try { fTrack.releasePointerCapture(e.pointerId); } catch (err) {}
+        };
+        fTrack.addEventListener('pointerup', endDrag);
+        fTrack.addEventListener('pointercancel', endDrag);
+        fTrack.addEventListener('lostpointercapture', endDrag);
+    }
+
     // ---- 方向舵：按住生效，松开回中 ----
     const bindRudder = function(btn, side) {
         if (!btn) return;
@@ -20536,9 +20897,11 @@ function flight_init_controls() {
     bindRudder(document.getElementById('flight_rudder_left'), 'left');
     bindRudder(document.getElementById('flight_rudder_right'), 'right');
 
-    // ---- 键盘：W/S 推拉杆、A/D 滚转、Q/E 偏航、R/F 油门 ----
+    // ---- 键盘：W/S 推拉杆、A/D 滚转、Q/E 偏航、R/F 油门、Z/X 襟翼、B 刹车、V 反推 ----
+    // B / V 是按住生效的（与屏幕上那两块按钮等价），Z / X 每按一次走一档襟翼。
     const FLIGHT_KEY_CODES = {
-        KeyW: 1, KeyS: 1, KeyA: 1, KeyD: 1, KeyQ: 1, KeyE: 1, KeyR: 1, KeyF: 1
+        KeyW: 1, KeyS: 1, KeyA: 1, KeyD: 1, KeyQ: 1, KeyE: 1, KeyR: 1, KeyF: 1,
+        KeyZ: 1, KeyX: 1, KeyB: 1, KeyV: 1
     };
     const isTypingTarget = function(target) {
         if (!target) return false;
@@ -20561,10 +20924,15 @@ function flight_init_controls() {
         flight.keys = Object.create(null);
         flight.rudderLeft = false;
         flight.rudderRight = false;
+        // 切走窗口时指针的 pointerup 不一定还会来，反推/刹车在这里一起放掉
+        flight.reverser = false;
+        flight.brake = false;
+        document.querySelectorAll('.rudder_btn, .aux_btn').forEach(function(b) { b.classList.remove('pressed'); });
     });
 
     flight_update_throttle_ui();
     flight_update_stick_ui();
+    flight_update_flap_ui();
 }
 
 
