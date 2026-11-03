@@ -16755,9 +16755,21 @@ function ap_bearing_to(pt) {
 // 航向保持：航向误差 → 期望转弯率 → 协调转弯坡度 φ = atan(V·ω/g) → 副翼。
 // 旧写法直接把航向误差当坡度用（误差 30° 就给 33° 坡度），外环没有阻尼，
 // 转弯会冲过目标航向再来回修正，航线就被拖成 S 形。
+//
+// 这里的 0.35 是按"内外环带宽必须拉开"定的，不能再取大：
+// 副翼 → 坡度的内环并不快。转弯时机身带着侧滑（水平飞行的各阶段只给 cmd.roll /
+// cmd.pitch，cmd.yaw 恒为 0，不做方向舵协调），上反效应（ClBeta）会把滚转力矩顶回来，
+// 于是坡度对副翼的响应是一条约 0.7 s 的一阶滞后，内环带宽只有 1 rad/s 上下。
+// 外环穿越频率一旦压到这条带里，两个回路就一起振荡：航向还没转到位，坡度已经顶到
+// ±30° 限幅，接着又反打满舵，形成周期 2~4 s、坡度 ±25° 的极限环。五边和航路里
+// 看起来就是机翼不停地摇摆、航迹被拖成蛇形（而尾旋演示只用 ap_roll_cmd(0) 保持
+// 机翼水平，不经过这个外环，所以从来没暴露出来）。
+// 实测（V=35~130 m/s，初始 5° 航向偏差）：增益 0.8 时全速度段都发散，残余坡度摆动
+// 15°；0.35 时外环穿越约 0.35 rad/s，与内环差 3 倍，残余坡度摆动 < 0.1°，
+// 90° 转弯仍在 20 s 量级完成。
 function ap_heading_roll(hdgDeg) {
     const err = ap_wrap_deg(hdgDeg - flight.psi * FLIGHT.RAD);
-    const omegaDeg = flight_clamp(err * 0.8, -7.0, 7.0);            // 期望转弯率 °/s
+    const omegaDeg = flight_clamp(err * 0.35, -7.0, 7.0);           // 期望转弯率 °/s
     const v = Math.max(flight.V, 12.0);
     const bank = Math.atan(v * omegaDeg * Math.PI / 180.0 / 9.80665) * FLIGHT.RAD;
     return ap_roll_cmd(flight_clamp(bank, -30.0, 30.0));
@@ -16811,10 +16823,13 @@ function ap_pitch_cmd(thetaTargetDeg) {
     const err = thetaTargetDeg - flight.theta * FLIGHT.RAD;
     return flight_clamp(0.06 * err - 0.02 * (flight.q * FLIGHT.RAD), -1.0, 1.0);
 }
-// 滚转通道：目标坡度（度，0=机翼水平）→ 副翼量（+ 为右滚），走最短方向
+// 滚转通道：目标坡度（度，0=机翼水平）→ 副翼量（+ 为右滚），走最短方向。
+// P 主导 + p 阻尼。原来 0.06/-0.02：坡度误差到 16.7° 副翼就满偏，阻尼相对偏小，
+// 阶跃响应在 ±30° 这种大幅度指令下容易冲过头。改成 0.05 与 0.03，把阻尼比抬高，
+// 给上面那个放慢了的外环留出相位余量；实测坡度阶跃仍是过阻尼、1.5 s 内到位。
 function ap_roll_cmd(phiTargetDeg) {
     const err = ap_wrap_deg(phiTargetDeg - flight.phi * FLIGHT.RAD);
-    return flight_clamp(0.06 * err - 0.02 * (flight.p * FLIGHT.RAD), -1.0, 1.0);
+    return flight_clamp(0.05 * err - 0.03 * (flight.p * FLIGHT.RAD), -1.0, 1.0);
 }
 // 垂速通道：升降舵在稳定状态下定的是迎角、迎角再通过升力改变航迹角，
 // 所以纯角度比例控制会留稳态误差——这里用垂速误差积分 + 比例，积分限幅防饱和。
@@ -16975,7 +16990,8 @@ function autopilot_step(dt) {
             if (AUTOPILOT.phase === 'p_upwind') {
                 to('p_upwind', '离场边 · ' + Math.round(agl) + ' m');
                 cmd.throttle = (agl < 120.0) ? 1.0 : ap_throttle_for_speed(AP_PATTERN_V);
-                if (agl >= 120.0) cmd.pitch = ap_vs_pitch(0.0, dt);
+                // 只调一次 ap_vs_pitch：它会按 dt 累加 vsInt，同一步里调两次等于把
+                // 积分速率翻倍（这一段就会比别的段更"急"）
                 cmd.pitch = ap_vs_pitch(agl < AP_PATTERN_ALT - 20.0 ? Math.min(12.0, (AP_PATTERN_ALT - agl) * 0.12) : 0.0, dt);
                 if (along >= legLen || AUTOPILOT.phaseT > 90.0) ap_goto('p_cross');
             }
