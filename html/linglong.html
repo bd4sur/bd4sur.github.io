@@ -829,6 +829,10 @@ body.is-day .np_plate {
     cursor: pointer;
     white-space: nowrap;
 }
+/* GPWS 音效开关：关掉时压低到几乎看不见 */
+.flight_gpws_off {
+    color: #55585c;
+}
 .flight_hint {
     font-size: 9px;
     color: #ffffff5c;
@@ -1980,6 +1984,8 @@ body.is-day .ak_socket {
                                 <button class="flight_reset_btn" id="flight_reset">复位</button>
                                 <button class="flight_reset_btn" id="flight_autopilot">失速尾旋与改出演示</button>
                                 <button class="flight_reset_btn" id="flight_pattern">五边起落</button>
+                                <button class="flight_reset_btn" id="flight_gpws"
+                                        aria-pressed="true" title="座舱语音告警：开 / 关">GPWS 音效 开</button>
                                 <span class="ap_lamp" id="ap_lamp" title="自动驾驶"></span>
                                 <span class="ap_status" id="ap_status">待机</span>
                             </div>
@@ -2294,6 +2300,7 @@ body.is-day .ak_socket {
                     <li>地面高度取自地形数据，不是常数：飞机脚下取实时海洋正在画的那一份高程场（真实地形或随机岛屿都算）在该处的高程，触地、撞山、滑跑全都按它算。所以从南京起飞压低空往东飞，飞到山脚就会撞在紫金山的山坡上，而不是从山体里穿过去；在山脊上接地后会贴着山坡滑跑，滑出陡坎时会短暂离地再落下去。海上仍以海面为接地基准（1 米）；地景不是「实时海洋」、或高程场还没载入时，退回这 1 米。仪表上的"高度"是海拔（MSL），落在山上时读的就是山顶的海拔。</li>
                     <li>飞行动力学是六自由度刚体：副翼/升降舵/方向舵给的是气动力矩，升力与阻力按左右机翼各自的当地迎角算（含失速后的升力塌陷与阻力上升），姿态用四元数积分，所以筋斗、横滚、过顶、倒飞都可以做，也不会出现欧拉角锁死；HUD 里的"高度/升降"始终是世界竖直方向。</li>
                     <li>失速与尾旋是真的算出来的：失速速度约 25 m/s（相当于 90 km/h），超过约 15° 迎角升力就开始塌陷、机头自然下坠；慢车 + 满拉杆 + 满舵可以进入尾旋——两翼当地迎角不等造成的自转力矩让机头绕垂轴持续旋转、近垂直下降，α 稳定在 20°–30°。改出用反舵（抵消自转）+ 推杆（减小迎角让机翼重新附着），松杆通常也能自己改出。抬轮速度 30 m/s，且要升力真能托住重量才离得地。</li>
+                    <li>飞行页有一套<b>座舱语音告警（GPWS）</b>，音效取自 <code>html/gpws/</code> 下的 27 段素材（用了 20 段），由「GPWS 音效」按钮开/关：无线电高度呼叫 2500/1000/500/400/300/200/100/50/40/30/20/10 ft，只在下滑穿过该高度时叫一次，爬回门限以上 80 ft 会重新武装，所以反复起降每次都能听全；下降率过大（750 m 以下按无线电高度分档，进近构型更敏感）先喊 SINK RATE，恶化到一点七倍且低于 400 m 再升级成 PULL UP；前方地形沿航迹取 4–30 s 的九个采样点、用与撞山同一条取高路径算投影净空，按 150/90/60 m 分三级喊 TOO LOW TERRAIN、TERRAIN TERRAIN、TERRAIN AHEAD PULL UP——所以 ND 地形感知里染红的那座山就是会喊的那座，而贴着平地飞、爬升脱离时不会误报（要净空在收紧才算）；低空下降却没放襟翼喊 TOO LOW FLAPS，起飞后掉高度喊 DON'T SINK，进近构型离地几米油门还开着则喊一声空客的 RETARD。同一句有最短重复间隔、告警之间按优先级排队，不会两句叠在一起。浏览器要求用户先有交互才允许放声音，所以第一次点飞行页（或点这个按钮）时才解锁音频，20 段素材在那时一并预载。</li>
                     <li>飞行时飞机的姿态决定相机视角；地面投影点的经纬度只用于驱动天象（太阳/月亮/行星/恒星方位），海拔高度只用于驱动「实时海洋」的观察高度。地景为「实时海洋」时，相机会随飞机在海面上平移——波场、泡沫与太阳耀光固定在世界坐标中，因此能看出真实的相对运动；其他地景不随飞行移动，只改变相机视角。</li>
                     <li>点击"重力感应"按钮，启用姿态传感器。</li>
                     <li>姿态角的精度取决于设备，未必准确。</li>
@@ -17661,6 +17668,7 @@ function flight_step(nowMs) {
     flight.lastNow = nowMs;
 
     flight_integrate(dt);
+    gpws_update();
     flight_sync_view();
     flight_apply_world(nowMs);
     ap_refresh_ui();
@@ -17729,6 +17737,339 @@ function flight_update_flap_ui() {
     if (fill) fill.style.height = Math.max(0.0, travel * fAct + KH * 0.5).toFixed(1) + 'px';
     if (val) val.textContent = Math.round(flight.flap) + '°';
     track.setAttribute('aria-valuenow', String(idx));
+}
+
+// ============================================================
+// GPWS / EGPWS：座舱语音告警（音效在 html/gpws/ 下）
+// ------------------------------------------------------------
+// 素材是 27 句英文告警，这里按真实系统的分法接了 20 句，其余（Glideslope、Too Low Gear、
+// Minimums、Hundred Above、Five）没有对应条件，不用：本模拟没有 ILS、没有起落架收放，
+// 也没有选定决断高度。
+//
+// 接了的：
+//   · 无线电高度呼叫：2500/1000/500/400/300/200/100/50/40/30/20/10 ft，只在下滑穿越时
+//     叫一次，爬回门限以上 80 ft 重新武装（所以反复起降每次都能听到）；
+//   · 模式一 下降率过大：750 m 以下按无线电高度分档给门限，进近构型（襟翼 ≥ 20°）更敏感；
+//     超出一倍七再升级成 PULL UP；
+//   · 模式二 前方地形：沿航迹取 4~30 s 的几个点，用 flight_terrain_under() 取高——与撞山、
+//     滑跑、ND 的地形感知完全同源，所以屏幕上看得到的山就是会喊的山；按净空分三级
+//     TOO LOW TERRAIN → TERRAIN TERRAIN → TERRAIN AHEAD, PULL UP；
+//   · 模式三 起飞后掉高度：捕捉到过上升（离地 40 m 以上还在爬）之后又掉回 60 m 以下、
+//     且襟翼没放进近构型才叫，免得正常落地也喊；
+//   · 模式四 低空构型：75 m 以下、在下降却没放襟翼 → TOO LOW FLAPS；
+//   · 空客的 RETARD：进近构型、离地 6 m 以内、油门还没收到慢车时叫一次。
+//
+// 播放用 HTMLAudioElement（不是 WebAudio）：file:// 直接打开也能响，不需要 fetch，
+// 音频在第一次用户手势时预载并解锁（浏览器的自动播放策略要求有用户交互）。
+// 告警分三级优先级（0 呼叫 / 1 注意 / 2 警告），高优先级会掐掉正在放的低优先级，
+// 同一句有最短重复间隔，所以不会出现两句叠在一起或者一秒喊四遍。
+// ============================================================
+const GPWS_DIR = 'gpws/GPWS - ';
+const GPWS_VOLUME = 0.75;
+
+// 无线电高度呼叫（ft）：从高到低
+const GPWS_CALLOUTS = [
+    { ft: 2500, name: 'Two Thousand Five Hundred' },
+    { ft: 1000, name: 'One Thousand' },
+    { ft: 500,  name: 'Five Hundred' },
+    { ft: 400,  name: 'Four Hundred' },
+    { ft: 300,  name: 'Three Hundred' },
+    { ft: 200,  name: 'Two Hundred' },
+    { ft: 100,  name: 'One Hundred' },
+    { ft: 50,   name: 'Fifty' },
+    { ft: 40,   name: 'Forty' },
+    { ft: 30,   name: 'Thirty' },
+    { ft: 20,   name: 'Twenty' },
+    { ft: 10,   name: 'Ten' }
+];
+// 各句的真实时长（秒），用 decodeAudioData 逐段量出来的。这些 mp3 的头不可靠：
+// 按文件大小会估成两倍多，Chrome 里 el.duration 也读不出来（NaN），所以"这一句还没放完"
+// 的窗口不能只靠 duration，要有一张表兜底（真读到 duration 时取两者较大的那个；
+// 另外还挂了 onended，放完立刻清窗口）。
+const GPWS_LEN = {
+    'Two Thousand Five Hundred': 1.40, 'One Thousand': 1.00, 'Five Hundred': 0.84,
+    'Four Hundred': 0.90, 'Three Hundred': 0.94, 'Two Hundred': 0.90, 'One Hundred': 0.83,
+    'Fifty': 0.62, 'Forty': 0.69, 'Thirty': 0.64, 'Twenty': 0.67, 'Ten': 0.63,
+    'Sink Rate': 0.65, 'Pull Up': 0.81, "Don't Sink": 0.90, 'Too Low Flaps': 1.11,
+    'Too Low Terrain': 1.29, 'Terrain Terrain Terrain': 3.19, 'Terrain Ahead, Pull Up': 3.98,
+    'Retard': 0.85
+};
+const GPWS_WARN = {
+    sink: 'Sink Rate',
+    pullup: 'Pull Up',
+    dontsink: "Don't Sink",
+    flaps: 'Too Low Flaps',
+    lowTerrain: 'Too Low Terrain',
+    terrain: 'Terrain Terrain Terrain',
+    terrainAhead: 'Terrain Ahead, Pull Up',
+    retard: 'Retard'
+};
+
+const GPWS = {
+    on: true,
+    unlocked: false,
+    preloaded: false,
+    el: Object.create(null),          // 句子名 → HTMLAudioElement
+    lastAt: Object.create(null),      // 每句上次播放时刻（最短重复间隔用）
+    armed: Object.create(null),       // 每个高度呼叫是否已武装
+    armInit: false,                   // 是否已按起始高度初始化过武装状态
+    busyUntil: 0,                     // 当前这句还没放完的时刻
+    busyPrio: 0,
+    playing: null,
+    now: 0,                           // 当前时刻 ms（gpws_update 每帧刷新，测试时可注入）
+    climbed: false,                   // 起飞后捕捉到过上升（模式三）
+    retardDone: false,
+    lookAt: 0,                        // 上一次扫前方地形的时刻
+    ahead: { clear: Infinity, t: 0.0, closing: false }
+};
+
+function gpws_now() {
+    return (typeof performance !== 'undefined' && performance.now) ? performance.now() : Date.now();
+}
+
+function gpws_element(name) {
+    let el = GPWS.el[name];
+    if (el) return el;
+    try {
+        el = new Audio(GPWS_DIR + name + '.mp3');
+        el.preload = 'auto';
+        el.volume = GPWS_VOLUME;
+        // 放完就把"忙碌窗口"清掉，别让下一句白等
+        el.addEventListener('ended', function() {
+            if (GPWS.playing === el) {
+                GPWS.playing = null;
+                GPWS.busyUntil = 0;
+                GPWS.busyPrio = 0;
+            }
+        });
+        GPWS.el[name] = el;
+    } catch (e) {
+        return null;
+    }
+    return el;
+}
+
+// 把所有要用的句子建出来（浏览器在这时开始拉取，落地时不至于现解码）
+function gpws_preload() {
+    if (GPWS.preloaded) return;
+    GPWS.preloaded = true;
+    for (let i = 0; i < GPWS_CALLOUTS.length; i++) gpws_element(GPWS_CALLOUTS[i].name);
+    for (const k in GPWS_WARN) gpws_element(GPWS_WARN[k]);
+}
+
+// 首次用户手势时解锁音频：拿最短的一句以 0 音量放一下再停，之后 play() 就不会被拦
+function gpws_unlock() {
+    if (GPWS.unlocked) return;
+    GPWS.unlocked = true;
+    gpws_preload();
+    const el = gpws_element('Ten');
+    if (!el) return;
+    try {
+        el.volume = 0.0;
+        const p = el.play();
+        if (p && p.then) {
+            p.then(function() {
+                try { el.pause(); el.currentTime = 0; } catch (e) {}
+                el.volume = GPWS_VOLUME;
+            }).catch(function() { el.volume = GPWS_VOLUME; });
+        } else {
+            el.pause();
+            el.volume = GPWS_VOLUME;
+        }
+    } catch (e) {
+        el.volume = GPWS_VOLUME;
+    }
+}
+
+function gpws_stop_all() {
+    for (const k in GPWS.el) {
+        const el = GPWS.el[k];
+        try { el.pause(); el.currentTime = 0; } catch (e) {}
+    }
+    GPWS.playing = null;
+    GPWS.busyUntil = 0;
+    GPWS.busyPrio = 0;
+}
+
+// 放一句。prio：0 高度呼叫 / 1 注意 / 2 警告；gap：同一句的最短间隔 ms
+function gpws_say(name, prio, gap) {
+    if (!GPWS.on || !GPWS.unlocked) return;
+    const now = GPWS.now || gpws_now();
+    if (GPWS.busyUntil > now && prio < GPWS.busyPrio) return;      // 正被更急的告警压着
+    const el = gpws_element(name);
+    if (!el) return;
+    // 这一句有多长：优先用真实的 duration，读不到（NaN）就查表
+    const lenSec = Math.max((Number.isFinite(el.duration) ? el.duration : 0.0), (GPWS_LEN[name] || 1.8));
+    const lenMs = lenSec * 1000.0;
+    // 同一句的最短间隔不小于它自己的长度，长短句都不会自己叠自己
+    if (now - (GPWS.lastAt[name] || -1e9) < Math.max(gap || 0, lenMs + 150.0)) return;
+    // 更急的插进来：把还在放的那句掐掉，两句不叠在一起
+    if (GPWS.playing && GPWS.playing !== el && GPWS.busyUntil > now) {
+        try { GPWS.playing.pause(); } catch (e) {}
+    }
+    try {
+        el.currentTime = 0.0;
+        const p = el.play();
+        if (p && p.catch) {
+            p.catch(function() {
+                // 被自动播放策略拦下来：清掉窗口，别让后面的告警跟着卡住
+                if (GPWS.playing === el) { GPWS.busyUntil = 0; GPWS.busyPrio = 0; }
+            });
+        }
+    } catch (e) {
+        return;
+    }
+    GPWS.lastAt[name] = now;
+    GPWS.playing = el;
+    GPWS.busyUntil = now + lenMs;
+    GPWS.busyPrio = prio;
+}
+
+function gpws_refresh_button() {
+    const btn = document.getElementById('flight_gpws');
+    if (!btn) return;
+    btn.textContent = GPWS.on ? 'GPWS 音效 开' : 'GPWS 音效 关';
+    btn.classList.toggle('flight_gpws_off', !GPWS.on);
+    btn.setAttribute('aria-pressed', String(GPWS.on));
+}
+
+// 复位/重新起飞：清零所有武装状态，正在放的那句也停掉
+function gpws_reset() {
+    GPWS.armed = Object.create(null);
+    GPWS.armInit = false;
+    GPWS.climbed = false;
+    GPWS.retardDone = false;
+    GPWS.lookAt = 0;
+    GPWS.ahead = { clear: Infinity, t: 0.0, closing: false };
+    gpws_stop_all();
+}
+
+// 模式一的门限（m/s），按无线电高度分档；放襟翼进近时更敏感（真实 GPWS 在着陆构型下的
+// 下滑率门限也低一档）。750 m（2450 ft）以上不工作——真实系统的模式一就从这里起效。
+function gpws_sink_threshold(aglM, landing) {
+    if (aglM > 750.0) return 0.0;
+    if (aglM < 30.0) return landing ? 6.5 : 8.0;
+    if (aglM < 120.0) return landing ? 8.0 : 10.5;
+    if (aglM < 300.0) return landing ? 9.5 : 13.5;
+    return landing ? 11.5 : 16.0;
+}
+
+// 前方航路上的地形：沿航迹取几个时间点，返回"最贴脸"的那一处净空（本机高度 − 地形高度）
+// 与它有多远（秒）。取高走 flight_terrain_under()，与撞山、滑跑、ND 地形感知同一条路径。
+//
+// 只看净空是不够的：贴着海面 40 m 平飞、刚起飞爬出 40 m，净空都只有几十米，可那并不算
+// 地形威胁。真正该喊的是"前方有比脚下更高的地，而且已经挡在本机高度以下不远了"，所以
+// 这里多一条门槛：前方地形要比飞机正下方的地面高出 20 m 以上才认。平飞贴着地形飞的净空
+// 问题归模式一（下降率）管，两套不重复喊。
+function gpws_terrain_ahead() {
+    if (flight.wow) return { clear: Infinity, t: 0.0, closing: false };
+    const h0 = flight_terrain_under(flight.x, flight.z);
+    const base = ((h0 === null || h0 < 0.0) ? 0.0 : h0);   // 脚下地面（海底按海平面）
+    const v = Math.max(1.0, flight.V);
+    const vs = flight.V * Math.sin(flight.gamma);    // 竖直速度（+ 爬升）
+    const sg = Math.sin(flight.chi), cg = Math.cos(flight.chi);
+    const steps = [4.0, 6.0, 8.0, 10.0, 12.0, 15.0, 19.0, 24.0, 30.0];
+    let best = Infinity, bestT = 0.0, first = Infinity;
+    for (let i = 0; i < steps.length; i++) {
+        const t = steps[i];
+        const d = v * t;
+        if (d > 8000.0) break;                       // 30 s 之外不看（8 km 封顶）
+        const h = flight_terrain_under(flight.x + sg * d, flight.z + cg * d);
+        if (h === null) continue;                    // 没有地形数据就当平地
+        const hh = (h < 0.0) ? 0.0 : h;
+        if (hh - base < 20.0) continue;              // 前方并不比脚下高，不算障碍
+        // 净空按"投影航迹"算：爬升时高度还在长，前方的山自然就让开了；俯冲时才真正逼近。
+        const clear = (flight.alt + vs * t) - hh;
+        if (first === Infinity) first = clear;       // 最近那个采样点的净空
+        if (clear < best) { best = clear; bestT = t; }
+    }
+    // 真实 EGPWS 的第二个条件：净空要在"收紧"。一边爬升一边从山头上方过去时净空是变大的，
+    // 提示音不该响；这里用"最紧处比最近的采样点还紧 10 m 以上"来判断。
+    const closing = (best < first - 10.0);
+    return { clear: best, t: bestT, closing: closing };
+}
+
+// 每帧调一次（flight_step），跑在帧率上而不是积分子步上，足够 20 Hz 的告警响应
+function gpws_update(nowMs) {
+    if (!flight.ready) return;
+    if (!GPWS.on) return;
+    const agl = Math.max(0.0, flight.alt - flight.ground);   // 无线电高度 m
+    const aglFt = agl / 0.3048;
+    const vs = flight.V * Math.sin(flight.gamma);            // 竖直速度 m/s（+ 爬升）
+    const sink = -vs;                                        // + 下降
+    const landing = flight.flap >= 15.0;                     // 襟翼 20°/30° = 进近构型
+    const now = Number.isFinite(nowMs) ? nowMs : gpws_now();
+    GPWS.now = now;
+
+    // 起飞后有没有真的爬上去过（模式三要先看到上升，免得正常落地也喊 DON'T SINK）
+    if (flight.wow) {
+        GPWS.climbed = false;
+        GPWS.retardDone = false;
+    } else if (agl > 40.0 && vs > 1.0) {
+        GPWS.climbed = true;
+    }
+
+    // 第一次跑（或刚复位）时按当前高度先摆一遍武装状态：已经在门限以下的直接算"叫过了"，
+    // 否则从 50 m 起步的那一瞬间会把上面十几档门限一口气全判成"刚刚穿过"。
+    if (!GPWS.armInit) {
+        for (let i = 0; i < GPWS_CALLOUTS.length; i++) {
+            GPWS.armed['cp' + GPWS_CALLOUTS[i].ft] = (aglFt > GPWS_CALLOUTS[i].ft + 80.0);
+        }
+        GPWS.armInit = true;
+    }
+
+    // ---- 无线电高度呼叫：只在下滑穿越门限的那一下叫 ----
+    for (let i = 0; i < GPWS_CALLOUTS.length; i++) {
+        const c = GPWS_CALLOUTS[i];
+        const key = 'cp' + c.ft;
+        if (GPWS.armed[key] === undefined) GPWS.armed[key] = true;
+        if (aglFt > c.ft + 80.0) {
+            GPWS.armed[key] = true;                  // 爬回门限以上 80 ft 重新武装
+        } else if (aglFt <= c.ft && GPWS.armed[key]) {
+            GPWS.armed[key] = false;
+            if (sink > 0.3) gpws_say(c.name, 0, 0);  // 下降才叫，爬升穿过这几档不出声
+        }
+    }
+
+    if (flight.wow) return;                          // 轮子在地上不出告警
+
+    // ---- 模式一：下降率过大（750 m 以下按高度分档）----
+    const thr = gpws_sink_threshold(agl, landing);
+    if (thr > 0.0 && sink > thr) {
+        if (sink > thr * 1.7 && agl < 400.0) gpws_say(GPWS_WARN.pullup, 2, 1500);
+        else gpws_say(GPWS_WARN.sink, 1, 1200);
+    }
+
+    // ---- 模式二：前方地形（4 Hz 扫一次，六个采样点）----
+    if (now - GPWS.lookAt > 250.0) {
+        GPWS.lookAt = now;
+        GPWS.ahead = gpws_terrain_ahead();
+    }
+    const ah = GPWS.ahead;
+    // 进近构型在低空属于正常落地（正下方就是机场），模式二在这里抑制——真实 EGPWS 也这么
+    // 干，否则每落一次地都要把最后三百米喊满 TOO LOW TERRAIN。另一个抑制条件是"确实飞起来
+    // 过"：起飞滑跑时地形模型在陡坎上会瞬间把飞机抛起来再落回去，那时按净空算就是一头扎
+    // 进前面的山，纯属模型抖动的假告警。
+    const mode2Off = (landing && agl < 250.0) || !(GPWS.climbed || agl > 150.0);
+    // 净空小但还在平飞就先不吵（贴着山平飞很常见），下降中或者已经贴到脸上才报
+    if (!mode2Off && ah.closing && ah.clear < 150.0 && (sink > 0.5 || ah.clear < 90.0)) {
+        if (ah.clear < 60.0 && ah.t <= 12.0) gpws_say(GPWS_WARN.terrainAhead, 2, 2600);
+        else if (ah.clear < 90.0) gpws_say(GPWS_WARN.terrain, 1, 2800);
+        else gpws_say(GPWS_WARN.lowTerrain, 1, 3200);
+    }
+
+    // ---- 模式四：低空在下降却没放襟翼 ----
+    if (agl < 75.0 && sink > 1.0 && !landing) gpws_say(GPWS_WARN.flaps, 1, 3200);
+
+    // ---- 模式三：起飞后掉高度（襟翼还没进近构型才算）----
+    if (GPWS.climbed && agl < 60.0 && vs < -2.0 && !landing) gpws_say(GPWS_WARN.dontsink, 1, 3000);
+
+    // ---- 收油门：进近构型、离地几米、油门还没收到慢车 ----
+    if (!GPWS.retardDone && landing && agl < 6.0 && agl > 1.0 && sink > 0.2) {
+        GPWS.retardDone = true;
+        if (flight.throttle > 0.12) gpws_say(GPWS_WARN.retard, 1, 0);
+    }
+    if (agl > 20.0) GPWS.retardDone = false;
 }
 
 function flight_update_stick_ui() {
@@ -20632,6 +20973,7 @@ function flight_reset() {
     flight_update_throttle_ui();
     flight_update_stick_ui();
     flight_update_flap_ui();
+    gpws_reset();
     flight_update_readout();
     refresh_view_angle();
 }
@@ -20669,6 +21011,7 @@ function flight_select_tab(name) {
 
     if (isFlight) {
         flight.active = true;
+        gpws_unlock();      // 切页也是一次用户手势，顺手把告警音频解锁
         // 进入飞行控制时自动打开「姿态指示」并切到「透视投影」：姿态指示是判断俯仰/坡度的必需符号，
         // 而鱼眼投影会在视角接近天顶/天底时把地平线压成弧线，不像座舱视野。每次切入本页都重新应用。
         if (!enable_att_indicator || enable_fisheye_projection) {
@@ -20724,6 +21067,22 @@ function flight_init_controls() {
             autopilot_engage('pattern');
         });
     }
+
+    // ---- GPWS 音效开关 ----
+    // 第一次点它（或第一次碰到飞行页任何地方）就把音频解锁：浏览器的自动播放策略要求
+    // 有用户手势，解锁发生在手势里才不会被静音。
+    const gpwsBtn = document.getElementById('flight_gpws');
+    if (gpwsBtn) {
+        gpws_refresh_button();
+        gpwsBtn.addEventListener('click', function(e) {
+            e.preventDefault();
+            gpws_unlock();
+            GPWS.on = !GPWS.on;
+            if (!GPWS.on) gpws_stop_all();
+            gpws_refresh_button();
+        });
+    }
+    window.addEventListener('pointerdown', gpws_unlock, { once: true });
 
     // ---- 油门：竖向轨道，向上推满、向下收光，按下即跳到该位置 ----
     // 位置 → 开度按档把圆心算：手指按在哪儿，档把圆心就落在哪儿（两端夹住）
