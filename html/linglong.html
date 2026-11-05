@@ -21859,8 +21859,9 @@ function mcdu_press(code) {
         mcdu_render();
         return;
     }
-    // 行选键
-    if (code.charAt(0) === 'L' || code.charAt(0) === 'R') {
+    // 行选键：编码是 L1–L6 / R1–R6。这里必须连长度和行号一起判，只判首字母的话
+    // 字母键 L、R 会被当成 0 号行选键吞掉（草稿栏打不出这两个字母）。
+    if (/^[LR][1-6]$/.test(code)) {
         mcdu_lsk(code.charAt(0), Number(code.charAt(1)));
         return;
     }
