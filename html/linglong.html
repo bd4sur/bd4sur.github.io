@@ -2294,9 +2294,10 @@ body.is-day .ak_socket {
                     <li>ND 上可以叠一层天气雷达回波（显示屏底边的软键「天气雷达」，默认关）：回波不是另找一份雷达数据画的图，而是把体积云渲染器**正在用的那份密度场**在同一世界坐标（东/北，km）、同一风场时刻上按列竖直扫一遍——每列只在当前启用的层带里取高度样本（浓积云 5 个、高积云 3 个、层积云 3 个、卷层云 2 个，停用的层带一个样本都不取），每个样本走与光线步进相同的入口 cloud_sky_cloudMap()，柱含水量 Σ密度·dz 按层加权（对流层 1.0 / 高积云 0.55 / 层积云 0.45 / 卷层云 0.35）后取对数折算等效反射率 dBZ，浓积云塔顶越高再加分。于是"平铺的层积云"是一片绿、"发展旺盛的积云"才有黄橙核，云在哪儿回波就在哪儿——风把云吹走，回波跟着走（栅格锚定在世界坐标上，默认风 50 m/s）。色标是气象雷达那套：青蓝→绿→黄→橙→红→品红→白核；显示门槛取 15 dBZ（机载雷达「最小可测回波」的量级），弱于它的按无明显回波处理、靠近门槛的一圈渐隐到底图，所以有云的间隙是真的黑的。纹素比云胞粗时（远量程）先按纹素足迹做一次面积平均再折算 dBZ，等效雷达波束宽度平均，免得 3 km 的云胞被点采样成一地散点。128×128 栅格分帧扫（每帧有 3.5 ms 预算），扫完才整块换图，所以不掉帧也不会看到半张；量程、云参数、层类、云量、雷达云图开关、机位移动超过 1/4 窗口都会触发重扫，平时只在云被风平流走一个纹素（约 5 px）之后重扫，最久 30 s 也扫一次。小罗盘下方一行小字是雷达读数，显示当前画面里的最强回波（dBZ）。关掉「体积云」天上的云就没了，回波同时消失（显示 WXR NO CLD）。</li>
                     <li>「天气雷达」与「雷达云图」是两件事：前者是 ND 上的回波显示，由体积云密度场反算；后者决定体积云自身长什么样——把中央气象台组合反射率图反演成 dBZ 网格，用回波强弱控制云量的有无疏密、云顶高度与厚薄。关掉「雷达云图」，体积云退回程序化天气图，ND 上的回波也跟着换成那份云场（因为它读的永远是当前真实的密度场）。</li>
                      <li>ND 底下还可以铺一层<b>地形感知（TAWS）</b>（显示屏底边的软键「地形感知」，默认开）：数值直接取实时海洋正在画的那一份高程场（Copernicus GLO-30 分块 / 烘焙 DEM / 程序化岛屿），取高走的是撞山、滑跑同一条路径，所以屏上画出来的坡就是会撞上的坡。着色按 DEM 海拔分档（平原深绿 → 丘陵橄榄 → 低山土黄 → 高山岩灰 → 雪线以上发白），再叠一道西北 45° 光线的山体阴影：坡度由相邻纹素的高差算，垂直夸张按整张图的平均坡度自动定标（0.55 / 平均坡度，夹在 0.5–60 之间），因此 10 km 与 200 km 量程的立体感差不多，平原也不会被夸张成一片噪点。告警一律相对本机高度：高于本机 500 m 的地形整片染红并勾亮边，本机高度 −300 m 到 +500 m 之间只上一层薄琥珀色（不勾边，地貌一皱边界线就成了乱麻）；染红用的是半透明洗色而不是盖死，底下的地势起伏仍读得出。顶部弧度里弹出 TERRAIN 告警条（1.4 Hz 软脉冲，带最近的一块告警地形距本机多远），琥珀一级只显示 TERR CAUTION；小罗盘／WXR 读数下面一行是画面里最高的地形（TERR xxxx m），颜色随威胁等级变。栅格锚定在世界坐标上（与天气回波同一套变换），160×160，换量程、机位离开栅格中心 1/4 半边长、高程窗口重定中心时才重扫（约 2 ms），海拔每变 10 m 重涂一次（约 0.5 ms），所以爬升不掉帧。注意覆盖范围只有海洋渲染那份 51.2 km 的世界窗口（±25.6 km）——窗口外没有数据，一律透明，所以 200 km 量程时机位周围只显出约 64 px 的一块地形，50 km 以内才铺满整屏；地景不是「实时海洋」或数据没载入时显示 TERR NO DATA。</li>
-                    <li>「五边起落」按钮是另一套自动驾驶场景：先把飞机摆到离当前位置最近的一条跑道的入口上，起飞航向就是这条跑道的真方位（滑跑状态会显示"起飞滑跑 · 17R 跑道 162°"），附近没有跑道数据时才退回取当前时刻的太阳方位；离地后按标准左航线飞完整五边——离场边爬升到 600 m、侧风边左转 90°、下风边与跑道平行反向、底边再左转 90° 下降到进场高度、最后进近对正跑道落地；航线速度保持约 58 m/s，转弯半径约 500 m，整圈几何按起飞点闭合。襟翼按起飞/巡航/进近三段自己管：滑跑与抬轮放 10°，爬过 80 m 收光，最后进近放到 20°（进近速度跟着从 46 降到 36 m/s），接地后轮刹全踩、速度掉到 6 m/s 以下才松开。</li>
+                    <li>「五边起落」按钮是另一套自动驾驶场景：先把飞机摆到离当前位置最近的一条跑道的入口上（静止、对准跑道），起飞航向就是这条跑道的真方位（滑跑状态显示"起飞滑跑 · 17R 跑道 162°"）；离地后沿跑道中线爬升到离地 450 m 的航线高度，再按标准左航线飞完整五边——侧风边左转 90°，下风边与跑道平行反向飞回阈值之前，底边再左转 90°，最后进近对正跑道中线、贴着 3° 下滑道下降到离跑道 15 m 拉平接地，接地后轮刹 + 反推一直刹到停住。襟翼按起飞/航线/进近三段自己管：滑跑与抬轮放 10°，爬过 80 m 收光，底边放到 20°（进近速度 36 m/s）。实测在浦东 16R 落地点在入口之后 270 m、横向偏差 0.2 m 以内，刹停时离入口约 300 m，全程不偏出跑道。</li>
                     <li>「失速尾旋与改出演示」按钮会接管全部操纵——摇杆、油门键、襟翼杆、反推与刹车都不再响应用户（与油门同一条规则：操纵权在 AP 手里），从地面起飞爬升穿云到 7500 m，减速到失速边界后故意拉出失速、蹬满舵进入尾旋——进入约 20 秒后再顺舵加副翼，转速会从 30°/s 一路压到 140°/s，一直转到 1600 m 才改出（反舵打停自转、推杆让机翼附着、低空大过载拉起），随后进近、拉平、刹停；结束后指示灯自动熄灭。其中襟翼与刹车/反推也由它操作：滑跑与抬轮放 10°、爬过 80 m 收光，进近放满 30°（失速速度降到 20 m/s，进近速度与下滑率随之收到 30 m/s、−5 m/s），接地后轮刹全踩、并同时点反推，约 2.5 s 就从 25 m/s 刹停。再点一次按钮或按「复位」可随时中止。</li>
                     <li>触地后按起落架接地处理：姿态立即放平为地面姿态（机翼水平、机头放平、无侧滑），随后进入滑跑。滑跑时油门对抗气动阻力、滚动阻力与刹车阻力——收油门（或按 F）会带一份自动刹车在十秒上下逐渐滑停，速度可降到 0；按住刹车（或键盘 B）再加一份更硬的轮刹，40 m/s 大约 6 秒能停住；按住反推（或 V）则推力整个翻过来，滑跑中减速比轮刹还快，静止或低速时还会把飞机往后推——倒车限速 4.5 m/s，松手后靠摩擦力自己停下，不按反推则永远不会倒车。加到约 30 m/s 抬轮速度后再拉杆即可重新离地，低于该速度拉杆无效（机头被前轮/尾轮撑住）。</li>
+                    <li>三个自动驾驶演示（五边起落、失速尾旋、MCDU 航路）守同一条规矩：<b>从离当前位置最近的机场跑道头静止滑跑起飞，任务完成后准确落回跑道</b>。起飞点、起飞航向、落地跑道都在按下按钮那一刻定好（落地方向与起飞方向一致，就是本场五边）；航路模式的落地跑道在飞完最后一点时按终点机场现挑——终点填的是坐标点、或者终点机场没有跑道数据时，由近到远退几档找最近有机场的跑道。进近几何全部建在跑道局部坐标里（s 沿跑道、t 横向）：横向用航线跟踪把 t 压到 0，纵向按「阈值标高 + 到阈值距离 × tan3°」算下滑道高度（剖面在阈值外 300 m 处落到地面，所以真正的接地在接地带里而不是压着入口线）；离地 15 m 进拉平，接地后轮刹 + 反推刹到停。进近没对上（还高着就越过阈值、或低空横向偏出 18 m）会自动复飞重新进五边，宁可多飞一圈也不落到跑道外面去。全程的接地速度约 24 m/s、刹停距离约 30 m，3000 m 级的跑道绰绰有余。</li>
                     <li>机场跑道是真实数据，不是画上去的贴图：78 座机场共 126 条跑道，两端的阈值经纬度、长度、宽度、两端标高、入口内移、面层与灯光标志全都取自 OurAirports 的 runways.csv；长度与真方位由两端坐标现算，所以在地面上量出来的长度就是公布里程（浦东 17L 4014 m、首都 18L/36R 3789 m 都是数据的原值）。坐标缺失或阈值坐标与公布里程对不上的三十来条（老数据的坐标是估的）按"公布里程 + 编号方位"重建。跑道区域的地形被压成同一个标高——取跑道中线上 DEM 的中位数（填海机场在高程数据里是水，这一步同时把水面标记清掉），铺面外 130 m 保持水平，再往外 780 m 平滑过渡回地形——因此跑道是平的，可以在上面滑跑、抬轮、接地、刹车，五边起落的第 1 边与第 5 边就严格压在这条跑道的中线上。</li>
                     <li>跑道标线在片元着色器里按跑道的解析几何现算，不受 25 m 高程格距的限制，近看看不糊、远看不会闪：边线（0.9 m）、中线（30 m 划线 + 20 m 空白）、阈值条（按跑道宽度每侧 2~4 条）、瞄准点与接地带（精密进近跑道才有）、跑道号（字形图集采样，字高 9 m）、入口内移区一排指向阈值的箭头。夜里（太阳低于约 7°）自动点亮：跑道边灯 60 m 一盏、中线灯 15 m 一盏（两端各 300 m 转红）、阈值绿灯、末端红灯、阈值外 420 m 的进近灯（含两道横排）、以及跑道左侧的 PAPI——PAPI 的红白比按相机视线角现算，进近角偏低时四盏全红，压上 3° 下滑道时两红两白，偏高则全白，跟真的一样。灯光不单独做辉光后处理，而是在同一个片元里一并算进亮度，所以远景的灯带不会被雾吃掉。</li>
                     <li>地面高度取自地形数据，不是常数：飞机脚下取实时海洋正在画的那一份高程场（真实地形或随机岛屿都算）在该处的高程，触地、撞山、滑跑全都按它算。所以从南京起飞压低空往东飞，飞到山脚就会撞在紫金山的山坡上，而不是从山体里穿过去；在山脊上接地后会贴着山坡滑跑，滑出陡坎时会短暂离地再落下去。海上仍以海面为接地基准（1 米）；地景不是「实时海洋」、或高程场还没载入时，退回这 1 米。仪表上的"高度"是海拔（MSL），落在山上时读的就是山顶的海拔。</li>
@@ -12025,7 +12026,7 @@ function aero_build() {
             surf: row[13], lit: row[14] ? 1 : 0,
             // 锚定后填：世界坐标、单位方向、中点、压平标高
             x1: 0, z1: 0, x2: 0, z2: 0, ux: 1, uz: 0, mx: 0, mz: 0,
-            elevM: 0.0, inWin: false,
+            elevM: 0.0, elevSet: false, inWin: false,
             // 着色器标号（延迟到锚定时填也行，这里一次算好）
             gfA: [13, 13, 13], gnA: 0,
             gfB: [13, 13, 13], gnB: 0,
@@ -12153,6 +12154,7 @@ function aero_flatten(h, wet, lonC, latC, kLon, kLat, texel, N) {
         for (const r of ap.rwys) {
             if (!r.inWin) continue;
             r.elevM = padElev;
+            r.elevSet = true;
             const hw = r.wid * 0.5;
             const reach = hw + AERO_PAD_REACH;
             const x0 = Math.min(r.x1, r.x2) - reach, x1 = Math.max(r.x1, r.x2) + reach;
@@ -12303,6 +12305,35 @@ function aero_fill_uniforms(camX, camZ) {
         M[o] = r.gfB[0]; M[o + 1] = r.gfB[1]; M[o + 2] = r.gfB[2]; M[o + 3] = r.gnB;
     }
     AERO_GL.count = n;
+}
+
+// 挑一条落地跑道：把每条跑道的两个方向都算一遍，取「从给定点飞到五边起点最近」
+// 的那条。路线是从当前位置飞到跑道中线延长线（远端外 2.5 km）再进五边，
+// 所以只看远近不看风向（本模拟没有风）。
+function aero_pick_landing(lat, lon, maxKm) {
+    aero_build();
+    const lim = (maxKm || 25.0) * 1000.0;
+    const p = flight_xy_from_latlon(lat, lon);
+    let best = null, bestD = Infinity;
+    for (const ap of AERODROME.list) {
+        const d0 = aero_dist_m(lat, lon, ap.lat, ap.lon);
+        if (d0 > lim + 6000.0) continue;          // 机场基准点都离得远，整座跳过
+        for (const r of ap.rwys) {
+            if (r.len < 1000.0) continue;
+            for (let k = 0; k < 2; k++) {
+                const fromA = (k === 0);
+                const hdg = fromA ? r.hdg : (r.hdg + 180.0) % 360.0;
+                const thr = fromA ? [r.lat1, r.lon1] : [r.lat2, r.lon2];
+                const xy = flight_xy_from_latlon(thr[0], thr[1]);
+                const u = ap_dir(hdg);
+                const jx = xy[0] + u[0] * (r.len + AP_LAND_JOIN_BACK);
+                const jz = xy[1] + u[1] * (r.len + AP_LAND_JOIN_BACK);
+                const d = Math.hypot(jx - p[0], jz - p[1]);
+                if (d < bestD) { bestD = d; best = { r: r, fromA: fromA }; }
+            }
+        }
+    }
+    return best;
 }
 
 // 找离给定经纬度最近的跑道（五边起落用）：返回 { r, fromA } 或 null
@@ -17563,7 +17594,8 @@ function flight_touchdown() {
     // 起飞滑跑阶段（roll/rotate）不算——贴着山坡滑跑时地形涨得比飞机爬得快，
     // 抬轮那一下常常又"触地"回来，那时断开就等于把起飞掐死了。
     if (AUTOPILOT.active && AUTOPILOT.mode === 'route' &&
-        AUTOPILOT.phase !== 'roll' && AUTOPILOT.phase !== 'rotate') {
+        AUTOPILOT.phase !== 'roll' && AUTOPILOT.phase !== 'rotate' &&
+        AUTOPILOT.phase !== 'flare' && AUTOPILOT.phase !== 'rollout') {
         AUTOPILOT.active = false;
         AUTOPILOT.phase = 'idle';
         AUTOPILOT.msg = '触地 · AP 断开';
@@ -17697,13 +17729,259 @@ const AUTOPILOT = {
 
 const AP_CLOUD_ALT = 7500.0;     // 穿云/目标高度 m（云层 3–11 km，给尾旋留足高度）
 const AP_CLIMB_VS = 55.0;        // 爬升率 m/s（大推力爬升，尽快上到云顶附近）
-const AP_DESC_VS = -45.0;        // 下降率 m/s
-const AP_FLARE_VS = -2.2;        // 拉平时的下沉率 m/s
 // 五边起落（traffic pattern）：朝太阳方位起飞，左航线一圈后落地
 const AP_PATTERN_ALT = 700.0;    // 航线高度 m
 const AP_PATTERN_V = 58.0;       // 航线速度 m/s（转弯半径约 500 m，航路点不容易被冲过头）
 const AP_PATTERN_LEN = 4000.0;   // 离场/下风边长度 m
 const AP_PATTERN_WIDE = 2500.0;  // 侧风/底边横向宽度 m
+
+// ============================================================
+// 自动进近与落地（五边起落 / 失速尾旋演示 / 航路自动飞行共用）
+// ------------------------------------------------------------
+// 三个演示都得「从最近的机场跑道头静止滑跑起飞，任务完成后准确落回跑道」，
+// 这段代码管的是后一半。几何全部建在目标跑道的局部坐标里：
+//   s = 沿跑道方向的坐标（阈值处 s = 0，进近时 s < 0，越过阈值 s > 0）
+//   t = 横向坐标（朝着陆方向看时的左手边为正）
+// 于是「对准跑道」就只是一条 t ≡ 0 的直线，横向偏差用 ap_line_heading 一直往回收；
+// 纵向是 3° 下滑道，剖面高度 = 阈值标高 + 到阈值距离 × tan3°。
+//
+// 相位：l_join 进场（沿中线延长线飞到五边起点）
+//       l_cross 侧风边（左转 90°）→ l_down 下风边（反向平行）→
+//       l_base 底边（再左转 90°）→ l_final 最后进近（贴 3° 下滑道）
+//       → flare 拉平 → rollout 刹车滑跑 → done
+// 目标跑道在起飞那一刻就定下来（落地方向 = 起飞方向，就是本场五边）；
+// 航路模式在飞完最后一点时按终点机场现挑（aero_pick_landing）。
+// ============================================================
+const AP_LAND_ALT = 450.0;            // 五边高度（离地）m
+const AP_LAND_WIDE = 2400.0;          // 侧风边/下风边距中线的横向宽度 m
+const AP_LAND_JOIN_BACK = 1200.0;     // 五边起点在远端之外多远 m
+const AP_LAND_BASE_S = -1800.0;       // 下风边结束（沿跑道方向，阈值前 1800 m）
+const AP_LAND_BASE_T = 900.0;         // 底边结束（距中线 900 m）时转最后进近
+const AP_LAND_BASE_ALT = 130.0;       // 底边高度（相对阈值）m
+const AP_LAND_TAN = 0.05240778;       // tan(3°)：下滑道坡度
+const AP_LAND_PATH_OFF = 300.0;       // 下滑道在「阈值外 300 m」处落地为零：真实下滑道
+                                      // 是让飞机在跑道入口上空十几米过阈值的，落地点在
+                                      // 接地带里，而不是正好压在入口线上
+const AP_LAND_FLARE_AGL = 15.0;       // 拉平起始高度（相对阈值）m
+const AP_LAND_V = 36.0;               // 最后进近速度 m/s（襟翼 20°）
+
+const AP_LAND = {
+    on: false,
+    r: null,              // 目标跑道（AERODROME 里的跑道对象）
+    fromA: true,          // 从 A 端落地
+    name: '',             // 跑道名，如「16L 跑道」
+    thr: [0.0, 0.0],      // 阈值平面坐标（m）
+    u: [0.0, 1.0],        // 着陆方向单位向量
+    v: [-1.0, 0.0],       // 朝着陆方向看时的左手边
+    hdg: 0.0,             // 着陆航向（真方位，度）
+    len: 0.0,             // 跑道长度 m
+    elev: 0.0,            // 阈值标高 m
+    joinPt: [0.0, 0.0],   // 五边起点（远端中线延长线上）
+    goArounds: 0,
+};
+
+// 沿线轴线、距阈值 d 米处的平面坐标（d < 0 即阈值之前）
+function ap_land_point(d) {
+    return [AP_LAND.thr[0] + AP_LAND.u[0] * d, AP_LAND.thr[1] + AP_LAND.u[1] * d];
+}
+
+// 跑道标高：优先用「压平后写回的 DEM 标高」，还没压平过（机场不在当前地形窗口里）
+// 就退回数据集里那一端的公布标高。两者可能差几十米（大地水准面之差），但真正决定
+// 地面的是 DEM，所以只要窗口盖到这座机场、压平跑过一遍，就该改用 elevM。
+function ap_rwy_elev(r, fromA) {
+    if (r && r.elevSet) return r.elevM;
+    const ft = fromA ? r.elevA : r.elevB;
+    if (ft > -9990) return ft * 0.3048;
+    const other = fromA ? r.elevB : r.elevA;
+    return (other > -9990) ? other * 0.3048 : 0.0;
+}
+
+// 设定落地跑道（起飞时或航路终点用）
+function ap_land_set_runway(r, fromA) {
+    const hdg = fromA ? r.hdg : (r.hdg + 180.0) % 360.0;
+    const tip = fromA ? [r.lat1, r.lon1] : [r.lat2, r.lon2];
+    const xy = flight_xy_from_latlon(tip[0], tip[1]);
+    const u = ap_dir(hdg);
+    AP_LAND.r = r;
+    AP_LAND.fromA = fromA;
+    AP_LAND.name = (fromA ? r.a : r.b) + ' 跑道';
+    AP_LAND.thr = xy;
+    AP_LAND.u = u;
+    AP_LAND.v = [-u[1], u[0]];
+    AP_LAND.hdg = hdg;
+    AP_LAND.len = r.len;
+    AP_LAND.elev = ap_rwy_elev(r, fromA);
+    AP_LAND.joinPt = [xy[0] + u[0] * (r.len + AP_LAND_JOIN_BACK),
+                      xy[1] + u[1] * (r.len + AP_LAND_JOIN_BACK)];
+    AP_LAND.goArounds = 0;
+    AP_LAND.on = true;
+    return hdg;
+}
+
+// 把飞机摆到跑道入口上：静止、对准跑道、停在地面（三个演示共用这一个起点）
+function ap_place_on_runway(r, fromA) {
+    const hdg = fromA ? r.hdg : (r.hdg + 180.0) % 360.0;
+    // 停在（内移后的）入口之后 20 m 的铺面上：入口以前是内移区/停止道，不承重
+    const fwd = 20.0 + (fromA ? r.dtA : r.dtB);
+    const tip = fromA
+        ? aero_point_along(r.lat1, r.lon1, hdg, fwd)
+        : aero_point_along(r.lat2, r.lon2, hdg, fwd);
+    const xy = flight_xy_from_latlon(tip[0], tip[1]);
+    flight.x = xy[0];
+    flight.z = xy[1];
+    flight.psi = flight_wrap_2pi(hdg * FLIGHT.DEG);
+    flight.chi = flight.psi;
+    flight.gs = 0.0;                                 // 静止
+    flight.V = 0.0;
+    flight.alpha = 0.0;
+    flight.theta = 0.0;
+    flight.phi = 0.0;
+    flight.gamma = 0.0;
+    flight_set_body_state(0.0, 0.0, flight.psi, 0.0, 0.0);
+    flight.alt = flight_ground_update();             // 跑道已被压平，这一下就落在跑道标高上
+    flight.wow = true;
+    return hdg;
+}
+
+// 航路模式飞完最后一点时，按终点机场挑一条跑道落地
+function ap_land_prepare_dest() {
+    const last = AP_ROUTE.wp[AP_ROUTE.wp.length - 1];
+    if (!last) return false;
+    const ll = flight_latlon(last.x, last.z);
+    // 终点是坐标点、或者终点机场没有跑道数据时，由近到远退几档找机场
+    for (const km of [30.0, 120.0, 400.0, 900.0]) {
+        const pick = aero_pick_landing(ll[0], ll[1], km);
+        if (pick) {
+            ap_land_set_runway(pick.r, pick.fromA);
+            return true;
+        }
+    }
+    return false;
+}
+
+// 进近/落地状态机：由 autopilot_step 在 l_* 相位里调用，返回操纵指令
+function ap_land_step(dt, cmd) {
+    const L = AP_LAND;
+    if (!L.on) {
+        // 附近没有跑道数据（机场不在当前地形窗口里）：保持高度平飞，不硬往下扎
+        cmd.roll = ap_roll_cmd(0.0);
+        cmd.pitch = ap_vs_pitch(0.0, dt);
+        cmd.throttle = ap_throttle_for_speed(AP_PATTERN_V);
+        AUTOPILOT.msg = '无跑道数据 · 平飞';
+        return cmd;
+    }
+    // 跑道标高动态跟住：离得远时用的是公布标高，窗口盖到机场之后压平标高才有效，
+    // 两者可能差几十米。按 8 m/s 限速挪过去，不让下滑道整条跳一下。
+    {
+        const eT = ap_rwy_elev(L.r, L.fromA);
+        const dE = flight_clamp(eT - L.elev, -8.0 * dt, 8.0 * dt);
+        L.elev += dE;
+    }
+    const altRwy = flight.alt - L.elev;              // 相对跑道标高的高度
+    const agl = flight.alt - flight.ground;          // 实际离地高度
+    const dx = flight.x - L.thr[0], dz = flight.z - L.thr[1];
+    const s = dx * L.u[0] + dz * L.u[1];
+    const t = dx * L.v[0] + dz * L.v[1];
+    const dThr = Math.max(-s, 0.0);                  // 到阈值的沿轴距离（越过阈值后为 0）
+    const altPattern = L.elev + AP_LAND_ALT;
+    const look = Math.max(600.0, flight.V * 9.0);
+    const ph = AUTOPILOT.phase;
+
+    if (ph === 'l_join') {
+        // 沿中线延长线飞到五边起点（起飞后的第 1 边 / 返场时的进场边）。
+        // 离得远（航路终点离最近的机场几十上百公里）就先用巡航速度平飞过去，
+        // 别在半路上就把速度收到航线速度、也不要一路往下掉高度。
+        const dJoin = Math.hypot(L.joinPt[0] - flight.x, L.joinPt[1] - flight.z);
+        const farJoin = dJoin > 15000.0;
+        AUTOPILOT.msg = (farJoin ? '转场 · ' : '进场 · ') + L.name
+            + (farJoin ? ' · ' + Math.round(dJoin / 1000.0) + ' km' : '');
+        cmd.flap = farJoin ? 0 : ((agl > 80.0) ? 0 : 1);
+        cmd.throttle = ap_throttle_for_speed(farJoin ? Math.max(AP_PATTERN_V, 90.0) : AP_PATTERN_V);
+        // 进场边一律「直飞五边起点」：从远端之外进场时，拿中线延长线做航迹跟踪
+        // 会把追踪点一直算在前面，飞机会越飞越远。起飞那一侧它本来就在中线上，
+        // 直飞同一根线的效果就是沿中线爬升。
+        cmd.roll = ap_heading_roll(ap_bearing_to(L.joinPt));
+        if (farJoin) {
+            cmd.pitch = ap_vs_pitch(flight_clamp((altPattern - flight.alt) * 0.06, -2.0, 3.0), dt);
+        } else {
+            cmd.pitch = ap_vs_pitch(flight_clamp((altPattern - flight.alt) * 0.12, -6.0, 6.0), dt);
+        }
+        // 真飞到五边起点（900 m 以内）才转侧风边
+        if (dJoin < 900.0 || AUTOPILOT.phaseT > 1800.0) ap_goto('l_cross');
+        return cmd;
+    }
+
+    if (ph === 'l_cross') {
+        // 侧风边：左转 90° 出到中线一侧 AP_LAND_WIDE 米
+        AUTOPILOT.msg = '侧风边 · ' + Math.round(agl) + ' m';
+        cmd.flap = 0;
+        cmd.throttle = ap_throttle_for_speed(AP_PATTERN_V);
+        cmd.roll = ap_heading_roll(L.hdg - 90.0);
+        cmd.pitch = ap_vs_pitch(flight_clamp((altPattern - 40.0 - flight.alt) * 0.12, -5.0, 5.0), dt);
+        if (Math.abs(t) >= AP_LAND_WIDE || AUTOPILOT.phaseT > 150.0) ap_goto('l_down');
+        return cmd;
+    }
+
+    if (ph === 'l_down') {
+        // 下风边：反向平行，从远端飞回阈值之前 AP_LAND_BASE_S
+        AUTOPILOT.msg = '下风边 · ' + Math.round(agl) + ' m';
+        cmd.flap = 1;
+        cmd.throttle = ap_throttle_for_speed(AP_PATTERN_V);
+        const p0 = [L.thr[0] + L.v[0] * AP_LAND_WIDE, L.thr[1] + L.v[1] * AP_LAND_WIDE];
+        cmd.roll = ap_heading_roll(ap_line_heading(p0, L.hdg + 180.0, look));
+        cmd.pitch = ap_vs_pitch(flight_clamp((L.elev + AP_LAND_BASE_ALT + 80.0 - flight.alt) * 0.12,
+            -5.0, 4.0), dt);
+        if (s <= AP_LAND_BASE_S || AUTOPILOT.phaseT > 240.0) ap_goto('l_base');
+        return cmd;
+    }
+
+    if (ph === 'l_base') {
+        // 底边：再左转 90° 压向中线，同时降到比下滑道略高的地方等截获
+        AUTOPILOT.msg = '底边 · ' + Math.round(agl) + ' m';
+        cmd.flap = 2;
+        cmd.throttle = ap_throttle_for_speed(AP_PATTERN_V - 12.0);
+        const p0 = [L.thr[0] + L.u[0] * AP_LAND_BASE_S, L.thr[1] + L.u[1] * AP_LAND_BASE_S];
+        cmd.roll = ap_heading_roll(ap_line_heading(p0, L.hdg + 90.0, 600.0));
+        cmd.pitch = ap_vs_pitch(flight_clamp((L.elev + AP_LAND_BASE_ALT - flight.alt) * 0.15,
+            -5.0, 3.0), dt);
+        if (Math.abs(t) <= AP_LAND_BASE_T || AUTOPILOT.phaseT > 120.0) ap_goto('l_final');
+        return cmd;
+    }
+
+    // l_final：横向压住中线，纵向贴 3° 下滑道
+    AUTOPILOT.msg = '最后进近 · ' + L.name + ' · ' + Math.round(dThr) + ' m';
+    cmd.flap = 2;
+    cmd.throttle = ap_throttle_for_speed(AP_LAND_V);
+    {
+        // 前视距离取得比航路小得多（≈4 s 航程），横向偏差才收得快：
+        // 从底边转过来时还有近 1 km 的偏差，要在 1.8 km 内压到中线上一两米。
+        // 同时把切入角限在 ±50°，免得一开始就横着插进跑道。
+        let hdgF = ap_line_heading(L.thr, L.hdg, Math.max(150.0, flight.V * 4.0));
+        hdgF = L.hdg + flight_clamp(ap_wrap_deg(hdgF - L.hdg), -50.0, 50.0);
+        cmd.roll = ap_heading_roll(hdgF);
+    }
+    {
+        const altPath = L.elev + (dThr + AP_LAND_PATH_OFF) * AP_LAND_TAN;   // 3° 剖面高度
+        const err = flight.alt - altPath;              // > 0 偏高
+        let vsT;
+        if (err > 45.0) vsT = -flight_clamp(err * 0.12, 2.5, 9.0);      // 高于剖面：加大下降率
+        else if (err < -25.0) vsT = 0.8;                                 // 低于剖面：先把下降率收住
+        // 贴住剖面：基准是 -V·tan3°，再按高度偏差修（偏正=偏高，要多下沉，所以是减）
+        else vsT = -flight.V * AP_LAND_TAN - err * 0.12;
+        cmd.pitch = ap_vs_pitch(vsT, dt);
+    }
+    // 复飞判据：还高着就越过了阈值，或者低空时横向还偏着——宁可多飞一圈，
+    // 也不能落到跑道外面去
+    const offLine = Math.abs(t) > 18.0;
+    if ((s > 0.0 && altRwy > 30.0) || (altRwy < 25.0 && offLine)) {
+        AP_LAND.goArounds++;
+        ap_goto('l_join');
+        AUTOPILOT.msg = '复飞 · 重新进五边';
+        return cmd;
+    }
+    if (altRwy < AP_LAND_FLARE_AGL && dThr < 400.0 && !offLine) ap_goto('flare');
+    return cmd;
+}
 
 function ap_dir(hdgDeg) { return [Math.sin(hdgDeg * Math.PI / 180.0), Math.cos(hdgDeg * Math.PI / 180.0)]; }
 function ap_step_pt(pt, hdgDeg, dist) {
@@ -17863,65 +18141,45 @@ function autopilot_engage(mode) {
     flight_set_body_state(0.4, 0.0, flight.psi, 0.0, 0.0);
     nd_reset_track();
 
-    if (mode === 'pattern') {
-        // 起飞点：优先用真跑道。取离当前位置最近的一条跑道，把飞机摆到它的
-        // 入口上，起飞航向就是跑道的真方位——五边的第 1 边与第 5 边因此严格
-        // 压在这条跑道的中线上。附近没有跑道数据（机场不在当前地形窗口里）
-        // 时才退回原来的做法：取当前时刻的太阳方位当跑道。
-        const hereLL = flight_latlon(flight.x, flight.z);
-        const nearRwy = (typeof aero_nearest_runway === 'function')
-            ? aero_nearest_runway(hereLL[0], hereLL[1], 45.0) : null;
-        let sunAzi = 90.0;
-        try {
-            const now = enable_realtime ? new Date() : timemachine_current_time;
-            sunAzi = where_is_the_sun(now.getFullYear(), now.getMonth() + 1, now.getDate(),
-                now.getHours(), now.getMinutes(), now.getSeconds(),
-                timezone, longitude, latitude)[1];
-        } catch (err) {
-            console.warn('太阳方位计算失败，五边按正东起飞：', err);
-        }
-        if (nearRwy) {
-            const r = nearRwy.r;
-            const fromA = nearRwy.fromA;
-            const hdg = fromA ? r.hdg : (r.hdg + 180.0) % 360.0;
-            // 入口内移之后留 30 m 余量再摆飞机（内移区的路面不承重）
-            const back = 30.0 + (fromA ? r.dtA : r.dtB);
-            const tip = fromA
-                ? aero_point_along(r.lat1, r.lon1, hdg, -back)
-                : aero_point_along(r.lat2, r.lon2, hdg, -back);
-            const xy = flight_xy_from_latlon(tip[0], tip[1]);
-            flight.x = xy[0];
-            flight.z = xy[1];
-            AUTOPILOT.runwayHdg = hdg;
-            AUTOPILOT.runwayName = (fromA ? r.a : r.b) + ' 跑道';
-            AUTOPILOT.runwayElev = r.elevM;
-            AUTOPILOT.msg = '起飞滑跑';
-        } else {
-            AUTOPILOT.runwayHdg = (sunAzi + 360.0) % 360.0;
-            AUTOPILOT.runwayName = '朝太阳 ' +
-                String(Math.round(AUTOPILOT.runwayHdg) % 360).padStart(3, '0') + '°';
-            AUTOPILOT.runwayElev = null;
-            AUTOPILOT.msg = '起飞滑跑';
-        }
+    // 三个演示都从「离当前位置最近的机场」的跑道头静止出发：
+    // 摆到最近的跑道入口上（对准跑道、停在地面、速度 0），起飞航向就是跑道真方位。
+    // 落地目标同时定下来：同一条跑道、同一个方向——本场五边就是这么飞的。
+    // 附近没有跑道数据（机场不在当前地形窗口里）时才退回原来的做法：取太阳方位当跑道。
+    const hereLL = flight_latlon(0.0, 0.0);          // flight_reset 之后飞机在窗口中心
+    const nearRwy = (typeof aero_nearest_runway === 'function')
+        ? aero_nearest_runway(hereLL[0], hereLL[1], 20.0) : null;
+    let sunAzi = 90.0;
+    try {
+        const now = enable_realtime ? new Date() : timemachine_current_time;
+        sunAzi = where_is_the_sun(now.getFullYear(), now.getMonth() + 1, now.getDate(),
+            now.getHours(), now.getMinutes(), now.getSeconds(),
+            timezone, latitude, longitude)[1];
+    } catch (err) {
+        console.warn('太阳方位计算失败，演示按正东起飞：', err);
+    }
+    if (nearRwy) {
+        const r = nearRwy.r;
+        const hdg = ap_place_on_runway(r, nearRwy.fromA);
+        ap_land_set_runway(r, nearRwy.fromA);        // 落地目标 = 同一条跑道
+        AUTOPILOT.runwayHdg = hdg;
+        AUTOPILOT.runwayName = (nearRwy.fromA ? r.a : r.b) + ' 跑道';
+        AUTOPILOT.runwayElev = r.elevM;
+    } else {
+        AP_LAND.on = false;
+        AP_LAND.r = null;
+        AUTOPILOT.runwayHdg = (sunAzi + 360.0) % 360.0;
+        AUTOPILOT.runwayName = '朝太阳 ' +
+            String(Math.round(AUTOPILOT.runwayHdg) % 360).padStart(3, '0') + '°';
+        AUTOPILOT.runwayElev = null;
         flight.psi = flight_wrap_2pi(AUTOPILOT.runwayHdg * FLIGHT.DEG);
         flight.chi = flight.psi;
-        flight_set_body_state(0.4, 0.0, flight.psi, 0.0, 0.0);
-        // 摆好位置后地面高度要重新取：跑道已经压平，这一下就落在跑道标高上
+        flight_set_body_state(0.0, 0.0, flight.psi, 0.0, 0.0);
         flight.alt = flight_ground_update();
-        // 左航线：离场 → 左转侧风 → 左转下风 → 左转底边 → 左转对正
-        const R = AUTOPILOT.runwayHdg;
-        const p0 = [flight.x, flight.z];
-        const p1 = ap_step_pt(p0, R, AP_PATTERN_LEN);
-        const p2 = ap_step_pt(p1, R - 90.0, AP_PATTERN_WIDE);
-        const p3 = ap_step_pt(p2, R - 180.0, AP_PATTERN_LEN);
-        const p4 = ap_step_pt(p3, R + 90.0, AP_PATTERN_WIDE);
-        AUTOPILOT.wps = [p1, p2, p3, p4];
-        AUTOPILOT.runwayPt = [p0[0], p0[1]];
-    } else {
-        AUTOPILOT.wps = [];
-        AUTOPILOT.runwayPt = [flight.x, flight.z];
-        AUTOPILOT.runwayName = null;
     }
+    // 五边几何：跑道中线上的起飞点只用来显示，真正的几何在 AP_LAND 里
+    AUTOPILOT.wps = [];
+    AUTOPILOT.runwayPt = [flight.x, flight.z];
+    AUTOPILOT.msg = '起飞滑跑';
 
     AUTOPILOT.mode = mode;
     AUTOPILOT.active = true;
@@ -17953,11 +18211,9 @@ function autopilot_step(dt) {
 
     switch (AUTOPILOT.phase) {
         case 'roll':
-            to('roll', (AUTOPILOT.mode === 'pattern')
-                ? ('起飞滑跑 · ' + (AUTOPILOT.runwayName
-                    ? AUTOPILOT.runwayName + ' ' : '')
-                    + String(Math.round(AUTOPILOT.runwayHdg) % 360).padStart(3, '0') + '°')
-                : ((AUTOPILOT.mode === 'route') ? '航路起飞 · 滑跑' : '起飞滑跑'));
+            to('roll', '起飞滑跑 · ' + (AUTOPILOT.runwayName
+                ? AUTOPILOT.runwayName + ' ' : '')
+                + String(Math.round(AUTOPILOT.runwayHdg) % 360).padStart(3, '0') + '°');
             cmd.throttle = 1.0;
             cmd.flap = 1;               // 起飞襟翼 10°：抬轮更早，滑跑更短
             if (V >= FLIGHT.ROTATE_V + 2.0) { AUTOPILOT.phase = 'rotate'; AUTOPILOT.phaseT = 0.0; }
@@ -17969,71 +18225,18 @@ function autopilot_step(dt) {
             cmd.flap = 1;
             cmd.pitch = ap_pitch_cmd(9.0);
             if ((!flight.wow && agl > 10.0) || AUTOPILOT.phaseT > 10.0) {
-                ap_goto((AUTOPILOT.mode === 'pattern') ? 'p_upwind'
+                ap_goto((AUTOPILOT.mode === 'pattern') ? 'l_join'
                     : ((AUTOPILOT.mode === 'route') ? 'rclimb' : 'climb'));
             }
             break;
 
-        case 'p_upwind':
-        case 'p_cross':
-        case 'p_down':
-        case 'p_base':
-        case 'p_final': {
-            // 五边：每条边都沿"边线"飞（不是飞向航路点），并用沿边距离判断换边。
-            // 航路点只用来确定边线起点；第 5 边与第 1 边用的是同一条跑道中心线。
-            const R = AUTOPILOT.runwayHdg;
-            const wp = AUTOPILOT.wps;
-            const p0 = AUTOPILOT.runwayPt;
-            cmd.flap = 0;                    // 巡航/航线各边光襟翼（离场边的例外在下面单独给）
-            let pt0, legHdg, legLen, look;
-            if (AUTOPILOT.phase === 'p_upwind') { pt0 = p0; legHdg = R; legLen = AP_PATTERN_LEN; look = 1000.0; }
-            else if (AUTOPILOT.phase === 'p_cross') { pt0 = wp[0]; legHdg = R - 90.0; legLen = AP_PATTERN_WIDE; look = 800.0; }
-            else if (AUTOPILOT.phase === 'p_down') { pt0 = wp[1]; legHdg = R - 180.0; legLen = AP_PATTERN_LEN; look = 1000.0; }
-            else if (AUTOPILOT.phase === 'p_base') { pt0 = wp[2]; legHdg = R + 90.0; legLen = AP_PATTERN_WIDE; look = 800.0; }
-            else { pt0 = p0; legHdg = R; legLen = Infinity; look = 600.0; }   // 五边：与第 1 边同一条跑道线
-
-            if (!pt0) { cmd.roll = ap_heading_roll(legHdg); break; }
-            const hdg = ap_line_heading(pt0, legHdg, look);
-            cmd.roll = ap_heading_roll(hdg);
-            const along = ap_along_track(pt0, legHdg);
-
-            if (AUTOPILOT.phase === 'p_upwind') {
-                to('p_upwind', '离场边 · ' + Math.round(agl) + ' m');
-                cmd.throttle = (agl < 120.0) ? 1.0 : ap_throttle_for_speed(AP_PATTERN_V);
-                cmd.flap = (agl > 80.0) ? 0 : 1;   // 爬过 80 m 收襟翼
-                // 只调一次 ap_vs_pitch：它会按 dt 累加 vsInt，同一步里调两次等于把
-                // 积分速率翻倍（这一段就会比别的段更"急"）
-                cmd.pitch = ap_vs_pitch(agl < AP_PATTERN_ALT - 20.0 ? Math.min(12.0, (AP_PATTERN_ALT - agl) * 0.12) : 0.0, dt);
-                if (along >= legLen || AUTOPILOT.phaseT > 90.0) ap_goto('p_cross');
-            }
-            else if (AUTOPILOT.phase === 'p_cross') {
-                to('p_cross', '侧风边 · ' + Math.round(agl) + ' m');
-                cmd.throttle = ap_throttle_for_speed(AP_PATTERN_V);
-                cmd.pitch = ap_vs_pitch(agl < AP_PATTERN_ALT - 20.0 ? 8.0 : 0.0, dt);
-                if (along >= legLen || AUTOPILOT.phaseT > 70.0) ap_goto('p_down');
-            }
-            else if (AUTOPILOT.phase === 'p_down') {
-                to('p_down', '下风边 · ' + Math.round(agl) + ' m');
-                cmd.throttle = ap_throttle_for_speed(AP_PATTERN_V);
-                cmd.pitch = ap_vs_pitch(agl > AP_PATTERN_ALT * 0.65 ? -2.0 : 0.0, dt);
-                if (along >= legLen || AUTOPILOT.phaseT > 90.0) ap_goto('p_base');
-            }
-            else if (AUTOPILOT.phase === 'p_base') {
-                to('p_base', '底边 · ' + Math.round(agl) + ' m');
-                cmd.throttle = ap_throttle_for_speed(AP_PATTERN_V);
-                cmd.pitch = ap_vs_pitch(-3.5, dt);
-                if (along >= legLen - 420.0 || AUTOPILOT.phaseT > 70.0) ap_goto('p_final');   // 提前 420 m 起转
-            }
-            else {
-                to('p_final', '最后进近 · ' + Math.round(agl) + ' m');
-                // 进近放襟翼 20°：失速速度降到 21 m/s 左右，进近速度也压到 36 m/s
-                cmd.flap = 2;
-                cmd.throttle = ap_throttle_for_speed(AP_PATTERN_V - 22.0);
-                cmd.pitch = ap_vs_pitch(-flight_clamp(agl * 0.05, 1.5, 8.0), dt);
-                if (agl < 30.0 || AUTOPILOT.phaseT > 140.0) ap_goto('flare');
-            }
-            break;
-        }
+        // 五边 / 尾旋演示 / 航路落地：进近与落地全部交给 ap_land_step
+        case 'l_join':
+        case 'l_cross':
+        case 'l_down':
+        case 'l_base':
+        case 'l_final':
+            return ap_land_step(dt, cmd);
 
         case 'climb':
             to('climb', '爬升穿云 → ' + Math.round(AP_CLOUD_ALT) + ' m');
@@ -18104,39 +18307,21 @@ function autopilot_step(dt) {
             cmd.pitch = ap_vs_pitch(-3.0, dt);
             if ((Math.abs(ap_wrap_deg(flight.phi * FLIGHT.RAD)) < 15.0 && AUTOPILOT.phaseT > 3.0) ||
                 AUTOPILOT.phaseT > 20.0) {
-                ap_goto('descend');
+                ap_goto('l_join');       // 改平后返场：进五边、对准跑道落地
             }
             break;
 
-        case 'descend':
-            to('descend', '下降返场');
-            cmd.throttle = 0.0;
-            cmd.roll = ap_roll_cmd(0.0);
-            cmd.pitch = ap_vs_pitch(AP_DESC_VS, dt);
-            if (agl < 450.0) { AUTOPILOT.phase = 'approach'; AUTOPILOT.phaseT = 0.0; }
-            break;
-
-        case 'approach':
-            // 放满襟翼进近：失速速度从 25 m/s 降到 20 m/s，所以进近速度取 32 m/s（约 1.6 倍），
-            // 下滑率跟着从 −8 收到 −6 m/s——襟翼阻力大，同样的下滑角用不着那么陡
-            to('approach', '进近 · 襟翼 30°');
-            cmd.flap = 3;
-            cmd.throttle = ap_throttle_for_speed(30.0);
-            cmd.roll = ap_roll_cmd(0.0);
-            cmd.pitch = ap_vs_pitch(-5.0, dt);
-            if (agl < 30.0) { AUTOPILOT.phase = 'flare'; AUTOPILOT.phaseT = 0.0; }
-            break;
-
         case 'flare':
-            to('flare', '拉平接地');
+            // 拉平：下沉率收到 0.8 m/s 等接地，油门全收
+            to('flare', '拉平 · ' + (AP_LAND.on ? AP_LAND.name : ''));
             cmd.throttle = 0.0;
-            cmd.roll = ap_roll_cmd(0.0);
-            cmd.pitch = ap_vs_pitch(AP_FLARE_VS, dt);
+            cmd.roll = ap_heading_roll(AP_LAND.on ? AP_LAND.hdg : flight.psi * FLIGHT.RAD);
+            cmd.pitch = ap_vs_pitch(-0.8, dt);
             if (flight.wow || agl <= 0.6) { AUTOPILOT.phase = 'rollout'; AUTOPILOT.phaseT = 0.0; }
             break;
 
         case 'rollout':
-            to('rollout', '刹车滑跑');
+            to('rollout', '刹车滑跑 · 已接地');
             cmd.throttle = 0.0;
             cmd.pitch = 0.0;
             cmd.roll = 0.0;
@@ -18146,7 +18331,7 @@ function autopilot_step(dt) {
             if (V < 1.5) {
                 ap_goto('done');
                 AUTOPILOT.active = false;        // 任务完成自动断开
-                AUTOPILOT.msg = '任务完成';
+                AUTOPILOT.msg = '任务完成 · 落地 ' + (AP_LAND.on ? AP_LAND.name : '');
             }
             break;
 
@@ -21539,6 +21724,7 @@ const AP_ROUTE = {
     desSlope: 19.0,      // 3° 剖面对应的"每米高度需要多少米航程"（1/tan3°）
     descent: false,      // 已经进入下降剖面
     vsCmd: 0.0,          // 限速后的垂速指令（m/s），见 ap_route_vs_cmd
+    landPrepared: false, // 终点跑道是否已经挑好（飞完最后一点时置位）
     msg: ''
 };
 
@@ -21698,12 +21884,14 @@ function ap_route_step(dt) {
     const cmd = { throttle: 0.0, pitch: 0.0, roll: 0.0, yaw: 0.0, brake: 0.0, rev: 0.0 };
     ap_route_sequence();
     if (AP_ROUTE.idx >= AP_ROUTE.wp.length) {
-        cmd.roll = ap_roll_cmd(0.0);
-        cmd.pitch = ap_vs_pitch(ap_route_vs_cmd(0.0, dt), dt);   // 终点保持：改平后守住高度
-        cmd.throttle = ap_throttle_for_speed(AP_ROUTE.cruiseV);
-        AUTOPILOT.msg = '航路终点 · END OF ROUTE';
-        ap_route_set_phase('rend');
-        return cmd;
+        // 航路飞完：转入进近落地。目标跑道按终点机场现挑（终点是坐标点就取离它最近
+        // 的机场；30 km 内没有跑道就保持高度平飞，不硬往下扎）。
+        if (!AP_ROUTE.landPrepared) {
+            AP_ROUTE.landPrepared = true;
+            if (!ap_land_prepare_dest()) AP_LAND.on = false;
+        }
+        if (AUTOPILOT.phase !== 'l_join') ap_goto('l_join');
+        return ap_land_step(dt, cmd);
     }
     ap_route_lateral(cmd);
     ap_route_vertical(cmd, dt);
@@ -21746,6 +21934,41 @@ function mcdu_toggle_route_ap() {
 function ap_route_engage() {
     if (!flight.active) flight_select_tab('flight');
     if (!flight.ready) flight_reset();
+    if (!MCDU.route.length) { mcdu_flash('NO ROUTE'); return; }
+
+    // 与另外两个演示同一条规矩：先从「离当前位置最近的机场」的跑道头静止起飞。
+    // 所以接管时会复位到窗口中心、摆到最近的跑道入口上（在空中按 6R 也一样），
+    // 然后滑跑、抬轮、按航路飞，飞完最后一点再进近落地。
+    flight_reset();
+    flight.alt = flight_ground_update();
+    flight.wow = true;
+    flight.throttle = 0.0;
+    flight.reverser = false;
+    flight.brake = false;
+    flight.rev = 0.0;
+    flight.brk = 0.0;
+    flight.revTgt = 0.0;
+    flight.brkTgt = 0.0;
+    flight.flapIdx = 0;
+    flight.flapKey = 0;
+    flight_update_throttle_ui();
+    flight_update_flap_ui();
+    nd_reset_track();
+    const hereLL = flight_latlon(0.0, 0.0);
+    const nearRwy = (typeof aero_nearest_runway === 'function')
+        ? aero_nearest_runway(hereLL[0], hereLL[1], 20.0) : null;
+    if (nearRwy) {
+        const hdg = ap_place_on_runway(nearRwy.r, nearRwy.fromA);
+        AUTOPILOT.runwayHdg = hdg;
+        AUTOPILOT.runwayName = (nearRwy.fromA ? nearRwy.r.a : nearRwy.r.b) + ' 跑道';
+        AUTOPILOT.runwayElev = nearRwy.r.elevM;
+    } else {
+        AUTOPILOT.runwayName = null;
+        AUTOPILOT.runwayElev = null;
+        flight_set_body_state(0.0, 0.0, flight.psi, 0.0, 0.0);
+    }
+
+    // 起点动了，航路的平面坐标要重算（ap_route_load 用的是 flight.lat0/lon0）
     ap_route_load();
     if (!AP_ROUTE.wp.length) { mcdu_flash('NO ROUTE'); return; }
 
@@ -21753,13 +21976,10 @@ function ap_route_engage() {
     AUTOPILOT.active = true;
     AUTOPILOT.vsInt = 0.0;
     AUTOPILOT.phaseT = 0.0;
-    if (flight.wow) {
-        AUTOPILOT.phase = 'roll';
-        AUTOPILOT.msg = '航路起飞 · 滑跑';
-    } else {
-        AUTOPILOT.phase = 'rclimb';
-        AUTOPILOT.msg = '航路爬升 → FL' + String(MCDU.init.crzFl).padStart(3, '0');
-    }
+    AUTOPILOT.phase = 'roll';
+    AUTOPILOT.msg = '航路起飞 · 滑跑';
+    AP_ROUTE.landPrepared = false;
+    AP_LAND.on = false;
     ap_refresh_ui();
     mcdu_render();
     nd_draw();
