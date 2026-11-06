@@ -999,7 +999,7 @@ body.is-day .np_plate {
     box-shadow: inset 0 0 6px #35b8b855, inset 0 1px 0 #ffffff1f, 0 0 7px #35b8b840;
 }
 
-/* 显示屏内的显示层软键（天气雷达 / 地形感知）：压在量程按钮上方一行，
+/* 显示屏内的显示层软键（天气雷达 / 地形感知 / 边界 / 地名）：压在量程按钮上方一行，
    开=青色高亮（与量程按钮的选中态同一套配色），关=灰暗 */
 .nd_soft_row {
     position: absolute;
@@ -1010,6 +1010,7 @@ body.is-day .np_plate {
     display: flex;
     justify-content: center;
     gap: 4px;
+    flex-wrap: wrap;      /* 窄屏（ND 只占半屏）四颗键排不进一行时折成两行 */
     pointer-events: none;
 }
 .nd_soft_btn {
@@ -1031,6 +1032,17 @@ body.is-day .np_plate {
     background: linear-gradient(180deg, #16333a, #0e1c21);
     border-color: #35b8b8;
     box-shadow: inset 0 0 6px #35b8b855, inset 0 1px 0 #ffffff1f, 0 0 7px #35b8b840;
+}
+/* 行政边界那两颗：数据还没到（或根本没有 terrain/adm 数据）时压暗，点了也不报错 */
+.nd_soft_btn.na {
+    color: #3c4a52;
+    border-color: #1a252b;
+    background: linear-gradient(180deg, #0f1519, #080c0f);
+    box-shadow: none;
+}
+.nd_soft_btn.na.on {
+    color: #2c5a5e;
+    border-color: #23454a;
 }
 @media (max-width: 1099px) {
     .nd_soft_btn {
@@ -1856,15 +1868,20 @@ body.is-day .ak_socket {
         <!-- 主舞台外框：与顶部功能面板同一款注塑窗框、同宽（1172 = 内容 1160 + 两侧 6px） -->
         <div class="stage_frame bezel">
             <div class="stage">
-                <!-- 导航显示器：航迹朝上的移动地图（飞机不动、地图动），底图为全国主要民用机场 -->
+                <!-- 导航显示器：航迹朝上的移动地图（飞机不动、地图动），底图为全国主要民用机场与行政区划 -->
                 <div class="nd_panel">
                     <canvas id="ndCanvas" width="640" height="640" role="img" aria-label="导航显示器"></canvas>
-                    <!-- 显示屏内的两个软键：天气雷达回波、地形感知（默认只有地形打开） -->
+                    <!-- 显示屏内的四个软键：天气雷达回波、地形感知、行政边界、行政地名
+                         （除天气雷达外默认都开） -->
                     <div class="nd_soft_row">
                         <button class="nd_soft_btn" id="toggle_nd_radar" aria-pressed="false"
                                 title="在 ND 上叠加天气雷达回波：回波由体积云的密度场反算，与天上渲染出来的云一致">天气雷达</button>
                         <button class="nd_soft_btn on" id="toggle_nd_taws" aria-pressed="true"
                                 title="在 ND 上画地形：按 DEM 高程配色并打山体阴影，高于本机 500 m 的地形整片染红告警">地形感知</button>
+                        <button class="nd_soft_btn on" id="toggle_nd_adm" aria-pressed="true"
+                                title="在 ND 上画行政区划边界：县级界最细、地级界居中、省界最粗；量程 500 km 以上收起县界，换用抽稀过的粗层几何">边界</button>
+                        <button class="nd_soft_btn on" id="toggle_nd_adm_name" aria-pressed="true"
+                                title="在 ND 上画行政中心与名称：直辖市五角星、地级市方块、县级市菱形、县区圆点；100 km 以内才标县区名">地名</button>
                     </div>
                     <div class="nd_range_row" id="nd_range_row"></div>
                 </div>
@@ -2290,7 +2307,8 @@ body.is-day .ak_socket {
                     <li>经纬度/时间那一排参数框的下面另有一排同样的四个数字框，对应上面四只仪表：空速（m/s / kt）、高度（m / ft）、转弯速率（°/s / rad/s）、垂直速率（m/s / ft/min），公制单位在上、另一种单位在下，配色与表盘内圈(青)/外圈(琥珀)一致。数字取的是原始值，不受指针量程限制——比如空速超过 200 m/s 或转弯率超过 30°/s 时指针顶在刻度尽头，数字照报真值；未开始飞行时与指针一样归零。</li>
                     <li>飞行页的主画面上叠了一整套平视显示器（HUD），总开关是「姿态指示」按钮——关掉整套符号一起消失，打开则一起出现。中央的黄色短线是机头基准；绿色圆圈带左右短翼的符号是飞行航迹矢量（FPV）：它指向飞机速度的实际方向——平飞时压在机头基准上，拉杆爬升时落在基准下方（两者的夹角就是迎角），侧滑时左右偏开（偏角即侧滑角）。速度低于 2 m/s 停住时或该方向转出画面时不显示。</li>
                     <li>HUD 的其余符号：机头基准上方那一圈弧是坡度刻度，三角指针随坡度左右摆动（±60° 到顶），摆向与地平线的倾斜方向一致；俯仰梯度线每 5° 一条（±30° 以外每 10°），地平线更粗更长、正中间给机头基准让开一段，地平线以下用虚线，整 10° 的线两端标着度数（标到 60°，负仰角带负号）；左侧竖带是空速（m/s，上下各看 32 m/s，每 5 m/s 一格、每 20 m/s 一个数字，失速速度以下与 Vmo 以上各有一段红色），右侧竖带是气压高度（m，上下各看 320 m，每 50 m 一格、每 100 m 一个数字），两条带中间各有一个黑底读数框；速度带内侧那道竖尺是迎角括尺（0°–30°，红线为失速迎角 14.9°，红线以上标红，三角指针指当前迎角，上方标 AOA、下方是数值）；顶部横带是航向带（0=北，N/E/S/W 与十位数字交替标注，每 5° 一格、每 30° 一个数字，中央三角即机头航向）。迎角超过失速边界的 88% 时画面中下方开始闪 STALL（琥珀色；真失速后变红、闪得更快）。俯仰梯度线不是屏幕空间里的一条直线，而是"某一仰角上那圈方位弧"逐点投影出来的折线，所以一压坡度它跟地平线一起转，切到鱼眼投影还会跟地平线一起弯，始终和画面里那根真实地平线对齐。切回「视角控制」页后 HUD 整体消失，只剩机头基准与底部读数。</li>
-                    <li>导航显示器（ND）在主画布旁：PC 上位于画布左侧、与画布等高，手机/窄屏上位于飞行参数框下方左侧（右半边是主飞行显示 PFD），两者一边宽、都是正方形，各占一半屏宽。黑底方形屏，飞机符号固定在水平中央、竖直 3/4 处，地图随飞机对地移动而平移并旋转，始终保持「航迹朝上」。显示范围可由显示屏底边的按钮在 10 / 50 / 100 / 200 / 500 / 1000 km 之间切换（指机位到上边缘的距离，默认 200 km），底图是全国主要民用机场（大型机场，标 IATA 三字码，取自 OurAirports 开放数据集），量程 100 km 以内还会把每条跑道按真实方位与长度画成线段（平行跑道一眼分得开）；距离环按量程四等分自动缩放，内侧两环在左侧水平辐射线的交点上用青色标出该环对应的距离（km），另有每 30° 一条方位辐射线。量程按钮上方一行是两颗屏内软键「天气雷达」「地形感知」，按一下翻开对应的显示层，亮着=开着，默认只开地形。飞过的航迹用品红折线记录，每移动 0.35 km 采一点；复位时清空。顶部弧形罗盘刻度随航迹滚动，正上方恒为当前航迹方位（品红三角所指），刻度数字即罗盘方位角；左上角小罗盘指示北向。左下角为显示范围，右下角为航迹与地速。</li>
+                    <li>导航显示器（ND）在主画布旁：PC 上位于画布左侧、与画布等高，手机/窄屏上位于飞行参数框下方左侧（右半边是主飞行显示 PFD），两者一边宽、都是正方形，各占一半屏宽。黑底方形屏，飞机符号固定在水平中央、竖直 3/4 处，地图随飞机对地移动而平移并旋转，始终保持「航迹朝上」。显示范围可由显示屏底边的按钮在 10 / 50 / 100 / 200 / 500 / 1000 km 之间切换（指机位到上边缘的距离，默认 200 km），底图是全国主要民用机场（大型机场，标 IATA 三字码，取自 OurAirports 开放数据集）与全国行政区划（县、地级、省级界线与行政中心，见下一条），量程 100 km 以内还会把每条跑道按真实方位与长度画成线段（平行跑道一眼分得开）；距离环按量程四等分自动缩放，内侧两环在左侧水平辐射线的交点上用青色标出该环对应的距离（km），另有每 30° 一条方位辐射线。量程按钮上方一行是四颗屏内软键「天气雷达」「地形感知」「边界」「地名」，按一下翻开对应的显示层，亮着=开着，默认开地形、边界与地名。飞过的航迹用品红折线记录，每移动 0.35 km 采一点；复位时清空。顶部弧形罗盘刻度随航迹滚动，正上方恒为当前航迹方位（品红三角所指），刻度数字即罗盘方位角；左上角小罗盘指示北向。左下角为显示范围，右下角为航迹与地速。</li>
+                    <li>ND 的底图上还铺了一层<b>全国行政区划</b>（显示屏底边的软键「边界」「地名」，默认都开）：界线分三级——县级（含县级市、市辖区、旗）最细最暗，地级（地级市、自治州、地区、盟）居中，省与直辖市最粗最亮，颜色一律走青蓝那一族，与橙红的告警、品红的航迹不会混。行政中心按级别换符号：直辖市是金色五角星，地级市是方块，县级市是空心菱形，县与市辖区是小圆点；名称只在放得下的时候才标（先放直辖市与地级市，再放县级市与县区），而且彼此不压字——屏上有一张 8 px 的占位格，机场三字码、角落读数、飞机符号先占位，行政名只往空格里落，落不下就跳过；县区名在 100 km 以内才标，县级市名 250 km 以内，否则 2 800 个名字会把屏糊满。左侧读数的最下面一行显示<b>本机所在的县级行政区</b>（射线法判点，位置动超过约 160 m 才重算），比如在南京市区上空就是「所在 南京市雨花台区」。数据是 DataV.GeoAtlas 的全国行政区划边界，从 adcode 100000 起逐级取 <code>_full</code>（<code>tools/china_adm_fetch.py</code>），再压成 <code>html/china_adm/adm.bin</code> + <code>adm.json</code>（<code>tools/china_adm_pack.py</code>）：3 237 个要素——30 省、4 直辖市、333 地级、404 县级市、2 466 县区（台湾省那一路 DataV 只给到省界，没有县级数据），细层 67.6 万顶点、2.1 MB，随仓库发布，打开页面时 fetch 一次，找不到数据也只是不画这一层。几何按量程取两级：细层 250 m 抽稀（250 km 以内）、粗层 1.1 km 抽稀（更远的量程），500 km 以上干脆收起县界——那时一个县只剩几个像素，画出来只是一张网。投影与机场、跑道是同一套「航迹朝上」的变换，只是把三角函数提到循环外化简成纯仿射（<code>sx = A·lon + B·lat + C</code>），每顶点两次乘加；裁剪是仿射逆变换把屏幕四角反推成经纬度取外包矩形，逐要素、逐环两级剔除，所以 1000 km 量程也只有 1.3 ms 一帧。</li>
                     <li>ND 上可以叠一层天气雷达回波（显示屏底边的软键「天气雷达」，默认关）：回波不是另找一份雷达数据画的图，而是把体积云渲染器**正在用的那份密度场**在同一世界坐标（东/北，km）、同一风场时刻上按列竖直扫一遍——每列只在当前启用的层带里取高度样本（浓积云 5 个、高积云 3 个、层积云 3 个、卷层云 2 个，停用的层带一个样本都不取），每个样本走与光线步进相同的入口 cloud_sky_cloudMap()，柱含水量 Σ密度·dz 按层加权（对流层 1.0 / 高积云 0.55 / 层积云 0.45 / 卷层云 0.35）后取对数折算等效反射率 dBZ，浓积云塔顶越高再加分。于是"平铺的层积云"是一片绿、"发展旺盛的积云"才有黄橙核，云在哪儿回波就在哪儿——风把云吹走，回波跟着走（栅格锚定在世界坐标上，默认风 50 m/s）。色标是气象雷达那套：青蓝→绿→黄→橙→红→品红→白核；显示门槛取 15 dBZ（机载雷达「最小可测回波」的量级），弱于它的按无明显回波处理、靠近门槛的一圈渐隐到底图，所以有云的间隙是真的黑的。纹素比云胞粗时（远量程）先按纹素足迹做一次面积平均再折算 dBZ，等效雷达波束宽度平均，免得 3 km 的云胞被点采样成一地散点。128×128 栅格分帧扫（每帧有 3.5 ms 预算），扫完才整块换图，所以不掉帧也不会看到半张；量程、云参数、层类、云量、雷达云图开关、机位移动超过 1/4 窗口都会触发重扫，平时只在云被风平流走一个纹素（约 5 px）之后重扫，最久 30 s 也扫一次。小罗盘下方一行小字是雷达读数，显示当前画面里的最强回波（dBZ）。关掉「体积云」天上的云就没了，回波同时消失（显示 WXR NO CLD）。</li>
                     <li>「天气雷达」与「雷达云图」是两件事：前者是 ND 上的回波显示，由体积云密度场反算；后者决定体积云自身长什么样——把中央气象台组合反射率图反演成 dBZ 网格，用回波强弱控制云量的有无疏密、云顶高度与厚薄。关掉「雷达云图」，体积云退回程序化天气图，ND 上的回波也跟着换成那份云场（因为它读的永远是当前真实的密度场）。</li>
                      <li>ND 底下还可以铺一层<b>地形感知（TAWS）</b>（显示屏底边的软键「地形感知」，默认开）：数值直接取实时海洋正在画的那一份高程场（Copernicus GLO-30 分块 / 烘焙 DEM / 程序化岛屿），取高走的是撞山、滑跑同一条路径，所以屏上画出来的坡就是会撞上的坡。着色按 DEM 海拔分档（平原深绿 → 丘陵橄榄 → 低山土黄 → 高山岩灰 → 雪线以上发白），再叠一道西北 45° 光线的山体阴影：坡度由相邻纹素的高差算，垂直夸张按整张图的平均坡度自动定标（0.55 / 平均坡度，夹在 0.5–60 之间），因此 10 km 与 200 km 量程的立体感差不多，平原也不会被夸张成一片噪点。告警一律相对本机高度：高于本机 500 m 的地形整片染红并勾亮边，本机高度 −300 m 到 +500 m 之间只上一层薄琥珀色（不勾边，地貌一皱边界线就成了乱麻）；染红用的是半透明洗色而不是盖死，底下的地势起伏仍读得出。顶部弧度里弹出 TERRAIN 告警条（1.4 Hz 软脉冲，带最近的一块告警地形距本机多远），琥珀一级只显示 TERR CAUTION；小罗盘／WXR 读数下面一行是画面里最高的地形（TERR xxxx m），颜色随威胁等级变。<b>覆盖范围到机位周围 500 km 以上</b>：机位 ±25.6 km 以内仍取海洋渲染那份 51.2 km 世界窗口（25 m 一格，与撞山、滑跑、GPWS 同一条取高路径，屏上画出来的坡就是会撞上的坡），窗口外由「远景地形瓦片」接管——那是 <code>tools/dem_overview_tiles.py</code> 把 0.25° 分块（l0，225²≈120 m）按 16×16 分箱平均压出来的一层粗层，4°×4° 一块、256² 纹素（约 1.74 km）、一块约 60 KB，正好让 500 km 量程（栅格 ±640 km）只要 12–16 块、约 1 MB，而直接拉 l0 要 2 500 块、120 MB。瓦片按机位流式取：先出脚下，再一圈圈铺到量程边缘，来一块重扫一次；还没取到的格子保持透明（黑底透出来），不拿别处的数据充数。量程切到 1000 km 也照样铺（4° 格 48 块左右）。所以 200 / 500 / 1000 km 量程下屏上都是整片真地形，不再是中间一小块。栅格锚定在世界坐标上（与天气回波同一套变换），256×256，换量程、机位离开栅格中心 1/4 半边长、高程窗口重定中心、或新到一块远景瓦片时才重扫（约 4–6 ms），海拔每变 10 m 重涂一次（约 1 ms），所以爬升不掉帧。地景不是「实时海洋」或数据没载入时显示 TERR NO DATA；远景粗层没生成（<code>terrain/china/ov/</code> 不存在）时会退回到只有 51.2 km 窗口的旧样子，控制台里留一条警告。</li>
@@ -19969,9 +19987,10 @@ function pfd_draw() {
 //   · 黑底方形显示屏，置于飞行控制控件下方；
 //   · 飞机符号固定在水平中央、竖直 3/4 处（距底边 1/4），地图随水平位移平移并旋转，
 //     始终保持"航迹朝上"，所以顶部弧形刻度中央恒为当前航迹方位；
-//   · 底图只有全国主要民用机场（大型机场，IATA 三字码）；显示范围 200 km
-//     （机位到上边缘的距离，约 1.2 px/km）；距离环四个（量程 1/4·i），内侧两环与
-//     左侧水平辐射线的交点上用青色标出该环对应的距离（km），随量程自动换算；
+//   · 底图是全国主要民用机场（大型机场，IATA 三字码）与全国行政区划（县级/地级/省级
+//     界线 + 行政中心，见后面的「行政区划层」一节）；显示范围 10–1000 km
+//     （机位到上边缘的距离，默认 200 km，约 1.2 px/km）；距离环四个（量程 1/4·i），
+//     内侧两环与左侧水平辐射线的交点上用青色标出该环对应的距离（km），随量程自动换算；
 //   · 飞过的航迹用品红折线绘制，起飞后按 0.35 km 间隔采样，复位时清空。
 // 机场坐标与代码取自 OurAirports 开放数据集（iso_country ∈ CN/HK/MO/TW，
 // type = large_airport 且有定期航班与 IATA 码）。
@@ -20043,6 +20062,503 @@ function nd_reset_track() {
     ndTrack.length = 0;
     ndLastPt = null;
     nd_wxr_invalidate();       // 复位后机位与航迹都换了，回波栅格跟着重扫
+}
+
+
+// ============================================================
+// 行政区划层：ND 上的县级边界、地级／省级边界与行政中心
+// ------------------------------------------------------------
+// 数据：DataV.GeoAtlas 的全国行政区划边界，从 adcode 100000 起逐级取 _full
+// （tools/china_adm_fetch.py），再压成 html/china_adm/adm.bin + adm.json
+// （tools/china_adm_pack.py）：Douglas-Peucker 抽稀成两级、量化到整数网格（细层
+// 1/4000°≈25 m、粗层 1/500°≈200 m）、相邻点只存 zigzag varint 差分。3237 个要素
+// （30 省 / 4 直辖市 / 333 地级 / 404 县级市 / 2466 县·区），细层 67.6 万顶点、
+// 2.1 MB，随仓库发布，页面开一次 fetch 就够（没有数据也只是不画这一层，其它照旧）。
+//
+// 每个要素带 DataV 给的中心点：省与直辖市是市政府驻地、地级是市区、县级是县城
+// （市辖区是区政府），所以「边界」与「点位」出自同一份数据，不会两套坐标打架。
+//
+// 投影与机场、跑道共用同一套「航迹朝上」的移动地图，但走线性快路径——经纬度到
+// 屏坐标把三角函数提到循环外，化简成纯仿射：
+//     sx = A·lon + B·lat + C        sy = D·lon + E·lat + F
+// 每个顶点两次乘加。裁剪同样走仿射的逆变换：屏幕四角反推成经纬度取外包矩形，
+// 逐要素 bbox、逐环 bbox 两级剔除，所以哪怕 1000 km 量程也只在画内的环上花时间。
+//
+// 分层：县区界在 500 km 以上只剩几个像素、糊成一片，收起；地级／省级界换用粗层
+// 几何（1.1 km 抽稀）避免顶点过多。量程与取哪一级几何的对应关系：
+//     ≤ 250 km   县区 250 m 抽稀 / 地级·省级 250 m
+//     ≤ 500 km   县区 1.1 km      / 地级·省级 250 m
+//     >  500 km  不画县区         / 地级·省级 1.1 km
+// ============================================================
+const ADM_K_PROV = 0;      // 省 / 自治区 / 特别行政区
+const ADM_K_MUNI = 1;      // 直辖市
+const ADM_K_CITY = 2;      // 地级市 / 自治州 / 地区 / 盟
+const ADM_K_CTY = 3;       // 县级市
+const ADM_K_COUNTY = 4;    // 县 / 区 / 旗
+
+let enable_nd_adm = true;         // 行政边界线
+let enable_nd_adm_name = true;    // 行政中心符号与名称
+
+// 中文标注字体栈：ND 上原本全是等宽英文，行政名得挑一款带汉字的
+const ADM_CJK = '"PingFang SC","Hiragino Sans GB","Microsoft YaHei","Noto Sans CJK SC","Source Han Sans SC",sans-serif';
+
+const Adm = {
+    ready: false,
+    failed: false,
+    base: 'china_adm/',
+    feats: [],                    // 按 (类别, adcode) 排序，数组顺序即标注优先级
+    byAd: Object.create(null),    // adcode → 要素，拼「市 + 区」用
+    points: 0
+};
+
+// 解包游标：varint 只返回一个值，位置放模块变量里，省掉每次都打包成数组返回
+let _admPos = 0;
+
+function _adm_rd(b) {
+    let v = 0, s = 0, c;
+    do { c = b[_admPos++]; v |= (c & 0x7f) << s; s += 7; } while (c & 0x80);
+    return v;
+}
+
+function _adm_rdz(b) {
+    const v = _adm_rd(b);
+    const z = v >>> 1;
+    return (v & 1) ? -(z + 1) : z;      // zigzag 还原带符号的差分
+}
+
+// 一个要素的一级几何：环起始表 + 经纬点表 + 逐环外包框。
+// 点存 Float32Array 够用：经度 136 在 float32 上的分辨率约 1.5e-5 度（1.6 m），
+// 而几何本身已经抽稀到 250 m 一格，这点误差看不见。
+function _adm_block(bytes, off, grid) {
+    const inv = 1 / grid;
+    _admPos = off;
+    const nRing = _adm_rd(bytes);
+    const ringAt = new Int32Array(nRing + 1);
+    const ringBB = new Float32Array(nRing * 4);
+    let pts = new Float32Array(512);
+    let n = 0;
+    let bx0 = 1e9, by0 = 1e9, bx1 = -1e9, by1 = -1e9;
+    for (let r = 0; r < nRing; r++) {
+        ringAt[r] = n >> 1;
+        const cnt = _adm_rd(bytes);
+        let x = _adm_rdz(bytes), y = _adm_rdz(bytes);
+        let rx0 = 1e9, ry0 = 1e9, rx1 = -1e9, ry1 = -1e9;
+        for (let k = 0; k < cnt; k++) {
+            if (k) { x += _adm_rdz(bytes); y += _adm_rdz(bytes); }
+            if (n + 2 > pts.length) {
+                const t = new Float32Array(pts.length * 2);
+                t.set(pts);
+                pts = t;
+            }
+            const lon = x * inv, lat = y * inv;
+            pts[n++] = lon;
+            pts[n++] = lat;
+            if (lon < rx0) rx0 = lon;
+            if (lon > rx1) rx1 = lon;
+            if (lat < ry0) ry0 = lat;
+            if (lat > ry1) ry1 = lat;
+        }
+        ringBB[r * 4] = rx0;
+        ringBB[r * 4 + 1] = ry0;
+        ringBB[r * 4 + 2] = rx1;
+        ringBB[r * 4 + 3] = ry1;
+        if (rx0 < bx0) bx0 = rx0;
+        if (rx1 > bx1) bx1 = rx1;
+        if (ry0 < by0) by0 = ry0;
+        if (ry1 > by1) by1 = ry1;
+    }
+    ringAt[nRing] = n >> 1;
+    // slice 而不是 subarray：把翻倍扩容留下的那截尾巴还给 GC，7 MB 量级值得多拷这一次
+    return { pts: pts.slice(0, n), rings: ringAt, rb: ringBB, bb: [bx0, by0, bx1, by1] };
+}
+
+function _adm_decode(meta, buffer) {
+    const bytes = new Uint8Array(buffer);
+    const grid = meta.grid, gridC = meta.gridCoarse || meta.grid;
+    const rows = meta.features;
+    const out = new Array(rows.length);
+    for (let i = 0; i < rows.length; i++) {
+        const row = rows[i];
+        const f = {
+            name: row[0],
+            kind: row[1],
+            ad: row[2],
+            lon: row[3],
+            lat: row[4],
+            parent: row[5]
+        };
+        f.fine = _adm_block(bytes, row[6], grid);
+        f.coarse = _adm_block(bytes, row[8], gridC);
+        out[i] = f;
+        Adm.byAd[f.ad] = f;
+    }
+    Adm.feats = out;
+    Adm.points = meta.points | 0;
+    Adm.ready = true;
+}
+
+// 数据目录：页面在 html/ 下时是 china_adm/，被平铺到仓库根时是 html/china_adm/
+// （与 terrain/china 那两种部署方式同一个处理），两种都试一次。
+function adm_init() {
+    const bases = ['china_adm/', '../html/china_adm/'];
+    let k = 0;
+    const tryNext = () => {
+        if (k >= bases.length) {
+            Adm.failed = true;
+            console.warn('[adm] 没找到行政区划数据 html/china_adm/'
+                + '（先跑 tools/china_adm_fetch.py + tools/china_adm_pack.py），ND 上先不画行政边界');
+            adm_soft_btn_sync();
+            nd_draw();
+            return;
+        }
+        const base = bases[k++];
+        fetch(base + 'adm.json', { cache: 'no-cache' })
+            .then(r => (r.ok ? r.json() : Promise.reject(new Error('no meta'))))
+            .then(meta => fetch(base + meta.bin, { cache: 'force-cache' })
+                .then(r => (r.ok ? r.arrayBuffer() : Promise.reject(new Error('no bin'))))
+                .then(buf => {
+                    _adm_decode(meta, buf);
+                    Adm.base = base;
+                    console.log('[adm] 行政区划已载入：' + Adm.feats.length + ' 个要素 / '
+                        + Adm.points + ' 个顶点（省界、地级界、县级界 + 行政中心）');
+                    adm_soft_btn_sync();
+                    nd_draw();
+                }))
+            .catch(() => tryNext());
+    };
+    tryNext();
+}
+
+// 屏内软键：数据没到（或没找到）时压暗，但照样能点，只是画不出东西
+function adm_soft_btn_sync() {
+    const a = document.getElementById('toggle_nd_adm');
+    const b = document.getElementById('toggle_nd_adm_name');
+    for (const el of [a, b]) {
+        if (!el) continue;
+        el.classList.toggle('na', !Adm.ready);
+        if (Adm.failed) el.title = '没有行政区划数据（html/china_adm/），见 tools/china_adm_*.py';
+    }
+}
+
+// ---- 仿射：经纬度 → 屏坐标 ----
+// 与 project() 是同一个变换（相对机位的东/北位移按航迹方位旋转，再按 px/km 缩放），
+// 只是把 atan2/sin/cos 提到循环外，得到上面那两个线性式子。
+function nd_adm_xform(ACX, ACY, pxPerKm, lat0, lon0, cosLat, trackDeg) {
+    const rad = Math.PI / 180;
+    const kx = ND_KM_PER_DEG * cosLat;      // 每度经度的 km（随纬度收缩）
+    const ky = ND_KM_PER_DEG;               // 每度纬度的 km
+    const ct = Math.cos(trackDeg * rad), st = Math.sin(trackDeg * rad);
+    const A = kx * ct * pxPerKm, B = -ky * st * pxPerKm;
+    const D = -kx * st * pxPerKm, E = -ky * ct * pxPerKm;
+    return {
+        A: A, B: B, C: ACX - A * lon0 - B * lat0,
+        D: D, E: E, F: ACY - D * lon0 - E * lat0
+    };
+}
+
+// 可见屏幕反推成经纬度外包框（多留 12 px，线条不至于贴边断开）
+function nd_adm_view_bbox(xf) {
+    const det = xf.A * xf.E - xf.B * xf.D;
+    const inv = 1 / det;
+    const pad = 12;
+    let lon0 = 1e9, lon1 = -1e9, lat0 = 1e9, lat1 = -1e9;
+    for (let i = 0; i < 4; i++) {
+        const sx = (i & 1) ? ND_SIZE + pad : -pad;
+        const sy = (i & 2) ? ND_SIZE + pad : -pad;
+        const dx = sx - xf.C, dy = sy - xf.F;
+        const lon = (xf.E * dx - xf.B * dy) * inv;
+        const lat = (xf.A * dy - xf.D * dx) * inv;
+        if (lon < lon0) lon0 = lon;
+        if (lon > lon1) lon1 = lon;
+        if (lat < lat0) lat0 = lat;
+        if (lat > lat1) lat1 = lat;
+    }
+    return [lon0, lat0, lon1, lat1];
+}
+
+// 把一个要素的所有（画内的）环追加到当前路径，返回顶点数
+function _adm_path(g, geom, view, xf) {
+    const bb = geom.bb;
+    if (bb[0] > view[2] || bb[2] < view[0] || bb[1] > view[3] || bb[3] < view[1]) return 0;
+    const pts = geom.pts, rings = geom.rings, rb = geom.rb;
+    const A = xf.A, B = xf.B, C = xf.C, D = xf.D, E = xf.E, F = xf.F;
+    let n = 0;
+    for (let r = 0; r + 1 < rings.length; r++) {
+        const o = r << 2;
+        if (rb[o] > view[2] || rb[o + 2] < view[0] || rb[o + 1] > view[3] || rb[o + 3] < view[1]) continue;
+        const s = rings[r] << 1, e = rings[r + 1] << 1;
+        if (e - s < 4) continue;                 // 不到两点的环画不出线
+        let lon = pts[s], lat = pts[s + 1];
+        g.moveTo(A * lon + B * lat + C, D * lon + E * lat + F);
+        for (let i = s + 2; i < e; i += 2) {
+            lon = pts[i];
+            lat = pts[i + 1];
+            g.lineTo(A * lon + B * lat + C, D * lon + E * lat + F);
+        }
+        n += (e - s) >> 1;
+    }
+    return n;
+}
+
+// 行政中心符号
+function nd_adm_dot(g, x, y, kind) {
+    if (kind === ADM_K_MUNI) {
+        g.fillStyle = '#ffd166';
+        g.beginPath();
+        for (let i = 0; i < 10; i++) {
+            const a = -Math.PI / 2 + i * Math.PI / 5;
+            const rr = (i & 1) ? 1.9 : 4.3;
+            const px = x + Math.cos(a) * rr, py = y + Math.sin(a) * rr;
+            if (i === 0) g.moveTo(px, py); else g.lineTo(px, py);
+        }
+        g.closePath();
+        g.fill();
+    } else if (kind === ADM_K_CITY) {
+        g.fillStyle = '#cfeaf8';
+        g.fillRect(x - 2, y - 2, 4, 4);
+        g.strokeStyle = '#0a1418';
+        g.lineWidth = 1;
+        g.strokeRect(x - 2.5, y - 2.5, 5, 5);
+    } else if (kind === ADM_K_CTY) {
+        g.strokeStyle = '#8edcee';
+        g.lineWidth = 1.1;
+        g.beginPath();
+        g.moveTo(x, y - 3);
+        g.lineTo(x + 3, y);
+        g.lineTo(x, y + 3);
+        g.lineTo(x - 3, y);
+        g.closePath();
+        g.stroke();
+    } else {
+        g.fillStyle = '#6fa8bc';
+        g.beginPath();
+        g.arc(x, y, 1.4, 0, Math.PI * 2);
+        g.fill();
+    }
+}
+
+// 画边界线（叠在地形与雷达回波之上、距离环与机场之下）
+function nd_adm_draw(g, ACX, ACY, pxPerKm, lat0, lon0, cosLat, trackDeg) {
+    if (!Adm.ready) return;
+    if (!enable_nd_adm && !enable_nd_adm_name) return;
+    const feats = Adm.feats;
+    const xf = nd_adm_xform(ACX, ACY, pxPerKm, lat0, lon0, cosLat, trackDeg);
+    const view = nd_adm_view_bbox(xf);
+    const terrOn = enable_nd_taws && ndTawsState.geo !== null;
+    const lodUpper = (ndRangeKm > 500) ? 'coarse' : 'fine';
+    const lodCounty = (ndRangeKm > 250) ? 'coarse' : 'fine';
+    const showCounty = ndRangeKm <= 500;
+
+    g.save();
+    g.lineJoin = 'round';
+    g.lineCap = 'butt';
+
+    if (enable_nd_adm) {
+        let i, f;
+        // 县级界（含县级市）：最细一档，压在最底下
+        if (showCounty) {
+            // 量程一大，县界的格子就挤在一起，压暗一档才不至于糊成一片网
+            const ca = (ndRangeKm > 250) ? 0.24 : 0.40;
+            g.strokeStyle = terrOn ? 'rgba(176,234,248,' + (ca * 0.86).toFixed(2) + ')'
+                : 'rgba(92,166,194,' + ca.toFixed(2) + ')';
+            g.lineWidth = 0.8;
+            g.beginPath();
+            for (i = 0; i < feats.length; i++) {
+                f = feats[i];
+                if (f.kind < ADM_K_CTY) continue;
+                _adm_path(g, f[lodCounty], view, xf);
+            }
+            g.stroke();
+        }
+        // 地级界
+        g.strokeStyle = terrOn ? 'rgba(190,244,255,0.55)' : 'rgba(112,192,220,0.58)';
+        g.lineWidth = 1.1;
+        g.beginPath();
+        for (i = 0; i < feats.length; i++) {
+            f = feats[i];
+            if (f.kind !== ADM_K_CITY) continue;
+            _adm_path(g, f[lodUpper], view, xf);
+        }
+        g.stroke();
+        // 省界 / 直辖市界：最亮最粗，视觉上压住下面两级
+        g.strokeStyle = terrOn ? 'rgba(216,250,255,0.82)' : 'rgba(140,226,248,0.78)';
+        g.lineWidth = 1.7;
+        g.beginPath();
+        for (i = 0; i < feats.length; i++) {
+            f = feats[i];
+            if (f.kind > ADM_K_MUNI) continue;
+            _adm_path(g, f[lodUpper], view, xf);
+        }
+        g.stroke();
+    }
+
+    // 行政中心：直辖市（五角星）> 地级（方块）> 县级市（菱形）> 县区（点）。
+    // 县级市与县区的符号只在 250 km 以内画，否则 2 800 个点会把屏糊满。
+    if (enable_nd_adm_name) {
+        const A = xf.A, B = xf.B, C = xf.C, D = xf.D, E = xf.E, F = xf.F;
+        const showCountyPt = ndRangeKm <= 250;
+        for (let i = 0; i < feats.length; i++) {
+            const f = feats[i];
+            if (f.kind === ADM_K_PROV) continue;              // 省会已经作为地级市出现过一次
+            if (f.kind >= ADM_K_CTY && !showCountyPt) continue;
+            if (f.lon < view[0] || f.lon > view[2] || f.lat < view[1] || f.lat > view[3]) continue;
+            const sx = A * f.lon + B * f.lat + C;
+            const sy = D * f.lon + E * f.lat + F;
+            if (sx < 5 || sx > ND_SIZE - 5 || sy < 5 || sy > ND_SIZE - 42) continue;
+            nd_adm_dot(g, sx, sy, f.kind);
+        }
+    }
+    g.restore();
+}
+
+// 标注占位格：把屏幕分成 8 px 见方的格子，先占位的（机场三字码、角落读数）赢，
+// 后画的（行政名）只在空格子里落字，免得到处压字。
+function NdLabelGrid() {
+    this.cell = 8;
+    this.w = Math.ceil(ND_SIZE / this.cell);
+    this.h = this.w;
+    this.mask = new Uint8Array(this.w * this.h);
+}
+NdLabelGrid.prototype.mark = function (x, y, w, h) {
+    const c = this.cell;
+    const x0 = Math.max(0, Math.floor(x / c));
+    const x1 = Math.min(this.w - 1, Math.floor((x + w) / c));
+    const y0 = Math.max(0, Math.floor(y / c));
+    const y1 = Math.min(this.h - 1, Math.floor((y + h) / c));
+    for (let j = y0; j <= y1; j++) this.mask.fill(1, j * this.w + x0, j * this.w + x1 + 1);
+};
+NdLabelGrid.prototype.free = function (x, y, w, h) {
+    if (x < 2 || y < 2 || x + w > ND_SIZE - 2 || y + h > ND_SIZE - 2) return false;
+    const c = this.cell;
+    const x0 = Math.floor(x / c), x1 = Math.floor((x + w) / c);
+    const y0 = Math.floor(y / c), y1 = Math.floor((y + h) / c);
+    for (let j = y0; j <= y1; j++) {
+        const row = j * this.w;
+        for (let i = x0; i <= x1; i++) if (this.mask[row + i]) return false;
+    }
+    return true;
+};
+
+// 行政中心名称：按优先级挑位（星 > 方块 > 菱形 > 点），落不下就跳过。
+// 字号与颜色随级别走，所以即使挤在一起也能一眼分出哪一级。
+function nd_adm_draw_labels(g, grid, ACX, ACY, pxPerKm, lat0, lon0, cosLat, trackDeg) {
+    if (!Adm.ready || !enable_nd_adm_name) return;
+    const feats = Adm.feats;
+    const xf = nd_adm_xform(ACX, ACY, pxPerKm, lat0, lon0, cosLat, trackDeg);
+    const view = nd_adm_view_bbox(xf);
+    const A = xf.A, B = xf.B, C = xf.C, D = xf.D, E = xf.E, F = xf.F;
+    const allowCty = ndRangeKm <= 250;
+    const allowCounty = ndRangeKm <= 100;
+
+    g.save();
+    g.textAlign = 'left';
+    g.textBaseline = 'middle';
+    g.lineJoin = 'round';
+    for (let i = 0; i < feats.length; i++) {
+        const f = feats[i];
+        if (f.kind === ADM_K_PROV) continue;
+        if (f.kind === ADM_K_CTY && !allowCty) continue;
+        if (f.kind === ADM_K_COUNTY && !allowCounty) continue;
+        if (f.lon < view[0] || f.lon > view[2] || f.lat < view[1] || f.lat > view[3]) continue;
+        const sx = A * f.lon + B * f.lat + C;
+        const sy = D * f.lon + E * f.lat + F;
+        if (sx < 4 || sx > ND_SIZE - 4 || sy < 4 || sy > ND_SIZE - 42) continue;
+
+        let font, col, hgt;
+        if (f.kind === ADM_K_MUNI) {
+            font = 'bold 10px ' + ADM_CJK; col = '#ffd97a'; hgt = 12;
+        } else if (f.kind === ADM_K_CITY) {
+            font = '9px ' + ADM_CJK; col = '#d6eef9'; hgt = 11;
+        } else if (f.kind === ADM_K_CTY) {
+            font = '9px ' + ADM_CJK; col = '#9ed8e6'; hgt = 10;
+        } else {
+            font = '8px ' + ADM_CJK; col = '#7fb0c0'; hgt = 9;
+        }
+        g.font = font;
+        const tw = g.measureText(f.name).width;
+        const off = (f.kind === ADM_K_MUNI) ? 7 : 6;
+        let lx = sx + off;
+        if (lx + tw > ND_SIZE - 3) lx = sx - off - tw;      // 右边放不下就翻到左边
+        const by = sy - hgt / 2, bh = hgt;
+        if (!grid.free(lx - 1, by, tw + 2, bh)) continue;
+        grid.mark(lx - 1, by, tw + 2, bh);
+        // 深色描边当底衬：底图有时是绿地有时是黑屏，白字加一圈暗边两边都读得出
+        g.strokeStyle = 'rgba(3,6,8,0.78)';
+        g.lineWidth = 2.4;
+        g.strokeText(f.name, lx, sy);
+        g.fillStyle = col;
+        g.fillText(f.name, lx, sy);
+    }
+    g.restore();
+}
+
+// ---- 本机所在县级行政区（射线法 + 外包框预筛，只在位置变化够多时重算）----
+const ndAdmWhere = { lat: 1e9, lon: 1e9, text: '' };
+
+function _adm_pip(geom, lon, lat) {
+    const pts = geom.pts, rings = geom.rings;
+    let inside = false;
+    for (let r = 0; r + 1 < rings.length; r++) {
+        const s = rings[r] << 1, e = rings[r + 1] << 1;
+        if (e - s < 6) continue;
+        let j = e - 2;
+        for (let i = s; i < e; i += 2) {
+            const xi = pts[i], yi = pts[i + 1];
+            const xj = pts[j], yj = pts[j + 1];
+            if (((yi > lat) !== (yj > lat)) &&
+                (lon < (xj - xi) * (lat - yi) / (yj - yi) + xi)) inside = !inside;
+            j = i;
+        }
+    }
+    return inside;
+}
+
+function nd_adm_locate(lat, lon) {
+    if (!Adm.ready) return '';
+    if (Math.abs(lat - ndAdmWhere.lat) < 0.0015 && Math.abs(lon - ndAdmWhere.lon) < 0.0015) {
+        return ndAdmWhere.text;
+    }
+    const feats = Adm.feats;
+    let best = null;
+    let prov = null;
+    for (let i = 0; i < feats.length; i++) {
+        const f = feats[i];
+        const bb = f.fine.bb;
+        if (lon < bb[0] || lon > bb[2] || lat < bb[1] || lat > bb[3]) continue;
+        if (!_adm_pip(f.fine, lon, lat)) continue;
+        if (f.kind > ADM_K_MUNI) {
+            if (!best || f.kind > best.kind) best = f;   // 取最深的一级
+        } else if (!prov) {
+            prov = f;
+        }
+    }
+    let txt = '';
+    if (best) {
+        const p = Adm.byAd[best.parent];
+        txt = (p ? p.name : '') + best.name;
+    } else if (prov) {
+        txt = prov.name;                                  // 只有省级数据的地方（例如台湾省）
+    }
+    if (txt.length > 14) txt = txt.slice(0, 14) + '…';
+    ndAdmWhere.lat = lat;
+    ndAdmWhere.lon = lon;
+    ndAdmWhere.text = txt;
+    return txt;
+}
+
+// 左侧读数的最下一行：本机所在的县（区）。和 WXR / TERR 那两条排在同一列。
+function nd_adm_draw_label(g) {
+    if (!Adm.ready || !enable_nd_adm) return;
+    const name = nd_adm_locate(latitude, longitude);
+    const txt = '所在 ' + (name || '--');
+    g.font = '9px ' + ADM_CJK;
+    g.textAlign = 'left';
+    g.textBaseline = 'middle';
+    const tw = Math.min(ND_SIZE - 24, g.measureText(txt).width);
+    g.fillStyle = 'rgba(5,7,8,0.78)';
+    g.fillRect(6, 84, tw + 8, 14);
+    g.fillStyle = name ? '#8fb8cc' : '#4a6068';
+    g.fillText(txt, 10, 91);
 }
 
 
@@ -21177,6 +21693,18 @@ function nd_draw() {
     // 天气雷达回波：压在黑底之上、距离环/机场/航迹之下（弱回波半透明，底图透得出来）
     nd_wxr_draw(g, ACX, ACY, pxPerKm, trackDeg);
 
+    // 行政边界与行政中心：压在回波之上（回波是天气，不该盖住地界），
+    // 距离环、机场、航路、航迹再叠上去
+    nd_adm_draw(g, ACX, ACY, pxPerKm, lat0, lon0, cosLat, trackDeg);
+
+    // 标注占位格：机场三字码与角落读数先占，行政名后放、只填空隙
+    const labelGrid = new NdLabelGrid();
+    labelGrid.mark(10, 12, 40, 34);                     // 左上小罗盘
+    labelGrid.mark(ND_SIZE - 80, 2, 78, 18);            // 右上 TRK/GS
+    labelGrid.mark(0, 44, 118, 56);                     // 左侧 WXR / TERR / 所在 三条读数
+    labelGrid.mark(0, ND_SIZE - 46, ND_SIZE, 46);       // 底部软键与量程按钮
+    labelGrid.mark(ACX - 13, ACY - 13, 26, 26);         // 飞机符号
+
     // 距离环与方位辐射线（地形铺上来之后环线要提亮一点，否则压在绿地上看不见）
     g.strokeStyle = terrOn ? '#2a4450' : '#16242d';
     g.lineWidth = 1;
@@ -21208,6 +21736,7 @@ function nd_draw() {
         g.fill();
         g.fillStyle = '#8fb8cc';
         g.fillText(ap[0], pt[0] + 4, pt[1] - 4.5);
+        labelGrid.mark(pt[0] + 3, pt[1] - 10.5, 22, 12);   // 三字码先占位，行政名让开
     }
 
     // 跑道：量程 100 km 以内按真实方位把每条跑道画成线段（平行跑道一眼就分得开，
@@ -21264,6 +21793,7 @@ function nd_draw() {
             if (!MCDU.route[i].apt) {
                 g.fillStyle = '#9fffce';
                 g.fillText(MCDU.route[i].ident, p0[0] + 6, p0[1] - 6);
+                labelGrid.mark(p0[0] + 5, p0[1] - 12, g.measureText(MCDU.route[i].ident).width + 3, 12);
             }
         }
     }
@@ -21303,8 +21833,12 @@ function nd_draw() {
             g.fillRect(x - tw / 2 - 4, y - 7, tw + 8, 14);
             g.fillStyle = '#00ffff';
             g.fillText(txt, x, y);
+            labelGrid.mark(x - tw / 2 - 4, y - 8, tw + 8, 16);   // 距离读数也算占位
         }
     }
+
+    // 行政中心名称：最后画（航线、航迹都已画完），只往空位里放
+    nd_adm_draw_labels(g, labelGrid, ACX, ACY, pxPerKm, lat0, lon0, cosLat, trackDeg);
 
     // 飞机符号：实心机型剪影，机头按"航向 − 航迹"偏转，能直接看出偏流角
     g.save();
@@ -21417,6 +21951,9 @@ function nd_draw() {
     // 地形读数与告警条：同样压在最上层（红块常常正好在机场三字码底下）
     nd_taws_draw_label(g);
     nd_taws_draw_banner(g);
+
+    // 本机所在的县级行政区（左侧第三条读数）
+    nd_adm_draw_label(g);
 }
 
 
@@ -21711,7 +22248,8 @@ function mcdu_page_data(g) {
     mcdu_put_right(g, 0, 23, '1/1', MCDU_C.g);
     mcdu_field(g, 3.5, 'ACTIVE DATA', 'OURAIRPORTS', MCDU_C.g);
     mcdu_field(g, 5.5, 'APT COUNT', String(ND_AIRPORTS.length), MCDU_C.g);
-    mcdu_field(g, 7.5, 'SECOND DATA', '---', MCDU_C.dim);
+    mcdu_field(g, 7.5, 'SECOND DATA', 'DATAV.GEO', Adm.ready ? MCDU_C.g : MCDU_C.dim);
+    mcdu_field(g, 9.5, 'ADM COUNT', Adm.ready ? String(Adm.feats.length) : '---', MCDU_C.g);
     mcdu_put_right(g, 11.5, 23, '<STANDBY>', MCDU_C.g, true);
 }
 
@@ -23118,6 +23656,10 @@ function refresh_button_status() {
         // 开没开直接看按钮高亮
         nd_soft_btn_sync(document.getElementById("toggle_nd_radar"), enable_nd_weather_radar);
         nd_soft_btn_sync(document.getElementById("toggle_nd_taws"), enable_nd_taws);
+        // 边界 / 地名：同样只看高亮；数据没载入时压暗（adm_soft_btn_sync 管那颗 na 类）
+        nd_soft_btn_sync(document.getElementById("toggle_nd_adm"), enable_nd_adm);
+        nd_soft_btn_sync(document.getElementById("toggle_nd_adm_name"), enable_nd_adm_name);
+        adm_soft_btn_sync();
     }
 
     // 「云参数」按钮的展开/收起状态与滑块区的显隐（默认收起）
@@ -23182,6 +23724,7 @@ instrument_init();
 pfd_draw();
 nd_init_range_buttons();
 nd_draw();
+adm_init();          // 行政区划边界（县/地级/省级）与行政中心，异步取一次 adm.bin
 mcdu_init_dom();     // MCDU 的键帽（行选键 / 功能键 / 字母数字键盘）建一次
 mcdu_render();
 
@@ -23386,6 +23929,20 @@ function init() {
     document.getElementById("toggle_nd_taws").addEventListener("click", function(e) {
         enable_nd_taws = !enable_nd_taws;
         nd_taws_invalidate();
+        refresh_button_status();
+        nd_draw();
+    });
+    // 行政边界开关（ND 上的省/地级/县级界线）
+    document.getElementById("toggle_nd_adm").addEventListener("click", function(e) {
+        if (!Adm.ready) return;
+        enable_nd_adm = !enable_nd_adm;
+        refresh_button_status();
+        nd_draw();
+    });
+    // 行政地名开关（ND 上的行政中心符号与名称）
+    document.getElementById("toggle_nd_adm_name").addEventListener("click", function(e) {
+        if (!Adm.ready) return;
+        enable_nd_adm_name = !enable_nd_adm_name;
         refresh_button_status();
         nd_draw();
     });
