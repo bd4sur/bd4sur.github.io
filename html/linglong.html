@@ -125,6 +125,25 @@ body.is-day .stage > * {
 .stage > .flight_info_row { padding: 1px 6px; }
 /* 占位空面板：窄屏隐藏，PC 上撑出第一、三行两侧的格子 */
 .stage_ph { display: none; }
+/* 垂直剖面（VSD）：细长一条屏。窄屏排在 ND / PFD 那一行下面占满整行，
+   PC 上顶掉 ND 上方那块空面板（第一行右格），与 PFD 上下相对。 */
+.stage > .vsd_panel {
+    position: relative;
+    grid-column: 1 / -1;
+    grid-row: 5;
+    display: block;
+    min-height: 84px;
+    padding: 0;
+}
+.stage > .vsd_panel > canvas {
+    position: absolute;
+    inset: 5px;
+    width: calc(100% - 10px);
+    height: calc(100% - 10px);
+    border-radius: 3px;
+    background: #050708;
+    box-shadow: inset 0 0 0 1px #22343d;
+}
 /* 左上角（ND 上方）那块空面板里的一块名牌：
    底色与面板面相同，靠边缘的一圈明暗棱表示"凸起"，两端各一颗固定螺丝，中间阴刻文字。 */
 .ph_tl {
@@ -219,7 +238,17 @@ body.is-day .np_plate {
     }
     /* 占位空面板把第一、三行两侧补满，凑成完整的 3×3 表格 */
     .stage > .ph_tl { display: flex; grid-column: 1; grid-row: 1; }
-    .stage > .ph_tr { display: block; grid-column: 3; grid-row: 1; }
+    /* 第一行右格换成垂直剖面：高度取 96（ND 上方那格原本只有 48，装不下剖面） */
+    .stage > .vsd_panel {
+        grid-column: 3;
+        grid-row: 1;
+        min-height: 96px;
+    }
+    .stage > .vsd_panel > canvas {
+        inset: 6px;
+        width: calc(100% - 12px);
+        height: calc(100% - 12px);
+    }
     .stage > .ph_bl { display: block; grid-column: 1; grid-row: 3; }
     /* 右下角面板装 2×2 仪表：宽 300 + aspect-ratio 1/1 → 300 见方，内容框 288，四只仪表各 142；
        切到「飞行控制」页时这一行会比 300 高，居中放，四只表不会被拉成椭圆 */
@@ -384,11 +413,11 @@ body.is-day .np_plate {
     text-shadow: 0 -1px 0 #000000cc;
     user-select: none;
 }
-/* 窄屏：MCDU 排在 ND / PFD 的下一行，占满整行。
+/* 窄屏：MCDU 排在 ND / PFD 的下一行（垂直剖面占了第 5 行），占满整行。
    这一行的高度只由它自己撑，.mcdu 的 height:100% 在这里没有确定值可用，
    所以直接给一个定高，免得键盘区被压扁、整块面板溢出格子。 */
 @media (max-width: 1099px) {
-    .stage > .ph_bl { display: block; grid-column: 1 / -1; grid-row: 5; }
+    .stage > .ph_bl { display: block; grid-column: 1 / -1; grid-row: 6; }
     .stage > .ph_bl > .mcdu { height: 300px; }
 }
 
@@ -1863,7 +1892,9 @@ body.is-day .ak_socket {
         <!-- 主舞台：中列自上而下是「经纬度/时间/农历/帧率」参数框、主 canvas（始终水平居中）、
              飞行参数框（四格参数下面接着「视角控制 / 飞行控制」选项卡）；PC 上 canvas 左侧是导航显示器，
              右侧是主飞行显示（PFD），2×2 指针仪表挪到了右下角面板里，第三行因此与 canvas 同高；
-             窄屏改成单列，ND 与 PFD 并排放在飞行参数框之下，各占一半屏宽、都取正方形。
+             第一行右侧那格（PFD 正上方）是垂直剖面（VSD）；
+             窄屏改成单列，ND 与 PFD 并排放在飞行参数框之下，各占一半屏宽、都取正方形，
+             垂直剖面再接在它们下面占满整行。
              布局见 .stage 与其后的 @media -->
         <!-- 主舞台外框：与顶部功能面板同一款注塑窗框、同宽（1172 = 内容 1160 + 两侧 6px） -->
         <div class="stage_frame bezel">
@@ -1919,7 +1950,13 @@ body.is-day .ak_socket {
                     </div>
                 </div>
 
-                <div class="stage_ph ph_tr"></div>
+                <!-- 垂直剖面（VSD）：沿航迹的地形剖面 + 当前高度线 + 云底云顶。
+                     细长一条，PC 上塞在 ND 上方、PFD 正对的那块原先的空面板里，
+                     窄屏则落到 ND / PFD 那一行下面，占满整行。 -->
+                <div class="stage_ph ph_tr vsd_panel">
+                    <canvas id="vsdCanvas" width="576" height="168" role="img"
+                            aria-label="垂直剖面：已飞航迹与前方 20 km 的地形、当前高度、云底云顶"></canvas>
+                </div>
 
                 <!-- MCDU（空客多功能控制显示单元）：14 行 × 24 列的显示屏 + 两侧各 6 只行选键
                      + 两行功能键 + 字母/数字键盘。屏幕上的一切（标题、字段、草稿栏）由
@@ -2309,6 +2346,7 @@ body.is-day .ak_socket {
                     <li>HUD 的其余符号：机头基准上方那一圈弧是坡度刻度，三角指针随坡度左右摆动（±60° 到顶），摆向与地平线的倾斜方向一致；俯仰梯度线每 5° 一条（±30° 以外每 10°），地平线更粗更长、正中间给机头基准让开一段，地平线以下用虚线，整 10° 的线两端标着度数（标到 60°，负仰角带负号）；左侧竖带是空速（m/s，上下各看 32 m/s，每 5 m/s 一格、每 20 m/s 一个数字，失速速度以下与 Vmo 以上各有一段红色），右侧竖带是气压高度（m，上下各看 320 m，每 50 m 一格、每 100 m 一个数字），两条带中间各有一个黑底读数框；速度带内侧那道竖尺是迎角括尺（0°–30°，红线为失速迎角 14.9°，红线以上标红，三角指针指当前迎角，上方标 AOA、下方是数值）；顶部横带是航向带（0=北，N/E/S/W 与十位数字交替标注，每 5° 一格、每 30° 一个数字，中央三角即机头航向）。迎角超过失速边界的 88% 时画面中下方开始闪 STALL（琥珀色；真失速后变红、闪得更快）。俯仰梯度线不是屏幕空间里的一条直线，而是"某一仰角上那圈方位弧"逐点投影出来的折线，所以一压坡度它跟地平线一起转，切到鱼眼投影还会跟地平线一起弯，始终和画面里那根真实地平线对齐。切回「视角控制」页后 HUD 整体消失，只剩机头基准与底部读数。</li>
                     <li>导航显示器（ND）在主画布旁：PC 上位于画布左侧、与画布等高，手机/窄屏上位于飞行参数框下方左侧（右半边是主飞行显示 PFD），两者一边宽、都是正方形，各占一半屏宽。黑底方形屏，飞机符号固定在水平中央、竖直 3/4 处，地图随飞机对地移动而平移并旋转，始终保持「航迹朝上」。显示范围可由显示屏底边的按钮在 10 / 50 / 100 / 200 / 500 / 1000 km 之间切换（指机位到上边缘的距离，默认 200 km），底图是全国主要民用机场（大型机场，标 IATA 三字码，取自 OurAirports 开放数据集）与全国行政区划（县、地级、省级界线与行政中心，见下一条），量程 100 km 以内还会把每条跑道按真实方位与长度画成线段（平行跑道一眼分得开）；距离环按量程四等分自动缩放，内侧两环在左侧水平辐射线的交点上用青色标出该环对应的距离（km），另有每 30° 一条方位辐射线。量程按钮上方一行是四颗屏内软键「天气雷达」「地形感知」「边界」「地名」，按一下翻开对应的显示层，亮着=开着，默认开地形、边界与地名。飞过的航迹用品红折线记录，每移动 0.35 km 采一点；复位时清空。顶部弧形罗盘刻度随航迹滚动，正上方恒为当前航迹方位（品红三角所指），刻度数字即罗盘方位角；左上角小罗盘指示北向。左下角为显示范围，右下角为航迹与地速。</li>
                     <li>ND 的底图上还铺了一层<b>全国行政区划</b>（显示屏底边的软键「边界」「地名」，默认都开）：界线分三级——县级（含县级市、市辖区、旗）最细最暗，地级（地级市、自治州、地区、盟）居中，省与直辖市最粗最亮，颜色一律走青蓝那一族，与橙红的告警、品红的航迹不会混。行政中心按级别换符号：直辖市是金色五角星，地级市是方块，县级市是空心菱形，县与市辖区是小圆点；名称只在放得下的时候才标（先放直辖市与地级市，再放县级市与县区），而且彼此不压字——屏上有一张 8 px 的占位格，机场三字码、角落读数、飞机符号先占位，行政名只往空格里落，落不下就跳过；县区名在 100 km 以内才标，县级市名 250 km 以内，否则 2 800 个名字会把屏糊满。左侧读数的最下面一行显示<b>本机所在的县级行政区</b>（射线法判点，位置动超过约 160 m 才重算），比如在南京市区上空就是「所在 南京市雨花台区」。数据是 DataV.GeoAtlas 的全国行政区划边界，从 adcode 100000 起逐级取 <code>_full</code>（<code>tools/china_adm_fetch.py</code>），再压成 <code>html/china_adm/adm.bin</code> + <code>adm.json</code>（<code>tools/china_adm_pack.py</code>）：3 237 个要素——30 省、4 直辖市、333 地级、404 县级市、2 466 县区（台湾省那一路 DataV 只给到省界，没有县级数据），细层 67.6 万顶点、2.1 MB，随仓库发布，打开页面时 fetch 一次，找不到数据也只是不画这一层。几何按量程取两级：细层 250 m 抽稀（250 km 以内）、粗层 1.1 km 抽稀（更远的量程），500 km 以上干脆收起县界——那时一个县只剩几个像素，画出来只是一张网。投影与机场、跑道是同一套「航迹朝上」的变换，只是把三角函数提到循环外化简成纯仿射（<code>sx = A·lon + B·lat + C</code>），每顶点两次乘加；裁剪是仿射逆变换把屏幕四角反推成经纬度取外包矩形，逐要素、逐环两级剔除，所以 1000 km 量程也只有 1.3 ms 一帧。</li>
+                    <li>导航显示器上方还有一条<b>垂直剖面（VSD）</b>：横轴是沿地速方向的水平距离（机位固定在正中，左边 -20 km 是已经飞过的、右边 +20 km 是前方），纵轴是海拔。已经飞过的那一段不是沿当前航向倒推出来的，而是顺着 ND 的航迹表（0.35 km 一个采样点）往回走，所以刚拐过弯的航段画出来是它真实经过的地形；前方按当前航迹方位直线外推，与 ND 上「航迹朝上」是同一个假设。取高与 ND 的地形感知同一条路径（机位 ±25.6 km 内取实时海洋那份 25 m 高程场，窗口外取远景地形瓦片），所以剖面上那道山脊就是要撞上的那道。地形按高度上色（低地深绿 → 橄榄 → 岩灰），高于本机 200 m 的部分整片染红、山脊线转红；当前高度是一条青色虚线、右端标着实高；机位是居中一根虚线加一个小三角。<b>已经飞过的那一段上还压着一条白色实线</b>——那是本机飞过各点时的真实高度（航迹表 0.35 km 记一点，第三个分量就是当时的高度），爬升、下降、改平都留在屏上，到机位处与青色高度线接上；航迹表没记到的地方不画，纵轴也会把这条线的最高点收进来，刚下降完不会被切掉。云底云顶不是查表算的：把体积云渲染器正在用的密度场沿每根柱子从 0.3 km 到 10.8 km 每 0.3 km 扫一遍，取最下面一段连续有云的样本——于是那条灰带就是云从底到顶的真实区间（多层云时取最低那层，层带之间的空隙会把带子断开），右上角「CLD 1200-2550m」是画面里的区间。纵轴按地形峰值、本机高度、云顶三者的最大值自动定标并取整到整刻度，所以爬高时高度线不会顶出画面。数据每 1.2 s 或每移动 120 m 重扫一次（云本身也在被风平流走），重绘跟着高度走，一次重扫约 0.5 ms。PC 上这块屏在 ND 上方、PFD 正对的那一格（原先是一块空面板），窄屏排在 ND 与 PFD 那一行的下面、占满整行。</li>
                     <li>ND 上可以叠一层天气雷达回波（显示屏底边的软键「天气雷达」，默认关）：回波不是另找一份雷达数据画的图，而是把体积云渲染器**正在用的那份密度场**在同一世界坐标（东/北，km）、同一风场时刻上按列竖直扫一遍——每列只在当前启用的层带里取高度样本（浓积云 5 个、高积云 3 个、层积云 3 个、卷层云 2 个，停用的层带一个样本都不取），每个样本走与光线步进相同的入口 cloud_sky_cloudMap()，柱含水量 Σ密度·dz 按层加权（对流层 1.0 / 高积云 0.55 / 层积云 0.45 / 卷层云 0.35）后取对数折算等效反射率 dBZ，浓积云塔顶越高再加分。于是"平铺的层积云"是一片绿、"发展旺盛的积云"才有黄橙核，云在哪儿回波就在哪儿——风把云吹走，回波跟着走（栅格锚定在世界坐标上，默认风 50 m/s）。色标是气象雷达那套：青蓝→绿→黄→橙→红→品红→白核；显示门槛取 15 dBZ（机载雷达「最小可测回波」的量级），弱于它的按无明显回波处理、靠近门槛的一圈渐隐到底图，所以有云的间隙是真的黑的。纹素比云胞粗时（远量程）先按纹素足迹做一次面积平均再折算 dBZ，等效雷达波束宽度平均，免得 3 km 的云胞被点采样成一地散点。128×128 栅格分帧扫（每帧有 3.5 ms 预算），扫完才整块换图，所以不掉帧也不会看到半张；量程、云参数、层类、云量、雷达云图开关、机位移动超过 1/4 窗口都会触发重扫，平时只在云被风平流走一个纹素（约 5 px）之后重扫，最久 30 s 也扫一次。小罗盘下方一行小字是雷达读数，显示当前画面里的最强回波（dBZ）。关掉「体积云」天上的云就没了，回波同时消失（显示 WXR NO CLD）。</li>
                     <li>「天气雷达」与「雷达云图」是两件事：前者是 ND 上的回波显示，由体积云密度场反算；后者决定体积云自身长什么样——把中央气象台组合反射率图反演成 dBZ 网格，用回波强弱控制云量的有无疏密、云顶高度与厚薄。关掉「雷达云图」，体积云退回程序化天气图，ND 上的回波也跟着换成那份云场（因为它读的永远是当前真实的密度场）。</li>
                      <li>ND 底下还可以铺一层<b>地形感知（TAWS）</b>（显示屏底边的软键「地形感知」，默认开）：数值直接取实时海洋正在画的那一份高程场（Copernicus GLO-30 分块 / 烘焙 DEM / 程序化岛屿），取高走的是撞山、滑跑同一条路径，所以屏上画出来的坡就是会撞上的坡。着色按 DEM 海拔分档（平原深绿 → 丘陵橄榄 → 低山土黄 → 高山岩灰 → 雪线以上发白），再叠一道西北 45° 光线的山体阴影：坡度由相邻纹素的高差算，垂直夸张按整张图的平均坡度自动定标（0.55 / 平均坡度，夹在 0.5–60 之间），因此 10 km 与 200 km 量程的立体感差不多，平原也不会被夸张成一片噪点。告警一律相对本机高度：高于本机 500 m 的地形整片染红并勾亮边，本机高度 −300 m 到 +500 m 之间只上一层薄琥珀色（不勾边，地貌一皱边界线就成了乱麻）；染红用的是半透明洗色而不是盖死，底下的地势起伏仍读得出。顶部弧度里弹出 TERRAIN 告警条（1.4 Hz 软脉冲，带最近的一块告警地形距本机多远），琥珀一级只显示 TERR CAUTION；小罗盘／WXR 读数下面一行是画面里最高的地形（TERR xxxx m），颜色随威胁等级变。<b>覆盖范围到机位周围 500 km 以上</b>：机位 ±25.6 km 以内仍取海洋渲染那份 51.2 km 世界窗口（25 m 一格，与撞山、滑跑、GPWS 同一条取高路径，屏上画出来的坡就是会撞上的坡），窗口外由「远景地形瓦片」接管——那是 <code>tools/dem_overview_tiles.py</code> 把 0.25° 分块（l0，225²≈120 m）按 16×16 分箱平均压出来的一层粗层，4°×4° 一块、256² 纹素（约 1.74 km）、一块约 60 KB，正好让 500 km 量程（栅格 ±640 km）只要 12–16 块、约 1 MB，而直接拉 l0 要 2 500 块、120 MB。瓦片按机位流式取：先出脚下，再一圈圈铺到量程边缘，来一块重扫一次；还没取到的格子保持透明（黑底透出来），不拿别处的数据充数。量程切到 1000 km 也照样铺（4° 格 48 块左右）。所以 200 / 500 / 1000 km 量程下屏上都是整片真地形，不再是中间一小块。栅格锚定在世界坐标上（与天气回波同一套变换），256×256，换量程、机位离开栅格中心 1/4 半边长、高程窗口重定中心、或新到一块远景瓦片时才重扫（约 4–6 ms），海拔每变 10 m 重涂一次（约 1 ms），所以爬升不掉帧。地景不是「实时海洋」或数据没载入时显示 TERR NO DATA；远景粗层没生成（<code>terrain/china/ov/</code> 不存在）时会退回到只有 51.2 km 窗口的旧样子，控制台里留一条警告。</li>
@@ -21642,6 +21680,581 @@ function nd_taws_draw_banner(g) {
     g.restore();
 }
 
+// ============================================================
+// 垂直剖面（VSD）：沿航迹的地形剖面 + 当前高度线 + 云底云顶
+// ------------------------------------------------------------
+// 一条细长的横条屏，横轴是沿地速方向的水平距离、纵轴是海拔。机位固定在正中，
+// 左边 -20 km 是「已经飞过的那一段」、右边 +20 km 是「前方 20 km」：
+//   · 已经飞过的部分不是沿当前航迹外推的，而是顺着 ndTrack 里记下的真实航迹
+//     往回走（0.35 km 一个点），所以拐过弯的航段也画的是它真实经过的地形；
+//   · 前方按当前航迹方位（flight.chi）直线外推——和 ND 上「航迹朝上」是同一个假设。
+//
+// 取高与 ND 的地形感知走同一条路径：机位 ±25.6 km 内取实时海洋那份 25 m 网格的
+// 高程场（与撞山、滑跑、GPWS 同一条），窗口外取远景地形瓦片，两条路都不通就留空
+// （剖面断开，不拿别处的数据充数）。
+//
+// 云底云顶不是查表来的，是把体积云渲染器正在用的密度场沿每根柱子竖着扫一遍
+// （与天气雷达同一套 ND_WXR 采样高度、同一个 cloud_sky_cloudMap 入口），找最下面
+// 一段连续有云的样本的高度区间；两个层带之间的空隙会把段落断开，所以积云和高积云
+// 不会被连成一片。扫出来的云顶若超出纵轴范围，纵轴会自动长高把它收进来。
+//
+// 数据每 1.2 s 或每移动 120 m 重算一次（云场本身也在飘，时间到了就得重扫），
+// 重绘则跟着高度变化走，所以高度线是连续的。
+// ============================================================
+const VSD_AHEAD_KM = 20.0;        // 前方看多远
+const VSD_BEHIND_KM = 20.0;       // 往回看多远（航迹不够长就按当前方位外推）
+const VSD_COLS = 121;             // 横向采样列数（40 km / 120 段 = 333 m 一格）
+const VSD_CLOUD_EVERY = 4;        // 每 4 列扫一次云（约 1.33 km）
+const VSD_CLOUD_WET = 0.0015;     // 云的密度门槛（与天气雷达的 ND_WXR_WET 同一量级）
+const VSD_CLOUD_H0 = 0.30;        // 竖扫起点 / 步长 / 终点（km）
+const VSD_CLOUD_DH = 0.30;
+const VSD_CLOUD_STEPS = 35;       // 0.3 → 10.8 km
+
+const Vsd = {
+    cv: null,
+    g: null,
+    w: 0, h: 0, dpr: 1,
+    terr: new Float32Array(VSD_COLS),      // 地形高度 m（NaN = 没有数据）
+    path: new Float32Array(VSD_COLS),      // 本机飞过这一点时的高度 m（NaN = 没有记录）
+    lat: new Float64Array(VSD_COLS),       // 每列的采样点（重算云时复用）
+    lon: new Float64Array(VSD_COLS),
+    cbase: new Float32Array(0),            // 云底 km（NaN = 这一列没云）
+    ctop: new Float32Array(0),
+    nCloud: 0,
+    hasData: false,
+    hasCloud: false,
+    terrMax: 0.0,
+    cloudBase: NaN, cloudTop: NaN,         // 画面里最低那层云的底/顶（m）
+    alt: 0.0,
+    yMax: 3000.0,
+    yStep: 500.0,
+    lastAt: -1e9,
+    lastLat: 1e9, lastLon: 1e9,
+    drawn: false, drawnAlt: 1e9,
+    dirty: true
+};
+
+function vsd_init() {
+    const cv = document.getElementById('vsdCanvas');
+    if (!cv) return;
+    Vsd.cv = cv;
+    Vsd.g = cv.getContext('2d');
+    Vsd.nCloud = Math.ceil(VSD_COLS / VSD_CLOUD_EVERY);
+    Vsd.cbase = new Float32Array(Vsd.nCloud);
+    Vsd.ctop = new Float32Array(Vsd.nCloud);
+    Vsd.dirty = true;
+}
+
+// ---- 航迹回溯表：从机位往回逐点累加距离，返回 [[距机位 km（递增）, lat, lon], ...] ----
+// 航迹是 ndTrack 里那份（0.35 km 一个采样点），最后一点就是机位附近。
+function vsd_track_back(lat0, lon0, cosLat) {
+    const alt0 = flight.ready ? flight.alt : 0.0;
+    const out = [[0.0, lat0, lon0, alt0]];
+    let pl = lat0, po = lon0, acc = 0.0;
+    for (let i = ndTrack.length - 1; i >= 0; i--) {
+        const p = ndTrack[i];
+        const dn = (p[0] - pl) * ND_KM_PER_DEG;
+        const de = (p[1] - po) * ND_KM_PER_DEG * cosLat;
+        acc += Math.sqrt(de * de + dn * dn);
+        out.push([acc, p[0], p[1], (p.length > 2) ? p[2] : alt0]);
+        pl = p[0];
+        po = p[1];
+        if (acc > VSD_BEHIND_KM + 2.0) break;
+    }
+    return out;
+}
+
+// 沿航迹表插值出「往回 d km」的位置；航迹不够长就按末端那一小段的方向继续外推
+function vsd_point_back(back, d, cosLat, ch, sh) {
+    const n = back.length;
+    if (d <= 0.0) return back[0];
+    if (n >= 2 && d <= back[n - 1][0]) {
+        for (let k = 1; k < n; k++) {
+            if (d <= back[k][0]) {
+                const d0 = back[k - 1][0], d1 = back[k][0];
+                const t = (d1 > d0) ? (d - d0) / (d1 - d0) : 0.0;
+                return [0.0,
+                    back[k - 1][1] + (back[k][1] - back[k - 1][1]) * t,
+                    back[k - 1][2] + (back[k][2] - back[k - 1][2]) * t,
+                    back[k - 1][3] + (back[k][3] - back[k - 1][3]) * t];
+            }
+        }
+    }
+    // 外推：末两点连线的方向；航迹还只有机位一个点（刚起飞/刚复位）时，
+    // 就按前方航迹方位的反方向往回铺，至少剖面不是原地不动的一根横线
+    const a = back[n - 1];
+    let dn, de;
+    if (n >= 2) {
+        dn = (back[n - 2][1] - a[1]) * ND_KM_PER_DEG;
+        de = (back[n - 2][2] - a[2]) * ND_KM_PER_DEG * cosLat;
+    } else {
+        dn = -ch;
+        de = -sh;
+    }
+    const len = Math.sqrt(de * de + dn * dn) || 1.0;
+    const extra = d - a[0];
+    // 航迹只记到最老那个采样点，再往前没有高度记录，返回 NaN 让航迹线在这里断掉
+    return [0.0,
+        a[1] + (dn / len) * extra / ND_KM_PER_DEG,
+        a[2] + (de / len) * extra / (ND_KM_PER_DEG * cosLat),
+        NaN];
+}
+
+// 取高：窗口内用实时海洋那份高程场，窗口外退回远景瓦片（与 nd_taws 同一条路）
+function vsd_make_sampler() {
+    const ov = (TSTR.on && ndOv.state === 'ok') ? nd_ov_make_sampler() : null;
+    const lat0 = latitude, lon0 = longitude;
+    const cosLat = Math.cos(lat0 * Math.PI / 180.0);
+    const ax = flight.ready ? flight.x : CLOUD_SKY_CAM_POS[0] * 1000.0;
+    const az = flight.ready ? flight.z : CLOUD_SKY_CAM_POS[2] * 1000.0;
+    const w = TSTR.win;
+    const kLat = TSTR_KLAT;
+    const kLon = kLat * Math.cos(w.latC * Math.PI / 180.0);
+    return function(lat, lon) {
+        if (TSTR.on) {
+            const px = (lon - w.lonC) * kLon;
+            const pz = (lat - w.latC) * kLat;
+            if (px > -ISL_HALF && px < ISL_HALF && pz > -ISL_HALF && pz < ISL_HALF) {
+                const h = isl_height(px, pz);
+                if (Number.isFinite(h)) return h < 0.0 ? 0.0 : h;    // 海底按海平面算
+            }
+            return (ov === null) ? null : ov(lat, lon);
+        }
+        const de = (lon - lon0) * ND_KM_PER_DEG * cosLat;
+        const dn = (lat - lat0) * ND_KM_PER_DEG;
+        const h = flight_terrain_under(ax + de * 1000.0, az + dn * 1000.0);
+        if (h === null || !Number.isFinite(h)) return null;
+        return h < 0.0 ? 0.0 : h;
+    };
+}
+
+// 一根柱子上的云底/云顶：从下往上均匀扫，取最低的那一段连续有云的样本。
+// 高度网格比天气雷达那 13 个层带样本细得多（0.3 km 一格），否则云底云顶只能精确到
+// 一整个层带的高度。
+function vsd_cloud_column(lat, lon, cosLat) {
+    const east = nd_wxr_plane_east() + (lon - longitude) * ND_KM_PER_DEG * cosLat;
+    const north = nd_wxr_plane_north() + (lat - latitude) * ND_KM_PER_DEG;
+    const px = east * 1000.0, pz = north * 1000.0;
+    const t = cloudSkyState.appTime;
+    let start = -1;
+    for (let k = 0; k <= VSD_CLOUD_STEPS; k++) {
+        const hi = VSD_CLOUD_H0 + k * VSD_CLOUD_DH;
+        const d = cloud_sky_cloudMap(px, hi * 1000.0, pz, cloud_sky_band_norm(hi), t, 1, 0.7);
+        const wet = d > VSD_CLOUD_WET;
+        if (start >= 0 && !wet) {
+            // 上一格还是云、这一格不是：云顶落在两格之间
+            return [VSD_CLOUD_H0 + start * VSD_CLOUD_DH, hi - VSD_CLOUD_DH * 0.5];
+        }
+        if (wet && start < 0) start = k;
+    }
+    if (start >= 0) return [VSD_CLOUD_H0 + start * VSD_CLOUD_DH, VSD_CLOUD_H0 + VSD_CLOUD_STEPS * VSD_CLOUD_DH];
+    return [NaN, NaN];
+}
+
+// 纵轴：先按量级挑一个刻度步长，再把轴顶抬到步长的整数倍——保证最上面那道刻度
+// 就是轴顶，不至于顶上留一格没标号的空白
+function vsd_axis(v) {
+    let step = 250;
+    if (v > 9000) step = 2000;
+    else if (v > 4500) step = 1000;
+    else if (v > 2200) step = 500;
+    else if (v > 1200) step = 250;
+    else if (v > 600) step = 200;
+    else step = 100;
+    return { yMax: Math.max(step, Math.ceil(v / step) * step), step: step };
+}
+
+// 重算整条剖面（地形 + 云）
+function vsd_compute() {
+    const lat0 = latitude, lon0 = longitude;
+    const cosLat = Math.cos(lat0 * Math.PI / 180.0);
+    const back = vsd_track_back(lat0, lon0, cosLat);
+    const hdg = flight.ready ? flight_wrap_2pi(flight.chi) : 0.0;   // 前方：当前航迹方位
+    const ch = Math.cos(hdg), sh = Math.sin(hdg);
+    const samp = vsd_make_sampler();
+    const step = (VSD_AHEAD_KM + VSD_BEHIND_KM) / (VSD_COLS - 1);
+
+    let tmax = -1e9, any = false;
+    for (let i = 0; i < VSD_COLS; i++) {
+        const d = -VSD_BEHIND_KM + i * step;
+        let lat, lon;
+        if (d <= 0.0) {
+            const p = vsd_point_back(back, -d, cosLat, ch, sh);
+            lat = p[1];
+            lon = p[2];
+            Vsd.path[i] = p[3];                 // 已飞过那一段：本机当时的高度
+        } else {
+            lat = lat0 + ch * d / ND_KM_PER_DEG;
+            lon = lon0 + sh * d / (ND_KM_PER_DEG * cosLat);
+            Vsd.path[i] = NaN;                  // 前方还没飞，没有航迹
+        }
+        Vsd.lat[i] = lat;
+        Vsd.lon[i] = lon;
+        const h = samp(lat, lon);
+        if (h === null) {
+            Vsd.terr[i] = NaN;
+        } else {
+            Vsd.terr[i] = h;
+            any = true;
+            if (h > tmax) tmax = h;
+        }
+    }
+    // 取高偶尔会落在没载入的分块上（那里读出来是 0）：在四千米的剖面上就是一道
+    // 假的深谷。两侧都比它高一大截、彼此又接得上的柱子，按邻居插值补回来。
+    for (let pass = 0; pass < 2; pass++) {
+        for (let i = 1; i + 1 < VSD_COLS; i++) {
+            const a = Vsd.terr[i - 1], b = Vsd.terr[i], c = Vsd.terr[i + 1];
+            if (!(a === a) || !(b === b) || !(c === c)) continue;
+            if (Math.abs(a - c) < 500.0 && (a - b) > 1200.0 && (c - b) > 1200.0) {
+                Vsd.terr[i] = (a + c) * 0.5;
+            }
+        }
+    }
+    // 一两个柱子干脆取不到高（NaN）时按两头连起来：不然 40 km 宽的剖面上会戳出
+    // 一串 2 px 宽的 V 形缺口，看着像山谷，其实是没数据
+    for (let i = 0; i < VSD_COLS; i++) {
+        if (Vsd.terr[i] === Vsd.terr[i]) continue;
+        let j = i;
+        while (j < VSD_COLS && !(Vsd.terr[j] === Vsd.terr[j])) j++;
+        if (i > 0 && j < VSD_COLS && (j - i) <= 4) {
+            const a = Vsd.terr[i - 1], b = Vsd.terr[j];
+            for (let k = i; k < j; k++) Vsd.terr[k] = a + (b - a) * ((k - i + 1) / (j - i + 1));
+        }
+        i = j;
+    }
+    tmax = -1e9;
+    for (let i = 0; i < VSD_COLS; i++) {
+        const v = Vsd.terr[i];
+        if (v === v && v > tmax) tmax = v;
+    }
+    Vsd.hasData = any;
+    Vsd.terrMax = (tmax > -1e8) ? tmax : 0.0;
+
+    // ---- 云：只扫最低的那层（每 VSD_CLOUD_EVERY 列一次）----
+    let cbMin = NaN, ctMax = NaN, anyCloud = false;
+    for (let k = 0; k < Vsd.nCloud; k++) {
+        const i = Math.min(VSD_COLS - 1, k * VSD_CLOUD_EVERY);
+        const c = vsd_cloud_column(Vsd.lat[i], Vsd.lon[i], cosLat);
+        Vsd.cbase[k] = c[0];
+        Vsd.ctop[k] = c[1];
+        if (c[0] === c[0]) {
+            anyCloud = true;
+            if (!(cbMin === cbMin) || c[0] < cbMin) cbMin = c[0];
+            if (!(ctMax === ctMax) || c[1] > ctMax) ctMax = c[1];
+        }
+    }
+    // 横向三道平滑：单列扫出来的云底/云顶会跳，带子边缘会抖成锯齿
+    if (anyCloud) {
+        const b = new Float32Array(Vsd.nCloud), c = new Float32Array(Vsd.nCloud);
+        for (let k = 0; k < Vsd.nCloud; k++) {
+            let sb = 0.0, sc = 0.0, nb = 0, nc = 0;
+            for (let m = Math.max(0, k - 1); m <= Math.min(Vsd.nCloud - 1, k + 1); m++) {
+                if (Vsd.cbase[m] === Vsd.cbase[m]) { sb += Vsd.cbase[m]; nb++; }
+                if (Vsd.ctop[m] === Vsd.ctop[m]) { sc += Vsd.ctop[m]; nc++; }
+            }
+            b[k] = nb ? sb / nb : NaN;
+            c[k] = nc ? sc / nc : NaN;
+        }
+        Vsd.cbase.set(b);
+        Vsd.ctop.set(c);
+        cbMin = NaN; ctMax = NaN;
+        for (let k = 0; k < Vsd.nCloud; k++) {
+            if (b[k] !== b[k]) continue;
+            if (!(cbMin === cbMin) || b[k] < cbMin) cbMin = b[k];
+            if (!(ctMax === ctMax) || c[k] > ctMax) ctMax = c[k];
+        }
+    }
+    Vsd.hasCloud = anyCloud;
+    Vsd.cloudBase = (cbMin === cbMin) ? cbMin * 1000.0 : NaN;
+    Vsd.cloudTop = (ctMax === ctMax) ? ctMax * 1000.0 : NaN;
+
+    Vsd.lastAt = performance.now();
+    Vsd.lastLat = lat0;
+    Vsd.lastLon = lon0;
+}
+
+// 纵轴：地形、本机高度、最低那层云的云顶，谁高听谁的。这一步每帧都算，
+// 所以爬升时高度线不会跟着数据一起卡在 1.2 s 的刷新节拍上。
+function vsd_fit_axis() {
+    const alt = flight.ready ? flight.alt : 0.0;
+    // 刚下降过时航迹还挂在上面，纵轴要把航迹的最高点也收进来，否则那截白线会被切掉
+    let pathMax = -1e9;
+    for (let i = 0; i < VSD_COLS; i++) {
+        const v = Vsd.path[i];
+        if (v === v && v > pathMax) pathMax = v;
+    }
+    let top = Math.max(Vsd.hasData ? Vsd.terrMax + 320.0 : 0.0, alt + 650.0,
+        (pathMax > -1e8) ? pathMax + 320.0 : 0.0, 1200.0);
+    if (Vsd.hasCloud && Vsd.cloudBase <= top + 60.0) top = Math.max(top, Vsd.cloudTop + 220.0);
+    const ax = vsd_axis(top);
+    Vsd.yMax = ax.yMax;
+    Vsd.yStep = ax.step;
+    Vsd.alt = alt;
+}
+
+// 地形剖面（分段画：中间没有数据的列断开），fill/stroke 由调用方给
+function vsd_paint_terrain(g, xOf, yOf, step, yBottom, fill, stroke) {
+    const t = Vsd.terr;
+    let i = 0;
+    while (i < VSD_COLS) {
+        if (!(t[i] === t[i])) { i++; continue; }
+        let j = i;
+        while (j + 1 < VSD_COLS && t[j + 1] === t[j + 1]) j++;
+        g.beginPath();
+        g.moveTo(xOf(-VSD_BEHIND_KM + i * step), yBottom);
+        for (let k = i; k <= j; k++) g.lineTo(xOf(-VSD_BEHIND_KM + k * step), yOf(t[k]));
+        g.lineTo(xOf(-VSD_BEHIND_KM + j * step), yBottom);
+        g.closePath();
+        g.fillStyle = fill;
+        g.fill();
+        if (stroke !== null) {
+            g.beginPath();
+            for (let k = i; k <= j; k++) {
+                const X = xOf(-VSD_BEHIND_KM + k * step), Y = yOf(t[k]);
+                if (k === i) g.moveTo(X, Y); else g.lineTo(X, Y);
+            }
+            g.strokeStyle = stroke;
+            g.lineWidth = 1;
+            g.stroke();
+        }
+        i = j + 1;
+    }
+}
+
+function vsd_draw() {
+    const g = Vsd.g;
+    if (!g || !Vsd.w || !Vsd.h) return;
+    const W = Vsd.w, H = Vsd.h;
+    vsd_fit_axis();
+    g.setTransform(Vsd.dpr, 0, 0, Vsd.dpr, 0, 0);
+    g.fillStyle = '#050708';
+    g.fillRect(0, 0, W, H);
+
+    const L = 25, R = 4, T = 10, B = 4;
+    const x0 = L, x1 = W - R, y0 = T, y1 = H - B;
+    const pw = x1 - x0, ph = Math.max(6, y1 - y0);
+    const yMax = Vsd.yMax;
+    const yOf = function(m) {
+        const v = Math.max(0.0, Math.min(yMax, m)) / yMax;
+        return y1 - v * ph;
+    };
+    const xOf = function(d) {
+        return x0 + (d + VSD_BEHIND_KM) / (VSD_AHEAD_KM + VSD_BEHIND_KM) * pw;
+    };
+    const step = (VSD_AHEAD_KM + VSD_BEHIND_KM) / (VSD_COLS - 1);
+    const alt = Vsd.alt;
+
+    // ---- 标题行：左边 VSD，右边云底云顶 ----
+    g.font = '7px monospace';
+    g.textBaseline = 'alphabetic';
+    g.textAlign = 'left';
+    g.fillStyle = '#35e0e0';
+    g.fillText('VSD', 3, T - 2);
+    g.fillStyle = '#3a5461';
+    g.fillText('\u00b1' + VSD_AHEAD_KM + 'km', 23, T - 2);
+    g.textAlign = 'right';
+    if (Vsd.hasCloud) {
+        g.fillStyle = '#7fa8bd';
+        g.fillText('CLD ' + Math.round(Vsd.cloudBase) + '-' + Math.round(Vsd.cloudTop) + 'm', x1, T - 2);
+    } else {
+        g.fillStyle = '#3a5461';
+        g.fillText('CLD --', x1, T - 2);
+    }
+
+    // ---- 纵轴刻度 ----
+    const gstep = Vsd.yStep || 500;
+    g.textAlign = 'right';
+    for (let m = 0; m <= yMax + 1; m += gstep) {
+        const Y = yOf(m);
+        g.strokeStyle = (m === 0) ? 'rgba(64,120,140,0.42)' : 'rgba(60,110,130,0.18)';
+        g.lineWidth = 1;
+        g.beginPath();
+        g.moveTo(x0, Y + 0.5);
+        g.lineTo(x1, Y + 0.5);
+        g.stroke();
+        g.fillStyle = (m === 0) ? '#4e7a8c' : '#33525f';
+        g.fillText(String(m), x0 - 2, Math.min(y1, Math.max(y0 + 5, Y + 2.4)));
+    }
+    // 左右两条竖边框
+    g.strokeStyle = 'rgba(60,110,130,0.22)';
+    g.beginPath();
+    g.moveTo(x0 + 0.5, y0); g.lineTo(x0 + 0.5, y1);
+    g.moveTo(x1 - 0.5, y0); g.lineTo(x1 - 0.5, y1);
+    g.stroke();
+    // 距离刻度（±10 km 各一道细竖线，机位那道由下面的虚线代表）
+    g.strokeStyle = 'rgba(60,110,130,0.16)';
+    for (let d = -10; d <= 10; d += 10) {
+        if (d === 0) continue;
+        const X = xOf(d);
+        g.beginPath();
+        g.moveTo(X + 0.5, y0); g.lineTo(X + 0.5, y1);
+        g.stroke();
+    }
+
+    // ---- 云层：云底到云顶的一条带（无云的列断开）----
+    if (Vsd.hasCloud) {
+        const cstep = VSD_CLOUD_EVERY * step;
+        let k = 0;
+        while (k < Vsd.nCloud) {
+            if (!(Vsd.cbase[k] === Vsd.cbase[k])) { k++; continue; }
+            let j = k;
+            while (j + 1 < Vsd.nCloud && Vsd.cbase[j + 1] === Vsd.cbase[j + 1]) j++;
+            g.beginPath();
+            for (let m = k; m <= j; m++) {
+                const X = xOf(-VSD_BEHIND_KM + m * cstep);
+                const Y = yOf(Vsd.cbase[m] * 1000.0);
+                if (m === k) g.moveTo(X, Y); else g.lineTo(X, Y);
+            }
+            for (let m = j; m >= k; m--) {
+                g.lineTo(xOf(-VSD_BEHIND_KM + m * cstep), yOf(Vsd.ctop[m] * 1000.0));
+            }
+            g.closePath();
+            g.fillStyle = 'rgba(148,192,216,0.24)';
+            g.fill();
+            g.setLineDash([2, 2]);
+            g.strokeStyle = 'rgba(176,216,236,0.55)';
+            g.lineWidth = 0.8;
+            g.stroke();
+            g.setLineDash([]);
+            k = j + 1;
+        }
+    }
+
+    // ---- 地形剖面：低处绿、高处岩，高于本机的那一截整片染红（与 ND 的地形告警同一套说法）----
+    const grad = g.createLinearGradient(0, y1, 0, y0);
+    grad.addColorStop(0.00, '#1d3018');
+    grad.addColorStop(0.42, '#3c4a22');
+    grad.addColorStop(0.74, '#5c5540');
+    grad.addColorStop(1.00, '#7e7f7c');
+    vsd_paint_terrain(g, xOf, yOf, step, y1, grad, '#a8cf7a');
+    if (Vsd.terrMax > alt + 200.0) {
+        g.save();
+        g.beginPath();
+        g.rect(x0, y0, pw, Math.max(0.5, yOf(alt) - y0));
+        g.clip();
+        vsd_paint_terrain(g, xOf, yOf, step, y1, 'rgba(255,68,48,0.30)', '#ff5a44');
+        g.restore();
+    }
+
+    // ---- 当前高度线 + 机位 ----
+    const yAlt = yOf(alt);
+    g.setLineDash([4, 3]);
+    g.strokeStyle = 'rgba(53,224,224,0.85)';
+    g.lineWidth = 1;
+    g.beginPath();
+    g.moveTo(x0, yAlt + 0.5);
+    g.lineTo(x1, yAlt + 0.5);
+    g.stroke();
+    g.setLineDash([]);
+
+    const xc = xOf(0);
+    g.setLineDash([2, 3]);
+    g.strokeStyle = 'rgba(126,176,196,0.45)';
+    g.beginPath();
+    g.moveTo(xc + 0.5, y0);
+    g.lineTo(xc + 0.5, y1);
+    g.stroke();
+    g.setLineDash([]);
+
+    // ---- 已飞航迹的高度剖面：本机各时刻的高度（ndTrack 每 0.35 km 记一个点，
+    // 第三位是当时的高度）。只画有记录的那一段——航迹表没记到的地方不猜。----
+    {
+        const stepX = (VSD_AHEAD_KM + VSD_BEHIND_KM) / (VSD_COLS - 1);
+        let k0 = -1;
+        for (let i = 0; i <= VSD_COLS; i++) {
+            const has = (i < VSD_COLS) && (Vsd.path[i] === Vsd.path[i]);
+            if (has && k0 < 0) k0 = i;
+            if (!has && k0 >= 0) {
+                if (i - k0 >= 2) {
+                    for (let pass = 0; pass < 2; pass++) {
+                        // 第一遍画暗底衬（压在浅色地形上也读得出），第二遍才是航迹本身
+                        g.beginPath();
+                        for (let k = k0; k < i; k++) {
+                            const X = xOf(-VSD_BEHIND_KM + k * stepX);
+                            const Y = yOf(Vsd.path[k]);
+                            if (k === k0) g.moveTo(X, Y); else g.lineTo(X, Y);
+                        }
+                        g.lineJoin = 'round';
+                        g.lineCap = 'round';
+                        if (pass === 0) {
+                            g.strokeStyle = 'rgba(5,7,8,0.75)';
+                            g.lineWidth = 3.2;
+                        } else {
+                            g.strokeStyle = '#e8f4ff';
+                            g.lineWidth = 1.4;
+                        }
+                        g.stroke();
+                    }
+                }
+                k0 = -1;
+            }
+        }
+    }
+
+    // 机位小三角（朝向剖面箭头那侧）
+    g.fillStyle = '#e8f4ff';
+    g.strokeStyle = '#050708';
+    g.lineWidth = 0.8;
+    g.beginPath();
+    g.moveTo(xc + 4.6, yAlt);
+    g.lineTo(xc - 2.6, yAlt - 3.2);
+    g.lineTo(xc - 2.6, yAlt + 3.2);
+    g.closePath();
+    g.fill();
+    g.stroke();
+
+    // 一点地形数据都没有（不是实时海洋、或分块还没到）时说清楚，别让人以为前方是平的
+    if (!Vsd.hasData) {
+        g.font = '7px monospace';
+        g.textAlign = 'center';
+        g.fillStyle = '#3a5461';
+        g.fillText('NO TERRAIN DATA', (x0 + x1) * 0.5, (y0 + y1) * 0.5 + 2);
+        g.textAlign = 'right';
+    }
+
+    // 高度读数压在高度线右端
+    const at = Math.round(alt) + 'm';
+    g.font = '7px monospace';
+    g.textAlign = 'right';
+    const tw = g.measureText(at).width;
+    const ly = Math.min(y1 - 5, Math.max(y0 + 5, yAlt));
+    g.fillStyle = 'rgba(5,7,8,0.82)';
+    g.fillRect(x1 - tw - 5, ly - 4.5, tw + 4, 9);
+    g.fillStyle = '#35e0e0';
+    g.fillText(at, x1 - 3, ly + 2.4);
+
+    Vsd.drawn = true;
+    Vsd.drawnAlt = alt;
+}
+
+// 每帧调用：尺寸跟着面板走，数据按需重算，重绘跟着高度变化
+function vsd_tick(nowMs) {
+    const cv = Vsd.cv;
+    if (!cv) return;
+    const cw = cv.clientWidth | 0, ch = cv.clientHeight | 0;
+    if (!cw || !ch) return;                       // 面板还没排好版
+    let resized = false;
+    if (cw !== Vsd.w || ch !== Vsd.h) {
+        Vsd.w = cw;
+        Vsd.h = ch;
+        Vsd.dpr = Math.min(2, window.devicePixelRatio || 1);
+        cv.width = Math.round(cw * Vsd.dpr);
+        cv.height = Math.round(ch * Vsd.dpr);
+        resized = true;
+    }
+    const alt = flight.ready ? flight.alt : 0.0;
+    const moved = (Math.abs(latitude - Vsd.lastLat) * ND_KM_PER_DEG > 0.12) ||
+        (Math.abs(longitude - Vsd.lastLon) * ND_KM_PER_DEG > 0.12);
+    const stale = (nowMs - Vsd.lastAt) > 1200.0;
+    if (moved || stale || resized || Vsd.dirty) {
+        vsd_compute();          // 重扫地形与云（几百个采样点，约 0.5 ms）
+        Vsd.dirty = false;
+        vsd_draw();
+    } else if (!Vsd.drawn || Math.abs(alt - Vsd.drawnAlt) > 3.0) {
+        vsd_draw();             // 高度变了只重绘（轴跟着高度走）
+    }
+}
+
 // 画一帧。只在飞行模拟运行时调用（暂停时保留最后一帧），初始化时也画一次。
 function nd_draw() {
     const cv = document.getElementById('ndCanvas');
@@ -21673,7 +22286,7 @@ function nd_draw() {
             Math.hypot((latitude - ndLastPt[0]) * ND_KM_PER_DEG,
                        (longitude - ndLastPt[1]) * ND_KM_PER_DEG * cosLat) > ND_TRACK_STEP_KM;
         if (moved) {
-            ndLastPt = [latitude, longitude];
+            ndLastPt = [latitude, longitude, flight.alt];   // 第三位是飞过这一点时的高度（VSD 画航迹用）
             ndTrack.push(ndLastPt);
             if (ndTrack.length > ND_TRACK_MAX) ndTrack.shift();
         }
@@ -23724,6 +24337,7 @@ instrument_init();
 pfd_draw();
 nd_init_range_buttons();
 nd_draw();
+vsd_init();          // 垂直剖面（地形剖面 / 高度线 / 云底云顶）
 adm_init();          // 行政区划边界（县/地级/省级）与行政中心，异步取一次 adm.bin
 mcdu_init_dom();     // MCDU 的键帽（行选键 / 功能键 / 字母数字键盘）建一次
 mcdu_render();
@@ -24821,6 +25435,9 @@ function init() {
             nd_draw();
             pfd_draw();
         }
+
+        // 垂直剖面：位置/高度/云场变了才重算，重绘跟着高度走
+        vsd_tick(performance.now());
 
         // MCDU 显示屏：0.5 s 一次（草稿栏光标闪烁、PROG 页读数跟着飞）
         mcdu_tick(performance.now());
