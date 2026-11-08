@@ -21321,8 +21321,9 @@ function nd_taws_data_ok() {
 //   与 flight_terrain_under 同一条取高路径（连开关门槛与周期回绕都是同一份），
 //   这种模式没有真实地形可铺，出了窗口照旧是空的。
 function nd_taws_make_sampler() {
-    const ov = (TSTR.on && ndOv.state === 'ok') ? nd_ov_make_sampler() : null;
-    if (TSTR.on) {
+    const useWin = TSTR.on && TSTR.win !== null;
+    const ov = (useWin && ndOv.state === 'ok') ? nd_ov_make_sampler() : null;
+    if (useWin) {
         const w = TSTR.win;
         const kLat = TSTR_KLAT;
         const kLon = kLat * Math.cos(w.latC * Math.PI / 180.0);
@@ -21731,7 +21732,8 @@ const Vsd = {
     lastAt: -1e9,
     lastLat: 1e9, lastLon: 1e9,
     drawn: false, drawnAlt: 1e9,
-    dirty: true
+    dirty: true,
+    broken: false        // 出过意外就停用（见 vsd_tick 的兜底）
 };
 
 function vsd_init() {
@@ -21802,16 +21804,22 @@ function vsd_point_back(back, d, cosLat, ch, sh) {
 
 // 取高：窗口内用实时海洋那份高程场，窗口外退回远景瓦片（与 nd_taws 同一条路）
 function vsd_make_sampler() {
-    const ov = (TSTR.on && ndOv.state === 'ok') ? nd_ov_make_sampler() : null;
+    // 只有地形块真的载入了才有窗口中心可用（清单 404、或数据还没到的时候
+    // TSTR.on 是 false、TSTR.win 是 null，直接读 w.latC 会把整个页面初始化炸掉）
+    const useWin = TSTR.on && TSTR.win !== null;
+    const ov = (useWin && ndOv.state === 'ok') ? nd_ov_make_sampler() : null;
     const lat0 = latitude, lon0 = longitude;
     const cosLat = Math.cos(lat0 * Math.PI / 180.0);
     const ax = flight.ready ? flight.x : CLOUD_SKY_CAM_POS[0] * 1000.0;
     const az = flight.ready ? flight.z : CLOUD_SKY_CAM_POS[2] * 1000.0;
-    const w = TSTR.win;
-    const kLat = TSTR_KLAT;
-    const kLon = kLat * Math.cos(w.latC * Math.PI / 180.0);
+    let w = null, kLat = 0.0, kLon = 0.0;
+    if (useWin) {
+        w = TSTR.win;
+        kLat = TSTR_KLAT;
+        kLon = kLat * Math.cos(w.latC * Math.PI / 180.0);
+    }
     return function(lat, lon) {
-        if (TSTR.on) {
+        if (useWin) {
             const px = (lon - w.lonC) * kLon;
             const pz = (lat - w.latC) * kLat;
             if (px > -ISL_HALF && px < ISL_HALF && pz > -ISL_HALF && pz < ISL_HALF) {
@@ -22230,7 +22238,7 @@ function vsd_draw() {
 // 每帧调用：尺寸跟着面板走，数据按需重算，重绘跟着高度变化
 function vsd_tick(nowMs) {
     const cv = Vsd.cv;
-    if (!cv) return;
+    if (!cv || Vsd.broken) return;
     const cw = cv.clientWidth | 0, ch = cv.clientHeight | 0;
     if (!cw || !ch) return;                       // 面板还没排好版
     let resized = false;
@@ -22247,11 +22255,24 @@ function vsd_tick(nowMs) {
         (Math.abs(longitude - Vsd.lastLon) * ND_KM_PER_DEG > 0.12);
     const stale = (nowMs - Vsd.lastAt) > 1200.0;
     if (moved || stale || resized || Vsd.dirty) {
-        vsd_compute();          // 重扫地形与云（几百个采样点，约 0.5 ms）
-        Vsd.dirty = false;
-        vsd_draw();
+        // 这块只是一条显示仪：取高或云场那边出什么意外（比如地形数据没发布），
+        // 报一次就停，别把整个页面的渲染循环/初始化一起带下去
+        try {
+            vsd_compute();      // 重扫地形与云（几百个采样点，约 0.5 ms）
+            Vsd.dirty = false;
+            vsd_draw();
+        } catch (e) {
+            Vsd.broken = true;
+            console.warn('[vsd] 垂直剖面停用：' + (e && e.message));
+            return;
+        }
     } else if (!Vsd.drawn || Math.abs(alt - Vsd.drawnAlt) > 3.0) {
-        vsd_draw();             // 高度变了只重绘（轴跟着高度走）
+        try {
+            vsd_draw();         // 高度变了只重绘（轴跟着高度走）
+        } catch (e) {
+            Vsd.broken = true;
+            console.warn('[vsd] 垂直剖面停用：' + (e && e.message));
+        }
     }
 }
 
