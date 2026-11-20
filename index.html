@@ -11,6 +11,8 @@
     <link rel="stylesheet" type="text/css" href="./style/markdown.css" charset="utf-8"/>
     <link rel="stylesheet" type="text/css" href="./style/highlight/vs.css" charset="utf-8"/>
     <link rel="stylesheet" type="text/css" href="./style/jquery.fancybox.css" charset="utf-8"/>
+    <!-- 首页「玲珑掌机（Nano WASM GUI）」界面样式（linglong/nano_page.css，选择器全部带 #nano-host 前缀） -->
+    <link rel="stylesheet" type="text/css" href="./linglong/nano_page.css" charset="utf-8"/>
     <title>BD4SUR 业余无线电台</title>
 </head>
 <body>
@@ -73,6 +75,73 @@
             <div class="NavbarItem SPA_TRIGGER" active="false" data-target="blog">博 客</div>
             <div class="NavbarItem SPA_TRIGGER" active="false" data-target="about">自 述</div>
         </div>
+
+        <!--首页：玲珑掌机（WebAssembly 运行掌机操作系统，原封面图位置）-->
+        <div id="nano-host">
+            <div id="wrap">
+                <!-- 屏幕区 = 画布 + 覆盖在画布上的加载进度（加载完由 nano_page.js 隐藏，
+                    见 onP1Ready 里的 loadPanel.style.display = "none"） -->
+                <div id="screen-box">
+                <canvas id="screen" width="320" height="240" tabindex="0"></canvas>
+                <div id="load-panel">
+                    <div class="load-title">玲珑掌机 · 正在启动…</div>
+                    <div class="load-row">
+                    <div class="load-text" id="wasm-text">程序：等待下载…</div>
+                    <div class="bar"><div id="wasm-bar" class="indet"></div></div>
+                    </div>
+                    <div class="load-row">
+                    <div class="load-text" id="res-text">资源：等待挂载…</div>
+                    <div class="bar"><div id="res-bar"></div></div>
+                    </div>
+                </div>
+                </div>
+                <div id="bar">
+                <button id="esc-btn" type="button" title="等同于实体键盘 Esc / 设备 A 键">ESC</button>
+                <button id="att-btn" type="button">姿态：关</button>
+                <button id="dl-btn" type="button" title="从服务器下载其余业务资源（电子书/词典/音乐/模型…），体积见按钮文字">资源：未下载</button>
+                <button id="res-btn" type="button">资源管理</button>
+                </div>
+          </div>
+
+          <!-- 资源管理面板（浏览器本地存储 IndexedDB：目录树文件管理器，不依赖后端） -->
+          <div id="res-panel">
+                <div id="res-card">
+                <button id="res-close" title="关闭">×</button>
+                <h2>资源管理</h2>
+                <div id="res-quota">存储：…</div>
+
+                <h3>文件（点目录行=展开/收起 · 点文件=选中 · 拖动行到目录=移动/复制）</h3>
+                <div id="fm-summary"></div>
+                <div id="fm-toolbar">
+                    <button class="fm-btn primary" id="fm-mkdir" type="button">新建目录</button>
+                    <button class="fm-btn" id="fm-upload" type="button">上传文件</button>
+                    <button class="fm-btn" id="fm-collapse" type="button">全部折叠</button>
+                    <button class="fm-btn" id="fm-refresh" type="button">刷新</button>
+                </div>
+                <div id="fm-tree"></div>
+                <div id="fm-detail"></div>
+                <div id="fm-actions"></div>
+                <div id="fm-progress"></div>
+                <details id="fm-hidden"></details>
+                </div>
+          </div>
+
+          <!-- 文件操作模态框（新建目录 / 重命名 / 复制 / 移动） -->
+          <div id="fm-modal">
+                <div class="fm-card">
+                <h4 id="fm-modal-title">新建目录</h4>
+                <label id="fm-modal-dirwrap">目标目录<select id="fm-modal-dir"></select></label>
+                <label>名称<input type="text" id="fm-modal-name" autocomplete="off" spellcheck="false"></label>
+                <div class="fm-err" id="fm-modal-err"></div>
+                <div class="fm-card-actions">
+                    <button class="fm-btn" id="fm-modal-cancel" type="button">取消</button>
+                    <button class="fm-btn primary" id="fm-modal-ok" type="button">确定</button>
+                </div>
+                </div>
+            </div>
+            <input type="file" id="upload-input" multiple style="display:none">
+        </div>
+
         <!--正文内容-->
         <div class="Article SPA_MAIN_CONTAINER"></div>
         <!--底部-->
@@ -112,7 +181,7 @@
 <!--首页模板-->
 <template class="index" id="index">
 
-    <div style="text-align: center;">
+    <!-- <div style="text-align: center;">
         <img id="cover_image" src="./image/miku-eb200.jpg" style="max-width: 90%; max-height: 360px; margin: 27px auto 27px auto; border-radius: 10px;
             --cover-fade-width: 72px;
             --cover-fade-height: 36px;
@@ -120,7 +189,10 @@
             -webkit-mask-composite: source-in;
             mask-image: linear-gradient(to right, transparent, #000 var(--cover-fade-width), #000 calc(100% - var(--cover-fade-width)), transparent), linear-gradient(to bottom, transparent, #000 var(--cover-fade-height), #000 calc(100% - var(--cover-fade-height)), transparent);
             mask-composite: intersect;">
-    </div>
+    </div> -->
+
+    <!-- 封面图位置已由「Nano 掌机」（.Main 里的 #nano-host，见上方）顶替：
+         掌机是本页的常驻节点（不进模板），只在首页显示，切页后系统状态原样保留。 -->
 
     <details>
         <summary class="StationLogSummary">电台日志</summary>
@@ -253,5 +325,18 @@ MathJax = { tex: { inlineMath: [["$", "$"]] } };
 })();
 
 </script>
+
+<!--首页玲珑掌机（Nano WASM GUI）的依赖链，全部取自 linglong/（唯一权威目录）。
+    顺序不可换：先本地存储/虚拟文件系统/加载器，再页面胶水 nano_page.js；
+    emscripten 产物 linglong/nano_gui.js 由 nano_page.js 在首次显示首页时按需插入，
+    避免非首页浏览也下载 5.6MB wasm。
+    业务数据同样在 linglong/（app/ icon/ wallpaper/ + manifest.json）；掌机内看到的
+    路径是 /home/bd4sur/bd4sur.github.io/linglong/…，与站点 URL 一一对应。
+    详见 linglong/loader.js 与 linglong/nano_page.js 文件头。 -->
+<script src="./linglong/store.js"></script>
+<script src="./linglong/vfs.js"></script>
+<script src="./linglong/loader.js"></script>
+<script src="./linglong/nano_page.js"></script>
+
 </body>
 </html>

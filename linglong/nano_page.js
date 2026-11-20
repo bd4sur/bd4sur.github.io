@@ -1,0 +1,1919 @@
+"use strict";
+// ============================================================================
+// nano_page.js —— 本站首页内嵌的「Nano 掌机（WebAssembly）」页面胶水层
+//
+// 来源：infer/webgui/index.html（Nano 仓库）里的内联 <script>，整段搬过来，只做了
+// 下面这几处**站点集成**改动（业务逻辑、协议、注释一律原样保留）：
+//   ① 资源根换成 /home/bd4sur/bd4sur.github.io（原为 /home/bd4sur/linglong）：
+//      manifest 在 ./linglong/manifest.json，业务数据都在 linglong/ 下，按「站点根目录
+//      = 资源根」镜像（掌机内路径 /home/bd4sur/bd4sur.github.io/linglong/… ↔ 站点 URL）；
+//      wasm 产物里 PLATFORM_ROOT_DIR 是编译期常量，故由 loader.js 建一条 MEMFS
+//      符号链接 /home/bd4sur/linglong → 新资源根，无需重新构建 wasm；
+//   ② 键盘只在「掌机界面获得焦点/鼠标停在上面」时才接管 —— 本站其它页面要正常
+//      用方向键/空格滚动，不能被全局 keydown 抢走；
+//   ③ gesturestart/dblclick 的 preventDefault 从 document 收到画布上（同上）；
+//   ④ 末尾追加「首页嵌入」逻辑：把 #nano-host 放进/搬出首页位置（按 SPA 路由切换
+//      显示），离开首页时暂停 wasm 主循环（状态保留），回来继续。
+//
+// 原文件头注释（保留）：
+// Nano WASM GUI 页面胶水层：
+//   - WASM 内运行完整 GUI（业务代码与 nano_tty/nano_web 同源），本页只做「显示器+输入设备」；
+//   - 显示：rAF 节奏读 wasm 线性内存中的 RGBA 帧缓冲（epoch 计数判新帧，静态零拷贝）；
+//   - 触屏：Pointer Events → ccall wasm_gui_on_touch；键盘：keydown 映射 → wasm_gui_on_key；
+//   - 姿态：DeviceMotion/DeviceOrientation → wasm_gui_on_orientation（localhost/HTTPS 可用）；
+//     航向由本页按 W3C 旋转矩阵算成「屏幕正面法向的罗盘航向」再注入（见下方
+//     screenNormalHeading：不能把 alpha 直接当航向，旧实现因此整体偏 180°）。
+const canvas   = document.getElementById("screen");
+const ctx      = canvas.getContext("2d", { alpha: false });
+// 站点集成：首页已去掉「状态提示行」（index.html 不再有 #status），但胶水层其余代码
+// 仍会往里写「运行中 / 挂载进度 / 中止 / 失败」等文案。这里给一个**空吸器**：
+// 写入一律丢弃（画面不再有状态行），只把看起来像错误的消息打到控制台，便于排查。
+const NANO_STATUS_SINK = {
+  _v: "",
+  set innerHTML(v) {
+    this._v = String(v);
+    if (/class="bad"|失败|中止/.test(this._v)) console.warn("[nano]", this._v.replace(/<[^>]*>/g, ""));
+  },
+  get innerHTML() { return this._v; },
+  set textContent(v) { this._v = String(v); },
+  get textContent() { return this._v; },
+};
+const statusEl = document.getElementById("status") || NANO_STATUS_SINK;
+const attBtn   = document.getElementById("att-btn");
+const dlBtn    = document.getElementById("dl-btn");
+
+let runtimeReady = false;
+let wasmFps = 0;
+setInterval(() => { wasmFps = Module._nano_frame_count || 0; Module._nano_frame_count = 0; updateStatus(); }, 1000);
+
+let p2Msg = "";   // p2（可选资源）下载进度/错误提示（updateStatus 里显示）
+function updateStatus() {
+  if (!runtimeReady) return;
+  statusEl.innerHTML = '<span class="ok">● 运行中</span> · ' + wasmFps + " fps · 320×240"
+    + (p2Msg ? " · " + p2Msg : "")
+    + (nanoAudio.msg ? " · " + nanoAudio.msg : "");
+}
+
+// =============================================================================
+// 音频子系统（Web Audio）：扬声器输出 + 麦克风采集
+// -----------------------------------------------------------------------------
+// 与 C 侧 HAL 的契约见 infer/hal_audio_out_wasm.c 与 infer/hal_audio_in_wasm.c。
+//   输出：C 侧 int16 单声道块 → AudioBuffer(源采样率) → AudioBufferSourceNode
+//         按 AudioContext 时间轴顺序 start() → GainNode → destination。
+//         「队列空槽」= 已调度前瞻 < NANO_AO_LOOKAHEAD（由 C 侧每帧询问）。
+//   输入：getUserMedia（关 AEC/AGC/降噪）→ AudioWorklet（无则 ScriptProcessor）
+//         → int16 环形缓冲（4s）→ C 侧 mic_read 按帧拷出（不足一帧不消费）。
+// 无 SharedArrayBuffer / COOP-COEP 依赖：输出调度全在主线程；采集在音频线程完成，
+// 经 postMessage 无损送到主线程（主线程卡顿只增加延迟，不丢样）。
+// 需要安全上下文（https 或 localhost）才能用麦克风。
+// =============================================================================
+const NANO_AO_LOOKAHEAD = 0.30; // 秒：音频前瞻窗口（抗主线程卡顿；过大会让暂停/切换滞后）
+
+// AudioWorklet 采集器（内联为 Blob URL，不额外增加静态文件）
+const NANO_MIC_WORKLET = `
+class NanoMicTap extends AudioWorkletProcessor {
+  constructor() {
+    super();
+    this.buf = new Float32Array(2048);
+    this.n = 0;
+  }
+  process(inputs) {
+    const ch = inputs[0] && inputs[0][0];
+    if (!ch) return true;
+    for (let i = 0; i < ch.length; i++) {
+      this.buf[this.n++] = ch[i];
+      if (this.n === this.buf.length) {
+        this.port.postMessage(this.buf.slice(0));
+        this.n = 0;
+      }
+    }
+    return true;
+  }
+}
+registerProcessor("nano-mic-tap", NanoMicTap);
+`;
+
+const nanoAudio = {
+  // 输出
+  ctx: null, gain: null, nodes: [], nextTime: 0, vol: 16, srcRate: 0,
+  // 输入
+  micCtx: null, micRate: 0, micRing: null, micCap: 0, micW: 0, micR: 0,
+  micStream: null, micSrc: null, micNode: null, micSink: null,
+  micToken: 0, micErr: 0, micWant: 0,
+  // 状态栏提示（麦克风不可用 / 音乐资源加载进度等）
+  msg: "",
+};
+
+// 0..255 音量 → 线性幅度（v=16 静音档、v=128 ≈ -6dB、v=255 满幅）
+function nanoAudioGainOf(v) {
+  v = Math.max(0, Math.min(255, v | 0));
+  return v / 255;
+}
+
+// 用户手势解锁（自动播放策略）：pointerdown / keydown 里调用，幂等
+function nanoAudioUnlock() {
+  for (const c of [nanoAudio.ctx, nanoAudio.micCtx]) {
+    if (c && c.state !== "running") { try { c.resume().catch(() => {}); } catch (e) {} }
+  }
+}
+
+function nanoAudioOutResume() {
+  const c = nanoAudio.ctx;
+  if (c && c.state === "suspended") { try { c.resume().catch(() => {}); } catch (e) {} }
+}
+
+// ---- 输出：由 C 侧 hal_audio_out_wasm.c 的 EM_JS 调用 ----
+function nanoAudioOutInit(rate, volume) {
+  const AC = window.AudioContext || window.webkitAudioContext;
+  if (!AC) { nanoAudio.msg = "浏览器不支持 Web Audio"; return false; }
+  if (!nanoAudio.ctx) {
+    try { nanoAudio.ctx = new AC({ latencyHint: "interactive" }); } catch (e) { return false; }
+    nanoAudio.gain = nanoAudio.ctx.createGain();
+    nanoAudio.gain.connect(nanoAudio.ctx.destination);
+  }
+  // init 语义对齐 ESP32/ALSA：重新配置输出（丢弃已排队的块）
+  nanoAudioOutStop();
+  nanoAudio.srcRate = rate | 0;
+  nanoAudio.vol = volume | 0;
+  nanoAudio.gain.gain.value = nanoAudioGainOf(volume);
+  nanoAudioOutResume();
+  return true;
+}
+
+function nanoAudioOutFree() {
+  const ctx = nanoAudio.ctx;
+  if (!ctx || !nanoAudio.gain) return false;
+  // 上下文被自动播放策略挂起时 currentTime 不推进：不报空槽，避免队列无限堆积
+  if (ctx.state !== "running") {
+    nanoAudioOutResume();
+    if (!nanoAudio.msg) nanoAudio.msg = "音频被浏览器挂起（点一下画面）";
+    return false;
+  }
+  if (nanoAudio.msg === "音频被浏览器挂起（点一下画面）") nanoAudio.msg = "";
+  return (nanoAudio.nextTime - ctx.currentTime) < NANO_AO_LOOKAHEAD;
+}
+
+function nanoAudioOutPush(ptr, samples, rate) {
+  const ctx = nanoAudio.ctx;
+  if (!ctx || !nanoAudio.gain || samples <= 0) return false;
+  const sr = (rate > 0) ? rate : (nanoAudio.srcRate || ctx.sampleRate);
+  let buf;
+  try { buf = ctx.createBuffer(1, samples, sr); } catch (e) { return false; }
+  const dst = buf.getChannelData(0);
+  // HEAP16 每次现取：ALLOW_MEMORY_GROWTH 会让旧的类型化视图失效
+  const heap = Module.HEAP16, base = ptr >> 1, k = 1 / 32768;
+  for (let i = 0; i < samples; i++) dst[i] = heap[base + i] * k;
+  const src = ctx.createBufferSource();
+  src.buffer = buf;
+  src.connect(nanoAudio.gain);
+  const now = ctx.currentTime;
+  let t = nanoAudio.nextTime;
+  if (!(t > now + 0.02)) t = now + 0.05; // 首块 / 停顿后重基，避免积压的过去时间戳
+  try { src.start(t); } catch (e) { return false; }
+  nanoAudio.nextTime = t + samples / sr;
+  nanoAudio.nodes.push(src);
+  src.onended = () => {
+    const i = nanoAudio.nodes.indexOf(src);
+    if (i >= 0) nanoAudio.nodes.splice(i, 1);
+  };
+  return true;
+}
+
+function nanoAudioOutStop() {
+  for (const src of nanoAudio.nodes) {
+    try { src.onended = null; src.stop(); } catch (e) {}
+  }
+  nanoAudio.nodes.length = 0;
+  nanoAudio.nextTime = 0;
+}
+
+function nanoAudioOutSetVolume(volume) {
+  nanoAudio.vol = volume | 0;
+  if (nanoAudio.ctx && nanoAudio.gain) {
+    try { nanoAudio.gain.gain.setTargetAtTime(nanoAudioGainOf(volume), nanoAudio.ctx.currentTime, 0.015); } catch (e) {
+      nanoAudio.gain.gain.value = nanoAudioGainOf(volume);
+    }
+  }
+}
+
+// ---- 输入：由 C 侧 hal_audio_in_wasm.c 的 EM_JS 调用 ----
+function nanoMicStart(rate) {
+  if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+    nanoAudio.msg = "无麦克风 API（需 https 或 localhost）";
+    return false;
+  }
+  const AC = window.AudioContext || window.webkitAudioContext;
+  if (!AC) { nanoAudio.msg = "浏览器不支持 Web Audio"; return false; }
+  nanoMicStop();
+  const want = rate | 0;
+  nanoAudio.micWant = want;
+  // 采集上下文按请求速率建立：浏览器把设备流重采样到此速率，与 C 侧假设一致
+  //（频谱仪的频率轴、OFDM 的 48kHz 时序都依赖实际速率等于请求值）
+  try { nanoAudio.micCtx = new AC({ sampleRate: want, latencyHint: "interactive" }); }
+  catch (e) {
+    try { nanoAudio.micCtx = new AC({ latencyHint: "interactive" }); } catch (e2) {
+      nanoAudio.msg = "麦克风上下文创建失败";
+      return false;
+    }
+  }
+  const ctx = nanoAudio.micCtx;
+  nanoAudio.micRate = ctx.sampleRate;
+  let cap = 1;
+  while (cap < nanoAudio.micRate * 4) cap <<= 1; // 4 秒环，2 的幂
+  nanoAudio.micCap = cap;
+  nanoAudio.micRing = new Int16Array(cap);
+  nanoAudio.micW = 0; nanoAudio.micR = 0; nanoAudio.micErr = 0;
+  const token = ++nanoAudio.micToken;
+  nanoAudioOutResume();
+  if (ctx.state !== "running") { try { ctx.resume().catch(() => {}); } catch (e) {} }
+  // 授权是异步的：这里乐观返回，采样在授权后陆续到达（C 侧 mic_read 期间返回 0）
+  nanoAudioMicAttach(ctx, token).catch((e) => {
+    if (token !== nanoAudio.micToken) return;
+    nanoAudio.micErr = 1;
+    nanoAudio.msg = "麦克风不可用：" + ((e && (e.name || e.message)) || e);
+    updateStatus();
+  });
+  return true;
+}
+
+async function nanoAudioMicAttach(ctx, token) {
+  const stream = await navigator.mediaDevices.getUserMedia({
+    audio: { channelCount: 1, echoCancellation: false, noiseSuppression: false, autoGainControl: false },
+  });
+  if (token !== nanoAudio.micToken) { stream.getTracks().forEach((t) => t.stop()); return; }
+  nanoAudio.micStream = stream;
+  const src = ctx.createMediaStreamSource(stream);
+  nanoAudio.micSrc = src;
+  const sink = ctx.createGain();
+  sink.gain.value = 0; // 静音监听：只为让音频图被渲染（不产生回授）
+  sink.connect(ctx.destination);
+  nanoAudio.micSink = sink;
+  let node = null;
+  if (ctx.audioWorklet) {
+    try {
+      const url = URL.createObjectURL(new Blob([NANO_MIC_WORKLET], { type: "application/javascript" }));
+      await ctx.audioWorklet.addModule(url);
+      URL.revokeObjectURL(url);
+      node = new AudioWorkletNode(ctx, "nano-mic-tap");
+      node.port.onmessage = (ev) => nanoMicPush(ev.data);
+    } catch (e) { node = null; }
+  }
+  if (!node) {
+    // 退化路径：ScriptProcessor（主线程回调，2048 采样 ≈46ms；主线程卡顿可能丢块）
+    node = ctx.createScriptProcessor(2048, 1, 1);
+    node.onaudioprocess = (ev) => nanoMicPush(ev.inputBuffer.getChannelData(0));
+  }
+  src.connect(node);
+  node.connect(sink);
+  nanoAudio.micNode = node;
+  if (ctx.state !== "running") { try { await ctx.resume(); } catch (e) {} }
+  if (nanoAudio.micRate !== nanoAudio.micWant) {
+    // 极少见：浏览器拒绝指定采样率 → 频谱轴/OFDM 时序会整体偏移，明确提示
+    nanoAudio.msg = `麦克风速率 ${nanoAudio.micRate}Hz（请求 ${nanoAudio.micWant}Hz）`;
+  } else if (nanoAudio.msg.startsWith("麦克风")) {
+    nanoAudio.msg = "";
+  }
+  updateStatus();
+}
+
+function nanoMicStop() {
+  nanoAudio.micToken++;
+  const node = nanoAudio.micNode;
+  try { if (node && node.port) node.port.onmessage = null; } catch (e) {}
+  try { if (node) node.onaudioprocess = null; } catch (e) {}
+  try { if (node) node.disconnect(); } catch (e) {}
+  try { if (nanoAudio.micSrc) nanoAudio.micSrc.disconnect(); } catch (e) {}
+  try { if (nanoAudio.micSink) nanoAudio.micSink.disconnect(); } catch (e) {}
+  try { if (nanoAudio.micStream) nanoAudio.micStream.getTracks().forEach((t) => t.stop()); } catch (e) {}
+  try { if (nanoAudio.micCtx) nanoAudio.micCtx.close(); } catch (e) {}
+  nanoAudio.micNode = nanoAudio.micSrc = nanoAudio.micSink = nanoAudio.micStream = nanoAudio.micCtx = null;
+  nanoAudio.micRing = null;
+  nanoAudio.micCap = 0; nanoAudio.micW = 0; nanoAudio.micR = 0;
+}
+
+// 采集块入环（float32 → int16，溢出丢最旧）
+function nanoMicPush(f32) {
+  const cap = nanoAudio.micCap, ring = nanoAudio.micRing;
+  if (!ring || !f32 || !f32.length) return;
+  const n = f32.length;
+  let w = nanoAudio.micW;
+  if (w + n - nanoAudio.micR > cap) nanoAudio.micR = w + n - cap; // 溢出：丢最旧
+  for (let i = 0; i < n; i++) {
+    let v = f32[i] * 32768;
+    if (v > 32767) v = 32767; else if (v < -32768) v = -32768;
+    ring[(w + i) & (cap - 1)] = v | 0;
+  }
+  nanoAudio.micW = w + n;
+}
+
+// C 侧取数：不足一帧返回 0 且不消费（调用方跳过本帧，不丢样）
+function nanoMicRead(ptr, samples) {
+  const cap = nanoAudio.micCap;
+  if (nanoAudio.micErr) return -1;
+  if (!cap || samples <= 0) return 0;
+  if (nanoAudio.micW - nanoAudio.micR < samples) return 0;
+  const ring = nanoAudio.micRing;
+  const heap = Module.HEAP16, base = ptr >> 1;
+  let r = nanoAudio.micR;
+  for (let i = 0; i < samples; i++) { heap[base + i] = ring[r & (cap - 1)]; r++; }
+  nanoAudio.micR = r;
+  return samples;
+}
+
+// ---------------- Emscripten Module 配置（先于 nano_gui.js 加载） ----------------
+// 资源外置挂载（不打进 .data）：runtime 就绪后按 manifest.json 清单从本服务器
+// 拉取业务资源写入 MEMFS（路径与 PLATFORM_ROOT_DIR=/home/bd4sur/linglong 一致）；
+// 优先级 1（图标/壁纸/app 源码等启动必需）就绪后才 callMain 启动；其余一切
+// （电子书/词典/music/、llm/ 模型……）在后台继续拉取（进度条/状态栏显示进度），
+// 保证秒开。**没有按需/惰性层**：音乐和 LLM 模型不搞特殊处理，跟别的资源一样拉一次。
+// 挂载与带进度的下载实现在 loader.js（node 可测）；本地存储在 store.js。
+// 资源面板所需的挂载上下文（供上传/删除即时生效复用）
+// 站点集成：资源根 = 本站根目录；玲珑的数据与产物都在 ./linglong/ 下（唯一权威目录），
+// 清单里的 path 就是站点相对路径（linglong/app/… 、markdown/ideas.md），故 base 为空串。
+const NANO_MANIFEST_URL = "linglong/manifest.json";
+const NANO_FILES_BASE_URL = "";              // 相对站点根目录（路径即 manifest 里的 path）
+const mountCtx = { FS: null, manifestUrl: NANO_MANIFEST_URL, filesBaseUrl: NANO_FILES_BASE_URL, resRoot: "/home/bd4sur/bd4sur.github.io", store: null };
+const RES_ROOT = "/home/bd4sur/bd4sur.github.io";
+const wasmBar = document.getElementById("wasm-bar");
+const wasmText = document.getElementById("wasm-text");
+const resBar = document.getElementById("res-bar");
+const resText = document.getElementById("res-text");
+const loadPanel = document.getElementById("load-panel");
+
+function setBar(el, frac, indeterminate) {
+  if (indeterminate) { el.className = "indet"; return; }
+  el.className = "";
+  el.style.width = Math.max(0, Math.min(100, frac * 100)).toFixed(1) + "%";
+}
+
+// WASM 二进制下载进度：接管 instantiateWasm（emscripten 默认的流式实例化不暴露进度，
+// 改为自带进度的 fetch + WebAssembly.instantiate；5MB 规模下流式编译的收益可忽略）
+function wasmInstantiateWithProgress(imports, successCallback) {
+  (async () => {
+    try {
+      const url = (Module.locateFile) ? Module.locateFile("nano_gui.wasm") : "nano_gui.wasm";
+      const buf = await nanoFetchWithProgress(url, (recv, total) => {
+        if (total > 0) {
+          setBar(wasmBar, recv / total, false);
+          wasmText.textContent = `程序：${(recv/1048576).toFixed(1)}/${(total/1048576).toFixed(1)} MB（${(recv/total*100).toFixed(0)}%）`;
+        } else {
+          setBar(wasmBar, 0, true);
+          wasmText.textContent = `程序：已下载 ${(recv/1048576).toFixed(1)} MB…`;
+        }
+      });
+      setBar(wasmBar, 1, false);
+      wasmText.textContent = "程序：编译实例化…";
+      const result = await WebAssembly.instantiate(buf, imports);
+      successCallback(result.instance);
+    } catch (e) {
+      wasmText.textContent = "程序：下载/实例化失败 " + e;
+      throw e;
+    }
+  })();
+  return {}; // 异步接管（emscripten 约定：稍后由 successCallback 完成实例化）
+}
+
+var Module = {
+  canvas: null, // 不使用 emscripten 内建 canvas 集成（自绘）
+  // 站点集成：emscripten 默认按 document.currentScript 推断脚本目录，动态插入时可能为空，
+  // 这里显式给出产物目录（nano_gui.wasm 与本脚本同在 ./linglong/ 下）
+  locateFile: (path) => "./linglong/" + path,
+  noInitialRun: true, // main 由本页在阶段1资源就绪后手动 callMain
+  instantiateWasm: wasmInstantiateWithProgress,
+  setStatus: function (text) {
+    if (text) statusEl.textContent = "加载中… " + text;
+  },
+  monitorRunDependencies: function (left) { /* 静默（挂载进度由下方汇报） */ },
+  onRuntimeInitialized: function () { mountResourcesAndRun(); },
+  onAbort: function (what) {
+    statusEl.innerHTML = '<span class="bad">● WASM 中止</span> ' + what;
+  },
+  noExitRuntime: true,
+};
+
+// 从服务器拉取清单并挂载业务资源 → 启动 wasm main（进度经 loader.js 回调渲染）
+async function mountResourcesAndRun() {
+  try {
+    const pending = await nanoMountResources({
+      FS: Module.FS,
+      manifestUrl: NANO_MANIFEST_URL,
+      filesBaseUrl: NANO_FILES_BASE_URL,
+      resRoot: RES_ROOT,
+      store: (typeof nanoStoreGet === "function") ? (mountCtx.store = { get: nanoStoreGet, put: nanoStorePut, list: nanoStoreList, delete: nanoStoreDelete }) : null,
+      onStage: (text) => { if (text) resText.textContent = text; },
+      onP1Progress: (dc, dn, cur, total) => {
+        if (total > 0) setBar(resBar, cur / total, false);
+        resText.textContent = `资源（启动必需）：${dc}/${dn} 个 · ${(cur/1048576).toFixed(1)}/${(total/1048576).toFixed(1)} MB`;
+      },
+      onP1Ready: async () => {
+        // 阶段 1 就绪 → 启动 wasm main（Splash/主菜单可用）
+        setBar(resBar, 1, false);
+        resText.textContent = "资源（启动必需）：就绪";
+        mountCtx.FS = Module.FS;
+        // 站点集成：App 的运行时数据目录（markdown 的「上次打开的文档」等记在这里，
+        // 原页面靠宿主机 cwd 下的 data/ 存在；MEMFS 里默认没有，这里补建）
+        try { Module.FS.createPath("/", "data"); } catch (e) {}
+        // 显示上屏为「refresh 即上屏」推模式（hal_display_wasm.c 的 EM_JS present）：
+        // 向 JS 提供 canvas 上下文与 ImageData 单例（display_hal_refresh 同步 putImageData）
+        Module._nano_canvas_ctx = ctx;
+        Module._nano_canvas_img = ctx.createImageData(320, 240);
+        Module._nano_frame_count = 0;
+        Module.callMain();
+        runtimeReady = true;
+        updateStatus();
+        loadPanel.style.display = "none"; // 进入系统后隐藏进度面板，后台进度转入状态栏
+      },
+      onBgProgress: (text) => {
+        statusEl.innerHTML = '<span class="ok">● 运行中</span> · ' + text;
+      },
+      onManifest: (files) => { gManifestFiles = files; },
+    });
+    // p2（电子书/词典/音乐/模型…）**不自动下载**：只记住清单，等用户点「下载资源」。
+    // 顺手统计有多少个已在 IndexedDB 里（按钮文案据此提示“点了只是装载，不用重下”）。
+    pendingP2 = pending || [];
+    p2CachedCount = 0;
+    try {
+      const cached = new Set((await nanoStoreList()).map((e) => e.path));
+      p2CachedCount = pendingP2.filter((f) => cached.has(f.path)).length;
+    } catch (e) { /* 存储不可用：当作全未缓存 */ }
+    updateDlBtn();
+    updateStatus();
+  } catch (e) {
+    resText.textContent = "资源挂载失败：" + e;
+    statusEl.innerHTML = '<span class="bad">● 资源挂载失败</span>';
+  }
+}
+
+// ---------------- 「下载资源」按钮（p2：可选的大块业务资源） ----------------
+// 需求（2026-11-17）：p1（启动必需，4.5MB）之后**不要**自动拉其余 283MB——页面给一个
+// 按钮，用户点了才从服务器下载。实现上没有第三/第四层，也没有按 App 的钩子：
+// nanoMountResources 只把 p2 清单交回来，这里按下按钮才调 nanoMountPending。
+// 单飞：下载中重复点击无效；已完成/无待下载时按钮置灰。
+// 回归脚本可以直接 await nanoEnsureP2()（与点按钮同一条路）。
+let pendingP2 = [];       // 待下载清单（manifest 里 priority 2 的那些）
+let p2CachedCount = 0;    // 其中已在 IndexedDB 里的个数（按钮文案用）
+let p2State = 0;          // 0=未开始 1=下载中 2=已完成
+let p2Promise = null;
+const mb = (b) => (b / 1048576).toFixed(b >= 10485760 ? 0 : 1) + "MB";
+
+function p2Bytes() { return pendingP2.reduce((s, f) => s + (f.size || 0), 0); }
+
+function updateDlBtn() {
+  if (!dlBtn) return;
+  if (p2State === 1) {
+    dlBtn.disabled = true;
+    dlBtn.textContent = "资源：下载中…";
+  } else if (p2State === 2 || !pendingP2.length) {
+    dlBtn.disabled = true;
+    dlBtn.textContent = "资源：已就绪";
+  } else {
+    dlBtn.disabled = false;
+    // 全部已在 IndexedDB：点了只是灌进 MEMFS，不联网
+    dlBtn.textContent = (p2CachedCount >= pendingP2.length)
+      ? "装载资源 " + mb(p2Bytes()) + "（本机已缓存）"
+      : "下载资源 " + mb(p2Bytes()) + (p2CachedCount ? "（本机已有 " + p2CachedCount + " 个）" : "");
+  }
+}
+
+async function nanoEnsureP2() {
+  if (p2State === 1) return p2Promise;
+  if (!mountCtx.FS) return null;                 // 还没启动（p1 未就绪）
+  if (!pendingP2.length) { p2State = 2; updateDlBtn(); return null; }
+  p2State = 1;
+  updateDlBtn();
+  p2Promise = (async () => {
+    try {
+      p2Msg = "资源下载中…";
+      updateStatus();
+      await nanoMountPending(mountCtx, pendingP2, (dc, dn, cur, total) => {
+        p2Msg = `资源下载 ${dc}/${dn}（${mb(cur)}/${mb(total)}）`;
+        updateStatus();
+        setBar(resBar, total > 0 ? cur / total : 0, false);
+        resText.textContent = "资源（可选）：" + p2Msg;
+        dlBtn.textContent = total > 0 ? `资源：${(cur / total * 100).toFixed(0)}%` : "资源：下载中…";
+      });
+      p2State = 2;
+      p2Msg = "";
+      updateDlBtn();
+      updateStatus();
+      if (resPanel.classList.contains("open")) { refreshResPanel(); }
+    } catch (e) {
+      // 失败回到可重试态（部分已落 MEMFS 的文件会在下次点击时自动跳过）
+      p2State = 0;
+      p2Msg = "资源下载失败（可再点一次）";
+      updateDlBtn();
+      updateStatus();
+    }
+  })();
+  return p2Promise;
+}
+
+if (dlBtn) dlBtn.addEventListener("click", () => { nanoEnsureP2(); });
+
+// ---------------- 触屏/鼠标输入（Pointer Events 统一两类设备） ----------------
+// 事件携带真实时刻（performance.timeOrigin + e.timeStamp，Epoch 毫秒）注入 C 事件队列，
+// 并立即驱动一次生产者采样（wasm_gui_input_tick）：输入采样与渲染帧率解耦
+//（玲珑仪等秒级渲染场景下点按不再被误判为长按连发，见 main_wasm_gui.c 注释）。
+let activePointerId = null;
+function eventEpochMs(e) {
+  return performance.timeOrigin + (e ? e.timeStamp : 0);
+}
+function nowEpochMs() {
+  return performance.timeOrigin + performance.now(); // 「现在」的 Epoch 毫秒（无事件对象时用）
+}
+// 帧缓冲坐标投递（滚轮合成手势也复用这条通路：直接给 320×240 坐标，不经 DOM 反算）
+function sendTouchFb(action, x, y, ts) {
+  if (!runtimeReady || !Module._wasm_gui_on_touch) return;
+  if (x < 0) x = 0; if (x >= canvas.width)  x = canvas.width  - 1;
+  if (y < 0) y = 0; if (y >= canvas.height) y = canvas.height - 1;
+  Module._wasm_gui_on_touch(action, x, y, ts);
+  Module._wasm_gui_input_tick(ts); // 事件到达即采样（生产者）
+}
+function sendTouch(action, clientX, clientY, ts) {
+  if (!runtimeReady || !Module._wasm_gui_on_touch) return;
+  // 注意：getBoundingClientRect() 给的是**边框盒**，而 #screen 有 1px 边框，
+  // 直接按 rect 宽高换算会让坐标整体偏右/偏下最多 1px（并且把边框算进画布尺寸）。
+  // 这里改用 clientWidth/clientHeight（内容盒），并把左/上边框扣掉。
+  const rect = canvas.getBoundingClientRect();
+  const cw = canvas.clientWidth  || rect.width;
+  const ch = canvas.clientHeight || rect.height;
+  const bl = (rect.width  - cw) / 2;   // 左（右）边框宽度
+  const bt = (rect.height - ch) / 2;   // 上（下）边框宽度
+  const x = Math.round((clientX - rect.left - bl) * canvas.width  / cw);
+  const y = Math.round((clientY - rect.top  - bt) * canvas.height / ch);
+  sendTouchFb(action, x, y, ts);
+}
+canvas.addEventListener("pointerdown", (e) => {
+  e.preventDefault();
+  nanoAudioUnlock(); // 自动播放策略：首次用户手势内恢复 AudioContext（输出/麦输入）
+  if (activePointerId !== null) return;
+  endWheelSession(eventEpochMs(e), true); // 真手指/鼠标按下优先：先结束滚轮合成手势，避免两路电平打架
+  activePointerId = e.pointerId;
+  try { canvas.setPointerCapture(e.pointerId); } catch (err) {}
+  sendTouch(1, e.clientX, e.clientY, eventEpochMs(e));
+});
+canvas.addEventListener("pointermove", (e) => {
+  if (activePointerId !== e.pointerId) return;
+  e.preventDefault();
+  sendTouch(2, e.clientX, e.clientY, eventEpochMs(e));
+});
+function endPointer(e) {
+  if (activePointerId !== e.pointerId) return;
+  e.preventDefault();
+  sendTouch(0, e.clientX, e.clientY, eventEpochMs(e));
+  activePointerId = null;
+}
+canvas.addEventListener("pointerup", endPointer);
+canvas.addEventListener("pointercancel", endPointer);
+canvas.addEventListener("contextmenu", (e) => e.preventDefault());
+// 站点集成：手势/双击的抑制只作用于画布（原先是 document，会波及整站）
+canvas.addEventListener("gesturestart", (e) => e.preventDefault());
+canvas.addEventListener("dblclick", (e) => e.preventDefault());
+
+// ---------------- 鼠标滚轮 → 滚动（两条通路） ----------------
+// 背景：宿主 UI 的滚动只有「手指 1:1 拖动」一条语义（菜单/阅读器/列表按触点位移跟手
+// 滚动，松手可甩动，见 ui.c 的 touch_is_dragging 逻辑）。2026-11 之前这里只有一条
+// 实现：把滚轮**合成为一根手指**（中心按下 → 按累计位移移动 → 停手后抬起）。
+// 那条路有两个结构性缺陷，实测表现为"滚长列表只能滚一小段 + 一抖一抖"：
+//   a) 合成手指走不出画布：单段手势可用行程 = 画布高度（240px，中心起手只剩 119px），
+//      长文档/长列表必须不断"松手再按下"；
+//   b) 松手与下一次按下落在**同一帧**时，后端看到的是 touch_edge = UP|DOWN：它先按
+//      DOWN 开一段序列、紧接着按 UP 收尾，且"未构成拖动" → 判成一次**点按**
+//      （菜单直接执行中心处的条目！），同时那一帧的移动整帧丢失。
+// 现在按状态分流：
+//   ① GUI 状态（菜单/阅读器/设置/主菜单…）→ **原生滚轮通道**：wasm_gui_on_wheel(dy)
+//      累加到 key_event->wheel_dy，各滚动控件把 dy 按像素直接叠加到滚动位置。
+//      无锚点、不占触摸状态机、不受画布高度限制；到顶到底由控件按真实 max_scroll
+//      硬钳，因此**没有"越界量要先磨回来"的死区**，反向立刻生效。
+//      JS 侧再做一层指数平滑：一格滚轮拆成几帧的小步，鼠标滚轮不再是"一格一跳"。
+//   ② 灵机 App 运行态 → 默认仍是**合成手指**（App 用 (native Touch) 自己解释手势，
+//      宿主没法替它定义滚动）。此路保留但修掉缺陷 b：收手与下一次按下强制跨帧，
+//      并去掉"每 260ms 强制松手重按"（每次重按都是白丢一帧 + 可能误点）。
+//   ③ 已**认领**原生通道的灵机 App（(native Touch) 的 wheel_enable，如 markdown
+//      阅读器）→ 走原生通道，但**不由页面平滑**：增量原样 (wasm_gui_on_wheel) 交过去，
+//      由 App 在它自己的拍子里缓动（它的拍子可能是 16/60/1000ms，替它定平滑节奏
+//      只会两层缓动叠在一起）。合成手指对长文档有三个结构性缺陷：走不出画布（每 4 格
+//      重按一次）；重按的 DOWN 落在上一段 UP 的同一次采样间隔里，App 看不到松开沿、
+//      只看到触点从画布顶"瞬移"回中心（一段凭空的反向位移）；起手点（中心 → 首格）
+//      的位移与 DOWN 同一拍，被整段丢掉。走原生通道后，增量经 key_event->wheel_dy →
+//      am_native_Touch_set_wheel → (Touch.wheel)。
+const WHEEL_NOTCH_PX      = 100;  // 一格滚轮在像素模式（deltaMode=0）下的典型 deltaY
+const WHEEL_NOTCH_FB      = 28;   // 一格滚轮折算成多少帧缓冲像素（≈ 两条菜单项）
+const WHEEL_SMOOTH_GAIN   = 0.45; // 平滑跟随系数：每帧吃掉剩余量的一部分（0.45 ≈ 90ms 走完）
+const WHEEL_IDLE_END_MS   = 140;  // 合成手势：停止滚动多久后抬起（须 > 100ms，见下方 endWheelSession）
+const WHEEL_MIN_DRAG_PX   = Math.max(12, Math.round(canvas.height / 10)); // 后端起手门槛（见下）
+const WASM_STATE_SCHEME_APP_RUN = 80; // ui_scheme_app.h STATE_SCHEME_APP_RUN
+
+// 浏览器滚轮三档 deltaMode（0=像素 1=行 2=页）→ 统一折算成帧缓冲像素。
+// 正 = 内容上滚（看后面的内容），与 key_event->wheel_dy 的符号约定一致。
+function wheelDeltaToFb(e) {
+  let dy = e.deltaY;
+  if (e.deltaMode === 1) dy *= WHEEL_NOTCH_PX / 3;      // 3 行 ≈ 一格
+  else if (e.deltaMode === 2) dy *= WHEEL_NOTCH_PX * 3; // 一页
+  return dy * (WHEEL_NOTCH_FB / WHEEL_NOTCH_PX);
+}
+
+function nanoGuiState() {
+  return (Module && Module._wasm_gui_get_state) ? Module._wasm_gui_get_state() : 0;
+}
+
+// ---------------------------------------------------------------------------
+// ① 原生滚轮通道（GUI 状态）：帧间平滑
+// ---------------------------------------------------------------------------
+let wheelRemain = 0; // 尚未投递给 C 侧的滚轮位移（帧缓冲像素，浮点，保留小数避免累积误差）
+let wheelRaf = 0;
+
+function wheelPump() {
+  wheelRaf = 0;
+  if (!wheelRemain) return;
+  if (!runtimeReady || typeof Module._wasm_gui_on_wheel !== "function") { wheelRemain = 0; return; }
+  // 指数平滑：剩余越多走得越快；剩余 < 1.5px 时一次送完（保证总位移精确落地、不会"永远差一点"）
+  const step = (Math.abs(wheelRemain) < 1.5) ? wheelRemain : wheelRemain * WHEEL_SMOOTH_GAIN;
+  let px = Math.round(step);
+  if (px === 0) px = step > 0 ? 1 : -1;
+  if (Math.abs(px) >= Math.abs(wheelRemain)) { px = Math.round(wheelRemain); wheelRemain = 0; }
+  else { wheelRemain -= px; }
+  if (px !== 0) {
+    Module._wasm_gui_on_wheel(px);
+    // 立刻驱动一次输入采样：滚轮增量靠输入层的 tick 取走（get_input_event），
+    // 不主动 tick 的话要等下一次心跳（空闲 50ms），手感会明显发黏。
+    Module._wasm_gui_input_tick(nowEpochMs());
+  }
+  if (Math.abs(wheelRemain) >= 0.5) wheelRaf = requestAnimationFrame(wheelPump);
+  else wheelRemain = 0;
+}
+
+// ---------------------------------------------------------------------------
+// ② 合成手指拖动（仅灵机 App 运行态）
+// ---------------------------------------------------------------------------
+// 细节约束（都是为了让后端把它认成「拖动」而不是「点按」）：
+//   1) 位移用帧缓冲像素累计，一格滚轮 ≈ 两条菜单项，手感随 delta 线性；
+//   2) 不足「拖动判定阈值」的位移先攒着不起手 —— 后端以 item_height/2、line_height/2
+//      判拖动，未越阈值的序列在松手时会被当成点按（会误触/误启动中心处的条目）；
+//   3) 手指走不出画布：位移到边界即截断，余量留到**下一帧**再起新的一段接着滑；
+//      （同一帧 UP+DOWN 会被后端判成点按，见文件头缺陷 b，所以必须跨帧）
+//   4) 抬起刻意晚于最后一次移动 >100ms：后端据此丢弃甩动初速度（滚轮是离散输入，
+//      惯性会让一格滚出很远）。
+let wheelSession = null;  // 进行中的合成手势：{ startX, startY, acc }
+let wheelAccum   = 0;     // 尚未越过起手门槛 / 等待下一次起手的累计位移
+let wheelEndTimer = 0;
+let wheelDownPending = false; // 1-已收手、等下一帧再按下（跨帧约束）
+
+// 起一段手势：中心按下（中心在多数界面属滚动区主体，阅读器/列表都能接管）
+function beginWheelSession(ts) {
+  wheelSession = {
+    startX: Math.round(canvas.width / 2),
+    startY: Math.round(canvas.height / 2),
+    acc: 0,
+  };
+  sendTouchFb(1, wheelSession.startX, wheelSession.startY, ts);
+}
+
+// 喂入一段位移：正位移=手指上移（内容上滚，看后面的内容），负位移=手指下移。
+// 返回未能消化的余量（位移撞到画布边界时产生，交给调用方起下一段手势）
+function wheelSessionMove(delta, ts) {
+  const s = wheelSession;
+  const yMin = 1, yMax = canvas.height - 2;
+  s.acc += delta;
+  let used = s.acc;
+  let y = s.startY - used; // 滚轮向下滚（delta>0）→ 手指上移
+  if (y < yMin) { y = yMin; used = s.startY - yMin; }
+  else if (y > yMax) { y = yMax; used = s.startY - yMax; }
+  const rest = s.acc - used;
+  s.acc = used;
+  sendTouchFb(2, s.startX, Math.round(y), ts);
+  return rest;
+}
+
+// 结束一段手势。padToMin=true 时若累计位移不足阈值，则补足到阈值再抬起
+//（宁可多滑十几像素，也不能让后端把这段序列判成「点按」而误触发中心处的条目）
+function endWheelSession(ts, padToMin) {
+  if (!wheelSession) return;
+  if (padToMin) {
+    const need = WHEEL_MIN_DRAG_PX - Math.abs(wheelSession.acc);
+    if (need > 0) {
+      const dir = wheelSession.acc < 0 ? -1 : 1;
+      const rest = wheelSessionMove(dir * need, ts);
+      if (rest !== 0) wheelAccum += rest;
+    }
+  }
+  sendTouchFb(0, wheelSession.startX, Math.round(wheelSession.startY - wheelSession.acc), ts);
+  wheelSession = null;
+}
+
+function scheduleWheelEnd() {
+  if (wheelEndTimer) clearTimeout(wheelEndTimer);
+  wheelEndTimer = setTimeout(() => {
+    wheelEndTimer = 0;
+    endWheelSession(nowEpochMs(), true);
+  }, WHEEL_IDLE_END_MS);
+}
+
+// 撞到画布边界后收手：余量留到下一帧再起新的一段（跨帧，避免同帧 UP+DOWN 被当成点按）
+function scheduleWheelRestart() {
+  if (wheelDownPending) return;
+  wheelDownPending = true;
+  requestAnimationFrame(() => {
+    wheelDownPending = false;
+    if (!runtimeReady || !wheelAccum) return;
+    const ts = nowEpochMs();
+    while (Math.abs(wheelAccum) >= WHEEL_MIN_DRAG_PX) {
+      const d = wheelAccum;
+      wheelAccum = 0;
+      beginWheelSession(ts);
+      const rest = wheelSessionMove(d, ts);
+      if (Math.abs(rest) >= WHEEL_MIN_DRAG_PX) {
+        // 余量还够一段：本段收手，余量排到下一帧（同帧多次 UP+DOWN 仍是点按）
+        endWheelSession(ts, false);
+        wheelAccum = rest;
+        scheduleWheelRestart();
+        return;
+      }
+      wheelAccum = rest;
+      break;
+    }
+    scheduleWheelEnd();
+  });
+}
+
+// 灵机 App 运行态：把滚轮喂进合成手势机
+function wheelSwipe(delta, ts) {
+  if (!wheelSession) {
+    wheelAccum += delta;
+    if (wheelDownPending) return;                                        // 等下一帧起手
+    if (Math.abs(wheelAccum) < WHEEL_MIN_DRAG_PX) { scheduleWheelEnd(); return; } // 攒着
+    delta = wheelAccum;
+    wheelAccum = 0;
+    beginWheelSession(ts);
+  }
+  const rest = wheelSessionMove(delta, ts);
+  if (Math.abs(rest) >= WHEEL_MIN_DRAG_PX) {
+    endWheelSession(ts, false); // 已构成拖动，收手不会判成点按
+    wheelAccum = rest;
+    scheduleWheelRestart();
+    return;
+  }
+  wheelAccum = rest;
+  scheduleWheelEnd();
+}
+
+// 灵机 App 是否已声明自己消费滚轮（(native Touch) 的 wheel_enable，见
+// hal_touch_wasm.c 的 wasm_gui_wheel_native）：是则走原生通道，否则仍把滚轮
+// 合成为手指（App 用 (native Touch) 解释手势，见上面 ② 的说明）。
+function wheelNativeClaimed() {
+  return (typeof Module._wasm_gui_wheel_native === "function")
+         && Module._wasm_gui_wheel_native() !== 0;
+}
+
+// 已认领原生通道的灵机 App：**原样交付**（不做帧间平滑，保留小数避免累积误差）。
+// 平滑由 App 自己在它的拍子里做——App 的节拍可能是 16/60/1000ms，页面替它定平滑
+// 节奏只会两层缓动叠在一起（手感发黏），或把平滑全堆到 App 那一拍里（一抖）。
+let wheelAppRemain = 0;
+function wheelToApp(delta) {
+  wheelAppRemain += delta;
+  const px = Math.round(wheelAppRemain);
+  if (!px) return;
+  wheelAppRemain -= px;
+  Module._wasm_gui_on_wheel(px);
+  // 立即驱动一次输入采样（增量靠输入层 tick 取走，不主动 tick 要等心跳，手感发黏）
+  Module._wasm_gui_input_tick(nowEpochMs());
+}
+
+function onWheel(e) {
+  e.preventDefault(); // 画布上的滚轮不再滚动页面
+  if (e.ctrlKey) return;  // Ctrl+滚轮：浏览器缩放组合，忽略（不误判为滑动）
+  if (!runtimeReady) return;
+  if (activePointerId !== null) return; // 指针按下期间以真实拖动为准
+
+  const delta = wheelDeltaToFb(e);
+  if (!delta) return;
+
+  if (nanoGuiState() === WASM_STATE_SCHEME_APP_RUN) {
+    if (wheelNativeClaimed()) {      // ③ App 自己消费滚轮（如 Markdown 阅读器）
+      wheelToApp(delta);
+      return;
+    }
+    wheelSwipe(delta, eventEpochMs(e)); // ② App 自己解释触屏流（未认领滚轮通道时）
+    return;
+  }
+  // ① 其余全部 GUI 状态：原生滚轮通道 + 帧间平滑
+  wheelRemain += delta;
+  if (!wheelRaf) wheelRaf = requestAnimationFrame(wheelPump);
+}
+
+canvas.addEventListener("wheel", onWheel, { passive: false });
+// 页面切走/失焦时收手：合成手势要抬起（否则后端电平一直停在「按住」），平滑队列清空
+window.addEventListener("blur", () => {
+  endWheelSession(nowEpochMs(), true);
+  wheelRemain = 0;
+  if (wheelRaf) { cancelAnimationFrame(wheelRaf); wheelRaf = 0; }
+});
+
+// 生产者心跳：无事件时维持持续状态判定（长按到期、持续电平）；渲染阻塞时延后但
+// 事件时刻由 e.timeStamp 保证，回放后判定仍物理正确（对齐 ino 的 1-2ms 生产者语义）。
+// 按需调速：指针/滚轮手势按住期间 2ms（浏览器对嵌套定时器可能钳到 ~4ms，仍远快于
+// 50ms），空闲 50ms。按住期间的高频心跳让 C 侧的按住时长/重复判定更接近物理时间；
+// 松开沿已由 get_input_event 的 WASM 分支立即生效，不依赖心跳补采样。
+function scheduleInputHeartbeat() {
+  const busy = (activePointerId !== null) || (wheelSession !== null);
+  setTimeout(() => {
+    if (runtimeReady && Module._wasm_gui_input_tick) Module._wasm_gui_input_tick(0);
+    scheduleInputHeartbeat();
+  }, busy ? 2 : 50);
+}
+scheduleInputHeartbeat();
+
+// ---------------- 物理键盘（桌面便利通路；映射对齐 hal_key_ncurses_linux.c） ----------------
+// NANO_KEY_* 逻辑键值（hal_key.h）：up=1 down=2 left=3 right=4 ctrl=5 shift=7
+//   backspace=8 enter=13 esc=27 space=32；十六键：1..0 → 49..57（手机键盘布局）等
+// 事件模型（hal_key_wasm.c）：keydown 置位电平、keyup 清除（按住期间浏览器 keydown
+// 重复事件无害）；亚帧点按由 C 侧未读锁存保底。组合键（Ctrl+X 等）经「点 Ctrl 激活
+// 再点目标键」的锁存模式工作（is_ctrl_enabled，非同时按下），与本模型兼容。
+const KEY_MAP = {
+  ArrowUp: 1, ArrowDown: 2, ArrowLeft: 3, ArrowRight: 4,
+  Enter: 13, Escape: 27, Backspace: 27, " ": 32,
+  "-": 7, "+": 5, "*": 27,
+  "0": 48, "7": 49, "8": 50, "9": 51, "4": 52, "5": 53, "6": 54,
+  "1": 55, "2": 56, "3": 57,
+};
+
+// 旁路键码（仅供 (native Key) 本地库，见 am_native_Key.h）：忠实映射，不做十六键
+// 重排——可打印字符就是其 ASCII 码，命名键用 hal_key.h 的 NANO_KEY_* 值
+//（两者本来就重合：up=1..right=4、backspace=8、tab=9、enter=13、esc=27、space=32）。
+const RAW_KEY_MAP = {
+  ArrowUp: 1, ArrowDown: 2, ArrowLeft: 3, ArrowRight: 4,
+  Backspace: 8, Tab: 9, Enter: 13, Escape: 27,
+  Delete: 127, Insert: 9, Home: 28, End: 29, PageUp: 30, PageDown: 31,
+};
+function rawKeyCode(e) {
+  if (Object.prototype.hasOwnProperty.call(RAW_KEY_MAP, e.key)) return RAW_KEY_MAP[e.key];
+  if (typeof e.key === "string" && e.key.length === 1) {
+    const cp = e.key.codePointAt(0);
+    if (cp >= 32 && cp <= 126) return cp; // 可打印 ASCII（含 space、数字、字母、标点）
+  }
+  return 0;
+}
+
+function reportKey(e, isDown) {
+  if (!runtimeReady) return;
+  // 站点集成：只有掌机界面「在场且有焦点/鼠标停留在上面」时才接管键盘，
+  // 否则方向键/空格/回车应当留给本站页面自己（滚动、导航、表单）。
+  if (!nanoKeyboardActive()) return;
+  // 页面自己的输入控件（资源管理面板的模态框）里打字：不投递给 WASM，否则回车/退格
+  // 会被宿主当成设备按键（Enter=确认 / Backspace=返回）。
+  const t = e.target;
+  if (t && t.tagName && (t.tagName === "INPUT" || t.tagName === "TEXTAREA" ||
+      t.tagName === "SELECT" || t.isContentEditable)) return;
+  // 旁路：每个按键都投递给灵机 App 的 (native Key) 库（不改动 GUI 电平槽）
+  if (Module._wasm_gui_on_key_event) {
+    const raw = rawKeyCode(e);
+    if (raw) Module._wasm_gui_on_key_event(raw, isDown);
+  }
+  // GUI 电平槽：仍只映射十六键/方向/回车/Esc（行为与接库前完全一致）
+  if (!Module._wasm_gui_on_key) return;
+  const code = KEY_MAP[e.key];
+  if (code === undefined) return;
+  e.preventDefault();
+  Module._wasm_gui_on_key(code, isDown);
+  // 键盘边沿以事件真实时刻计时（生产者即时采样）；浏览器 keydown 重复事件
+  //（e.repeat）不再重复驱动 tick（电平已置位，心跳会补上持续判定）
+  if (!e.repeat) Module._wasm_gui_input_tick(eventEpochMs(e));
+}
+document.addEventListener("keydown", (e) => { nanoAudioUnlock(); reportKey(e, 1); });
+document.addEventListener("keyup",   (e) => reportKey(e, 0));
+
+// ---------------- 硬 ESC 按钮（触屏/鼠标用户的“A 键”） ----------------
+// 语义与实体键盘 Esc 完全一致，同时走两条通道：
+//   ① 旁路 (native Key)：_wasm_gui_on_key_event —— 灵机 App 的 (Key.take_press) 能看到 27；
+//   ② GUI 电平槽：_wasm_gui_on_key —— 宿主输入层照常做边沿判定/长按机制。
+// 按下与松开都即时驱动生产者采样（_wasm_gui_input_tick），因此短按也会被完整判定，
+// 不会像只发 keydown 那样“按住”到下一次心跳。
+// 注意：宿主的 App 运行态已不再直接处理 A/ESC，而是置“返回请求”交给 App
+//（(App.back_requested)），由 App 弹全局退出确认框（见 infer/am_native_App.h）。
+const escBtn = document.getElementById("esc-btn");
+function sendHardKey(code, isDown, ev) {
+  if (!runtimeReady) return;
+  const ts = eventEpochMs(ev);
+  if (Module._wasm_gui_on_key_event) Module._wasm_gui_on_key_event(code, isDown ? 1 : 0);
+  if (Module._wasm_gui_on_key) Module._wasm_gui_on_key(code, isDown ? 1 : 0);
+  if (Module._wasm_gui_input_tick) Module._wasm_gui_input_tick(ts);
+}
+if (escBtn) {
+  escBtn.addEventListener("pointerdown", (e) => { e.preventDefault(); sendHardKey(27, 1, e); });
+  escBtn.addEventListener("pointerup",   (e) => { e.preventDefault(); sendHardKey(27, 0, e); });
+  escBtn.addEventListener("pointercancel", (e) => { sendHardKey(27, 0, e); });
+  escBtn.addEventListener("contextmenu", (e) => e.preventDefault());
+}
+
+// ---------------- 设备姿态（localhost/HTTPS 可用；局域网 HTTP 下事件不触发） ----------------
+let attEnabled = false;
+let attHasData = false;
+let lastAcc = null;
+let lastYawDeg = 0, lastYawOk = false, absAlphaSeen = false;
+let lastAttSendTs = 0;
+
+// 屏幕正面法向（+z_d，自屏幕指向观察者）的罗盘航向（0~360，北=0，顺时针）。
+// 由 W3C《DeviceOrientation Event》的设备朝向旋转矩阵算得：
+//   R = Rz(alpha)·Rx(beta)·Ry(gamma)（设备系 → 地球系，X=东 Y=北 Z=天）；
+//   +z_d 的像 = R 的第 3 列；航向 = atan2(东分量, 北分量)。
+// 与 Android 版逐式一致（MainActivity.onSensorChanged：atan2(R[2], R[5])，真机校准
+// 2026-10-15）；玲珑仪据此算 view_azi = yaw + 180 = 背面法向航向 = 取景方向。
+// 为什么不能直接把 alpha 当航向：alpha 是绕设备 z 轴的地球系旋转角，竖直持机
+//（beta≈90°, gamma≈0）时正确航向 = 180° - alpha —— 直接用 alpha 会整体偏 180°。
+// 法向垂直（天顶/天底，alpha 退化）时返回 null，调用方保持上一次航向。
+function screenNormalHeading(alpha, beta, gamma) {
+  const A = alpha * Math.PI / 180, B = beta * Math.PI / 180, G = gamma * Math.PI / 180;
+  const cA = Math.cos(A), sA = Math.sin(A);
+  const cB = Math.cos(B), sB = Math.sin(B);
+  const cG = Math.cos(G), sG = Math.sin(G);
+  const zEast  = cA * sG + cG * sA * sB;   // R[2]：+z_d 的东分量
+  const zNorth = sA * sG - cA * cG * sB;   // R[5]：+z_d 的北分量
+  if (Math.abs(zEast) < 1e-6 && Math.abs(zNorth) < 1e-6) return null;
+  let deg = Math.atan2(zEast, zNorth) * 180 / Math.PI;
+  if (deg < 0) deg += 360;
+  return deg;
+}
+// 姿态事件是否带齐算航向所需的三轴角（缺任一/非有限则退化为 alpha 直算）
+function hasEuler(e) {
+  return Number.isFinite(e.alpha) && Number.isFinite(e.beta) && Number.isFinite(e.gamma);
+}
+
+function currentOrientDeg() {
+  if (screen.orientation && typeof screen.orientation.angle === "number") return screen.orientation.angle;
+  return (typeof window.orientation === "number") ? window.orientation : 0;
+}
+function sendOrientation() {
+  if (!attEnabled || !runtimeReady || !Module._wasm_gui_on_orientation) return;
+  const now = performance.now();
+  if (now - lastAttSendTs < 50) return;
+  lastAttSendTs = now;
+  let flags = 0;
+  if (lastAcc) flags |= 1;
+  if (lastYawOk) flags |= 2;
+  Module._wasm_gui_on_orientation(flags,
+    lastAcc ? lastAcc[0] : 0, lastAcc ? lastAcc[1] : 0, lastAcc ? lastAcc[2] : 0,
+    lastYawDeg, currentOrientDeg());
+}
+function onDeviceMotion(e) {
+  const g = e.accelerationIncludingGravity;
+  if (!g || g.x === null || g.y === null || g.z === null) return;
+  lastAcc = [g.x, g.y, g.z];
+  attHasData = true;
+  sendOrientation();
+}
+// 用一帧欧拉角更新航向并下发（天顶/天底退化时保持上一次航向）
+function applyEuler(alpha, beta, gamma) {
+  const h = screenNormalHeading(alpha, beta, gamma);
+  if (h !== null) lastYawDeg = h;
+  lastYawOk = true;
+  attHasData = true;
+  sendOrientation();
+}
+// 绝对航向优先；见到 absolute 后忽略 relative（防两套 alpha 交替致方位角跳变）
+function onDeviceOrientationAbs(e) {
+  if (!hasEuler(e)) return;
+  absAlphaSeen = true;
+  applyEuler(e.alpha, e.beta, e.gamma);
+}
+function onDeviceOrientation(e) {
+  if (absAlphaSeen) return;
+  if (hasEuler(e)) { applyEuler(e.alpha, e.beta, e.gamma); return; }
+  // 退化路径（个别实现只给 alpha / 罗盘航向，没有 beta、gamma）：按竖直持机
+  //（beta=90°, gamma=0°）假设取 180° - 航向；webkitCompassHeading 是
+  // 「设备指向（取景方向 = -z_d）」的绝对航向，故 +180° 得 +z_d 的航向。
+  let deg;
+  if (typeof e.webkitCompassHeading === "number") deg = e.webkitCompassHeading + 180;
+  else if (typeof e.alpha === "number" && e.alpha !== null) deg = 180 - e.alpha;
+  else return;
+  lastYawDeg = ((deg % 360) + 360) % 360;
+  lastYawOk = true;
+  attHasData = true;
+  sendOrientation();
+}
+function updateAttBtn() {
+  attBtn.className = attEnabled ? "on" : "";
+  attBtn.textContent = attEnabled ? (attHasData ? "姿态：开" : "姿态：等待数据…") : "姿态：关";
+}
+async function toggleAttitude() {
+  if (attEnabled) {
+    attEnabled = false;
+    window.removeEventListener("devicemotion", onDeviceMotion);
+    window.removeEventListener("deviceorientation", onDeviceOrientation);
+    if ("ondeviceorientationabsolute" in window) {
+      window.removeEventListener("deviceorientationabsolute", onDeviceOrientationAbs);
+    }
+    updateAttBtn();
+    return;
+  }
+  if (!window.isSecureContext) {
+    attBtn.textContent = "需 HTTPS/localhost";
+    alert("浏览器仅在安全上下文（HTTPS 或 localhost）中提供设备姿态传感器。\n" +
+          "请经 localhost 或 HTTPS 访问本页面。");
+    return;
+  }
+  try {
+    if (typeof DeviceMotionEvent !== "undefined" && typeof DeviceMotionEvent.requestPermission === "function") {
+      const r = await DeviceMotionEvent.requestPermission();
+      if (r !== "granted") { attBtn.textContent = "姿态：被拒"; return; }
+    }
+    if (typeof DeviceOrientationEvent !== "undefined" && typeof DeviceOrientationEvent.requestPermission === "function") {
+      const r = await DeviceOrientationEvent.requestPermission();
+      if (r !== "granted") { attBtn.textContent = "姿态：被拒"; return; }
+    }
+  } catch (err) { /* 非 iOS 环境无此 API */ }
+  attEnabled = true;
+  attHasData = false;
+  absAlphaSeen = false;
+  if ("ondeviceorientationabsolute" in window) {
+    window.addEventListener("deviceorientationabsolute", onDeviceOrientationAbs);
+  }
+  window.addEventListener("deviceorientation", onDeviceOrientation);
+  window.addEventListener("devicemotion", onDeviceMotion);
+  updateAttBtn();
+  setTimeout(updateAttBtn, 1500);
+}
+attBtn.addEventListener("click", toggleAttitude);
+setInterval(() => { if (attEnabled) updateAttBtn(); }, 1000);
+
+// ---------------- 资源管理面板：目录树文件管理器 ----------------
+// 数据来源 = 服务器默认源（manifest.json + files/）∪ 浏览器本地存储（IndexedDB）。
+// 文件操作（新建目录/上传/删除/改名/移动/复制/下载）同时写存储层与当前会话的 MEMFS，
+// 因此「立即生效」且「刷新页面仍在」；删除服务器默认资源落墓碑（见 store.js），
+// loader 启动时据此不挂载，可在「已隐藏」里恢复。
+// 视图是**传统缩进目录树**：同级目录在前、文件在后，同类按名称升序；目录默认折叠
+// （fmExpanded 初始为空），点箭头展开/折叠，点名字选中。
+// 启动即申请存储持久化（防 Safari 等 7 天闲置自动清理；拒绝/不支持不影响使用）
+if (navigator.storage && navigator.storage.persist) {
+  navigator.storage.persist().then((granted) => console.log("[store] persist:", granted));
+}
+const resBtn   = document.getElementById("res-btn");
+const resPanel = document.getElementById("res-panel");
+const resQuota = document.getElementById("res-quota");
+const uploadInput  = document.getElementById("upload-input");
+
+const fmTreeEl     = document.getElementById("fm-tree");
+const fmSummaryEl  = document.getElementById("fm-summary");   // 来源汇总行
+const fmDetail     = document.getElementById("fm-detail");
+const fmActions    = document.getElementById("fm-actions");
+const fmProgress   = document.getElementById("fm-progress");
+const fmHiddenBox  = document.getElementById("fm-hidden");
+const fmModal      = document.getElementById("fm-modal");
+const fmModalTitle = document.getElementById("fm-modal-title");
+const fmModalDirWrap = document.getElementById("fm-modal-dirwrap");
+const fmModalDir   = document.getElementById("fm-modal-dir");
+const fmModalName  = document.getElementById("fm-modal-name");
+const fmModalErr   = document.getElementById("fm-modal-err");
+const fmModalOk    = document.getElementById("fm-modal-ok");
+const fmModalCancel = document.getElementById("fm-modal-cancel");
+
+let gManifestFiles = [];       // loader 合并清单（含 source / dir 标记），onManifest 回调填入
+let fmDefaults = null;         // Map<path, {size, priority}>：服务器默认资源（manifest.json 原始清单）
+let fmTree = null;             // 根节点（path === ""）
+let fmIndex = new Map();       // path → 节点
+let fmExpanded = new Set();    // 已展开的目录（默认空 = 全部折叠）
+let fmSelected = "";           // 选中项（"" = 根）
+let fmUploadTarget = "";
+let fmDrag = null;
+let fmSuppressClick = false;
+
+function fmtSize(bytes) {
+  if (bytes >= 1048576) return (bytes / 1048576).toFixed(1) + " MB";
+  if (bytes >= 1024) return (bytes / 1024).toFixed(1) + " KB";
+  return bytes + " B";
+}
+function fmEsc(s) {
+  return String(s).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+}
+function fmTimestampName() {
+  const d = new Date();
+  const p2 = (n) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}${p2(d.getMonth() + 1)}${p2(d.getDate())}-${p2(d.getHours())}${p2(d.getMinutes())}${p2(d.getSeconds())}`;
+}
+
+// ---------------- MEMFS 镜像（当前会话立即生效） ----------------
+// 存储层是“下次启动还在”，MEMFS 是“现在就能读到”；两者必须同步，业务代码零改动。
+function memfsRel(rel) { return RES_ROOT + "/" + rel; }
+
+function fmMemRemoveTree(abs) {
+  const FS = mountCtx.FS;
+  if (!FS) return;
+  let st;
+  try { st = FS.stat(abs); } catch (e) { return; }
+  if (!FS.isDir(st.mode)) {
+    try { FS.unlink(abs); } catch (e) {}
+    return;
+  }
+  let names = [];
+  try { names = FS.readdir(abs); } catch (e) {}
+  for (const n of names) {
+    if (n === "." || n === "..") continue;
+    fmMemRemoveTree(abs + "/" + n);
+  }
+  try { FS.rmdir(abs); } catch (e) {}
+}
+
+function fmMemCopyTree(absFrom, absTo) {
+  const FS = mountCtx.FS;
+  if (!FS) return;
+  let st;
+  try { st = FS.stat(absFrom); } catch (e) { return; }
+  if (!FS.isDir(st.mode)) {
+    try { FS.writeFile(absTo, FS.readFile(absFrom)); } catch (e) {}
+    return;
+  }
+  try { FS.mkdir(absTo); } catch (e) {}
+  let names = [];
+  try { names = FS.readdir(absFrom); } catch (e) {}
+  for (const n of names) {
+    if (n === "." || n === "..") continue;
+    fmMemCopyTree(absFrom + "/" + n, absTo + "/" + n);
+  }
+}
+
+const fmMemfs = {
+  exists(rel) {
+    if (!mountCtx.FS) return false;
+    try { return !!mountCtx.FS.stat(memfsRel(rel)); } catch (e) { return false; }
+  },
+  read(rel) {
+    if (!mountCtx.FS) return null;
+    try { return mountCtx.FS.readFile(memfsRel(rel)); } catch (e) { return null; }
+  },
+  write(rel, bytes) {
+    if (!mountCtx.FS) return;
+    fmMemfs.mkdir(nanoPathParent(rel));
+    try { mountCtx.FS.writeFile(memfsRel(rel), bytes); } catch (e) { console.warn("[fm] MEMFS write failed:", rel, e); }
+  },
+  mkdir(rel) {
+    if (!mountCtx.FS || !rel) return;
+    try { mountCtx.FS.createPath(RES_ROOT, rel); } catch (e) {}
+  },
+  remove(rel) {
+    if (!mountCtx.FS || !rel) return;
+    fmMemRemoveTree(memfsRel(rel));
+  },
+  move(from, to, isDir) {
+    if (!mountCtx.FS) return;
+    const a = memfsRel(from), b = memfsRel(to);
+    fmMemfs.mkdir(nanoPathParent(to));
+    try { mountCtx.FS.rename(a, b); return; } catch (e) { /* 退化：拷贝+删除 */ }
+    if (isDir) { fmMemCopyTree(a, b); fmMemRemoveTree(a); }
+    else {
+      try {
+        mountCtx.FS.writeFile(b, mountCtx.FS.readFile(a));
+        mountCtx.FS.unlink(a);
+      } catch (err) { console.warn("[fm] MEMFS move failed:", from, to, err); }
+    }
+  },
+  copy(from, to, isDir) {
+    if (!mountCtx.FS) return;
+    fmMemfs.mkdir(nanoPathParent(to));
+    if (isDir) fmMemCopyTree(memfsRel(from), memfsRel(to));
+    else {
+      try { mountCtx.FS.writeFile(memfsRel(to), mountCtx.FS.readFile(memfsRel(from))); }
+      catch (e) { console.warn("[fm] MEMFS copy failed:", from, to, e); }
+    }
+  },
+};
+
+// 从服务器默认源读一个文件（带进度；用于“下载服务器资源”“恢复隐藏项”“移动默认资源”）
+async function fmFetchDefault(rel) {
+  // 站点集成：默认源路径就是站点相对路径（原为 "files/" + rel）
+  const bytes = await nanoFetchWithProgress(NANO_FILES_BASE_URL + encodeURI(rel), (recv, total) => {
+    fmProgress.textContent = total > 0
+      ? `读取 ${rel} … ${(recv / 1048576).toFixed(1)}/${(total / 1048576).toFixed(1)} MB`
+      : `读取 ${rel} … ${fmtSize(recv)}`;
+  });
+  return bytes;
+}
+
+// VFS 依赖注入（见 vfs.js）
+const fmDeps = {
+  store: {
+    list: () => nanoStoreList(),
+    get: (p) => nanoStoreGet(p),
+    put: (p, blob) => nanoStorePut(p, blob),
+    putDir: (p) => nanoStorePutDir(p),
+    del: (p) => nanoStoreDelete(p),
+    rename: (a, b) => nanoStoreRename(a, b),
+    tombstone: (p, size) => nanoStoreTombstone(p, size),
+  },
+  defaults: () => fmDefaults,
+  memfs: fmMemfs,
+  fetchDefault: fmFetchDefault,
+  mountDefault: async (rel) => {
+    await fmMemfs.write(rel, await fmFetchDefault(rel));
+    return true;
+  },
+};
+
+// 服务器默认清单（含被本机覆盖的路径）。独立拉一次 manifest.json：loader 的合并清单
+// 会把“被本机覆盖”的条目标成 store，丢失“这里原本有默认资源”的事实，而删除时要靠它立墓碑。
+async function fmLoadDefaults() {
+  if (fmDefaults) return fmDefaults;
+  fmDefaults = new Map();
+  try {
+    const resp = await fetch("manifest.json");
+    const m = await resp.json();
+    for (const f of (m.files || [])) if (!f.dir) fmDefaults.set(f.path, { size: f.size || 0, priority: f.priority === 2 ? 2 : 1 });
+  } catch (e) {
+    for (const f of gManifestFiles) {
+      if (f.source === "http" && !f.dir) fmDefaults.set(f.path, { size: f.size || 0, priority: f.priority === 2 ? 2 : 1 });
+    }
+  }
+  return fmDefaults;
+}
+
+// ---------------- 目录树渲染（传统缩进树） ----------------
+
+const FM_ICO_DIR =
+  '<svg viewBox="0 0 16 16" width="15" height="15" aria-hidden="true">' +
+  '<path d="M1.5 3.2h4l1.3 1.6h7.7v7.9h-13z" fill="#5b93d6"/></svg>';
+const FM_ICO_FILE =
+  '<svg viewBox="0 0 16 16" width="15" height="15" aria-hidden="true">' +
+  '<path d="M3.5 1.5h6.2l2.8 2.8v10.2h-9z" fill="#eef2f8" stroke="#b6c1d2" stroke-width="1"/>' +
+  '<path d="M9.6 1.7v2.9h2.9" fill="none" stroke="#b6c1d2" stroke-width="1"/></svg>';
+
+// 可见行（展开 → 前序行表；排序已由 nanoBuildTree 做好）
+function fmVisibleRows() { return nanoFlattenTree(fmTree, fmExpanded); }
+
+// 汇总行：各类资源各多少个（未下载的 p2 也要说出来，否则用户不知道"还有东西没拉"）
+function fmRenderSummary(scan) {
+  if (!fmSummaryEl) return;
+  let p1 = 0, p2c = 0, p2m = 0, user = 0, dirs = 0;
+  for (const e of scan.all) {
+    if (e.dir) { dirs++; continue; }
+    if (e.origin === "user" || e.priority === 0) user++;
+    else if (e.priority === 1) p1++;
+    else if (e.cached) p2c++;
+    else if (e.mounted) p2m++;   // 只在本次会话内存里（未下载的那些单独由 hidden 统计）
+  }
+  const hidden = scan.hidden.length;
+  const bits = [`目录 <b>${dirs}</b>`, `p1 <b>${p1}</b>`, `p2 已缓存 <b>${p2c}</b>`, `本机 <b>${user}</b>`];
+  if (p2m) bits.push(`p2 仅内存 <b>${p2m}</b>`);
+  if (hidden) bits.push(`p2 未下载 <b>${hidden}</b>`);
+  fmSummaryEl.innerHTML = bits.join(" · ")
+    + (hidden ? `<div class="fm-note" style="color:#9a5b12">未下载的服务器 p2 文件不列在下面；`
+      + `点状态栏「下载资源」下载后即出现（目录已保留，可直接往里上传文件）。</div>` : "");
+}
+
+// 行内来源徽标：一眼看清"谁提供的 / 属哪一级 / 缓存在哪"
+//   p1        —— 服务器提供，每次页面加载全量重拉（本机改动刷新即还原）
+//   p2·已缓存  —— 服务器提供，已下载并缓存在本机 IndexedDB
+//   p2·仅内存  —— 服务器提供，只在本次会话的 MEMFS 里（写库失败/配额不足）
+//   p2·未下载  —— 目录下还有没下载的服务器 p2 文件（文件行本身不会出现这种）
+//   本机       —— 用户自己上传/新建的，服务器上没有
+function fmBadgeOf(node) {
+  if (node.dir) {
+    if (node.pendingP2 > 0) {
+      return { text: "p2 未下载 " + node.pendingP2, cls: "p2m",
+               title: "本目录下还有 " + node.pendingP2 + " 个服务器 p2 文件未下载（点状态栏「下载资源」后才会出现在列表里）" };
+    }
+    return null;
+  }
+  if (node.origin === "user" || node.priority === 0) {
+    return { text: "本机", cls: "user", title: "本机文件（你上传/新建的，服务器上没有；常驻）" };
+  }
+  if (node.priority === 1) {
+    return { text: "p1", cls: "p1", title: "服务器提供的启动资源：每次页面加载全量重拉并覆盖本机（本机改动刷新即还原）" };
+  }
+  if (node.cached) {
+    return { text: "p2·已缓存", cls: "p2c", title: "服务器提供的 p2 资源：已下载并缓存在本机 IndexedDB（下次点按钮直接装载，不联网）" };
+  }
+  return { text: "p2·仅内存", cls: "p2m", title: "服务器提供的 p2 资源：仅在本次会话的 MEMFS 里（本机未缓存）" };
+}
+
+function fmRenderTree() {
+  if (!fmTree) return;
+  const scrollTop = fmTreeEl.scrollTop;
+  fmTreeEl.innerHTML = "";
+  const rows = fmVisibleRows();
+  if (!rows.length) {
+    const empty = document.createElement("div");
+    empty.className = "fm-empty";
+    empty.textContent = "（空：用「上传文件」或「新建目录」放点东西进来）";
+    fmTreeEl.appendChild(empty);
+  }
+  for (const { node, depth } of rows) {
+    const row = document.createElement("div");
+    row.className = "fm-row" + (node.dir ? " dir" : " file") + (node.path === fmSelected ? " selected" : "");
+    row.setAttribute("data-path", node.path);
+    row.setAttribute("data-depth", String(depth));
+    row.style.paddingLeft = (6 + depth * 14) + "px";
+
+    const hasKids = node.dir && node.children.length > 0;
+    const open = hasKids && fmExpanded.has(node.path);
+    const caret = document.createElement("span");
+    caret.className = "fm-caret" + (hasKids ? "" : " slot") + (open ? " open" : "");
+    // 三角放在内层：外层 .fm-caret 是热区（不旋转），内层 .fm-arrow 才做 90° 旋转
+    const arrow = document.createElement("i");
+    arrow.className = "fm-arrow";
+    arrow.textContent = "\u25B6"; // ▶
+    caret.appendChild(arrow);
+    row.appendChild(caret);
+
+    const ico = document.createElement("span");
+    ico.className = "fm-ico";
+    ico.innerHTML = node.dir ? FM_ICO_DIR : FM_ICO_FILE;
+    row.appendChild(ico);
+
+    const name = document.createElement("span");
+    name.className = "fm-name" + (node.dir ? " dir" : "");
+    name.textContent = node.name + (node.dir ? "/" : "");
+    name.title = node.path;
+    row.appendChild(name);
+
+    const meta = document.createElement("span");
+    meta.className = "fm-meta";
+    meta.textContent = node.dir ? node.children.length + " 项" : fmtSize(node.size || 0);
+    row.appendChild(meta);
+
+    const badge = fmBadgeOf(node);
+    if (badge) {
+      const tag = document.createElement("span");
+      tag.className = "fm-tag " + badge.cls;
+      tag.textContent = badge.text;
+      tag.title = badge.title;
+      row.appendChild(tag);
+    }
+    fmTreeEl.appendChild(row);
+  }
+  fmTreeEl.scrollTop = scrollTop;
+  fmRenderDetail();
+  const sel = fmTreeEl.querySelector(".fm-row.selected");
+  if (sel && sel.scrollIntoView) sel.scrollIntoView({ block: "nearest" });
+}
+
+// 目录下拉选项（根 + 全部目录，缩进表示层级）
+function fmDirOptions() {
+  const out = [{ path: "", label: "/（资源根）" }];
+  if (!fmTree) return out;
+  (function walk(node, depth) {
+    for (const c of node.children) {
+      if (!c.dir) continue;
+      out.push({ path: c.path, label: "\u3000".repeat(depth) + c.name + "/" });
+      walk(c, depth + 1);
+    }
+  })(fmTree, 0);
+  return out;
+}
+
+function fmRenderDetail() {
+  const n = fmIndex.get(fmSelected);
+  if (!n) {
+    fmDetail.innerHTML = '<span class="fm-path">/</span><span class="fm-dot">·</span>点箭头展开、点名字选中';
+    fmActions.innerHTML = "";
+    return;
+  }
+  const bits = [`<span class="fm-path">${fmEsc(n.path || "/")}</span>`];
+  if (n.dir) {
+    bits.push(`${n.children.length} 个直接子项`);
+    bits.push(`共 ${nanoCountDescendants(n)} 项`);
+    if (n.pendingP2 > 0) bits.push(`另有 ${n.pendingP2} 个服务器 p2 文件未下载`);
+    if (n.origin === "user") bits.push("本机新建的目录");
+  } else {
+    bits.push(fmtSize(n.size || 0));
+    if (n.origin === "user" || n.priority === 0) {
+      bits.push("本机文件（你上传的，服务器上没有）");
+    } else if (n.priority === 1) {
+      bits.push("p1 · 服务器提供 · 每次加载全量刷新");
+    } else if (n.cached) {
+      bits.push("p2 · 服务器提供 · 已缓存在本机 IndexedDB");
+    } else {
+      bits.push("p2 · 服务器提供 · 仅本次会话（未缓存）");
+    }
+  }
+  fmDetail.innerHTML = bits.join('<span class="fm-dot">·</span>');
+  if (!n.dir && n.priority === 1) {
+    fmDetail.innerHTML += '<div class="fm-note">p1 由服务器统一管理：在 app/ icon/ wallpaper/ 里的'
+      + '本机改动（上传/改名/删除）会在下次加载时还原。</div>';
+  }
+
+  const acts = [];
+  if (n.dir) acts.push(["upload", "上传到此目录"]);
+  else acts.push(["download", "下载"]);
+  if (n.path) {
+    acts.push(["rename", "重命名"]);
+    acts.push(["copy", "复制到…"]);
+    acts.push(["move", "移动到…"]);
+    acts.push(["delete", "删除", "danger"]);
+  } else {
+    acts.push(["mkdir", "新建目录"]);
+  }
+  fmActions.innerHTML = acts
+    .map(([a, t, c]) => `<button class="fm-btn ${c || ""}" data-act="${a}" type="button">${t}</button>`)
+    .join("");
+}
+
+// ---------------- 选择 / 展开折叠 ----------------
+
+function fmSelect(path) {
+  fmSelected = path;
+  fmRenderTree();
+}
+
+// 点一行：目录 = 选中 + 展开/收起（点哪都行——整行、名字、箭头、图标都是同一个动作，
+// 手机上不用去戳那个小三角）；文件 = 只选中。
+// 选中和展开一次改完再重绘，避免"先选中渲染一遍、再展开渲染一遍"的白屏闪烁。
+fmTreeEl.addEventListener("click", (e) => {
+  if (fmSuppressClick) { fmSuppressClick = false; return; }
+  const row = e.target.closest ? e.target.closest(".fm-row") : null;
+  if (!row || !fmTreeEl.contains(row)) return;
+  const path = row.getAttribute("data-path");
+  const node = fmIndex.get(path);
+  fmSelected = path;
+  // 只有"有子项的目录"才值得切展开状态（空目录切了也看不出变化，省得脏 fmExpanded）
+  if (node && node.dir && node.children.length) {
+    if (fmExpanded.has(path)) fmExpanded.delete(path);
+    else fmExpanded.add(path);
+  }
+  fmRenderTree();
+});
+
+// ---------------- 刷新 ----------------
+
+async function fmReload() {
+  await fmLoadDefaults();
+  try {
+    const scan = await nanoVfsScan(fmDeps);
+    const tree = nanoBuildTree(scan.visible);
+    fmTree = tree.root;
+    fmIndex = tree.index;
+    for (const p of [...fmExpanded]) {
+      const n = fmIndex.get(p);
+      if (!n || !n.dir) fmExpanded.delete(p);
+    }
+    if (!fmIndex.has(fmSelected)) fmSelected = "";
+    fmRenderSummary(scan);
+    fmRenderTree();
+    await fmRenderHidden();
+  } catch (e) {
+    fmProgress.textContent = "读取文件系统失败：" + e;
+  }
+}
+
+async function refreshResPanel() {
+  if (navigator.storage && navigator.storage.estimate) {
+    const est = await navigator.storage.estimate();
+    resQuota.textContent = `本机存储占用 ${fmtSize(est.usage || 0)}（配额约 ${fmtSize(est.quota || 0)}）· 清除站点数据即清空`;
+  } else {
+    resQuota.textContent = "（浏览器不支持存储配额查询）";
+  }
+  await fmReload();
+}
+
+async function fmRenderHidden() {
+  let deleted = [];
+  try { deleted = await nanoVfsListDeleted(fmDeps); } catch (e) {}
+  deleted = deleted.filter((d) => d.inDefault);
+  if (!deleted.length) {
+    fmHiddenBox.style.display = "none";
+    fmHiddenBox.innerHTML = "";
+    return;
+  }
+  fmHiddenBox.style.display = "";
+  fmHiddenBox.open = fmHiddenBox.open || false;
+  fmHiddenBox.innerHTML = `<summary>已隐藏 ${deleted.length} 项（删除的服务器默认资源，可恢复）</summary>` +
+    deleted.map((d) =>
+      `<div class="res-item"><span class="p">${fmEsc(d.path)}</span>` +
+      `<span class="sz">${fmtSize(d.size)}</span>` +
+      `<button class="fm-btn" type="button" data-restore="${fmEsc(d.path)}">恢复</button></div>`).join("");
+  fmHiddenBox.querySelectorAll("button[data-restore]").forEach((btn) => {
+    btn.onclick = async () => {
+      const p = btn.getAttribute("data-restore");
+      btn.disabled = true;
+      fmProgress.textContent = "恢复中：" + p;
+      const r = await nanoVfsRestore(fmDeps, p);
+      await fmReload();
+      fmProgress.textContent = r.mounted
+        ? "已恢复 " + p
+        : "已取消隐藏（内容将在下次启动重新挂载）" + (r.error ? "：" + r.error : "");
+    };
+  });
+}
+
+// ---------------- 模态框（新建目录 / 重命名 / 复制 / 移动） ----------------
+
+let fmModalOnOk = null;
+
+function fmCloseModal() {
+  fmModal.classList.remove("open");
+  fmModalOnOk = null;
+  fmModalErr.textContent = "";
+}
+
+function fmOpenModal(opt) {
+  fmModalTitle.textContent = opt.title;
+  fmModalDirWrap.style.display = opt.dirs ? "" : "none";
+  fmModalName.value = opt.name || "";
+  fmModalErr.textContent = "";
+  fmModalDir.innerHTML = "";
+  if (opt.dirs) {
+    for (const o of fmDirOptions()) {
+      const op = document.createElement("option");
+      op.value = o.path;
+      op.textContent = o.label;
+      fmModalDir.appendChild(op);
+    }
+    fmModalDir.value = opt.dir || "";
+  }
+  fmModalOk.textContent = opt.okText || "确定";
+  fmModalOnOk = opt.onOk;
+  fmModal.classList.add("open");
+  setTimeout(() => { fmModalName.focus(); fmModalName.select(); }, 30);
+}
+
+fmModalOk.addEventListener("click", async () => {
+  if (!fmModalOnOk) return;
+  const name = fmModalName.value.trim();
+  const dir = fmModalDirWrap.style.display === "none" ? null : fmModalDir.value;
+  fmModalOk.disabled = true;
+  let err = null;
+  try { err = await fmModalOnOk({ name, dir }); }
+  catch (e) { err = "操作失败：" + e.message; }
+  fmModalOk.disabled = false;
+  if (err) { fmModalErr.textContent = err; return; }
+  fmCloseModal();
+});
+fmModalCancel.addEventListener("click", fmCloseModal);
+fmModal.addEventListener("click", (e) => { if (e.target === fmModal) fmCloseModal(); });
+fmModalName.addEventListener("keydown", (e) => {
+  if (e.key === "Enter") { e.preventDefault(); fmModalOk.click(); }
+  else if (e.key === "Escape") { e.preventDefault(); fmCloseModal(); }
+  else if (e.key === "Tab") { /* 焦点留在输入框，避免跳去被隐藏的控件 */ e.preventDefault(); }
+});
+
+// 当前操作的目标目录（选中目录本身；选中文件时是它的父目录；未选时是根）
+function fmTargetDir() {
+  const n = fmIndex.get(fmSelected);
+  if (!n) return "";
+  return n.dir ? n.path : nanoPathParent(n.path);
+}
+
+function fmOpenMkdir() {
+  const parent = fmTargetDir();
+  fmOpenModal({
+    title: "新建目录",
+    dirs: true,
+    dir: parent,
+    name: fmTimestampName(),
+    okText: "创建",
+    onOk: async ({ name, dir }) => {
+      if (!nanoNameValid(name)) return "名称不能为空，且不能含 / 或首尾空格";
+      const path = nanoPathJoin(dir, name);
+      if (fmIndex.has(path)) return "同名目录或文件已存在";
+      await nanoVfsMkdir(fmDeps, path);
+      if (dir) fmExpanded.add(dir);
+      fmSelected = path;
+      await fmReload();
+      fmProgress.textContent = "已创建目录 " + path;
+      return null;
+    },
+  });
+}
+
+// mode: "rename" | "copy" | "move"；presetDir 用于拖放（目标目录预先指定）
+function fmOpenTransfer(n, mode, presetDir) {
+  if (!n) return;
+  const src = n.path;
+  const parent = nanoPathParent(src);
+  const titles = { rename: "重命名", copy: "复制", move: "移动" };
+  const okText = { rename: "重命名", copy: "复制", move: "移动" };
+  fmOpenModal({
+    title: `${titles[mode]}：${src}`,
+    dirs: mode !== "rename",
+    dir: presetDir !== undefined ? presetDir : parent,
+    name: n.name,
+    okText: okText[mode],
+    onOk: async ({ name }) => {
+      if (!nanoNameValid(name)) return "名称不能为空，且不能含 / 或首尾空格";
+      const targetDir = mode === "rename" ? parent : fmModalDir.value;
+      const dst = nanoPathJoin(targetDir, name);
+      if (dst === src) return null;
+      if (nanoPathWithin(targetDir, src)) return "不能放进自己的子目录";
+      if (fmIndex.has(dst)) {
+        if (!confirm(`目标「${dst}」已存在，覆盖？`)) return "已取消（同名目标存在）";
+        await nanoVfsDelete(fmDeps, dst).catch(() => {});
+      }
+      await nanoVfsTransfer(fmDeps, src, dst, mode === "copy" ? "copy" : "move");
+      fmSelected = dst;
+      if (targetDir) fmExpanded.add(targetDir);
+      await fmReload();
+      fmProgress.textContent = `${mode === "copy" ? "已复制" : "已移动"}：${dst}`;
+      return null;
+    },
+  });
+}
+
+async function fmDelete(n) {
+  if (!n || !n.path) return;
+  const what = n.dir ? `目录「${n.path}」及其全部内容` : `文件「${n.path}」`;
+  const extra = (n.source === "http" || (fmDefaults && fmDefaults.has(n.path)))
+    ? "\n\n（服务器默认资源：删除后会在本机隐藏，可在「已隐藏」里恢复。）"
+    : "";
+  if (!confirm(`删除${what}？${extra}`)) return;
+  fmProgress.textContent = "删除中…";
+  try {
+    await nanoVfsDelete(fmDeps, n.path);
+    fmSelected = nanoPathParent(n.path);
+    await fmReload();
+    fmProgress.textContent = "已删除 " + n.path;
+  } catch (e) {
+    fmProgress.textContent = "删除失败：" + e.message;
+  }
+}
+
+async function fmDownload(n) {
+  if (!n || n.dir) return;
+  fmProgress.textContent = "准备下载 " + n.path + " …";
+  try {
+    const bytes = await nanoVfsReadBytes(fmDeps, n.path);
+    const blob = new Blob([bytes], { type: "application/octet-stream" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = n.name;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 10000);
+    fmProgress.textContent = `已下载 ${n.name}（${fmtSize(bytes.length)}）`;
+  } catch (e) {
+    fmProgress.textContent = "下载失败：" + e.message;
+  }
+  return;
+}
+
+function fmRunAction(act, path) {
+  const n = fmIndex.get(path);
+  if (act === "mkdir") return fmOpenMkdir();
+  if (act === "upload") return fmTriggerUpload(path);
+  if (!n) return;
+  if (act === "download") return fmDownload(n);
+  if (act === "rename") return fmOpenTransfer(n, "rename");
+  if (act === "copy") return fmOpenTransfer(n, "copy");
+  if (act === "move") return fmOpenTransfer(n, "move");
+  if (act === "delete") return fmDelete(n);
+}
+
+fmActions.addEventListener("click", (e) => {
+  const btn = e.target.closest("button[data-act]");
+  if (!btn) return;
+  fmRunAction(btn.getAttribute("data-act"), fmSelected);
+});
+
+// ---------------- 上传 ----------------
+
+function fmTriggerUpload(dir) {
+  fmUploadTarget = dir || "";
+  uploadInput.value = "";
+  uploadInput.click();
+}
+
+async function fmUploadFiles(fileList, dir) {
+  const files = Array.from(fileList || []);
+  if (!files.length) return;
+  dir = dir || "";
+  let ok = 0, skipped = 0;
+  for (let i = 0; i < files.length; i++) {
+    const f = files[i];
+    if (!nanoNameValid(f.name)) { skipped++; continue; }
+    const rel = nanoPathJoin(dir, f.name);
+    if (fmIndex.has(rel) && !confirm(`「${rel}」已存在，覆盖？`)) { skipped++; continue; }
+    fmProgress.textContent = `上传 ${i + 1}/${files.length}：${rel}（${fmtSize(f.size)}）`;
+    try {
+      const bytes = new Uint8Array(await f.arrayBuffer());
+      await nanoVfsWriteFile(fmDeps, rel, bytes);
+      ok++;
+    } catch (e) {
+      fmProgress.textContent = "上传失败：" + f.name + " " + e.message;
+    }
+  }
+  if (dir) fmExpanded.add(dir);
+  fmSelected = dir;
+  await fmReload();
+  fmProgress.textContent = `已上传 ${ok}/${files.length} 个到 ${dir || "/"}${skipped ? `（跳过 ${skipped}）` : ""}`;
+}
+
+uploadInput.addEventListener("change", () => {
+  const target = fmUploadTarget;
+  fmUploadFiles(uploadInput.files, target);
+});
+
+// ---------------- 拖放：行→目录行（内部移动/复制）、系统文件→目录行（上传） ----------------
+
+function fmDropTargetPath(x, y) {
+  if (!x && !y) return null;
+  const el = document.elementFromPoint(x, y);
+  if (!el || !el.closest) return null;
+  const row = el.closest(".fm-row");
+  if (!row || !fmTreeEl.contains(row)) return null;
+  const p = row.getAttribute("data-path");
+  const n = fmIndex.get(p);
+  if (n && n.dir) return p;
+  return nanoPathParent(p); // 落在文件行上 → 放进它所在目录
+}
+
+function fmMarkDropTarget(x, y) {
+  for (const el of fmTreeEl.querySelectorAll(".fm-row.drop-target")) el.classList.remove("drop-target");
+  const dir = fmDropTargetPath(x, y);
+  if (dir === null) return;
+  for (const el of fmTreeEl.querySelectorAll(".fm-row")) {
+    if (el.getAttribute("data-path") === dir) el.classList.add("drop-target");
+  }
+}
+
+// 内部拖放（鼠标/笔；触屏用「移动到…/复制到…」对话框，避免与滚动手势打架）
+fmTreeEl.addEventListener("pointerdown", (e) => {
+  fmSuppressClick = false;
+  if (e.pointerType === "touch") return;
+  const row = e.target.closest ? e.target.closest(".fm-row") : null;
+  if (!row) return;
+  const path = row.getAttribute("data-path");
+  if (!path) return;
+  fmDrag = { path, x0: e.clientX, y0: e.clientY, active: false, ghost: null };
+});
+fmTreeEl.addEventListener("pointermove", (e) => {
+  if (!fmDrag) return;
+  const dx = e.clientX - fmDrag.x0, dy = e.clientY - fmDrag.y0;
+  if (!fmDrag.active) {
+    if (Math.abs(dx) < 6 && Math.abs(dy) < 6) return;
+    fmDrag.active = true;
+    const n = fmIndex.get(fmDrag.path);
+    fmDrag.ghost = document.createElement("div");
+    fmDrag.ghost.id = "fm-ghost";
+    fmDrag.ghost.textContent = nanoPathBase(fmDrag.path) + (n && n.dir ? "/" : "");
+    document.body.appendChild(fmDrag.ghost);
+  }
+  e.preventDefault();
+  fmDrag.ghost.style.left = (e.clientX + 12) + "px";
+  fmDrag.ghost.style.top = (e.clientY + 12) + "px";
+  fmMarkDropTarget(e.clientX, e.clientY);
+});
+function fmEndDrag(e) {
+  if (!fmDrag) return;
+  const drag = fmDrag;
+  fmDrag = null;
+  if (!drag.active) return;
+  if (drag.ghost) drag.ghost.remove();
+  fmMarkDropTarget(0, 0);
+  fmSuppressClick = true;
+  const targetDir = fmDropTargetPath(e.clientX, e.clientY);
+  if (targetDir === null) return;
+  const n = fmIndex.get(drag.path);
+  if (!n || nanoPathWithin(targetDir, drag.path)) {
+    fmProgress.textContent = "不能放进自己的子目录";
+    return;
+  }
+  if (nanoPathParent(drag.path) === targetDir) {
+    fmProgress.textContent = "已经在该目录里，未做改动";
+    return;
+  }
+  fmOpenTransfer(n, "move", targetDir);
+}
+fmTreeEl.addEventListener("pointerup", fmEndDrag);
+fmTreeEl.addEventListener("pointercancel", () => { if (fmDrag) { if (fmDrag.ghost) fmDrag.ghost.remove(); fmDrag = null; } });
+
+// 系统文件拖入（桌面便利通路）
+fmTreeEl.addEventListener("dragover", (e) => {
+  if (!e.dataTransfer) return;
+  const hasFiles = Array.from(e.dataTransfer.types || []).includes("Files");
+  if (!hasFiles) return;
+  e.preventDefault();
+  e.dataTransfer.dropEffect = "copy";
+  fmMarkDropTarget(e.clientX, e.clientY);
+});
+fmTreeEl.addEventListener("dragleave", () => fmMarkDropTarget(0, 0));
+fmTreeEl.addEventListener("drop", (e) => {
+  if (!e.dataTransfer || !e.dataTransfer.files || !e.dataTransfer.files.length) return;
+  e.preventDefault();
+  const dir = fmDropTargetPath(e.clientX, e.clientY);
+  fmMarkDropTarget(0, 0);
+  fmUploadFiles(e.dataTransfer.files, dir === null ? fmTargetDir() : dir);
+});
+
+// ---------------- 工具栏 / 面板开关 ----------------
+
+document.getElementById("fm-mkdir").addEventListener("click", fmOpenMkdir);
+document.getElementById("fm-upload").addEventListener("click", () => fmTriggerUpload(fmTargetDir()));
+document.getElementById("fm-collapse").addEventListener("click", () => {
+  fmExpanded.clear();
+  fmRenderTree();
+  fmProgress.textContent = "已全部折叠";
+});
+document.getElementById("fm-refresh").addEventListener("click", () => {
+  fmProgress.textContent = "刷新中…";
+  fmReload().then(() => { fmProgress.textContent = "已刷新"; });
+});
+
+resBtn.addEventListener("click", () => {
+  resPanel.classList.add("open");
+  refreshResPanel();
+});
+document.getElementById("res-close").addEventListener("click", () => resPanel.classList.remove("open"));
+resPanel.addEventListener("click", (e) => { if (e.target === resPanel) resPanel.classList.remove("open"); });
+window.addEventListener("resize", () => { if (fmTree && resPanel.classList.contains("open")) fmRenderTree(); });
+
+
+// ============================================================================
+// 站点集成：掌机在首页的出现/退场
+// ----------------------------------------------------------------------------
+// index.html 里 #nano-host 常驻在 .Main 中（首页正文区之前，即原来封面图的位置），
+// 由这里按 SPA 路由切换显隐。为什么不把它放进 index 模板：
+//   · SPA 每次换页都会重写 .SPA_MAIN_CONTAINER 的 innerHTML，画布会被换掉 ——
+//     而 wasm 只认自己最初拿到的那块画布（Module._nano_canvas_ctx），
+//     换掉后画面上不去、监听器也全丢；
+//   · 常驻容器 = 掌机状态（当前 App、滚动位置、MEMFS 文件）在切页后原样保留；
+//   · 离开首页时暂停 wasm 主循环，别在别的页面上空转吃 CPU。
+// ============================================================================
+const nanoHost = document.getElementById("nano-host");
+// 首帧上屏前先铺白底：2D 上下文是 alpha:false，位图初始为全黑，加载期会露出一块黑板。
+try { ctx.fillStyle = "#ffffff"; ctx.fillRect(0, 0, canvas.width, canvas.height); } catch (e) {}
+let nanoLoopPaused = false;
+let nanoWantPause = false;
+let nanoPointerInside = false;
+let nanoHostShown = false;
+
+if (nanoHost) {
+  nanoHost.addEventListener("pointerenter", () => { nanoPointerInside = true; });
+  nanoHost.addEventListener("pointerleave", () => { nanoPointerInside = false; });
+  // 点画面 = 把键盘焦点交给掌机。画布自己的 pointerdown 里 preventDefault 会吃掉浏览器
+  // 的默认聚焦，所以这里（capture 阶段）显式 focus 一次：之后方向键/回车一直归掌机，
+  // 直到用户去点页面别处（焦点移走）。
+  canvas.addEventListener("pointerdown", () => {
+    try { canvas.focus({ preventScroll: true }); } catch (e) {}
+  }, true);
+}
+
+// 键盘归属：掌机可见，且「焦点在里面」或「鼠标停在上面」→ 方向键/回车/Esc 归它；
+// 鼠标移开、或焦点跑到页面别处，键盘立刻还给本站（页面滚动/导航照常）。
+function nanoKeyboardActive() {
+  if (!nanoHost || !nanoHostShown) return false;
+  const ae = document.activeElement;
+  if (ae && (ae === canvas || nanoHost.contains(ae))) return true;
+  return nanoPointerInside;
+}
+
+function nanoPauseLoop() {
+  nanoWantPause = true;
+  if (nanoLoopPaused || !runtimeReady) return;
+  try {
+    if (Module.pauseMainLoop) { Module.pauseMainLoop(); nanoLoopPaused = true; }
+  } catch (e) { /* 主循环还没起来：忽略 */ }
+}
+
+function nanoResumeLoop() {
+  nanoWantPause = false;
+  if (!nanoLoopPaused) return;
+  try {
+    if (Module.resumeMainLoop) { Module.resumeMainLoop(); nanoLoopPaused = false; }
+  } catch (e) { /* 同上 */ }
+}
+
+// 当前 SPA 页面是否为首页（导航栏里 index 触发器处于 active）
+function nanoOnIndexPage() {
+  return !!document.querySelector(".Navbar .SPA_TRIGGER[data-target='index'][active='true']");
+}
+
+// emscripten 产物按需加载（首次显示首页时插入；只插一次）
+let nanoRuntimeRequested = false;
+function nanoRequestRuntime() {
+  if (nanoRuntimeRequested) return;
+  nanoRuntimeRequested = true;
+  const s = document.createElement("script");
+  s.src = "./linglong/nano_gui.js";
+  s.async = false;
+  s.onerror = () => {
+    nanoRuntimeRequested = false;
+    const t = document.getElementById("wasm-text");
+    if (t) t.textContent = "程序：下载失败（nano/nano_gui.js）";
+  };
+  document.body.appendChild(s);
+}
+
+function nanoHomepageSync() {
+  if (!nanoHost) return;
+  const show = nanoOnIndexPage();
+  if (show === nanoHostShown && nanoHost.style.display !== "") return;
+  nanoHostShown = show;
+  nanoHost.style.display = show ? "block" : "none";
+  if (show) { nanoRequestRuntime(); nanoResumeLoop(); }
+  else { nanoPointerInside = false; nanoPauseLoop(); }
+}
+
+// SPA 换页 = .SPA_MAIN_CONTAINER 的子节点被整体替换。只监听容器自身（不监听子树：
+// 掌机状态栏每秒刷新文本，不能当成换页事件）。
+const nanoSpaBox = document.getElementsByClassName("SPA_MAIN_CONTAINER")[0];
+if (nanoSpaBox) {
+  new MutationObserver(() => nanoHomepageSync()).observe(nanoSpaBox, { childList: true });
+}
+window.addEventListener("hashchange", nanoHomepageSync);
+window.addEventListener("load", nanoHomepageSync);
+nanoHomepageSync();
+
+// 运行时可能比首次同步晚就绪：低频对齐一次暂停/继续的意图（幂等）
+setInterval(() => {
+  if (!runtimeReady) return;
+  if (nanoWantPause) nanoPauseLoop();
+  else nanoResumeLoop();
+}, 1000);

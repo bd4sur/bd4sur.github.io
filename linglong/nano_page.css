@@ -1,0 +1,301 @@
+/* ============================================================================
+   nano_page.css —— 首页「Nano 掌机（WebAssembly）」界面样式
+   ----------------------------------------------------------------------------
+   由 infer/webgui/index.html 的 <style> 派生（原样搬过来，仅做两件事）：
+     1. 所有选择器加 #nano-host 前缀 —— 本站自己的 framework.css/markdown.css
+        不会串味，掌机界面也不会污染站点样式；
+     2. 尺寸：原页面是整屏独占（100vw/100vh），本站改成**固定 320px 宽的一列**
+        （#nano-host = 320px 居中），画布 CSS 尺寸钉死 320×240 —— 与 320×240 的
+        逻辑帧缓冲一一对应（1 逻辑像素 = 1 CSS px），1x/2x/3x 屏上都是整数倍最近邻，
+        不插值、不糊边。
+     3. 加载进度面板从画布下方**搬到画布之上**（#screen-box 里绝对定位覆盖 320×240），
+        加载完成即隐藏：加载期屏幕上看到的就是进度，而不是一块空白/黑板。
+   站点侧只需保证 #nano-host 这个容器存在（见 index.html）。
+   ============================================================================ */
+
+#nano-host {
+    display: none;                 /* 只有首页显示（由 nano_page.js 切换） */
+    /* 整块掌机区 = 320px 宽的一列（= 画布逻辑宽），在站点正文里居中。
+       不做圆角/边框：屏幕边缘的像素要完整可见，且不要给画布带来任何内边距。 */
+    width: 320px;
+    margin: 0 auto;
+    padding: 0;
+    /* 纯白底：与本站其它区域（白底 + 细边阴影）一致（原页面是 #f5f6f8 灰底） */
+    background: #ffffff;
+    color: #454a52;
+    font-size: 14px;
+    font-family: "Noto Sans CJK SC", "PingFang SC", "Microsoft YaHei", sans-serif;
+    overscroll-behavior: none;
+    box-sizing: border-box;
+  }
+#nano-host * { box-sizing: border-box; }
+#nano-host #wrap {
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    /* 左右不留内边距：画布必须正好 320px 可用宽 */
+    padding: 36px 0 30px;
+    box-sizing: border-box;
+  }
+#nano-host #screen {
+    display: block;
+    /* ── 屏幕中心区 = 严格的 320 × 240 CSS px ───────────────────────────────
+       画布位图是 320×240（canvas 的 width/height 属性），这里用 **content-box**
+       把 width/height 钉成内容区尺寸：1x 屏上 1 逻辑像素 = 1 个物理像素逐点对应；
+       2x/3x 屏上是整数倍最近邻放大（image-rendering: pixelated）。
+       因此内容区**不能**被任何东西侵占：
+         · 不用 border/padding（border-box 会从 320 里扣掉边框宽度，导致 318 之类的
+           分数缩放）——描边改用外圈 1px 阴影，视觉上与 border 一致、且自动跟随圆角；
+         · 圆角只裁四角（border-radius 不影响内容区尺寸）；
+         · 不用百分比宽度；外层的 #screen-box 固定 320×240 且 flex: none。 */
+    box-sizing: content-box;       /* width/height = 内容区（帧缓冲）尺寸 */
+    width: 320px;
+    height: 240px;
+    max-width: none;
+    border: none;
+    padding: 0;
+    border-radius: 8px;            /* 圆角：只裁四个角，中心区像素完整 */
+    /* 1px 描边（外圈）+ 柔和投影：都不占布局尺寸、不缩内容区 */
+    box-shadow: 0 0 0 1px #dfe2e8, 0 4px 20px rgba(30,40,60,.10);
+    image-rendering: pixelated;
+    image-rendering: crisp-edges;
+    background: #ffffff;
+    touch-action: none;
+    user-select: none;
+    -webkit-user-select: none;
+    cursor: default;
+  }
+#nano-host #screen:focus { outline: none; }
+/* 按钮行：掌机区只有 320px 宽（原页面是整屏），故收紧间距与内边距，让四枚按钮
+   （ESC / 姿态 / 资源下载 / 资源管理）排成一行；各按钮的 padding 见下面各自的规则 */
+#nano-host #bar { display: flex; gap: 6px; align-items: center; justify-content: center; flex-wrap: wrap; }
+@media (max-width: 400px) {
+  #nano-host #bar { gap: 6px; }
+  #nano-host #bar button { padding-left: 9px; padding-right: 9px; font-size: 12.5px; }
+}
+
+#nano-host #att-btn {
+    background: #ffffff; color: #4a4f57; border: 1px solid #d6dae1;
+    border-radius: 6px; font-size: 13px; padding: 6px 10px; cursor: pointer;
+    user-select: none; -webkit-user-select: none; touch-action: manipulation;
+    box-shadow: 0 1px 2px rgba(30,40,60,.06);
+  }
+#nano-host #att-btn.on { background: #e6f0fb; border-color: #7cb0e2; color: #12518c; }
+#nano-host #att-btn:active { transform: scale(.96); }
+@media (max-height: 520px) {
+  #nano-host #wrap { gap: 6px; padding: 6px 0; }
+}
+
+/* 屏幕区：画布 + 覆盖其上的加载进度（320×240 的定位基准；不参与内容区尺寸计算） */
+#nano-host #screen-box {
+    position: relative;
+    flex: none;
+    width: 320px;
+    height: 240px;
+    line-height: 0;                /* 不留行盒缝隙 */
+  }
+/* 加载进度面板：**盖在画布上**（原来在画布下方，加载期屏幕一片空/黑）。
+   加载完成时由 nano_page.js 里 onP1Ready 的 loadPanel.style.display = "none" 隐藏。 */
+#nano-host #load-panel {
+    position: absolute;
+    inset: 0;                      /* 正好覆盖 320×240 屏幕 */
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    gap: 12px;
+    padding: 20px 22px;
+    border-radius: 8px;            /* 与屏幕圆角一致 */
+    background: rgba(255,255,255,.94);
+    font-size: 12px;
+    line-height: 1.5;
+    color: #5b6270;
+    z-index: 1;                    /* 在画布之上（画布是本盒子的普通子元素） */
+  }
+#nano-host .load-title {
+    font-size: 13px;
+    font-weight: 600;
+    letter-spacing: .5px;
+    color: #23272e;
+    margin-bottom: 2px;
+  }
+#nano-host .bar {
+    height: 8px;
+    background: #eceef2;
+    border-radius: 3px;
+    overflow: hidden;
+  }
+#nano-host .bar > div {
+    height: 100%;
+    width: 0%;
+    background: linear-gradient(90deg, #3d8ad6, #6fb3f2);
+    border-radius: 3px;
+    transition: width .15s ease-out;
+  }
+#nano-host .bar > div.indet { width: 30%; animation: slide 1.1s ease-in-out infinite alternate; }
+@keyframes slide{ from { margin-left: 0; } to { margin-left: 70%; } }
+#nano-host .load-row { display: flex; flex-direction: column; gap: 5px; }
+#nano-host .load-text { color: #5b6270; letter-spacing: .3px; }
+#nano-host #res-btn {
+    background: #ffffff; color: #4a4f57; border: 1px solid #d6dae1;
+    border-radius: 6px; font-size: 13px; padding: 6px 10px; cursor: pointer;
+    user-select: none; -webkit-user-select: none; touch-action: manipulation;
+    box-shadow: 0 1px 2px rgba(30,40,60,.06);
+  }
+#nano-host #res-btn:active { transform: scale(.96); }
+#nano-host #dl-btn {
+    background: #2f7fd1; color: #ffffff; border: 1px solid #2f7fd1;
+    border-radius: 6px; font-size: 13px; padding: 6px 10px; cursor: pointer;
+    user-select: none; -webkit-user-select: none; touch-action: manipulation;
+    box-shadow: 0 1px 2px rgba(30,40,60,.06); white-space: nowrap;
+  }
+#nano-host #dl-btn:active { transform: scale(.96); }
+#nano-host #dl-btn[disabled] { background: #eef1f5; color: #9aa1ab; border-color: #d6dae1; cursor: default; }
+#nano-host #esc-btn {
+    background: #f0f2f5; color: #3f444b; border: 1px solid #cdd2da;
+    border-radius: 6px; font-size: 13px; padding: 6px 10px; cursor: pointer;
+    user-select: none; -webkit-user-select: none; touch-action: manipulation;
+    letter-spacing: .5px;
+  }
+#nano-host #esc-btn:active { transform: scale(.96); background: #e2e6ec; }
+#nano-host #res-panel {
+    position: fixed; inset: 0;
+    background: rgba(240,242,246,.92);
+    display: none;
+    align-items: flex-start;
+    justify-content: center;
+    z-index: 100000;            /* 盖住本站的粘性导航栏(1001)与左右侧栏(99999) */
+    overflow-y: auto;
+  }
+#nano-host #res-panel.open { display: flex; }
+#nano-host #res-card {
+    width: min(640px, calc(100vw - 32px));
+    margin: 24px 0;
+    background: #ffffff;
+    border: 1px solid #e2e5ea;
+    border-radius: 12px;
+    box-shadow: 0 8px 28px rgba(30,40,60,.12);
+    padding: 16px;
+    font-size: 13px;
+    color: #3f444b;
+  }
+#nano-host #res-card h2 { font-size: 15px; margin: 0 0 10px; color: #23272e; }
+#nano-host #res-card h3 { font-size: 13px; margin: 14px 0 6px; color: #6b7280; font-weight: normal; }
+#nano-host .res-item {
+    display: flex; align-items: center; gap: 8px;
+    padding: 4px 6px; border-radius: 6px;
+  }
+#nano-host .res-item:hover { background: #f2f5f9; }
+#nano-host .res-item .p { flex: 1; word-break: break-all; }
+#nano-host .res-item .sz { color: #8b919b; white-space: nowrap; }
+#nano-host .res-item button {
+    background: none; border: none; color: #c0392b; cursor: pointer;
+    font-size: 12px; padding: 2px 6px;
+  }
+#nano-host .res-item button:disabled { color: #c2c7cf; cursor: default; }
+#nano-host #res-quota { color: #8b919b; font-size: 12px; }
+#nano-host #res-close { float: right; background: none; border: none; color: #8b919b; font-size: 18px; cursor: pointer; }
+#nano-host #fm-toolbar { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin: 6px 0 8px; }
+#nano-host .fm-btn {
+    background: #ffffff; color: #4a4f57; border: 1px solid #d6dae1;
+    border-radius: 6px; font-size: 12px; padding: 5px 10px; cursor: pointer;
+    user-select: none; -webkit-user-select: none; touch-action: manipulation;
+  }
+#nano-host .fm-btn:hover { background: #f2f6fb; border-color: #b9cde4; }
+#nano-host .fm-btn:active { transform: scale(.97); }
+#nano-host .fm-btn.primary { background: #2f7fd1; border-color: #2f7fd1; color: #ffffff; }
+#nano-host .fm-btn.primary:hover { background: #2a72bd; }
+#nano-host .fm-btn.danger { color: #c0392b; border-color: #e8c4bf; }
+#nano-host .fm-btn[disabled] { opacity: .45; cursor: default; }
+#nano-host #fm-tree {
+    max-height: min(56vh, 460px);
+    overflow: auto;
+    background: #ffffff;
+    border: 1px solid #e2e7ee; border-radius: 8px;
+    padding: 4px; font-size: 13px;
+    
+    --fm-row-pad-y: 5px;
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior: contain;
+  }
+#nano-host .fm-row {
+    display: flex; align-items: center; gap: 6px;
+    padding: var(--fm-row-pad-y) 8px var(--fm-row-pad-y) 0; cursor: pointer;
+    white-space: nowrap; user-select: none; -webkit-user-select: none;
+    touch-action: manipulation;
+  }
+#nano-host .fm-row:hover { background: #f4f7fb; }
+#nano-host .fm-row.selected { background: #e6f0fb; }
+#nano-host .fm-row.drop-target { background: #e7f5ea; box-shadow: inset 0 0 0 1px #4aa96c; }
+#nano-host .fm-caret {
+    flex: none; align-self: stretch; position: relative;
+    width: 14px; display: flex; align-items: center; justify-content: center;
+    color: #8b919b; font-size: 9px; line-height: 1;
+  }
+#nano-host .fm-caret::after {
+    content: ""; position: absolute;
+    top: calc(-1 * var(--fm-row-pad-y)); bottom: calc(-1 * var(--fm-row-pad-y));
+    left: -10px; right: -5px;
+  }
+#nano-host .fm-arrow { display: block; font-style: normal; transition: transform .12s ease-out; }
+#nano-host .fm-caret.open .fm-arrow { transform: rotate(90deg); }
+#nano-host .fm-caret.slot { visibility: hidden; }
+@media (pointer: coarse) {
+  #nano-host #fm-tree { --fm-row-pad-y: 0px; }
+  #nano-host .fm-row { min-height: 34px; }
+}
+
+#nano-host .fm-ico { flex: none; width: 16px; height: 16px; display: inline-flex; align-items: center; }
+#nano-host .fm-name { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; color: #3f444b; }
+#nano-host .fm-name.dir { color: #23272e; font-weight: 600; }
+#nano-host .fm-meta { flex: none; color: #98a0ab; font-size: 11px; }
+#nano-host .fm-tag {
+    flex: none; font-size: 10px; line-height: 14px; border-radius: 4px; padding: 0 5px;
+    white-space: nowrap; border: 1px solid transparent;
+  }
+#nano-host .fm-tag.p1 { color: #1f5f9e; background: #e8f1fb; border-color: #cfe0f3; }
+#nano-host .fm-tag.p2c { color: #2f7d3d; background: #e7f5ea; border-color: #cfe9d6; }
+#nano-host .fm-tag.p2m { color: #9a5b12; background: #fdf1e0; border-color: #f2ddbd; }
+#nano-host .fm-tag.user { color: #6b3fa0; background: #f1eafb; border-color: #ded0f3; }
+#nano-host #fm-summary { margin: 0 0 6px; font-size: 11px; color: #8b919b; line-height: 16px; }
+#nano-host #fm-summary b { font-weight: 600; color: #5b6270; }
+#nano-host #fm-detail .fm-note { margin-top: 4px; color: #9a5b12; font-size: 11px; }
+#nano-host .fm-empty { padding: 10px 12px; color: #8b919b; font-size: 12px; }
+#nano-host #fm-detail { margin-top: 8px; font-size: 12px; color: #5b6270; word-break: break-all; }
+#nano-host #fm-detail .fm-path { color: #23272e; font-weight: 600; }
+#nano-host #fm-detail .fm-dot { margin: 0 6px; color: #b8bfc9; }
+#nano-host #fm-actions { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+#nano-host #fm-actions:empty { display: none; }
+#nano-host #fm-progress { font-size: 12px; color: #2b6ca8; min-height: 16px; margin-top: 6px; }
+#nano-host #fm-hidden { margin-top: 8px; font-size: 12px; }
+#nano-host #fm-hidden summary { cursor: pointer; color: #8b919b; }
+#nano-host #fm-ghost {
+    position: fixed; z-index: 100002; pointer-events: none;
+    background: #ffffff; border: 1px solid #9fb6cf; border-radius: 999px;
+    padding: 4px 10px; font-size: 12px; color: #2b3440;
+    box-shadow: 0 4px 14px rgba(30,50,80,.22);
+    max-width: 200px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  }
+#nano-host #fm-modal {
+    position: fixed; inset: 0; z-index: 100001; display: none;
+    align-items: center; justify-content: center;
+    background: rgba(32,42,56,.28);
+  }
+#nano-host #fm-modal.open { display: flex; }
+#nano-host #fm-modal .fm-card {
+    width: min(380px, calc(100vw - 40px));
+    background: #ffffff; border-radius: 12px; padding: 16px;
+    box-shadow: 0 12px 36px rgba(20,32,50,.28); font-size: 13px;
+  }
+#nano-host #fm-modal h4 { margin: 0 0 12px; font-size: 14px; color: #23272e; word-break: break-all; }
+#nano-host #fm-modal label { display: block; margin: 0 0 10px; color: #6b7280; font-size: 12px; }
+#nano-host #fm-modal input[type="text"], #nano-host #fm-modal select {
+    width: 100%; box-sizing: border-box; margin-top: 4px;
+    background: #ffffff; border: 1px solid #d6dae1; border-radius: 6px;
+    padding: 7px 8px; font-size: 13px; color: #23272e;
+  }
+#nano-host #fm-modal .fm-err { color: #c0392b; font-size: 12px; min-height: 16px; }
+#nano-host #fm-modal .fm-card-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 6px; }
+

@@ -286,7 +286,7 @@ a.ContactLink:hover { text-decoration: none; border: none; }
 
 <div class="SectionBody">
     <div><a style="font-size: 13px; letter-spacing: 0.5px; cursor: pointer;" class="SPA_TRIGGER" data-target="blog/Meta-博客建设记录">博客建设记录</a></div>
-    <ul class="bd4sur-timeline" style="max-width: 600px;">
+    <ul class="bd4sur-timeline" style="max-width: 500px;">
         <li class="bd4sur-timeline-item">
             <div class="bd4sur-timeline-item-tail"></div>
             <div class="bd4sur-timeline-item-head bd4sur-timeline-item-head-blue"></div>
@@ -338,10 +338,19 @@ a.ContactLink:hover { text-decoration: none; border: none; }
         </li>
 
         <li class="bd4sur-timeline-item">
+            <div class="bd4sur-timeline-item-tail"></div>
             <div class="bd4sur-timeline-item-head bd4sur-timeline-item-head-blue"></div>
             <div class="bd4sur-timeline-item-content">
                 <i>第5版<time>2021.02.01</time></i>
                 <p>博客转型为电台网站，启用<code>bd4sur.com</code>域名。</p>
+            </div>
+        </li>
+
+        <li class="bd4sur-timeline-item">
+            <div class="bd4sur-timeline-item-head bd4sur-timeline-item-head-blue"></div>
+            <div class="bd4sur-timeline-item-content">
+                <i>第6版<time>2026.11.24</time></i>
+                <p>博客十周年特别版。增加自研<a href="https://github.com/bd4sur/Nano" target="_blank">玲珑掌机操作系统</a>WASM版，由自研<a href="https://github.com/bd4sur/Animac" target="_blank">灵机计算引擎</a>强力驱动，内置完全由Scheme实现的Markdown阅读器，可在玲珑系统内阅读博客文章。</p>
             </div>
         </li>
 
