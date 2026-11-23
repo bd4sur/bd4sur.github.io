@@ -11,8 +11,7 @@
     <link rel="stylesheet" type="text/css" href="./style/markdown.css" charset="utf-8"/>
     <link rel="stylesheet" type="text/css" href="./style/highlight/vs.css" charset="utf-8"/>
     <link rel="stylesheet" type="text/css" href="./style/jquery.fancybox.css" charset="utf-8"/>
-    <!-- 首页「玲珑掌机（Nano WASM GUI）」界面样式（linglong/nano_page.css，选择器全部带 #nano-host 前缀） -->
-    <link rel="stylesheet" type="text/css" href="./linglong/nano_page.css" charset="utf-8"/>
+    <link rel="stylesheet" type="text/css" href="./linglong/wasm/nano_page.css" charset="utf-8"/>
     <title>BD4SUR 业余无线电台</title>
 </head>
 <body>
@@ -97,8 +96,9 @@
                 </div>
                 <div id="bar">
                 <button id="esc-btn" type="button" title="等同于实体键盘 Esc / 设备 A 键">ESC</button>
-                <button id="att-btn" type="button">姿态：关</button>
-                <button id="dl-btn" type="button" title="从服务器下载其余业务资源（电子书/词典/音乐/模型…），体积见按钮文字">资源：未下载</button>
+                <button id="att-btn" type="button">姿态(关)</button>
+                <button id="dl-btn" type="button" title="拉取站点目录里标为 p2 的可选业务资源（进掌机文件系统 + 浏览器缓存）">资源：…</button>
+                <button id="llm-btn" type="button" title="下载两个 Nano 模型权重（nano-168m-q80.bin / nano-56m-q80.bin，合计约 221MB，来自 HuggingFace），存进浏览器 IndexedDB 与掌机 linglong/llm/">拉取 LLM</button>
                 <button id="res-btn" type="button">资源管理</button>
                 </div>
           </div>
@@ -110,7 +110,6 @@
                 <h2>资源管理</h2>
                 <div id="res-quota">存储：…</div>
 
-                <h3>文件（点目录行=展开/收起 · 点文件=选中 · 拖动行到目录=移动/复制）</h3>
                 <div id="fm-summary"></div>
                 <div id="fm-toolbar">
                     <button class="fm-btn primary" id="fm-mkdir" type="button">新建目录</button>
@@ -326,17 +325,12 @@ MathJax = { tex: { inlineMath: [["$", "$"]] } };
 
 </script>
 
-<!--首页玲珑掌机（Nano WASM GUI）的依赖链，全部取自 linglong/（唯一权威目录）。
-    顺序不可换：先本地存储/虚拟文件系统/加载器，再页面胶水 nano_page.js；
-    emscripten 产物 linglong/nano_gui.js 由 nano_page.js 在首次显示首页时按需插入，
-    避免非首页浏览也下载 5.6MB wasm。
-    业务数据同样在 linglong/（app/ icon/ wallpaper/ + manifest.json）；掌机内看到的
-    路径是 /home/bd4sur/bd4sur.github.io/linglong/…，与站点 URL 一一对应。
-    详见 linglong/loader.js 与 linglong/nano_page.js 文件头。 -->
-<script src="./linglong/store.js"></script>
-<script src="./linglong/vfs.js"></script>
-<script src="./linglong/loader.js"></script>
-<script src="./linglong/nano_page.js"></script>
+
+<script src="./linglong/wasm/store.js"></script>
+<script src="./linglong/wasm/vfs.js"></script>
+<script src="./linglong/wasm/loader.js"></script>
+<script src="./linglong/wasm/nano_page.js"></script>
+<script src="./linglong/wasm/dl_models.js"></script>
 
 </body>
 </html>

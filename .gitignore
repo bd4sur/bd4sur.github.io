@@ -3,3 +3,6 @@ terrain/*.bin.part
 terrain/qingdao50.bin
 terrain/qingdao50.json
 terrain/china/
+
+# 本地 HTTPS 自签证书（server.js 自动生成）
+.certs/

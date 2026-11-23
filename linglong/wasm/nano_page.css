@@ -15,9 +15,6 @@
 
 #nano-host {
     display: none;                 /* 只有首页显示（由 nano_page.js 切换） */
-    /* 整块掌机区 = 320px 宽的一列（= 画布逻辑宽），在站点正文里居中。
-       不做圆角/边框：屏幕边缘的像素要完整可见，且不要给画布带来任何内边距。 */
-    width: 320px;
     margin: 0 auto;
     padding: 0;
     /* 纯白底：与本站其它区域（白底 + 细边阴影）一致（原页面是 #f5f6f8 灰底） */
@@ -71,20 +68,27 @@
 #nano-host #screen:focus { outline: none; }
 /* 按钮行：掌机区只有 320px 宽（原页面是整屏），故收紧间距与内边距，让四枚按钮
    （ESC / 姿态 / 资源下载 / 资源管理）排成一行；各按钮的 padding 见下面各自的规则 */
-#nano-host #bar { display: flex; gap: 6px; align-items: center; justify-content: center; flex-wrap: wrap; }
-@media (max-width: 400px) {
-  #nano-host #bar { gap: 6px; }
-  #nano-host #bar button { padding-left: 9px; padding-right: 9px; font-size: 12.5px; }
-}
+/* 五枚按钮同处 320px 的一行：字号 12px + 内边距 6px + 间隙 4px（实测含 "资源 10MB"
+   这类带体积的文案时约 314px，仍在一行内；文案更长时允许自然换行）。
+   「资源」按钮在没有 p2 资源时也**照常显示**（不隐藏、不置灰），只是文案/title 说明原因。 */
+#nano-host #bar { display: flex; gap: 4px; align-items: center; justify-content: center; flex-wrap: wrap; }
+/* 兜底：任何按钮带 .hidden 就隐藏（当前没有按钮用它——「资源」在没有 p2 时也照常显示） */
+#nano-host #bar button.hidden { display: none; }
 
-#nano-host #att-btn {
+/* 按钮行里「姿态 / 资源 / 拉取 LLM / 资源管理」四枚用同一套外观（白底 + 1px 细边）；
+   ESC 略灰一档以区分“返回”语义，见文件后面的 #esc-btn。 */
+#nano-host #att-btn, #nano-host #res-btn, #nano-host #dl-btn, #nano-host #llm-btn {
     background: #ffffff; color: #4a4f57; border: 1px solid #d6dae1;
-    border-radius: 6px; font-size: 13px; padding: 6px 10px; cursor: pointer;
+    border-radius: 6px; font-size: 12px; padding: 6px 6px; cursor: pointer;
     user-select: none; -webkit-user-select: none; touch-action: manipulation;
     box-shadow: 0 1px 2px rgba(30,40,60,.06);
+    white-space: nowrap;
   }
+#nano-host #att-btn:active,
+#nano-host #res-btn:active,
+#nano-host #dl-btn:active,
+#nano-host #llm-btn:active { transform: scale(.96); }
 #nano-host #att-btn.on { background: #e6f0fb; border-color: #7cb0e2; color: #12518c; }
-#nano-host #att-btn:active { transform: scale(.96); }
 @media (max-height: 520px) {
   #nano-host #wrap { gap: 6px; padding: 6px 0; }
 }
@@ -138,24 +142,39 @@
 @keyframes slide{ from { margin-left: 0; } to { margin-left: 70%; } }
 #nano-host .load-row { display: flex; flex-direction: column; gap: 5px; }
 #nano-host .load-text { color: #5b6270; letter-spacing: .3px; }
-#nano-host #res-btn {
+/* 「拉取 LLM」的确认框：已下载过再点 → 先问一句“是否重新下载”
+   （DOM 由 dl_models.js 创建并挂在 #nano-host 内，所以用 #nano-host 前缀作用域） */
+#nano-host #llm-modal {
+    position: fixed; inset: 0; z-index: 100010;
+    display: none; align-items: center; justify-content: center;
+    background: rgba(32,42,56,.28);
+  }
+#nano-host #llm-modal.open { display: flex; }
+#nano-host #llm-modal .llm-card {
+    width: min(320px, calc(100vw - 40px));
+    background: #ffffff; border-radius: 12px; padding: 16px 16px 12px;
+    box-shadow: 0 12px 36px rgba(20,32,50,.28);
+    font-size: 13px; color: #23272e; line-height: 1.6;
+  }
+#nano-host #llm-modal h4 { margin: 0 0 8px; font-size: 14px; font-weight: 600; }
+#nano-host #llm-modal p { margin: 0 0 14px; font-size: 12px; color: #5b6270; }
+#nano-host #llm-modal .llm-actions { display: flex; justify-content: flex-end; gap: 8px; }
+#nano-host #llm-modal button {
+    font-size: 12px; padding: 6px 12px; border-radius: 6px; cursor: pointer;
     background: #ffffff; color: #4a4f57; border: 1px solid #d6dae1;
-    border-radius: 6px; font-size: 13px; padding: 6px 10px; cursor: pointer;
     user-select: none; -webkit-user-select: none; touch-action: manipulation;
-    box-shadow: 0 1px 2px rgba(30,40,60,.06);
   }
-#nano-host #res-btn:active { transform: scale(.96); }
-#nano-host #dl-btn {
-    background: #2f7fd1; color: #ffffff; border: 1px solid #2f7fd1;
-    border-radius: 6px; font-size: 13px; padding: 6px 10px; cursor: pointer;
-    user-select: none; -webkit-user-select: none; touch-action: manipulation;
-    box-shadow: 0 1px 2px rgba(30,40,60,.06); white-space: nowrap;
+#nano-host #llm-modal button:active { transform: scale(.96); }
+#nano-host #llm-modal button.primary { background: #2f7fd1; border-color: #2f7fd1; color: #ffffff; }
+#nano-host #llm-modal button.primary:active { background: #2a72bd; }
+
+/* 下载/拉取过程中的禁用态（一般不会出现——两枚按钮都设计成永不置灰） */
+#nano-host #dl-btn[disabled], #nano-host #llm-btn[disabled] {
+    background: #eef1f5; color: #9aa1ab; border-color: #d6dae1; cursor: default;
   }
-#nano-host #dl-btn:active { transform: scale(.96); }
-#nano-host #dl-btn[disabled] { background: #eef1f5; color: #9aa1ab; border-color: #d6dae1; cursor: default; }
 #nano-host #esc-btn {
     background: #f0f2f5; color: #3f444b; border: 1px solid #cdd2da;
-    border-radius: 6px; font-size: 13px; padding: 6px 10px; cursor: pointer;
+    border-radius: 6px; font-size: 12px; padding: 6px 6px; cursor: pointer;
     user-select: none; -webkit-user-select: none; touch-action: manipulation;
     letter-spacing: .5px;
   }

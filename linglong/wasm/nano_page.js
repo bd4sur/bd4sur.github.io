@@ -5,8 +5,9 @@
 // 来源：infer/webgui/index.html（Nano 仓库）里的内联 <script>，整段搬过来，只做了
 // 下面这几处**站点集成**改动（业务逻辑、协议、注释一律原样保留）：
 //   ① 资源根换成 /home/bd4sur/bd4sur.github.io（原为 /home/bd4sur/linglong）：
-//      manifest 在 ./linglong/manifest.json，业务数据都在 linglong/ 下，按「站点根目录
-//      = 资源根」镜像（掌机内路径 /home/bd4sur/bd4sur.github.io/linglong/… ↔ 站点 URL）；
+//      掌机运行时代码（本文件、nano_gui.*、manifest.json…）都在 ./linglong/wasm/ 下，
+//      业务数据在 ./linglong/（app/ icon/ wallpaper/ = P0，其余目录 = P1）；
+//      按「站点根目录 = 资源根」镜像（掌机内路径 /home/bd4sur/bd4sur.github.io/linglong/…）；
 //      wasm 产物里 PLATFORM_ROOT_DIR 是编译期常量，故由 loader.js 建一条 MEMFS
 //      符号链接 /home/bd4sur/linglong → 新资源根，无需重新构建 wasm；
 //   ② 键盘只在「掌机界面获得焦点/鼠标停在上面」时才接管 —— 本站其它页面要正常
@@ -330,7 +331,7 @@ function nanoMicRead(ptr, samples) {
 // 资源面板所需的挂载上下文（供上传/删除即时生效复用）
 // 站点集成：资源根 = 本站根目录；玲珑的数据与产物都在 ./linglong/ 下（唯一权威目录），
 // 清单里的 path 就是站点相对路径（linglong/app/… 、markdown/ideas.md），故 base 为空串。
-const NANO_MANIFEST_URL = "linglong/manifest.json";
+const NANO_MANIFEST_URL = "linglong/wasm/manifest.json";
 const NANO_FILES_BASE_URL = "";              // 相对站点根目录（路径即 manifest 里的 path）
 const mountCtx = { FS: null, manifestUrl: NANO_MANIFEST_URL, filesBaseUrl: NANO_FILES_BASE_URL, resRoot: "/home/bd4sur/bd4sur.github.io", store: null };
 const RES_ROOT = "/home/bd4sur/bd4sur.github.io";
@@ -348,19 +349,52 @@ function setBar(el, frac, indeterminate) {
 
 // WASM 二进制下载进度：接管 instantiateWasm（emscripten 默认的流式实例化不暴露进度，
 // 改为自带进度的 fetch + WebAssembly.instantiate；5MB 规模下流式编译的收益可忽略）
+// 站点集成：wasm 的程序总大小**不能**取响应里的 Content-Length。
+// 只要托管方对 .wasm 开了实时压缩（例如本仓库的 server.js：COMPRESSIBLE 含
+// application/wasm），响应就是 Content-Encoding: br|gzip + chunked ——
+//   · Content-Length 缺失（chunked），或等于**压缩后**的字节数（本例 3.6MB），
+//   · 而 fetch 的流交给我们的永远是**解压后**的字节（5.6MB）。
+// 两者一比，进度就出现「已下载 X MB…」没有总数、或百分比超过 100% 的怪现象。
+// 解法：先用一次 HEAD 问出真实文件尺寸（server.js 对 HEAD 不做压缩，此时
+// Content-Length 就是原尺寸），把它当作进度总量；HEAD 失败再退回 Content-Length。
+async function nanoWasmDeclaredSize(url) {
+  // ① HEAD：不压缩的响应里 Content-Length 就是原尺寸（server.js 对 HEAD 不压缩）
+  try {
+    const r = await fetch(url, { method: "HEAD", cache: "no-store" });
+    const n = parseInt(r.headers.get("content-length") || "0", 10);
+    if (n > 0) return n;
+  } catch (e) { /* 有些托管方不支持 HEAD */ }
+  // ② Range: bytes=0-0 → Content-Range: bytes 0-0/总字节（对压缩响应同样给原尺寸）
+  try {
+    const r = await fetch(url, { headers: { Range: "bytes=0-0" }, cache: "no-store" });
+    const m = /\/(\d+)\s*$/.exec(r.headers.get("content-range") || "");
+    if (m) return parseInt(m[1], 10);
+  } catch (e) { /* 不支持 Range：退回无总量 */ }
+  return 0;
+}
+
 function wasmInstantiateWithProgress(imports, successCallback) {
   (async () => {
     try {
       const url = (Module.locateFile) ? Module.locateFile("nano_gui.wasm") : "nano_gui.wasm";
+      const declared = await nanoWasmDeclaredSize(url);   // 真实（未压缩）字节数，0 = 未知
+      if (declared > 0) {
+        setBar(wasmBar, 0, false);
+        wasmText.textContent = `程序：0.0/${(declared / 1048576).toFixed(1)} MB（0%）`;
+      }
       const buf = await nanoFetchWithProgress(url, (recv, total) => {
-        if (total > 0) {
-          setBar(wasmBar, recv / total, false);
-          wasmText.textContent = `程序：${(recv/1048576).toFixed(1)}/${(total/1048576).toFixed(1)} MB（${(recv/total*100).toFixed(0)}%）`;
+        const tot = (total > 0) ? total : declared;      // 压缩传输时 total=0，用 HEAD 的结果
+        if (tot > 0) {
+          setBar(wasmBar, Math.min(1, recv / tot), false);
+          wasmText.textContent = `程序：${(recv/1048576).toFixed(1)}/${(tot/1048576).toFixed(1)} MB（${Math.min(100, (recv/tot*100)).toFixed(0)}%）`;
         } else {
           setBar(wasmBar, 0, true);
           wasmText.textContent = `程序：已下载 ${(recv/1048576).toFixed(1)} MB…`;
         }
       });
+      if (declared > 0 && buf.length !== declared) {
+        console.warn("[wasm] 实收字节与 HEAD 尺寸不一致：", buf.length, "vs", declared);
+      }
       setBar(wasmBar, 1, false);
       wasmText.textContent = "程序：编译实例化…";
       const result = await WebAssembly.instantiate(buf, imports);
@@ -376,8 +410,8 @@ function wasmInstantiateWithProgress(imports, successCallback) {
 var Module = {
   canvas: null, // 不使用 emscripten 内建 canvas 集成（自绘）
   // 站点集成：emscripten 默认按 document.currentScript 推断脚本目录，动态插入时可能为空，
-  // 这里显式给出产物目录（nano_gui.wasm 与本脚本同在 ./linglong/ 下）
-  locateFile: (path) => "./linglong/" + path,
+  // 这里显式给出产物目录（nano_gui.wasm 与本脚本同在 ./linglong/wasm/ 下）
+  locateFile: (path) => "./linglong/wasm/" + path,
   noInitialRun: true, // main 由本页在阶段1资源就绪后手动 callMain
   instantiateWasm: wasmInstantiateWithProgress,
   setStatus: function (text) {
@@ -428,15 +462,11 @@ async function mountResourcesAndRun() {
       },
       onManifest: (files) => { gManifestFiles = files; },
     });
-    // p2（电子书/词典/音乐/模型…）**不自动下载**：只记住清单，等用户点「下载资源」。
-    // 顺手统计有多少个已在 IndexedDB 里（按钮文案据此提示“点了只是装载，不用重下”）。
-    pendingP2 = pending || [];
-    p2CachedCount = 0;
-    try {
-      const cached = new Set((await nanoStoreList()).map((e) => e.path));
-      p2CachedCount = pendingP2.filter((f) => cached.has(f.path)).length;
-    } catch (e) { /* 存储不可用：当作全未缓存 */ }
-    updateDlBtn();
+    // p2（站点可选业务资源）**不自动下载**：只记住清单，等用户点「资源」按钮。
+    // 模型权重不在 manifest 里，也不归这枚按钮管（见 dl_models.js / 「拉取 LLM」）。
+    pendingP2 = (pending || []).filter((f) => f && f.path);
+    p2ManifestReady = true;
+    await refreshDlBtn();          // 按 MEMFS / IndexedDB 的实际内容定按钮文案与可点状态
     updateStatus();
   } catch (e) {
     resText.textContent = "资源挂载失败：" + e;
@@ -444,70 +474,181 @@ async function mountResourcesAndRun() {
   }
 }
 
-// ---------------- 「下载资源」按钮（p2：可选的大块业务资源） ----------------
-// 需求（2026-11-17）：p1（启动必需，4.5MB）之后**不要**自动拉其余 283MB——页面给一个
-// 按钮，用户点了才从服务器下载。实现上没有第三/第四层，也没有按 App 的钩子：
-// nanoMountResources 只把 p2 清单交回来，这里按下按钮才调 nanoMountPending。
-// 单飞：下载中重复点击无效；已完成/无待下载时按钮置灰。
-// 回归脚本可以直接 await nanoEnsureP2()（与点按钮同一条路）。
-let pendingP2 = [];       // 待下载清单（manifest 里 priority 2 的那些）
-let p2CachedCount = 0;    // 其中已在 IndexedDB 里的个数（按钮文案用）
-let p2State = 0;          // 0=未开始 1=下载中 2=已完成
+// ---------------- 「资源」按钮（只负责 p2：站点 manifest 里 priority=2 的资源） ----------------
+// 2026-11-21 拆分：模型权重下载已从这枚按钮剥离到 #llm-btn（见 dl_models.js）。本按钮
+// 只做一件事 —— 把**站点目录里确实存在**的 p2 资源拉进掌机文件系统，并缓存进 IndexedDB。
+//
+// 状态判定一律基于事实，不靠计数器猜。旧实现用 `p2State === 2 || !pendingP2.length`
+// 就把按钮置灰，等于把「本站根本没 p2」「清单还没读出来」「已经下完了」混成同一种
+// 状态，再叠加另一份脚本改写同一枚按钮的文案，就会出现「明明没下过却显示已就绪、
+// 置灰后再也点不动」。现在：
+//   · 每个 p2 文件都到 MEMFS / IndexedDB 里核对**尺寸**（对不上 = 没到位/下坏了）；
+//   · 「就绪」= 全部文件在 MEMFS 中核实通过，且按钮**仍然可点**；
+//   · **点一次 = 重新下载一遍并替换 IndexedDB 缓存**：不看“缺什么”，清单里的 p2
+//     全部按 force 重下（已缓存也不置灰）；失败只影响本次，旧缓存/旧文件保留；
+//   · 失败 → 回到可点状态并把原因写进 title，不会永远停在「下载中」。
+// 单飞：下载中重复点击无效。回归脚本可以直接 await nanoEnsureP2()（与点按钮同一条路）。
+let pendingP2 = [];             // 站点 manifest 里的 p2 清单（空 = 本站没有 p2 资源）
+let p2ManifestReady = false;    // manifest 是否已成功读到（没读到就不能断言「没有 p2」）
+let p2Downloading = false;
+let p2LastError = "";
 let p2Promise = null;
+let p2UiSeq = 0;                // 异步核对的代际号：晚到的旧结果不许覆盖新状态
 const mb = (b) => (b / 1048576).toFixed(b >= 10485760 ? 0 : 1) + "MB";
 
 function p2Bytes() { return pendingP2.reduce((s, f) => s + (f.size || 0), 0); }
+function p2MemPath(f) { return RES_ROOT + "/" + f.path; }
 
-function updateDlBtn() {
+function setDlBtn(text, disabled, title) {
   if (!dlBtn) return;
-  if (p2State === 1) {
-    dlBtn.disabled = true;
-    dlBtn.textContent = "资源：下载中…";
-  } else if (p2State === 2 || !pendingP2.length) {
-    dlBtn.disabled = true;
-    dlBtn.textContent = "资源：已就绪";
-  } else {
-    dlBtn.disabled = false;
-    // 全部已在 IndexedDB：点了只是灌进 MEMFS，不联网
-    dlBtn.textContent = (p2CachedCount >= pendingP2.length)
-      ? "装载资源 " + mb(p2Bytes()) + "（本机已缓存）"
-      : "下载资源 " + mb(p2Bytes()) + (p2CachedCount ? "（本机已有 " + p2CachedCount + " 个）" : "");
+  dlBtn.textContent = text;
+  dlBtn.disabled = !!disabled;
+  if (title != null) dlBtn.title = title;
+}
+
+// MEMFS 里有、且尺寸对得上（manifest 没给 size 时只要求存在）
+function p2InMemfs(f) {
+  const FS = Module.FS;
+  if (!FS) return false;
+  try {
+    const st = FS.stat(p2MemPath(f));
+    if (!st || FS.isDir(st.mode)) return false;
+    return !f.size || st.size === f.size;
+  } catch (e) { return false; }
+}
+
+// IndexedDB 里有、且尺寸对得上（= 再装一次不用联网）
+async function p2InStore(f) {
+  try {
+    const rec = await nanoStoreGet(f.path);
+    if (!rec || !rec.blob) return false;
+    return !f.size || rec.blob.size === f.size;
+  } catch (e) { return false; }
+}
+
+// 逐文件核对：[{ f, memfs, store }]
+async function p2Scan() {
+  const out = [];
+  for (const f of pendingP2) {
+    const memfs = p2InMemfs(f);
+    out.push({ f, memfs, store: memfs ? true : await p2InStore(f) });
   }
+  return out;
+}
+
+// 按当前实际状态刷新按钮文案（唯一入口；不依赖任何「上次做到哪」的计数）
+async function refreshDlBtn() {
+  if (!dlBtn) return null;
+  const seq = ++p2UiSeq;
+
+  if (!p2ManifestReady) {
+    setDlBtn("资源：…", true, "正在读取站点资源清单 linglong/wasm/manifest.json…");
+    return null;
+  }
+  if (!pendingP2.length) {
+    // 本站没有 p2：**按钮照常显示**（不隐藏、也不置灰），点一下只会重新核对一遍。
+    // 原因写在 title 里，方便随时看为什么“点了没下东西”。
+    setDlBtn("资源：无", false,
+      "分级规则：linglong/ 里除 app/ icon/ wallpaper/（P0，每次刷新自动全量加载）与掌机"
+      + "运行时代码目录 wasm/ 之外的一切，都算 P1 可选资源。"
+      + "当前 P1 = 0 个文件（manifest.json 里 priority=2 的条目为 0）。"
+      + "往 linglong/ 里放任何目录（如 dict/ ebook/ image/ music/）后跑一次 "
+      + "python3 linglong/wasm/gen_manifest.py，这里就会出现可下载的条目；"
+      + "模型权重不归这枚按钮管，见旁边的「拉取 LLM」。");
+    return null;
+  }
+  if (!mountCtx.FS) {
+    setDlBtn("资源 " + mb(p2Bytes()), true, "掌机还在启动（p1 启动资源挂载中），稍候再点");
+    return null;
+  }
+  if (p2Downloading) return null;      // 进度文案由下载回调接管
+
+  const scan = await p2Scan();
+  if (seq !== p2UiSeq) return null;    // 核对期间状态又变了：丢弃这份结果
+
+  const missing = scan.filter((x) => !x.memfs);
+  const suffix = p2LastError ? "·重试" : "";
+
+  if (!missing.length) {
+    setDlBtn("资源：就绪", false,
+      `全部 ${pendingP2.length} 个 p2 资源（${mb(p2Bytes())}）已在掌机文件系统中；`
+      + "再点一次会从站点重新下载并替换掉 IndexedDB 里的缓存。");
+    return scan;
+  }
+
+  const needFetch = missing.filter((x) => !x.store);
+  const needBytes = missing.reduce((s, x) => s + (x.f.size || 0), 0);
+  const fetchBytes = needFetch.reduce((s, x) => s + (x.f.size || 0), 0);
+  const errTitle = p2LastError ? `上次失败：${p2LastError}` : "";
+
+  if (!needFetch.length) {
+    // 掌机文件系统里还没有，但本机 IndexedDB 已缓存：点了照样**重下并替换缓存**
+    setDlBtn("缓存 " + mb(needBytes) + suffix, false,
+      `${missing.length} 个 p2 资源（${mb(needBytes)}）已缓存在本机 IndexedDB；`
+      + "点一下会从站点重新下载，同时替换掉这份缓存。" + errTitle);
+  } else {
+    setDlBtn("资源 " + mb(fetchBytes) + suffix, false,
+      `${pendingP2.length} 个 p2 资源共 ${mb(p2Bytes())}；还差 ${missing.length} 个，`
+      + `其中 ${needFetch.length} 个需联网下载（${mb(fetchBytes)}）`
+      + (missing.length - needFetch.length ? `，${missing.length - needFetch.length} 个本机已缓存` : "")
+      + "。" + errTitle);
+  }
+  return scan;
 }
 
 async function nanoEnsureP2() {
-  if (p2State === 1) return p2Promise;
-  if (!mountCtx.FS) return null;                 // 还没启动（p1 未就绪）
-  if (!pendingP2.length) { p2State = 2; updateDlBtn(); return null; }
-  p2State = 1;
-  updateDlBtn();
-  p2Promise = (async () => {
+  if (p2Downloading) return p2Promise;
+  if (!p2ManifestReady || !mountCtx.FS || !pendingP2.length) { await refreshDlBtn(); return null; }
+
+  p2Downloading = true;
+  p2LastError = "";
+  p2UiSeq++;                                  // 让在飞的核对失效
+  setDlBtn("资源：核对…", true, "正在核对掌机文件系统里的 p2 资源");
+
+  const run = (async () => {
     try {
-      p2Msg = "资源下载中…";
+      // 站点分级（P1）语义：**点一次 = 重新下载一遍并替换 IndexedDB 缓存**。
+      // 所以这里不看“缺什么”，而是把清单里的 p2 全部按 force 模式重下（force 见
+      // loader.js 的 nanoMountPending/nanoMountList：跳过 MEMFS/IndexedDB 检查，
+      // 拉下来的字节直接覆盖 MEMFS 与 IndexedDB）。按钮始终可点，永不置灰。
+      const need = pendingP2.slice();
+
+      const needBytes = need.reduce((s, f) => s + (f.size || 0), 0);
+      p2Msg = `资源 ${need.length} 个 · ${mb(needBytes)}`;
       updateStatus();
-      await nanoMountPending(mountCtx, pendingP2, (dc, dn, cur, total) => {
-        p2Msg = `资源下载 ${dc}/${dn}（${mb(cur)}/${mb(total)}）`;
+
+      await nanoMountPending(mountCtx, need, (dc, dn, cur, total) => {
+        p2Msg = `资源 ${dc}/${dn} · ${mb(cur)}/${mb(total)}`;
         updateStatus();
-        setBar(resBar, total > 0 ? cur / total : 0, false);
+        if (total > 0) setBar(resBar, cur / total, false);
         resText.textContent = "资源（可选）：" + p2Msg;
-        dlBtn.textContent = total > 0 ? `资源：${(cur / total * 100).toFixed(0)}%` : "资源：下载中…";
-      });
-      p2State = 2;
+        if (dlBtn) {
+          dlBtn.textContent = total > 0
+            ? `资源 ${Math.min(100, Math.round(cur / total * 100))}%`
+            : `资源 ${dc}/${dn}`;
+        }
+      }, /* force = */ true);
       p2Msg = "";
-      updateDlBtn();
-      updateStatus();
-      if (resPanel.classList.contains("open")) { refreshResPanel(); }
     } catch (e) {
-      // 失败回到可重试态（部分已落 MEMFS 的文件会在下次点击时自动跳过）
-      p2State = 0;
-      p2Msg = "资源下载失败（可再点一次）";
-      updateDlBtn();
+      p2Msg = "资源拉取失败：" + (e && e.message ? e.message : e);
+      p2LastError = String((e && e.message) || e);
+      console.warn("[p2]", p2Msg);
+    } finally {
+      p2Downloading = false;
+      p2Promise = null;
       updateStatus();
+      await refreshDlBtn();                   // 重新核对：成功→就绪，失败→可点重试
+      if (resPanel && resPanel.classList.contains("open")) refreshResPanel();
     }
   })();
-  return p2Promise;
+
+  p2Promise = run;
+  return run;
 }
 
+// 「资源」按钮 = 用户分级里的 P1（站点 linglong/ 下 dict/ ebook/ image/ music/ 等
+// priority=2 的可选资源）。P2（llm/ 的两个模型权重）由旁边的「拉取 LLM」按钮负责，
+// 见 linglong/dl_models.js；P0（app/ icon/ wallpaper/）每次刷新由 loader 无条件重取。
 if (dlBtn) dlBtn.addEventListener("click", () => { nanoEnsureP2(); });
 
 // ---------------- 触屏/鼠标输入（Pointer Events 统一两类设备） ----------------
@@ -992,7 +1133,7 @@ function onDeviceOrientation(e) {
 }
 function updateAttBtn() {
   attBtn.className = attEnabled ? "on" : "";
-  attBtn.textContent = attEnabled ? (attHasData ? "姿态：开" : "姿态：等待数据…") : "姿态：关";
+  attBtn.textContent = attEnabled ? (attHasData ? "姿态(开)" : "姿态(等待数据)") : "姿态(关)";
 }
 async function toggleAttitude() {
   if (attEnabled) {
@@ -1014,11 +1155,11 @@ async function toggleAttitude() {
   try {
     if (typeof DeviceMotionEvent !== "undefined" && typeof DeviceMotionEvent.requestPermission === "function") {
       const r = await DeviceMotionEvent.requestPermission();
-      if (r !== "granted") { attBtn.textContent = "姿态：被拒"; return; }
+      if (r !== "granted") { attBtn.textContent = "姿态(无权限)"; return; }
     }
     if (typeof DeviceOrientationEvent !== "undefined" && typeof DeviceOrientationEvent.requestPermission === "function") {
       const r = await DeviceOrientationEvent.requestPermission();
-      if (r !== "granted") { attBtn.textContent = "姿态：被拒"; return; }
+      if (r !== "granted") { attBtn.textContent = "姿态(无权限)"; return; }
     }
   } catch (err) { /* 非 iOS 环境无此 API */ }
   attEnabled = true;
@@ -1207,13 +1348,15 @@ const fmDeps = {
   },
 };
 
-// 服务器默认清单（含被本机覆盖的路径）。独立拉一次 manifest.json：loader 的合并清单
+// 服务器默认清单（含被本机覆盖的路径）。独立拉一次清单：loader 的合并清单
 // 会把“被本机覆盖”的条目标成 store，丢失“这里原本有默认资源”的事实，而删除时要靠它立墓碑。
+// 站点集成：清单路径必须用 NANO_MANIFEST_URL（原页面是站点/页面同级的 "manifest.json"，
+// 本站清单在 linglong/ 下，写死相对路径会 404 → fmDefaults 退化为合并清单）。
 async function fmLoadDefaults() {
   if (fmDefaults) return fmDefaults;
   fmDefaults = new Map();
   try {
-    const resp = await fetch("manifest.json");
+    const resp = await fetch(NANO_MANIFEST_URL);
     const m = await resp.json();
     for (const f of (m.files || [])) if (!f.dir) fmDefaults.set(f.path, { size: f.size || 0, priority: f.priority === 2 ? 2 : 1 });
   } catch (e) {
@@ -1278,7 +1421,7 @@ function fmBadgeOf(node) {
     return { text: "p1", cls: "p1", title: "服务器提供的启动资源：每次页面加载全量重拉并覆盖本机（本机改动刷新即还原）" };
   }
   if (node.cached) {
-    return { text: "p2·已缓存", cls: "p2c", title: "服务器提供的 p2 资源：已下载并缓存在本机 IndexedDB（下次点按钮直接装载，不联网）" };
+    return { text: "p2·已缓存", cls: "p2c", title: "服务器提供的 p2 资源：已下载并缓存在本机 IndexedDB（再点按钮会重新下载并替换缓存）" };
   }
   return { text: "p2·仅内存", cls: "p2m", title: "服务器提供的 p2 资源：仅在本次会话的 MEMFS 里（本机未缓存）" };
 }
@@ -1881,7 +2024,7 @@ function nanoRequestRuntime() {
   if (nanoRuntimeRequested) return;
   nanoRuntimeRequested = true;
   const s = document.createElement("script");
-  s.src = "./linglong/nano_gui.js";
+  s.src = "./linglong/wasm/nano_gui.js";
   s.async = false;
   s.onerror = () => {
     nanoRuntimeRequested = false;

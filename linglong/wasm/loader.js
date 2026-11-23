@@ -123,6 +123,11 @@ async function nanoCollect(opts) {
   const dirsExplicit = []; // 用户新建的目录条目（可为空目录）
   for (const sf of storeFiles) {
     const p = sf.path;
+    // 站点集成：豁免项（linglong/llm/ 下的用户级模型）→ 当本机文件挂载，不进 stale
+    if (NANO_KEEP_LOCAL_PREFIXES.some((pre) => p.indexOf(pre) === 0) && !manifestPaths.has(p)) {
+      if (!sf.dir && !sf.deleted) localFiles.push({ path: p, size: sf.size || 0, priority: 1, source: "store" });
+      continue;
+    }
     if (p1Set.has(p) || (p1Tops.has(nanoTopDir(p)) && !manifestPaths.has(p))) {
       // p1 归服务器管：本机覆盖、墓碑、以及服务器上已删的残骸一律清掉
       stalePaths.push(p);
@@ -136,6 +141,17 @@ async function nanoCollect(opts) {
     if (!manifestPaths.has(p)) {
       localFiles.push({ path: p, size: sf.size || 0, priority: 1, source: "store" });
     }
+  }
+  // 站点集成：清单里 priority 2 的条目（P1：dict/ ebook/ image/ music/）若已在
+  // IndexedDB 里，则**启动时就从本机灌回 MEMFS**（不走网络）——这样「缓存」才有意义：
+  // 刷新后 App 立刻能用，按钮只在“想更新”时点。p1（P0）永不落库，故不在此列。
+  const cachedP2Files = [];
+  for (const sf of storeFiles) {
+    if (sf.dir || sf.deleted) continue;
+    if (!manifestPaths.has(sf.path)) continue;
+    if (p1Set.has(sf.path)) continue;
+    if (NANO_KEEP_LOCAL_PREFIXES.some((pre) => sf.path.indexOf(pre) === 0) && !manifestPaths.has(sf.path)) continue;
+    cachedP2Files.push({ path: sf.path, size: sf.size || 0, priority: 2, source: "store" });
   }
 
   // p2 墓碑：从待下载清单里剔除（删了就别再问用户要不要下）
@@ -152,6 +168,7 @@ async function nanoCollect(opts) {
     all,
     p1Files: manifestFiles.filter(f => f.priority === 1),
     p2Files: manifestFiles.filter(f => f.priority !== 1 && !tombstones.has(f.path)),
+    cachedP2Files,
     localFiles,
     stalePaths,
     dirs,
@@ -177,6 +194,13 @@ async function nanoPurgeP1(opts, stalePaths) {
 // /home/bd4sur/linglong 用 MEMFS 符号链接指到 <resRoot>/linglong —— 于是不需要
 // 重新构建 nano_gui.wasm，也不必改动 Nano 上游任何文件。
 var NANO_LEGACY_ROOT = "/home/bd4sur/linglong";
+
+// 站点集成：玲珑的 LLM 模型是**用户级可选数据** —— 由首页「资源」按钮（#dl-btn，
+// 见 dl_models.js）从 HuggingFace 直接下到 IndexedDB 再灌进 MEMFS。它们虽然落在
+// p1_dirs（linglong）之下，但**不在服务器清单里**，不能被当成“服务器上已删的残骸”
+// 每次加载清掉（那会让模型永远留不住）。这里给这些前缀开豁免：
+// 保留在 IndexedDB，并按「本机文件」在启动时挂回 MEMFS。
+var NANO_KEEP_LOCAL_PREFIXES = ["linglong/llm/"];
 // 符号链接的目标：resRoot 下的数据子目录（与 manifest 里 path 的前缀一致）
 function nanoDataRoot(resRoot) {
   return String(resRoot).replace(/\/+$/, "") + "/linglong";
@@ -225,15 +249,17 @@ async function nanoStoreBytes(opts, relPath) {
 //   "local" 从 IndexedDB 读（本机独有文件）
 //   "p2"    MEMFS 有→跳过；IndexedDB 有→灌进 MEMFS（不联网/不重写）；都没有→拉+两边都写
 // 并发 8，字节级汇总进度；返回 { done, total, bytes, fetched, cached, skipped }
-async function nanoMountList(opts, list, onProgress, mode) {
+async function nanoMountList(opts, list, onProgress, mode, force) {
   const { FS, resRoot } = opts;
   const report = onProgress || (() => {});
 
   // 待处理集合：p1/local 全做；p2 剔除 MEMFS 已有的（静默跳过）
+  //   force=true（站点侧「资源」按钮的语义）：**不看 MEMFS/IndexedDB**，一律从网络重下，
+  //   并覆盖 IndexedDB 里的旧缓存 —— 即“点一次 = 刷新一遍缓存”。
   const todo = [];
   let skipped = 0;
   for (const f of list) {
-    if (mode === "p2" && nanoMemfsHas(FS, resRoot, f.path)) { skipped++; continue; }
+    if (!force && mode === "p2" && nanoMemfsHas(FS, resRoot, f.path)) { skipped++; continue; }
     todo.push(f);
   }
   const totalBytes = todo.reduce((s, f) => s + (f.size || 0), 0);
@@ -244,7 +270,7 @@ async function nanoMountList(opts, list, onProgress, mode) {
     const target = resRoot + "/" + f.path;
     let buf = null, fromStore = false;
 
-    if (mode !== "p1") {
+    if (mode !== "p1" && !force) {
       buf = await nanoStoreBytes(opts, f.path);
       if (buf) fromStore = true;
     }
@@ -255,10 +281,11 @@ async function nanoMountList(opts, list, onProgress, mode) {
     }
     else cached++;
 
-    // 1) MEMFS（p1 无条件覆盖；p2/local 只补缺）
+    // 1) MEMFS（p1/force 无条件覆盖；p2/local 只补缺）
     FS.writeFile(target, buf);
-    // 2) IndexedDB（只有 p2 且是刚从服务器拉的才落地：已有的不覆盖、p1 永不落库）
-    if (mode === "p2" && !fromStore && opts.store && opts.store.put) {
+    // 2) IndexedDB（只有 p2 且是刚从服务器拉的才落地：已有的不覆盖、p1 永不落库；
+    //    force 时是例外 —— 刚拉下来的就是要**替换**旧缓存）
+    if (mode === "p2" && (!fromStore || force) && opts.store && opts.store.put) {
       try {
         await opts.store.put(f.path, new Blob([buf]));
       } catch (e) {
@@ -310,7 +337,7 @@ async function nanoMountResources(opts) {
   const onStage = opts.onStage || (() => {});
   const onP1Progress = opts.onP1Progress || (() => {});
 
-  const { all, p1Files, p2Files, localFiles, stalePaths, dirs, dirsExplicit } = await nanoCollect(opts);
+  const { all, p1Files, p2Files, cachedP2Files, localFiles, stalePaths, dirs, dirsExplicit } = await nanoCollect(opts);
 
   // ① 重建 IndexedDB 的 p1 分片：服务器是唯一来源，本机副本/墓碑一律作废
   onStage("清理本机缓存的启动资源…");
@@ -329,6 +356,11 @@ async function nanoMountResources(opts) {
     onStage(`挂载本机文件（${localFiles.length} 个）…`);
     await nanoMountList(opts, localFiles, null, "local");
   }
+  // ③b 已缓存的 p2（P1 站点目录 / P2 远端模型）：从 IndexedDB 灌回 MEMFS，不联网
+  if (cachedP2Files.length) {
+    onStage(`挂载已缓存资源（${cachedP2Files.length} 个）…`);
+    await nanoMountList(opts, cachedP2Files, null, "local");
+  }
   onStage("");
 
   // ④ 启动 wasm main
@@ -342,10 +374,11 @@ async function nanoMountResources(opts) {
 
 // ---------------- 对外：按钮拉 p2 ----------------
 // 幂等：MEMFS 已有的跳过；IndexedDB 已有的只灌 MEMFS、不联网也不重写。
-async function nanoMountPending(opts, pending, onProgress) {
-  const r = await nanoMountList(opts, pending || [], onProgress, "p2");
+async function nanoMountPending(opts, pending, onProgress, force) {
+  const r = await nanoMountList(opts, pending || [], onProgress, "p2", !!force);
   console.log("[mount] p2 处理完成:", r.done, "/", r.total, "个 /", (r.bytes / 1048576).toFixed(1),
-              "MB（服务器下载", r.fetched, "，本机缓存", r.cached, "，已在 MEMFS 跳过", r.skipped, "）");
+              "MB（服务器下载", r.fetched, "，本机缓存", r.cached, "，已在 MEMFS 跳过", r.skipped,
+              force ? "，force=覆盖缓存" : "", "）");
   return r;
 }
 

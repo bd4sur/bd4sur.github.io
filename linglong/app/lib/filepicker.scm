@@ -28,6 +28,16 @@
 ;;   · 右上角自己画了一枚「取消」按钮，位置与各 App 的「退出」按钮相同——用户在
 ;;     网页/掌机上点那个位置时宿主也会记一条返回请求，两条路都通向"取消"。
 ;;
+;; **鼠标滚轮（仅 WASM GUI）**：本组件的列表也接受滚轮——与 App 自己的列表同一套
+;; （原生通道 + 每拍缓动落位，见布局段下方「滚轮」）。增量有两个来源，相加不重计：
+;;   ① 调用方**已认领**原生通道（(Touch.wheel_enable)）并在自己拍里取走了增量（如
+;;      app/markdown.scm）→ 把它转交进来：(FP.set_wheel dy)。
+;;   ② 调用方认领了但没取 / 取了没转交 → 增量还在宿主暂存里，组件每拍自己
+;;      (Touch.wheel) 取。
+;;   组件**不自己认领**通道：(Touch.wheel_enable) 没有对应的"交还"接口，认领会在组件
+;;   退出后继续生效，反将害得没认领的调用方在自己的界面上滚不动。因此未认领的原生
+;;   通道平台上，滚轮仍走页面"合成为手指"的老路（能滚，但不如原生通道顺）。
+;;
 ;; **节拍要求（拖动要跟手就看这一条）**：组件的滚动是**像素级跟手**的，但 App 每拍
 ;; 只能采一次触屏电平，所以跟手的上限就是调用方的节拍频率。组件不自己装定时器
 ;; ——上游运行时**每轮事件循环对同一进程只触发一个定时器回调**（回调期间其余到期
@@ -78,21 +88,33 @@
 (define HEAD_H 18)     ;; 页眉（标题 + 取消按钮）
 (define PATH_Y 20)     ;; 当前目录行（12px）
 (define LIST_Y 34)     ;; 列表首行 y
-(define ROW_H 18)      ;; 行高
-(define LIST_ROWS 10)  ;; 一屏几行（34 + 10*18 = 214）
-;; 列表行文字的垂直补偿：本地库现在把 (Gfx.draw_text) 的 y 当「墨迹顶」绘制
-;; （见 am_native_Gfx.c 的 native_text_top_gap，12px 抗锯齿字模的行顶空隙 2px），
-;; 而本组件的行文字是按旧口径（行顶 = 行框顶 + 1，墨迹再落 2px）摆的；不补回这 2px，
-;; 整列文件名都会比行框中线高出一截。
-(define ROW_TXT_DY 2)
 (define BOT_H 16)      ;; 页脚
+
+;; 列表行高 = **字体行高 × 1.6**（触屏点按舒适；与 app/filemgr.scm 的列表、
+;; app/markdown.scm 的菜单项 MENU_ROW_K 同一比例）。12px 抗锯齿字模行高 15 → 行高 24。
+;; 组件**不切换调用方的字模**（那会污染调用方后续绘制：调用方重绘时按自己的字模
+;; 排版，而 (Gfx.set_font) 是宿主进程级静态量），只按**进入时的当前字模**排版：
+;; 行高与一屏行数由 p_relayout 现算（调用方把字模切到 16px 时行高自动变 29）。
+(define ROW_K 1.6)     ;; 行高 / 字体行高（见 p_relayout 里为何用 round 而不是 floor）
+(define LINE_H 15)     ;; 字体行高（(Gfx.font_info) 第 3 项）
+(define ROW_H 24)      ;; 列表行高 = LINE_H × ROW_K
+(define LIST_ROWS 7)   ;; 一屏几行（24px 行高下 7 行 = 168px，34 + 168 = 202）
+(define TEXT_GAP 2)    ;; 行顶→墨迹上缘的空隙（12px 抗锯齿字模，见下面 ROW_TXT_DY）
+;; 行文字的墨迹顶 = 行框顶 + (行高 − 字体行高)/2 + 墨迹上缘空隙（= 4 + 2 = 6）。
+;; 空隙的来历见 am_native_Gfx.c 的 native_text_top_gap：(Gfx.draw_text) 的 y 是墨迹顶，
+;; 而这一行要摆的是**行框**在行高里居中。
+(define ROW_TXT_DY (+ (Math.floor (/ (- ROW_H LINE_H) 2)) TEXT_GAP))
+;; 「页眉下 / 页脚上」的列表可用高度（与页脚留 10px；p_relayout 按它算一屏几行）
+;; 注意算术运算符恒为**二参数**（manual §6.2.4），多写一个参数不会做链式减法，
+;; 结果未规定——所以这里层层嵌套。
+(define P_LIST_AREA_H (- (- (- SH BOT_H) 10) LIST_Y))
 
 (define BTN_CANCEL_W 36)
 (define BTN_UP_W 44)
 
 ;; ---- 滚动手感参数（与 app/filemgr.scm 的列表完全同一套） ------------------
 
-(define P_VIEW_H (* LIST_ROWS ROW_H))  ;; 列表视口高（10 行 = 180px）
+(define P_VIEW_H (* LIST_ROWS ROW_H))  ;; 列表视口高（可用高度内最多的整行数 × 行高；24px 行高下 7 行 = 168px）
 (define P_FLING_FRICTION 0.88)  ;; 惯性每拍衰减系数（16ms/拍）
 (define P_FLING_VMAX 45)        ;; 惯性初速上限（px/拍）
 (define P_FLING_VMIN 0.6)       ;; 惯性速度低于它就停（px/拍）
@@ -101,6 +123,23 @@
 (define P_TAP_SLOP 8)           ;; 位移 < 8px 视为点按而不是拖动
 ;; 活动期间建议调用方使用的节拍（ms）。见文件头的"节拍要求"。
 (define FP_TICK_MS 16)
+
+;; ---- 滚轮（原生通道，仅 WASM GUI：浏览器里的鼠标滚轮） --------------------
+;; 与 app/filemgr.scm、app/markdown.scm 同一套：页面在 App 认领原生通道后不再把滚轮
+;; 合成为手指（那条路在 16ms 拍下有“滚不动 / 一抖 / 凭空反向位移”三个结构性缺陷，
+;; 详见 am_native_Touch.h 的 (Touch.wheel_enable)），而是把像素增量原样交过来，
+;; 由组件在自己的拍里缓动落位（一格 ≈ 90ms 走完，与宿主 GUI 的滚轮控件同手感）。
+;;
+;; 增量从哪来（两个来源相加，不会重复计数）：
+;;   ① **调用方转交**： (FP.set_wheel dy) —— 调用方已经认领了通道并在它自己的拍里把
+;;      (Touch.wheel) 取走了（如 app/markdown.scm），就把它转交进来；
+;;   ② **自己取**： (Touch.wheel) —— 调用方认领了但没取（或者取了没转交），增量还在
+;;      宿主的暂存里，本组件自己取。
+;; 本组件**不自己去认领**通道（(Touch.wheel_enable) 没有对应的“交还”接口）：认领在
+;; 组件退出后仍然生效，会害得未认领的调用方在它自己的界面上滚不动。
+(define P_WHEEL_GAIN 0.45)     ;; 一拍吃掉剩余量的比例（≈ 90ms 走完一格）
+(define p_wheel_in 0)          ;; 调用方转交的增量（(FP.set_wheel) 累加）
+(define p_wheel_rest 0)        ;; 还没落位的剩余量（缓动用；整数值，必然归零）
 
 ;; ---- 状态 ----------------------------------------------------------------
 
@@ -131,6 +170,26 @@
 (define p_press_stop 0)     ;; 按下时在刹车（打断惯性）→ 这一下松手不算点按
 
 ;; ---- 小工具 --------------------------------------------------------------
+
+;; 按**当前字模**重算行高、一屏行数与视口高（见布局段说明）。在 start_at 里调一次：
+;; 组件在调用方的屏幕上画，字模是调用方的（可能是 16px，见 app/markdown.scm 的
+;; apply_font），所以不能像 App 那样在模块载入时算死。
+(define p_relayout
+  (lambda ()
+    (define fi (Gfx.font_info (Gfx.get_font)))
+    (set! LINE_H (if (list? fi) (get_item fi 2) 15))
+    ;; 用 round 而不是 floor：32 位宿主（wasm32/MCU）上浮点是**截断低 5 位尾数**的
+    ;; 表示（am_make_value_of_float），1.6 实际是 1.5999999…，15 × 1.6 = 23.99999…，
+    ;; floor 会得到 23（行高少 1px）。round 得 24。
+    (set! ROW_H (Math.round (* LINE_H ROW_K)))
+    (set! ROW_TXT_DY (+ (Math.floor (/ (- ROW_H LINE_H) 2)) TEXT_GAP))
+    (set! LIST_ROWS (Math.floor (/ P_LIST_AREA_H ROW_H)))
+    (if (< LIST_ROWS 1) (set! LIST_ROWS 1) #f)
+    (set! P_VIEW_H (* LIST_ROWS ROW_H))
+    (display "FPLAYOUT line_h=") (display LINE_H)
+    (display " row_h=") (display ROW_H)
+    (display " rows=") (display LIST_ROWS) (newline)
+    #t))
 
 (define new_list (lambda () (cdr '(0))))
 (define mk2 (lambda (a b) (cons a (cons b (cdr '(0))))))
@@ -270,6 +329,44 @@
         #f)
     #t))
 
+;; ---- 滚轮落位（原生通道，见上面的「滚轮」段） ---------------------------
+
+;; 本拍要走多少像素：一拍吃掉剩余量的 P_WHEEL_GAIN；剩余 ≤2px 时一次走完，
+;; 保证必然归零（否则永远差最后一点，停在半行上且每拍重绘）。与 filemgr 同口径。
+(define p_wheel_step_px
+  (lambda ()
+    (define r p_wheel_rest)
+    (define a (Math.abs r))
+    (define s 0)
+    (if (<= a 2)
+        (set! s r)
+        { (set! s (Math.round (* r P_WHEEL_GAIN)))
+          (if (== s 0) (set! s (if (> r 0) 1 -1)) #f) })
+    (set! p_wheel_rest (- r s))
+    s))
+
+;; 每拍：取增量（转交来的 + 通道里剩的）→ 并入剩余量并刹车 → 向前走一步。
+;; 方向：wheel_dy > 0 = 内容上滚 = p_scroll 增大（与宿主 GUI 一致）。
+(define p_wheel
+  (lambda ()
+    (define dy 0)
+    (define px 0)
+    (set! dy (+ p_wheel_in (Touch.wheel)))
+    (set! p_wheel_in 0)
+    (if (not (== dy 0))
+        { (set! p_fling 0)   ;; 滚轮是主动定位：先刹车，不接着甩
+          (set! p_wheel_rest (+ p_wheel_rest dy))
+          (display "FPWHEEL dy=") (display dy) (newline) }
+        #f)
+    (if (not (== p_wheel_rest 0))
+        { (set! px (p_wheel_step_px))
+          (if (not (== px 0))
+              { (set! p_scroll (+ p_scroll px))
+                (p_clamp_scroll) }
+              #f) }
+        #f)
+    #t))
+
 (define p_sel_move
   (lambda (d)
     (set! p_sel (+ p_sel d))
@@ -292,7 +389,7 @@
           (Gfx.fill_rect 2 (+ y 1) 3 (- ROW_H 2) 120 180 250) }
         #f)
     (if (not (p_at_root)) { (set! cr 138) (set! cg 190) (set! cb 255) } #f)
-    (Gfx.draw_text (if (p_at_root) "..   （已在资源根）" "..   上级目录") 10 (+ (+ y 1) ROW_TXT_DY) cr cg cb)
+    (Gfx.draw_text (if (p_at_root) "..   （已在资源根）" "..   上级目录") 10 (+ y ROW_TXT_DY) cr cg cb)
     #t))
 
 (define p_draw_row
@@ -312,7 +409,7 @@
         { (set! txt (String.concat nm "/"))
           (set! cr 138) (set! cg 190) (set! cb 255) }
         (set! txt nm))
-    (Gfx.draw_text (FSX.clip_text txt 292) 10 (+ (+ y 1) ROW_TXT_DY) cr cg cb)
+    (Gfx.draw_text (FSX.clip_text txt 292) 10 (+ y ROW_TXT_DY) cr cg cb)
     #t))
 
 ;; 列表区：像素滚动 + 视口裁剪。
@@ -337,7 +434,7 @@
     ;; 空目录 / 无匹配文件：在 ".." 行下面给一句提示
     (if (== (rows_count) 0)
         (Gfx.draw_text (if (== p_err 1) "（目录无法读取）" "（空 / 无匹配文件）")
-                       10 (+ (- (+ LIST_Y ROW_H) p_scroll) 2) 110 118 134)
+                       10 (+ (- (+ LIST_Y ROW_H) p_scroll) ROW_TXT_DY) 110 118 134)
         #f)
     (Gfx.reset_clip)
     #t))
@@ -488,10 +585,20 @@
 ;; 活动期间建议调用方使用的节拍（ms）；见文件头的"节拍要求"。
 (define tick_ms (lambda () FP_TICK_MS))
 
+;; 调用方转交滚轮增量（帧缓冲像素，正 = 内容上滚）。适用情形：调用方**已经认领**
+;; 了原生通道（(Touch.wheel_enable)）并在自己的拍里把 (Touch.wheel) 取走了——那就
+;; 把它转交给本组件，否则增量就被调用方丢掉了（如 app/markdown.scm 的选择器分支）。
+;; 调用方没取的话增量还在宿主暂存里，本组件自己会取（两者相加不会重复计数）。
+(define set_wheel
+  (lambda (dy)
+    (set! p_wheel_in (+ p_wheel_in dy))
+    #t))
+
 (define start_at
   (lambda (title exts dir)
     { (set! SW (Gfx.width))
       (set! SH (Gfx.height))
+      (p_relayout)     ;; 行高 = 当前字模行高 × 1.6（见布局段）
       (set! p_title title)
       (set! p_exts exts)
       (set! p_dir dir)
@@ -503,6 +610,10 @@
       (set! p_sum_dy 0)
       (set! p_drag_max 0)
       (set! p_press_stop 0)
+      ;; 滚轮：进入时清掉上一轮/调用方转交的残留（不能把上一个上下文里的增量
+      ;; 攒到这一次，否则一打开就自己滑一段）
+      (set! p_wheel_in 0)
+      (set! p_wheel_rest 0)
       (set! p_active 1)
       (p_load) }))
 
@@ -524,7 +635,10 @@
 (define reset
   (lambda ()
     { (set! p_active 0)
-      (set! p_next 0) }))
+      (set! p_next 0)
+      ;; 滚轮：剩余量丢掉，不要带到下一次（或带回调用方的界面）
+      (set! p_wheel_in 0)
+      (set! p_wheel_rest 0) }))
 
 ;; 每拍调用一次：自绘 + 自处理输入；返回 0 进行中 / 1 已选中 / 2 已取消
 (define step
@@ -534,6 +648,7 @@
         { (if (== p_next 0) (if (App.back_requested) (set! p_next 2) #f) #f)
           (if (== p_next 0) (p_keys) #f)
           (if (== p_next 0) (p_touch) #f)
+          (if (== p_next 0) (p_wheel) #f)
           (if (== p_next 0) (p_step_fling) #f)
           (if (== p_next 0) (p_draw) #f)
           (if (== p_next 2)
