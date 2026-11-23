@@ -349,25 +349,30 @@ function setBar(el, frac, indeterminate) {
 
 // WASM 二进制下载进度：接管 instantiateWasm（emscripten 默认的流式实例化不暴露进度，
 // 改为自带进度的 fetch + WebAssembly.instantiate；5MB 规模下流式编译的收益可忽略）
-// 站点集成：wasm 的程序总大小**不能**取响应里的 Content-Length。
-// 只要托管方对 .wasm 开了实时压缩（例如本仓库的 server.js：COMPRESSIBLE 含
-// application/wasm），响应就是 Content-Encoding: br|gzip + chunked ——
-//   · Content-Length 缺失（chunked），或等于**压缩后**的字节数（本例 3.6MB），
-//   · 而 fetch 的流交给我们的永远是**解压后**的字节（5.6MB）。
-// 两者一比，进度就出现「已下载 X MB…」没有总数、或百分比超过 100% 的怪现象。
-// 解法：先用一次 HEAD 问出真实文件尺寸（server.js 对 HEAD 不做压缩，此时
-// Content-Length 就是原尺寸），把它当作进度总量；HEAD 失败再退回 Content-Length。
+// 站点集成：wasm 的程序总大小**不能**取响应里的 Content-Length —— 托管方只要对
+// .wasm 开了压缩，CL 就是**压缩后**的字节数，而 fetch 流给我们的是**解压后**的字节：
+//   · 本仓库 server.js：Content-Encoding: br|gzip + chunked（无 CL）；
+//   · GitHub Pages（bd4sur.com）：Content-Encoding: gzip + Content-Length: 3.4MB
+//     ← 这就是「下载时显示 3.4MB、实际 5.4MB」的来源；
+//   · 解压后真实大小 = 5,614,xxx B。
+// 解法：① HEAD 只有在**没有 Content-Encoding** 时 CL 才是原尺寸；
+//       ② 否则用 Range: bytes=0-0 读 Content-Range: bytes 0-0/<总长>（GitHub Pages
+//          的 206 响应不带 Content-Encoding，给的就是解压后的总长）；
+//       ③ 进度总量一律优先用这个“声明尺寸”，不用 GET 的 CL。
 async function nanoWasmDeclaredSize(url) {
-  // ① HEAD：不压缩的响应里 Content-Length 就是原尺寸（server.js 对 HEAD 不压缩）
+  // ① HEAD：**只有响应本身没被压缩**时，Content-Length 才是原尺寸
+  //    （GitHub Pages 会对 HEAD 也回 Content-Encoding: gzip + 压缩后的 CL，不能用）
   try {
     const r = await fetch(url, { method: "HEAD", cache: "no-store" });
+    const encoded = !!r.headers.get("content-encoding");
     const n = parseInt(r.headers.get("content-length") || "0", 10);
-    if (n > 0) return n;
+    if (!encoded && n > 0) return n;
   } catch (e) { /* 有些托管方不支持 HEAD */ }
   // ② Range: bytes=0-0 → Content-Range: bytes 0-0/总字节（对压缩响应同样给原尺寸）
   try {
     const r = await fetch(url, { headers: { Range: "bytes=0-0" }, cache: "no-store" });
     const m = /\/(\d+)\s*$/.exec(r.headers.get("content-range") || "");
+    try { await r.arrayBuffer(); } catch (e) { /* 1 字节，读掉即可 */ }
     if (m) return parseInt(m[1], 10);
   } catch (e) { /* 不支持 Range：退回无总量 */ }
   return 0;
@@ -383,7 +388,9 @@ function wasmInstantiateWithProgress(imports, successCallback) {
         wasmText.textContent = `程序：0.0/${(declared / 1048576).toFixed(1)} MB（0%）`;
       }
       const buf = await nanoFetchWithProgress(url, (recv, total) => {
-        const tot = (total > 0) ? total : declared;      // 压缩传输时 total=0，用 HEAD 的结果
+        // 优先用“声明尺寸”（HEAD/Range 得到的解压后总长）：压缩传输时 GET 的
+        // Content-Length 是压缩后的字节数（GitHub Pages = 3.4MB），直接用会显示成 3.4MB。
+        const tot = (declared > 0) ? declared : total;
         if (tot > 0) {
           setBar(wasmBar, Math.min(1, recv / tot), false);
           wasmText.textContent = `程序：${(recv/1048576).toFixed(1)}/${(tot/1048576).toFixed(1)} MB（${Math.min(100, (recv/tot*100)).toFixed(0)}%）`;

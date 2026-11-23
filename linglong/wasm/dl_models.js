@@ -121,7 +121,9 @@
       const timer = setTimeout(() => ac.abort(), HEAD_TIMEOUT_MS);
       const r = await fetch(m.url, { method: "HEAD", cache: "no-store", signal: ac.signal });
       clearTimeout(timer);
-      if (r.ok) n = parseInt(r.headers.get("content-length") || "0", 10) || 0;
+      // 托管方若对响应开了压缩，Content-Length 是**压缩后**的字节数（与流里给的解压后
+      // 数据对不上）→ 这种情况当作“没问出权威尺寸”，退回本文件里的快照值。
+      if (r.ok && !r.headers.get("content-encoding")) n = parseInt(r.headers.get("content-length") || "0", 10) || 0;
     } catch (e) { /* 离线/CORS 不允许：用快照 */ }
     const v = n > 0 ? n : m.size;
     sizeCache.set(m.url, v);
